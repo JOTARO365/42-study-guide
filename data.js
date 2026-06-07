@@ -1394,4 +1394,1568 @@ return ((r << 16) | (g << 8) | b);`, cap: "polynomial palette ให้ไล่
     ],
   },
 },
+/* ===================== MINITALK ===================== */
+{
+  id: "minitalk",
+  name: "minitalk",
+  tag: { th: "ส่งข้อความระหว่าง 2 โปรเซสด้วยสัญญาณ UNIX แค่ 2 ตัว — สื่อสารทีละบิตเหมือนรหัสมอร์ส", en: "Send a message between two processes using only 2 UNIX signals — one bit at a time, like Morse code" },
+  accent: "#f78fb3",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร" },
+      { p: "เขียน 2 โปรแกรม: **server** กับ **client** ที่คุยกันได้ โดยใช้ได้แค่ signal **2 ตัวเท่านั้น** คือ `SIGUSR1` และ `SIGUSR2` ห้ามใช้ pipe, socket, ไฟล์ หรือ shared memory" },
+      { ul: [
+        "**server** เปิดมาแล้วพิมพ์ PID ของตัวเองออกมา แล้วนั่งรอ",
+        "**client** รับ PID ของ server + ข้อความ (`./client <PID> \"ข้อความ\"`) แล้วส่งข้อความนั้นไปให้ server พิมพ์ออกจอ",
+      ]},
+      { note: "ข้อจำกัดสุดโหด: signal **ไม่มีข้อมูลแนบมา** — มันบอกได้แค่ 'มีสัญญาณมาแล้ว' กับ 'เป็นชนิดไหน (USR1/USR2)' เท่านั้น เราจึงต้องประดิษฐ์ 'ภาษา' ขึ้นมาเองจาก 2 สัญญาณนี้" },
+      { h: "ไอเดียหลัก: ส่งทีละ bit" },
+      { p: "ทุกตัวอักษร (char) = **1 byte = 8 bit** และแต่ละ bit มีค่าได้แค่ 0 หรือ 1. เรามี signal 2 ชนิดพอดี → จับคู่ตรง ๆ:" },
+      { table: { head: ["bit", "signal ที่ส่ง"], rows: [
+        ["0", "SIGUSR1"],
+        ["1", "SIGUSR2"],
+      ]}},
+      { p: "client หั่นตัวอักษรเป็น 8 bit แล้วยิง signal ทีละตัว → server รับทีละ signal เอามาประกอบกลับเป็น byte → ครบ 8 bit ก็ได้ 1 ตัวอักษร พิมพ์ออกจอ. พอส่งครบทั้งข้อความ client ปิดท้ายด้วยตัวอักษร `'\\0'` (null) เพื่อบอกว่า 'จบแล้ว'" },
+      { h: "ทำไมโจทย์นี้ถึงสำคัญ" },
+      { p: "minitalk สอนเรื่อง **inter-process communication (IPC)** กับ **asynchronous signal handling** ซึ่งเป็นพื้นฐานของระบบ UNIX จริง ๆ (เช่น Ctrl+C คือการส่ง SIGINT). มันบังคับให้เข้าใจว่า signal handler ทำงาน 'แทรก' การทำงานปกติเมื่อไหร่ก็ได้ และต้องออกแบบ protocol การสื่อสารเองตั้งแต่ศูนย์" },
+      { h: "MSB-first คืออะไร ทำไมต้องเลือก" },
+      { p: "byte หนึ่งมี 8 bit เรียงจากตำแหน่งค่ามากสุด (**MSB** = Most Significant Bit, ค่า 128) ไปน้อยสุด (**LSB** = ค่า 1). โค้ดนี้เลือกส่ง **MSB ก่อน** (bit ที่ 7 → 0). ข้อดีคือฝั่ง server ประกอบกลับด้วยการ `c = c << 1` (เลื่อนซ้าย) แล้วเติม bit ใหม่ที่ตำแหน่งขวาสุด — ตรงไปตรงมาและ bit เรียงถูกทางเองอัตโนมัติ" },
+      { code: String.raw`ตัวอักษร 'A' = 65 = 0100 0001 (binary)
+
+client ส่ง (MSB→LSB):  0  1  0  0  0  0  0  1
+signal:               U1 U2 U1 U1 U1 U1 U1 U2
+
+server ประกอบ (c<<1 ทุกครั้ง, เติม 1 ถ้า USR2):
+  0 → 1 → 10 → 100 → 1000 → 10000 → 100000 → 1000001 = 65 = 'A' ✓`, cap: "เลื่อนซ้ายทีละ bit แล้วเติม bit ใหม่ที่ขวา — ครบ 8 ครั้งได้ค่าเดิมกลับมาเป๊ะ", lang: "txt" },
+      { h: "mandatory กับ bonus ต่างกันตรงไหน" },
+      { table: { head: ["", "mandatory", "bonus"], rows: [
+        ["ทิศทาง", "client → server ทางเดียว", "server ส่ง ack กลับ (สองทาง)"],
+        ["จังหวะส่ง", "client หน่วง usleep คงที่ แล้วยิงต่อเลย", "client รอ ack ของแต่ละ bit ก่อนยิงตัวถัดไป (lock-step)"],
+        ["ความเชื่อถือได้", "เสี่ยงหลุดถ้า server ช้า", "ไม่หลุด เพราะ sync กันทุก bit"],
+        ["client รู้ว่าส่งจบไหม", "ไม่รู้", "รู้ — server ack ตัว '\\0' ด้วย SIGUSR2 → พิมพ์ 'Message delivered!'"],
+      ]}},
+    ],
+    theory: [
+      { p: "หมวดนี้รวม **ทฤษฎีพื้นฐานที่ต้องเข้าใจก่อน** จะอ่านโค้ด minitalk รู้เรื่อง — เรื่อง signal, binary, และ process" },
+      { h: "1) Process & PID" },
+      { p: "**Process** = โปรแกรมที่กำลังรันอยู่ 1 ตัว. ระบบปฏิบัติการให้เลขประจำตัวที่ไม่ซ้ำกันชื่อ **PID** (Process ID). การจะส่ง signal ไปหาใคร เราต้องรู้ PID ของเขาก่อน — นี่คือเหตุผลที่ server ต้องพิมพ์ PID ออกมาให้เราเอาไปบอก client" },
+      { ul: [
+        "`getpid()` — ถามว่า 'PID ของฉันคือเลขอะไร' (server ใช้)",
+        "`kill(pid, sig)` — ส่ง signal `sig` ไปหา process หมายเลข `pid` (ชื่อ kill ชวนเข้าใจผิด จริง ๆ แค่ 'ส่งสัญญาณ')",
+      ]},
+      { h: "2) Signal คืออะไร" },
+      { p: "**Signal** = การแจ้งเตือนแบบ asynchronous ที่ OS ส่งเข้ามาขัดจังหวะ process. เมื่อ signal มาถึง โปรแกรมจะ 'หยุด' สิ่งที่ทำอยู่ชั่วคราว กระโดดไปรันฟังก์ชันที่เรากำหนดไว้ (เรียกว่า **handler**) แล้วค่อยกลับมาทำต่อ" },
+      { table: { head: ["signal", "ความหมายปกติ", "ในโจทย์นี้"], rows: [
+        ["SIGUSR1", "user-defined #1", "ใช้แทน bit 0"],
+        ["SIGUSR2", "user-defined #2", "ใช้แทน bit 1"],
+      ]}},
+      { note: "SIGUSR1/SIGUSR2 ถูกออกแบบให้ 'นักพัฒนาเอาไปใช้เองได้ตามใจ' — จึงเหมาะกับ minitalk เพราะไม่ไปชนความหมายมาตรฐานของระบบ" },
+      { h: "3) signal() vs sigaction()" },
+      { p: "การตั้ง handler ทำได้ 2 แบบ. โจทย์แนะนำ `sigaction` เพราะ **กำหนดพฤติกรรมได้ละเอียดและ portable กว่า** `signal()` ที่พฤติกรรมต่างกันในแต่ละ OS" },
+      { table: { head: ["", "signal()", "sigaction()"], rows: [
+        ["ความเสถียร", "พฤติกรรมต่าง OS", "นิยามชัด เหมือนกันทุกที่"],
+        ["รู้ PID ผู้ส่ง", "ไม่ได้", "ได้ (ผ่าน SA_SIGINFO)"],
+        ["เหมาะกับ", "งานง่าย ๆ", "minitalk (โดยเฉพาะ bonus ที่ต้อง ack กลับ)"],
+      ]}},
+      { h: "4) Binary & bitwise operators" },
+      { p: "หัวใจของ minitalk คือการเล่นกับ bit. ต้องคล่อง operator พวกนี้:" },
+      { table: { head: ["operator", "ทำอะไร", "ตัวอย่าง"], rows: [
+        ["`c >> n`", "เลื่อน bit ไปทางขวา n ตำแหน่ง", "ดึง bit ตัวที่ n ลงมาที่ขวาสุด"],
+        ["`c << 1`", "เลื่อน bit ไปทางซ้าย 1 (ค่า ×2)", "เปิดที่ว่างขวาสุดให้ bit ใหม่"],
+        ["`x & 1`", "AND กับ 1 — เอาเฉพาะ bit ขวาสุด", "เช็คว่า bit นั้นเป็น 0 หรือ 1"],
+        ["`c | 1`", "OR กับ 1 — เซ็ต bit ขวาสุดเป็น 1", "เติม bit 1 ลงไป"],
+      ]}},
+      { code: String.raw`ดึง bit ตัวที่ 6 ของ 'A' (0100 0001):
+  (c >> 6) & 1
+  = (0100 0001 >> 6) & 1
+  = 0000 0001 & 1
+  = 1   → ส่ง SIGUSR2`, cap: "เลื่อน bit ที่ต้องการมาขวาสุด แล้ว & 1 เพื่ออ่านค่ามัน — เทคนิคพื้นฐานของการอ่านบิตทีละตัว", lang: "txt" },
+      { h: "5) pause() — รออย่างประหยัด CPU" },
+      { p: "`pause()` ทำให้ process 'หลับ' จนกว่าจะมี signal เข้ามา. server ใช้ `while(1) pause();` เพื่อรอแบบไม่กิน CPU (ต่างจาก busy-loop `while(1);` ที่หมุนเปล่า ๆ กิน CPU 100%)" },
+      { h: "6) usleep() — หน่วงเวลาเป็นไมโครวินาที" },
+      { p: "`usleep(n)` หยุดรอ n ไมโครวินาที (1 วินาที = 1,000,000 µs). mandatory ใช้หน่วงระหว่างยิง signal เพื่อให้ server ตามทัน" },
+      { h: "🔬 เจาะลึก: ทำไม Linux ทำ signal หล่นหายได้" },
+      { p: "ความจริงที่เจ็บปวด: signal มาตรฐาน (อย่าง SIGUSR1/2) **ไม่เข้าคิว (not queued)**. ถ้า server กำลังประมวลผล signal ตัวหนึ่งอยู่ แล้ว client ยิงตัวเดิมซ้ำมาอีก 2 ครั้งก่อน server ว่าง — จะถูกรวบเหลือ 'ค้างอยู่ 1 ครั้ง' เท่านั้น = **หล่นหาย 1 bit** = ข้อความเพี้ยนทั้งสาย" },
+      { code: String.raw`client ยิงเร็วเกินไป (ไม่มี ack):
+  USR1 → [server กำลังยุ่ง] USR1(ค้าง) USR1(หล่น!) USR2(ค้าง)
+  ผล: server ได้แค่ USR1, USR2 → bit หาย → ตัวอักษรเพี้ยน
+
+วิธีแก้ใน mandatory:  usleep(400) ให้ server ตามทัน
+วิธีแก้ใน bonus:      รอ ack ทุก bit (lock-step) — แก้ที่ราก`, cap: "นี่คือเหตุผลที่ต้องมี usleep (mandatory) หรือ ack handshake (bonus) — ไม่ใช่ของแถม แต่จำเป็น", lang: "txt" },
+      { note: "POSIX มี real-time signal (SIGRTMIN..SIGRTMAX) ที่ 'เข้าคิวได้' แต่โจทย์ minitalk บังคับให้ใช้แค่ SIGUSR1/2 ที่ไม่เข้าคิว — เราจึงต้องจัดการเรื่องนี้เอง" },
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **ตัวแปร, การเก็บ state, และ memory** ที่ minitalk ใช้ — ซึ่งบางอย่างพิเศษเพราะมันอยู่ใน signal handler" },
+      { h: "ปัญหา: handler จำอะไรไม่ได้ระหว่างการเรียก" },
+      { p: "signal handler ถูกเรียกใหม่ทุกครั้งที่มี signal มา — ตัวแปรธรรมดาในฟังก์ชันจะถูกล้างทุกครั้ง. แต่เราต้อง 'จำ' ว่าตอนนี้ประกอบ byte ไปกี่ bit แล้ว และค่าปัจจุบันคืออะไร. ทางออก 2 แบบ:" },
+      { table: { head: ["วิธี", "ขอบเขต", "ใช้ที่ไหน"], rows: [
+        ["`static` local", "อยู่ในฟังก์ชัน แต่คงค่าข้ามการเรียก", "server (mandatory + bonus)"],
+        ["global variable", "ทั้งโปรแกรมเห็น", "client bonus (g_ack)"],
+      ]}},
+      { h: "ทำไม server เลือก static local (ไม่ใช่ global)" },
+      { code: String.raw`static void handle_signal(int sig)
+{
+    static unsigned char c = 0;    // ค่า byte ที่กำลังประกอบ
+    static int           bits = 0; // ประกอบไปกี่ bit แล้ว
+    ...
+}`, cap: "static = ตัวแปรนี้ถูกสร้างครั้งเดียว คงค่าไว้ตลอดอายุโปรแกรม แต่ 'ชื่อ' มองเห็นได้แค่ในฟังก์ชันนี้", lang: "c" },
+      { p: "**ข้อดีของ static local:** ซ่อน state ไว้ในฟังก์ชันที่ใช้จริง ไม่รั่วออกไปให้โค้ดส่วนอื่นแก้ได้ — สะอาดกว่า global. server ทำได้เพราะไม่ต้องให้ใครข้างนอกอ่าน state นี้" },
+      { h: "ทำไม client bonus ต้องใช้ global" },
+      { p: "client bonus มี handler (`ack_handler`) คนละตัวกับ loop หลัก (`send_byte`). handler ต้อง 'บอก' loop หลักว่า ack มาแล้ว — ข้อมูลต้องข้ามฟังก์ชัน → ต้องใช้ **global**. subject อนุญาตให้ใช้ global ได้ 1 ตัว ซึ่งก็คือ `g_ack` นี่เอง" },
+      { h: "volatile sig_atomic_t — type พิเศษของ global ใน handler" },
+      { code: String.raw`volatile sig_atomic_t g_ack = 0;`, lang: "c" },
+      { table: { head: ["คำ", "ทำไมต้องมี"], rows: [
+        ["`volatile`", "บอก compiler ว่า 'ค่านี้เปลี่ยนได้เองนอกเหนือ flow ปกติ' (จาก handler) → ห้าม optimize เก็บไว้ใน register, ต้องอ่านจาก memory จริงทุกครั้ง"],
+        ["`sig_atomic_t`", "type ที่การันตีว่าอ่าน/เขียนได้ใน 'จังหวะเดียว' (atomic) — ไม่ถูก signal แทรกกลางคัน ทำให้ค่าไม่เพี้ยน"],
+      ]}},
+      { note: "ถ้าลืม volatile: compiler อาจมองว่า `while (g_ack == 0)` เป็น loop ที่ค่าไม่เปลี่ยน แล้ว optimize เป็น infinite loop ทันที — โปรแกรมค้าง! นี่คือบั๊กคลาสสิกที่หายาก" },
+      { h: "ทำไม c เป็น unsigned char" },
+      { p: "ใช้ `unsigned char` (0..255) ไม่ใช่ `char` (อาจ −128..127) เพราะการเลื่อน bit (`<<`) บน type ที่มีเครื่องหมายอาจให้ผลไม่นิยามเมื่อ bit สูงสุดถูกตั้ง — `unsigned` ปลอดภัยและตรงกับความหมาย 'นี่คือ 8 bit ดิบ ๆ'" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์" },
+      { table: { head: ["ไฟล์", "หน้าที่"], rows: [
+        ["`server.c`", "รับ signal, ประกอบ byte, พิมพ์ (mandatory)"],
+        ["`client.c`", "หั่นข้อความเป็น bit, ยิง signal (mandatory)"],
+        ["`server_bonus.c`", "เหมือน server + ส่ง ack กลับหา client"],
+        ["`client_bonus.c`", "เหมือน client + รอ ack ก่อนยิง bit ถัดไป"],
+        ["`minitalk.h` / `minitalk_bonus.h`", "include + prototype"],
+        ["`libft/`", "ft_printf (ใช้ใน handler ได้เพราะ write-based)"],
+        ["`Makefile`", "all / clean / fclean / re / bonus"],
+      ]}},
+      { h: "ภาพรวมการคุยกัน (mandatory)" },
+      { code: String.raw`  CLIENT                          SERVER
+    │                               │
+    │   อ่าน argv: PID + ข้อความ      │  พิมพ์ getpid()
+    │                               │  while(1) pause()  ← รอ
+    │  ── SIGUSR1/2 (bit 0) ──────► │  handler: c<<1, bits++
+    │       usleep(400)             │
+    │  ── SIGUSR1/2 (bit 1) ──────► │  handler: ...
+    │       ...×8                   │  ครบ 8 bit → พิมพ์ char
+    │  ── ... ทุกตัวอักษร ──────────► │
+    │  ── 8 bit ของ '\0' ─────────► │  เจอ '\0' → ขึ้นบรรทัดใหม่
+    │   จบ (return 0)               │  รอ client ตัวถัดไป`, cap: "client เป็นฝ่ายยิงอย่างเดียว, server เป็นฝ่ายรับ+ประกอบ+พิมพ์", lang: "txt" },
+      { h: "ภาพรวมการคุยกัน (bonus — มี ack)" },
+      { code: String.raw`  CLIENT                          SERVER
+    │  g_ack=0; kill(bit) ───────►  │  handler: ประกอบ bit
+    │  while(g_ack==0) usleep(1)    │  ◄─────── kill(client, ack)
+    │  ◄── ได้ ack → ยิง bit ถัดไป   │  (ทุก bit ack ด้วย USR1)
+    │       ...                     │  ครบ byte: พิมพ์ char
+    │  ส่ง '\0' ครบ 8 bit ──────►    │  เจอ '\0':
+    │  ◄── ack ด้วย SIGUSR2         │  ◄─────── kill(client, USR2)
+    │  g_ack==2 → "Message          │
+    │             delivered!"       │`, cap: "ทุก bit มีการตอบรับ → ไม่มีทางหล่น และ client รู้ตอนจบ", lang: "txt" },
+      { note: "สังเกต: server (ทั้งสองเวอร์ชัน) วน `while(1)` ตลอด — ไม่มีวันจบเอง ต้องกด Ctrl+C ปิด เพราะมันต้องพร้อมรับ client ได้เรื่อย ๆ" },
+    ],
+    dataflow: [
+      { p: "ไล่ **ทุกฟังก์ชัน** ทีละตัว ตามลำดับการทำงานจริง" },
+      { h: "server.c — main()" },
+      { code: String.raw`int main(void)
+{
+    struct sigaction sa;
+
+    ft_printf("Server PID: %d\n", getpid());  // ← บอก PID
+    sa.sa_handler = &handle_signal;           // ตั้ง handler
+    sigemptyset(&sa.sa_mask);                 // ไม่บล็อก signal อื่น
+    sa.sa_flags = 0;
+    if (sigaction(SIGUSR1, &sa, NULL) == -1) return (1);
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) return (1);
+    while (1)
+        pause();                              // หลับรอ signal
+    return (0);
+}`, lang: "c" },
+      { ul: [
+        "`getpid()` → พิมพ์ PID ให้เราเอาไปให้ client",
+        "`sigemptyset(&sa.sa_mask)` → เคลียร์ชุด signal ที่จะถูกบล็อกระหว่าง handler ทำงาน (ให้ว่าง)",
+        "`sa.sa_flags = 0` → ใช้ handler แบบธรรมดา (รับแค่หมายเลข signal)",
+        "ผูกทั้ง SIGUSR1 และ SIGUSR2 เข้า handler เดียวกัน → handler แยกเองว่าเป็น bit 0 หรือ 1",
+      ]},
+      { h: "server.c — handle_signal(int sig)" },
+      { code: String.raw`static void handle_signal(int sig)
+{
+    static unsigned char c = 0;
+    static int           bits = 0;
+
+    c = c << 1;                  // เปิดที่ว่างขวาสุด
+    if (sig == SIGUSR2)
+        c = c | 1;               // bit นี้เป็น 1
+    bits++;
+    if (bits == 8)               // ครบ 1 byte
+    {
+        if (c == '\0')
+            ft_printf("\n");     // จบ message
+        else
+            ft_printf("%c", c);  // พิมพ์ตัวอักษร
+        c = 0;                   // รีเซ็ตเริ่ม byte ใหม่
+        bits = 0;
+    }
+}`, lang: "c" },
+      { p: "ทุกครั้งที่ signal มา: เลื่อน `c` ซ้าย 1, ถ้าเป็น USR2 ก็เติม 1 ที่ขวาสุด, นับ bit. พอครบ 8 → เป็น 1 ตัวอักษรเต็ม → พิมพ์ แล้วรีเซ็ต. ถ้าตัวอักษรนั้นคือ `'\\0'` แสดงว่าจบข้อความ ขึ้นบรรทัดใหม่" },
+      { h: "client.c — send_byte(int pid, unsigned char c)" },
+      { code: String.raw`static void send_byte(int pid, unsigned char c)
+{
+    int bit;
+
+    bit = 8;
+    while (bit > 0)
+    {
+        bit--;                       // 7,6,5,...,0  (MSB-first)
+        if ((c >> bit) & 1)
+            kill(pid, SIGUSR2);      // bit เป็น 1
+        else
+            kill(pid, SIGUSR1);      // bit เป็น 0
+        usleep(400);                 // ให้ server ตามทัน
+    }
+}`, lang: "c" },
+      { p: "วนจาก bit 7 ลงไป 0 (MSB-first): ดึงค่าแต่ละ bit ด้วย `(c >> bit) & 1` แล้วยิง signal ตามค่า. `usleep(400)` คือกันชนกัน signal หล่น" },
+      { h: "client.c — main()" },
+      { code: String.raw`int main(int argc, char **argv)
+{
+    int pid;
+    int i;
+
+    if (argc != 3) { ... return (1); }      // ต้องมี PID + ข้อความ
+    pid = ft_atoi(argv[1]);
+    if (pid <= 0) { ... return (1); }        // PID ต้องเป็นบวก
+    i = 0;
+    while (argv[2][i])
+        send_byte(pid, argv[2][i++]);        // ส่งทุกตัวอักษร
+    send_byte(pid, '\0');                     // ปิดท้ายด้วย null
+    return (0);
+}`, lang: "c" },
+      { h: "ส่วนต่างของ bonus" },
+      { ul: [
+        "**server_bonus** ใช้ `sa.sa_sigaction` + `SA_SIGINFO` → handler รับ `siginfo_t *info` ทำให้รู้ `info->si_pid` (PID ของ client) แล้ว `kill(client, ...)` ส่ง ack กลับได้",
+        "**client_bonus** มี `ack_handler` ตั้ง `g_ack` และ `send_byte` มี `while (g_ack == 0) usleep(1);` รอ ack ก่อนยิง bit ถัดไป — ไม่ใช้ usleep คงที่แล้ว",
+      ]},
+      { code: String.raw`/* server_bonus: รู้ว่าใครส่งมา แล้ว ack กลับ */
+static void handle_signal(int sig, siginfo_t *info, void *ucontext)
+{
+    static unsigned char c = 0;
+    static int           bits = 0;
+
+    (void)ucontext;
+    c = c << 1;
+    if (sig == SIGUSR2)
+        c = c | 1;
+    bits++;
+    if (bits == 8) { print_byte(c, info->si_pid); c = 0; bits = 0; }
+    else
+        kill(info->si_pid, SIGUSR1);   // ack ทุก bit ที่ยังไม่ครบ byte
+}`, cap: "info->si_pid คือกุญแจของ bonus — ทำให้ server ตอบกลับถูกคน", lang: "c" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. เขียน server ให้พิมพ์ PID + ตั้ง handler ว่าง ๆ ก่อน → รันแล้วลองส่ง `kill -USR1 <pid>` จาก terminal ดูว่า handler ทำงานไหม",
+        "2. ใส่ logic ประกอบ bit ใน handler → ลองส่งทีละ bit ด้วยมือ",
+        "3. เขียน client: ft_atoi(PID) + ลูปส่ง bit + usleep",
+        "4. ทดสอบข้อความสั้น → ยาว → อักขระพิเศษ/ภาษาไทย (unicode)",
+        "5. ทำ bonus: เพิ่ม ack ทั้งสองฝั่ง",
+      ]},
+      { h: "เลือกค่า usleep เท่าไรดี (mandatory)" },
+      { table: { head: ["usleep", "ผล"], rows: [
+        ["น้อยเกิน (เช่น 50)", "เร็วดี แต่เสี่ยง signal หล่นถ้าเครื่องช้า/โหลดสูง"],
+        ["400 (โค้ดนี้เลือก)", "สมดุล — เร็วพอ และเชื่อถือได้บนเครื่องทั่วไป"],
+        ["มากเกิน (เช่น 5000)", "ปลอดภัยสุด แต่ส่งข้อความยาวช้ามาก"],
+      ]}},
+      { note: "bonus ไม่ต้องเดาค่า usleep เลย เพราะ ack handshake sync ให้เองอัตโนมัติ — เร็วเท่าที่เครื่องไหว และไม่หล่น" },
+      { h: "ทำไม ft_printf ใช้ใน handler ได้" },
+      { p: "ตามกฎ async-signal-safety ฟังก์ชันส่วนใหญ่ห้ามเรียกใน handler — แต่ `write()` เป็นหนึ่งในฟังก์ชันที่ปลอดภัย. ft_printf ของเราสร้างบน `write()` จึงใช้ได้ (ถ้าใช้ `printf` ของ libc จริงซึ่ง buffer ภายในจะไม่ปลอดภัย)" },
+      { h: "การ build" },
+      { code: String.raw`make            # สร้าง server + client (mandatory)
+make bonus      # สร้าง server_bonus + client_bonus
+make re         # fclean + all`, lang: "bash" },
+    ],
+    tricks: [
+      { h: "ทริค 1: handler เดียวรับสอง signal" },
+      { p: "ไม่ต้องเขียน handler 2 ตัว — ผูกทั้ง USR1/USR2 เข้า handler เดียว แล้วใช้พารามิเตอร์ `sig` แยกเอาเองว่าเป็น bit ไหน. ประหยัดโค้ดและ logic รวมศูนย์" },
+      { h: "ทริค 2: c << 1 | bit — ประกอบ byte แบบไม่ต้องนับตำแหน่ง" },
+      { p: "เพราะส่ง MSB-first การประกอบจึงเป็นแค่ 'เลื่อนซ้าย + เติม bit ขวา' ซ้ำ 8 ครั้ง โดยไม่ต้องรู้ว่ากำลังอยู่ bit ตำแหน่งไหน — bit จะไปนั่งตำแหน่งถูกเองอัตโนมัติ" },
+      { h: "ทริค 3: static local แทน global ใน server" },
+      { p: "เก็บ state การประกอบ byte ไว้ใน static local ของ handler → ไม่ต้องมี global เลยในฝั่ง server. สะอาดและตรงเจตนาของ subject ที่อยากให้ใช้ global น้อยที่สุด" },
+      { h: "ทริค 4: '\\0' เป็นสัญญาณจบ ไม่ต้องส่งความยาวก่อน" },
+      { p: "แทนที่จะส่งความยาวข้อความนำหน้า (ยุ่งยาก) เราอาศัยว่า C string จบด้วย `'\\0'` อยู่แล้ว — ส่ง `'\\0'` ตามท้ายแล้วให้ server เห็นเป็นสัญญาณ 'จบ' พอดี" },
+      { h: "ทริค 5 (bonus): lock-step ผ่าน g_ack 3 สถานะ" },
+      { p: "client ตั้ง `g_ack=0` ก่อนยิง แล้วรอจนมันเปลี่ยน. server ack ด้วย USR1 (=`g_ack` กลายเป็น 1) สำหรับ bit ทั่วไป และ USR2 (=`g_ack` กลายเป็น 2) เมื่อจบ message — ทำให้ client รู้ทั้ง 'ส่งสำเร็จ' และ 'จบแล้ว' จากตัวแปรเดียว" },
+      { h: "ทริค 6: รองรับ unicode/ภาษาไทยฟรี" },
+      { p: "เพราะเราส่งทีละ byte ดิบ ๆ ตัวอักษร UTF-8 ที่กินหลาย byte (เช่นภาษาไทย) ก็แค่ถูกหั่นเป็นหลาย byte ส่งต่อกันไป — server พิมพ์ byte ออกตามลำดับ terminal ประกอบกลับเป็นอักขระให้เอง โดยเราไม่ต้องทำอะไรพิเศษ" },
+    ],
+    eval: [
+      { qa: [
+        { q: "ทำไมใช้ได้แค่ SIGUSR1/SIGUSR2?", a: "เป็น signal ที่ระบบสงวนไว้ให้ผู้ใช้นิยามความหมายเอง ไม่ชนกับ signal มาตรฐานของ OS — เหมาะกับการประดิษฐ์ protocol เอง และโจทย์บังคับให้ใช้แค่ 2 ตัวนี้" },
+        { q: "1 ตัวอักษรใช้กี่ signal?", a: "8 (1 byte = 8 bit, ยิง 1 signal ต่อ bit). ข้อความ n ตัวอักษร = (n+1)×8 signal รวม '\\0' ปิดท้าย" },
+        { q: "MSB-first คืออะไร ทำไมเลือก?", a: "ส่ง bit ค่ามากสุด (ตำแหน่ง 7) ก่อน. เลือกเพราะ server ประกอบกลับด้วย c<<1 ทุกครั้งแล้วเติม bit ขวาสุดได้พอดี ไม่ต้องนับตำแหน่ง" },
+        { q: "server เก็บ state การประกอบ byte ยังไงโดยไม่ใช้ global?", a: "ใช้ static local ใน handler (static unsigned char c, static int bits) — คงค่าข้ามการเรียก handler แต่ไม่รั่วออกนอกฟังก์ชัน" },
+        { q: "ทำไม signal หล่นหายได้ และแก้ยังไง?", a: "signal มาตรฐานไม่เข้าคิว — ถ้ามาซ้ำตอน server ยุ่งจะถูกรวบเหลือครั้งเดียว. mandatory แก้ด้วย usleep หน่วงให้ server ตามทัน, bonus แก้ด้วย ack handshake รอตอบรับทุก bit" },
+        { q: "sigaction ต่างจาก signal ยังไง ทำไมใช้ sigaction?", a: "sigaction พฤติกรรมนิยามชัดและเหมือนกันทุก OS (portable) และรองรับ SA_SIGINFO เพื่อรู้ PID ผู้ส่ง (จำเป็นกับ bonus); signal() พฤติกรรมต่างกันในแต่ละระบบ" },
+        { q: "bonus รู้ได้ยังไงว่าจะ ack กลับไปหา client ตัวไหน?", a: "ตั้ง SA_SIGINFO แล้ว handler รับ siginfo_t *info → อ่าน info->si_pid ซึ่งคือ PID ของ process ที่ส่ง signal มา แล้ว kill กลับไปที่ PID นั้น" },
+        { q: "volatile sig_atomic_t คืออะไร ทำไมต้องใช้กับ g_ack?", a: "volatile กัน compiler optimize ค่าที่ถูกเปลี่ยนใน handler ทิ้ง (ไม่งั้น while รอ ack จะค้าง); sig_atomic_t การันตีอ่าน/เขียนเป็น atomic ไม่ถูก signal แทรกกลางคัน" },
+        { q: "ทำไม while(1) pause() ดีกว่า while(1);?", a: "pause() ทำให้ process หลับรอ signal ไม่กิน CPU; while(1); หมุนเปล่ากิน CPU 100% โดยไม่จำเป็น" },
+        { q: "ใช้ ft_printf ใน handler ปลอดภัยไหม?", a: "ปลอดภัยเพราะ ft_printf สร้างบน write() ซึ่งเป็น async-signal-safe; ถ้าใช้ printf ของ libc ที่มี buffer ภายในจะไม่ปลอดภัย" },
+        { q: "รองรับภาษาไทย/emoji ได้ไหม?", a: "ได้ เพราะส่งทีละ byte ดิบ — อักขระ UTF-8 หลาย byte ถูกส่งต่อกันแล้ว terminal ฝั่ง server ประกอบกลับเอง" },
+        { q: "ถ้าให้ PID ผิด/ไม่มี process นั้นจะเกิดอะไร?", a: "kill() จะ error (ส่งไม่ถึง) — client เช็ค pid<=0 เบื้องต้น และจริง ๆ ควรเช็ค return ของ kill เพื่อแจ้ง error ถ้า process ปลายทางไม่มี" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`# เทอร์มินัล 1
+./server
+# → Server PID: 12345
+
+# เทอร์มินัล 2
+./client 12345 "Hello, 42!"
+./client 12345 "ภาษาไทยก็ได้ 🎉"
+
+# bonus: client จะพิมพ์ "Message delivered!" เมื่อ server ack ครบ
+./client_bonus 12345 "with acknowledgement"`, lang: "bash" },
+    ],
+  },
+},
+/* ===================== FDF ===================== */
+{
+  id: "fdf",
+  name: "FdF",
+  tag: { th: "อ่านไฟล์ความสูงเป็นตาราง แล้ววาดเป็นภูเขา 3D โครงลวดบนจอ — เรขาคณิต + กราฟิกพื้นฐาน", en: "Read a grid of altitudes and draw it as a 3D wireframe — geometry meets graphics" },
+  accent: "#48dbfb",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร" },
+      { p: "**FdF = Fil de Fer** (ภาษาฝรั่งเศส แปลว่า 'เส้นลวด'). อ่านไฟล์ `.fdf` ที่เป็น **ตารางตัวเลขความสูง (z)** แล้ววาดออกมาเป็น **ภาพ 3D แบบโครงลวด (wireframe)** บนหน้าต่างด้วย MiniLibX" },
+      { code: String.raw`ไฟล์ .fdf:           วาดออกมาเป็น:
+0  0  0  0              ◇──◇──◇──◇
+0  5  5  0      →      ╱ ╲╱ ╲╱ ╲ ╲
+0  5  5  0            ◇  ◇──◇  ◇    (ยอดสูงตรงกลางนูนขึ้น)
+0  0  0  0`, cap: "ตัวเลขแต่ละช่อง = ความสูง z ของจุดนั้น — เลขมาก = นูนขึ้น", lang: "txt" },
+      { h: "หัวใจ 3 ขั้น" },
+      { table: { head: ["ขั้น", "ทำอะไร"], rows: [
+        ["1. Parse", "อ่านไฟล์ → เก็บเป็นตาราง 2 มิติของค่า z (และสีถ้ามี)"],
+        ["2. Project", "แปลงพิกัด 3D (x, y, z) ของแต่ละจุด → พิกัด 2D (จอ) ด้วยการฉายแบบ isometric"],
+        ["3. Draw", "ลากเส้นเชื่อมจุดข้างเคียง (ขวา + ล่าง) ด้วย Bresonham's line algorithm"],
+      ]}},
+      { note: "กุญแจสำคัญ: เรามีข้อมูล 3 มิติ แต่จอมี 2 มิติ — ต้อง 'ฉาย' (project) 3D ลงบนระนาบ 2D ให้ตาคนเห็นเป็นภาพมีมิติ" },
+      { h: "isometric projection คืออะไร" },
+      { p: "**Isometric** = การฉายภาพ 3D ที่มองจากมุมเฉียง ทำให้แกนทั้งสามดูเท่า ๆ กัน (เหมือนเกมแนว SimCity เก่า ๆ). ข้อดีคือไม่มี perspective (ของไกลไม่เล็กลง) คำนวณง่ายด้วยสูตรตายตัว:" },
+      { code: String.raw`x_iso = (x - y) · cos(30°)
+y_iso = (x + y) · sin(30°) - z · scale`, cap: "หมุนตาราง 45° แล้วบีบแนวตั้ง → ได้มุมมองเฉียงคลาสสิก; z ยกจุดขึ้นตามความสูง", lang: "txt" },
+      { h: "ทำไมต้องใช้ Bresenham วาดเส้น" },
+      { p: "จอเป็น pixel เป็นช่อง ๆ (จำนวนเต็ม) แต่เส้นตรงในคณิตศาสตร์เป็นทศนิยม. **Bresenham's algorithm** หาว่า pixel ไหน 'ใกล้เส้นจริงที่สุด' โดยใช้แค่การบวก/ลบจำนวนเต็ม (ไม่มีการหาร/ทศนิยม) → เร็วมากและไม่มี gap" },
+      { h: "บทบาทของ MiniLibX" },
+      { p: "**MiniLibX (mlx)** คือ graphics library ขั้นต่ำที่ 42 ให้มา ทำหน้าที่: เปิดหน้าต่าง, วาด pixel, รับ event (กดปุ่ม/ปิดหน้าต่าง). เราไม่แตะ X11/OpenGL ตรง ๆ — mlx ห่อให้หมด" },
+    ],
+    theory: [
+      { p: "หมวดนี้รวมทฤษฎี **เรขาคณิต + กราฟิก** ที่ต้องเข้าใจก่อนอ่านโค้ด FdF" },
+      { h: "1) ระบบพิกัดจอ (screen coordinates)" },
+      { p: "จอคอมพิวเตอร์ใช้พิกัดที่ **มุมซ้ายบนคือ (0,0)** แกน x ชี้ขวา, แกน **y ชี้ลง** (ตรงข้ามคณิตศาสตร์ที่ y ชี้ขึ้น). นี่เป็นสาเหตุที่หลายสูตรกราฟิกต้องกลับด้าน y" },
+      { h: "2) มุมมองสามมิติ → สองมิติ (projection)" },
+      { table: { head: ["แบบ", "ลักษณะ", "ใช้ใน FdF"], rows: [
+        ["Isometric", "มุมเฉียงคงที่ ของไกลไม่เล็กลง", "✓ หลัก"],
+        ["Perspective", "ของไกลเล็กลง (เหมือนตาคนจริง)", "ไม่ใช้ (ซับซ้อนกว่า)"],
+        ["Top-down / Side", "มองตรงจากบน/ข้าง", "bonus (สลับมุมมอง)"],
+      ]}},
+      { h: "3) ตรีโกณมิติพื้นฐาน: sin/cos" },
+      { p: "การหมุนจุดในระนาบใช้ sin/cos. ใน isometric เราใช้มุม 30° ตายตัว จึง precompute เป็นค่าคงที่ไว้เลย (ไม่ต้องเรียก `cos()` ทุกจุด):" },
+      { code: String.raw`# define COS30 0.866025403784   /* cos(30°) */
+# define SIN30 0.5              /* sin(30°) */`, cap: "ฝังค่าคงที่ไว้ → เร็วกว่าเรียกฟังก์ชัน math ทุกครั้ง", lang: "c" },
+      { h: "4) Linear interpolation (lerp)" },
+      { p: "**lerp** = การหาค่าระหว่างสองค่าแบบเชิงเส้น ด้วยพารามิเตอร์ t (0..1): `result = a + (b - a)·t`. FdF ใช้ lerp ไล่ **สี** ตามแนวเส้น (ปลายข้างหนึ่งสีหนึ่ง ค่อย ๆ เปลี่ยนเป็นอีกสี)" },
+      { code: String.raw`t = 0.0  →  สีของจุด a (ต้นเส้น)
+t = 0.5  →  สีผสมครึ่งทาง
+t = 1.0  →  สีของจุด b (ปลายเส้น)`, lang: "txt" },
+      { h: "5) สี RGB ในเลขฐาน 16" },
+      { p: "สี 1 pixel = 24 bit แบ่งเป็น 3 ช่อง (แดง/เขียว/น้ำเงิน) ช่องละ 8 bit (0..255). เก็บรวมในเลขเดียว `0xRRGGBB`:" },
+      { table: { head: ["ส่วน", "bit", "ดึงด้วย"], rows: [
+        ["R (แดง)", "16–23", "`(c >> 16) & 0xFF`"],
+        ["G (เขียว)", "8–15", "`(c >> 8) & 0xFF`"],
+        ["B (น้ำเงิน)", "0–7", "`c & 0xFF`"],
+      ]}},
+      { h: "6) Bresenham's line algorithm (ทฤษฎี)" },
+      { p: "ปัญหา: ลากเส้นจาก (x0,y0) ถึง (x1,y1) บนตาราง pixel ให้เนียน. Bresenham เก็บ 'ค่าความผิดพลาดสะสม (error)' แล้วตัดสินทีละก้าวว่าควรขยับ x, y หรือทั้งคู่ — ใช้แค่จำนวนเต็มและการบวก ไม่มีการหารหรือ float เลย" },
+      { code: String.raw`dx =  |x1 - x0|        sx = ทิศ x (+1/-1)
+dy = -|y1 - y0|        sy = ทิศ y (+1/-1)
+err = dx + dy
+
+วนแต่ละก้าว:
+  e2 = 2·err
+  ถ้า e2 >= dy:  err += dy;  x += sx   (ขยับแนวนอน)
+  ถ้า e2 <= dx:  err += dx;  y += sy   (ขยับแนวตั้ง)
+  จนถึงปลายทาง`, cap: "error บอกว่าตอนนี้เส้นจริง 'เอียง' ไปทางไหน → เลือกขยับแกนที่ทำให้ใกล้เส้นจริงสุด", lang: "txt" },
+      { h: "🔬 เจาะลึก: ทำไมต้องลบค่ากลางก่อนฉาย (centering)" },
+      { p: "ถ้าฉายจาก (0,0) ของตารางตรง ๆ ภาพจะไปกองมุมจอ. โค้ดนี้ลบ 'จุดกึ่งกลางตาราง' ออกก่อน (`x - width/2`) เพื่อให้จุดศูนย์กลางของแผนที่อยู่ที่ origin ก่อนฉาย แล้วค่อยบวก offset ไปไว้กลางจอ — ภาพจึงอยู่ตรงกลางและหมุน/ซูมรอบจุดกึ่งกลางสวยงาม" },
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **struct, pointer, และ memory** ที่ FdF ใช้เก็บแผนที่และสถานะ" },
+      { h: "struct หลัก 4 ตัว" },
+      { code: String.raw`typedef struct s_map {        /* ข้อมูลแผนที่ */
+    int  width;
+    int  height;
+    int  **z;                 /* ตาราง 2D ของความสูง */
+    int  **color;             /* ตาราง 2D ของสี */
+    int  z_min;
+    int  z_max;
+} t_map;
+
+typedef struct s_cam {        /* กล้อง/มุมมอง */
+    double zoom;
+    double z_scale;
+    int    off_x;             /* เลื่อนภาพไปกลางจอ */
+    int    off_y;
+} t_cam;
+
+typedef struct s_fdf {        /* รวมทุกอย่าง */
+    void  *mlx; void *win; void *img;
+    char  *addr;              /* pointer ไปยัง buffer ภาพ */
+    int   bpp; int line_len; int endian;
+    t_map map;
+    t_cam cam;
+} t_fdf;`, cap: "t_fdf เป็น 'ก้อนสถานะกลาง' ส่ง pointer ตัวเดียวไปทุกฟังก์ชัน — ไม่ต้องใช้ global", lang: "c" },
+      { h: "ทำไม z เป็น int ** (pointer to pointer)" },
+      { p: "เพราะแผนที่มีขนาดไม่รู้ล่วงหน้า (ขึ้นกับไฟล์) เราจึงจองแบบ dynamic: `int **z` คือ 'อาเรย์ของ pointer' แต่ละตัวชี้ไปอาเรย์ 1 แถว. เข้าถึงด้วย `z[y][x]` — แถว y, คอลัมน์ x" },
+      { code: String.raw`z ──► [ row0 ] ──► [z, z, z, z]   (แถว 0)
+      [ row1 ] ──► [z, z, z, z]   (แถว 1)
+      [ row2 ] ──► [z, z, z, z]   (แถว 2)`, cap: "จองทีละแถว ทำให้รองรับแผนที่ขนาดใด ๆ ได้", lang: "txt" },
+      { h: "ทำไมต้องเก็บ z_min / z_max" },
+      { p: "เพื่อ 'auto-fit' — รู้ช่วงความสูงทั้งหมดแล้วปรับ `z_scale` ให้ภูเขาไม่สูงล้นจอ. คำนวณตอน parse (อัปเดต min/max ทุกครั้งที่อ่านค่า)" },
+      { h: "image buffer: addr / bpp / line_len" },
+      { p: "แทนที่จะวาดทีละ pixel ผ่าน mlx (ช้า) เราขอ 'pointer ตรงไปยังหน่วยความจำของภาพ' (`addr`) แล้วเขียนสีลงไปเอง:" },
+      { table: { head: ["ตัวแปร", "ความหมาย"], rows: [
+        ["`addr`", "ที่อยู่เริ่มต้นของ buffer ภาพ"],
+        ["`bpp`", "bits per pixel (ปกติ 32 = 4 byte ต่อ pixel)"],
+        ["`line_len`", "จำนวน byte ต่อ 1 แถวของภาพ"],
+      ]}},
+      { code: String.raw`dst = addr + (y * line_len + x * (bpp / 8));
+*(unsigned int *)dst = color;   /* เขียนสี 1 pixel */`, cap: "คำนวณ offset ของ pixel (x,y) ใน buffer แล้วเขียนตรง — เร็วกว่า mlx_pixel_put หลายเท่า", lang: "c" },
+      { note: "ทำไมเร็วกว่า: เขียนลง buffer ในหน่วยความจำทั้งภาพก่อน แล้วค่อย mlx_put_image_to_window ครั้งเดียว — ไม่ต้องคุยกับ X server ทุก pixel" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์ (mandatory)" },
+      { table: { head: ["ไฟล์", "หน้าที่"], rows: [
+        ["`main.c`", "init mlx, ผูก hook, เริ่ม loop"],
+        ["`parse.c`", "นับบรรทัด, อ่านไฟล์เป็นอาเรย์ string"],
+        ["`token.c`", "แยกค่า z และสี (รวม parse เลขฐาน 16)"],
+        ["`grid.c`", "เติมค่าลงตาราง z/color + อัปเดต bounds"],
+        ["`project.c`", "ตั้งกล้อง + ฉาย 3D → 2D"],
+        ["`draw.c`", "Bresenham line algorithm"],
+        ["`pixel.c`", "เขียน pixel, lerp สี, render ทั้งภาพ"],
+        ["`hooks.c`", "จัดการปุ่ม ESC + ปิดหน้าต่าง"],
+        ["`free.c`", "คืน memory + แจ้ง error"],
+      ]}},
+      { h: "ลำดับการทำงานใน main()" },
+      { code: String.raw`main(argc, argv)
+  ├─ เช็ค argc == 2                    (ต้องมีไฟล์แผนที่)
+  ├─ ft_bzero(&fdf)                    เคลียร์ struct เป็น 0
+  ├─ parse_map(&fdf, argv[1])          อ่านไฟล์ → ตาราง z/color
+  ├─ init_mlx(&fdf)                    เปิดหน้าต่าง + สร้าง image
+  ├─ setup_camera(&fdf)                คำนวณ zoom/offset อัตโนมัติ
+  ├─ render(&fdf)                      วาดภาพครั้งแรก
+  ├─ mlx_hook(... key_hook ...)        ผูกปุ่มกด
+  ├─ mlx_hook(... close_hook ...)      ผูกปุ่มปิดหน้าต่าง [X]
+  └─ mlx_loop(fdf.mlx)                 วนรับ event ไม่จบ`, lang: "txt" },
+      { h: "การไหลของข้อมูล (แผนที่ → ภาพ)" },
+      { code: String.raw`ไฟล์ .fdf
+   │  parse_map / read_lines
+   ▼
+char **rows  (แต่ละบรรทัดเป็น string)
+   │  fill_grid → fill_row → parse_token
+   ▼
+map.z[y][x], map.color[y][x]  (ตาราง 2D)
+   │  render: วนทุกจุด → project()
+   ▼
+t_pt (พิกัดจอ 2D + สี)
+   │  draw_line (Bresenham) → put_pixel
+   ▼
+image buffer → mlx_put_image_to_window → จอ`, cap: "ไฟล์ข้อความ → ตารางตัวเลข → จุดบนจอ → เส้น → ภาพ", lang: "txt" },
+      { note: "render() วาดแค่ 2 เส้นต่อจุด: ไปขวา (x+1) และลง (y+1) — พอครบทุกจุดก็ได้ตาข่ายเต็ม โดยไม่วาดเส้นซ้ำ" },
+    ],
+    dataflow: [
+      { p: "ไล่ฟังก์ชันสำคัญทีละตัว ตามลำดับการทำงาน" },
+      { h: "parse_map() — อ่านไฟล์เข้าตาราง" },
+      { code: String.raw`int parse_map(t_fdf *f, char *path)
+{
+    f->map.z_min = INT_MAX;
+    f->map.z_max = INT_MIN;
+    f->map.height = count_lines(path);     // นับจำนวนแถว
+    rows = read_lines(path, f->map.height); // อ่านทุกบรรทัด
+    w = get_width(rows[0]);                  // นับคอลัมน์จากแถวแรก
+    f->map.width = w;
+    fill_grid(f, rows);                      // เติมลงตาราง
+    free_rows(rows);
+    return (1);
+}`, cap: "อ่านไฟล์ 2 รอบ: รอบแรกนับจำนวนแถว (เพื่อจองพอดี), รอบสองอ่านจริง", lang: "c" },
+      { h: "parse_token() — แยกค่า z และสี" },
+      { code: String.raw`void parse_token(char *tok, int *z, int *color)
+{
+    *z = ft_atoi(tok);              // เลขความสูง
+    *color = DEF_COLOR;            // สีเริ่มต้น = ขาว
+    i = 0;
+    while (tok[i] && tok[i] != ',') i++;
+    if (tok[i] == ',')
+        *color = parse_hex(tok + i + 1);  // มีสีระบุ เช่น "5,0xFF0000"
+}`, cap: "รูปแบบ token: \"z\" หรือ \"z,0xRRGGBB\" — มี comma แปลว่ามีสีกำกับ", lang: "c" },
+      { h: "project() — หัวใจ 3D → 2D" },
+      { code: String.raw`t_pt project(t_fdf *f, int x, int y)
+{
+    xx = x - f->map.width / 2.0;            // ย้ายจุดกลางไป origin
+    yy = y - f->map.height / 2.0;
+    zz = f->map.z[y][x] - (z_min + z_max)/2.0;
+    zz = zz * f->cam.z_scale;               // ปรับความสูงให้พอดีจอ
+    p.x = (int)((xx - yy) * COS30 * zoom) + off_x;
+    p.y = (int)((xx + yy) * SIN30 * zoom - zz) + off_y;
+    p.color = f->map.color[y][x];
+    return (p);
+}`, cap: "สูตร isometric: (x-y) สำหรับแนวนอน, (x+y) สำหรับแนวตั้ง, ลบ zz เพื่อยกจุดสูงขึ้น (y จอชี้ลง)", lang: "c" },
+      { h: "setup_camera() — auto-fit อัตโนมัติ" },
+      { p: "คำนวณ zoom จากขนาดแผนที่ให้ภาพเต็มจอ ~80% โดยเทียบทั้งแนวกว้างและสูง เลือกค่าที่เล็กกว่า (กันล้นจอ) แล้วตั้ง offset ไว้กลางจอ. `set_zscale()` ปรับความสูงไม่ให้ภูเขาทะลุจอ" },
+      { h: "draw_line() — วาดเส้นพร้อมไล่สี" },
+      { code: String.raw`void draw_line(t_fdf *f, t_pt a, t_pt b)
+{
+    init_bres(&d, a, b);
+    while (1)
+    {
+        t = (steps != 0) ? i/steps : 0;     // (concept) สัดส่วนตามแนวเส้น
+        put_pixel(f, a.x, a.y, lerp_color(a.color, b.color, t));
+        if (a.x == b.x && a.y == b.y) break;
+        bres_step(&d, &a);                   // ขยับ pixel ถัดไป
+    }
+}`, cap: "ทุก pixel ระหว่างทาง ลงสีที่ผสมระหว่างปลายทั้งสอง (gradient)", lang: "c" },
+      { h: "render() — ประกอบทั้งภาพ" },
+      { code: String.raw`void render(t_fdf *f)
+{
+    ft_bzero(f->addr, f->line_len * WIN_H);  // ล้างจอเป็นดำ
+    while (y < height) {
+        while (x < width) {
+            if (x+1 < width)  draw_line(project(x,y), project(x+1,y));
+            if (y+1 < height) draw_line(project(x,y), project(x,y+1));
+            x++;
+        }
+        y++;
+    }
+    mlx_put_image_to_window(f->mlx, f->win, f->img, 0, 0);
+}`, cap: "วาดลง buffer ทั้งหมดก่อน แล้วโยนขึ้นจอครั้งเดียว", lang: "c" },
+      { h: "key_hook / close_hook" },
+      { code: String.raw`int key_hook(int key, t_fdf *f) {
+    if (key == ESC_KEY) close_hook(f);   // ESC = ออก
+    return (0);
+}
+int close_hook(t_fdf *f) {
+    free_all(f);                          // คืน memory ทั้งหมด
+    exit(0);
+}`, cap: "ปิดหน้าต่าง [X] (event 17) และ ESC ทั้งคู่เรียก close_hook → ไม่มี leak", lang: "c" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. parser ก่อน — อ่านไฟล์เป็นตาราง z แล้ว print ออกตรวจว่าถูก (ยังไม่ต้องมี mlx)",
+        "2. เปิดหน้าต่าง mlx เปล่า ๆ ให้ขึ้นได้ก่อน + ปิดด้วย ESC/[X]",
+        "3. put_pixel + วาดจุดทดสอบ 1 จุดกลางจอ",
+        "4. Bresenham — วาดเส้นเดียวให้ได้ก่อน",
+        "5. project() แบบ isometric + render ทั้งตาราง",
+        "6. auto-fit camera (zoom/offset/z_scale)",
+        "7. ไล่สี (lerp) + รองรับสีในไฟล์",
+        "8. bonus: ซูม/เลื่อน/หมุน/สลับ projection",
+      ]},
+      { h: "บั๊กยอดฮิตและวิธีกัน" },
+      { table: { head: ["อาการ", "สาเหตุ", "แก้"], rows: [
+        ["ภาพไปกองมุมจอ", "ไม่ centering ก่อนฉาย / ไม่บวก offset", "ลบ width/2, height/2 แล้วบวก off_x/off_y"],
+        ["ภาพเป็นจุดเดียว / เล็กมาก", "zoom ไม่ได้คำนวณจากขนาดแผนที่", "auto-fit ใน setup_camera"],
+        ["ภูเขาทะลุจอ", "z_scale มากเกิน", "clamp z_scale ตามช่วง z_max-z_min"],
+        ["เส้นขาดเป็นจุด ๆ", "Bresenham ผิด / ใช้ลูปธรรมดา", "ใช้ error term ของ Bresenham ให้ถูก"],
+        ["segfault ตอน parse", "แถวยาวไม่เท่ากัน / ไฟล์ว่าง", "เช็ค width ทุกแถว, เช็ค height>0"],
+      ]}},
+      { h: "การ build / รัน" },
+      { code: String.raw`make                       # mandatory
+make bonus                 # ซูม/หมุน/เลื่อน/สลับมุมมอง
+./fdf maps/42.fdf
+./fdf maps/mars.fdf`, lang: "bash" },
+      { note: "บน Windows ต้องรันผ่าน WSL + WSLg (มี DISPLAY) ไม่งั้นหน้าต่าง mlx เปิดไม่ขึ้น — ดู skill build-42-projects-on-windows" },
+    ],
+    tricks: [
+      { h: "ทริค 1: precompute cos30/sin30 เป็น macro" },
+      { p: "isometric ใช้มุม 30° ตายตัว จึงฝังค่า cos/sin เป็น `#define` ไว้เลย — ไม่ต้องเรียกฟังก์ชัน math หลายล้านครั้งต่อเฟรม เร็วขึ้นชัดเจน" },
+      { h: "ทริค 2: เขียนลง image buffer ตรง ๆ" },
+      { p: "แทน `mlx_pixel_put` (คุยกับ X server ทุก pixel = ช้ามาก) เราขอ addr ของ buffer แล้วคำนวณ offset เขียนสีเอง จากนั้น put image ครั้งเดียว — เร็วกว่าหลายสิบเท่า" },
+      { h: "ทริค 3: centering ก่อนฉาย" },
+      { p: "ลบจุดกึ่งกลางตาราง (`x - width/2`) ก่อนฉาย ทำให้ภาพอยู่กลางจอเสมอ และเวลา zoom/rotate มันหมุนรอบจุดกึ่งกลางสวยงาม ไม่เลื่อนหนี" },
+      { h: "ทริค 4: auto-fit เลือก zoom ที่เล็กกว่า" },
+      { p: "คำนวณ zoom ที่พอดีแนวกว้าง และ zoom ที่พอดีแนวสูง แล้ว **เลือกตัวที่เล็กกว่า** — การันตีว่าภาพไม่ล้นจอไม่ว่าจะรูปร่างแผนที่แบบไหน" },
+      { h: "ทริค 5: lerp สีตามแนวเส้น" },
+      { p: "แยก R/G/B ออกเป็น 3 ช่อง interpolate ทีละช่องด้วย t (0..1) แล้วประกอบกลับ — ได้เส้นไล่เฉดสีนุ่ม ๆ ระหว่างจุดสองสี" },
+      { h: "ทริค 6: วาดแค่ 2 เส้นต่อจุด" },
+      { p: "ไม่ต้องวาด 4 ทิศ — แค่ 'ขวา' กับ 'ลง' ของทุกจุด ก็ได้ตาข่ายเต็มโดยไม่ซ้ำเส้น (เส้นซ้าย/บน คือเส้นขวา/ลงของจุดข้างเคียงอยู่แล้ว) → ประหยัดงานครึ่งหนึ่ง" },
+      { h: "ทริค 7 (bonus): สลับ projection ด้วย rotation matrix" },
+      { p: "bonus เพิ่มมุมหมุน 3 แกน (ax, ay, az) ทำให้หมุนภาพได้อิสระ และกด `p` วนสลับ isometric / top-down / side ด้วยการตั้งค่ามุมล่วงหน้า" },
+    ],
+    eval: [
+      { qa: [
+        { q: "isometric projection คำนวณยังไง?", a: "x_screen = (x-y)·cos30·zoom, y_screen = (x+y)·sin30·zoom - z·scale แล้วบวก offset ไปกลางจอ; เท่ากับหมุนตาราง 45° แล้วบีบแนวตั้ง" },
+        { q: "ทำไม y ต้องลบ z (ไม่ใช่บวก)?", a: "เพราะพิกัดจอแกน y ชี้ลง — จุดที่สูง (z มาก) ต้องอยู่สูงขึ้นบนจอ = ค่า y น้อยลง จึงลบ z ออก" },
+        { q: "Bresenham ทำงานยังไง ทำไมเลือกใช้?", a: "เก็บค่า error สะสมแล้วตัดสินทีละก้าวว่าขยับ x, y หรือทั้งคู่ ใช้แค่จำนวนเต็ม+บวกลบ ไม่มี float/หาร จึงเร็วและไม่มี gap บนตาราง pixel" },
+        { q: "ทำไม map ใช้ int ** ไม่ใช่อาเรย์คงที่?", a: "ขนาดแผนที่ไม่รู้ล่วงหน้า ต้องจอง dynamic ตามไฟล์ — int ** = อาเรย์ของ pointer แต่ละตัวชี้ 1 แถว เข้าถึงด้วย z[y][x]" },
+        { q: "auto-fit camera ทำยังไง?", a: "คำนวณ zoom จากขนาดแผนที่เทียบทั้งกว้างและสูง เลือกตัวเล็กกว่าเพื่อไม่ล้นจอ, ตั้ง offset ไว้กลางจอ, clamp z_scale ตามช่วงความสูง" },
+        { q: "ทำไมเขียน pixel ลง buffer แทน mlx_pixel_put?", a: "mlx_pixel_put คุยกับ X server ทุก pixel ช้ามาก; เขียนลง image buffer ในหน่วยความจำตรง ๆ แล้ว mlx_put_image_to_window ครั้งเดียว เร็วกว่าหลายสิบเท่า" },
+        { q: "lerp_color ทำอะไร?", a: "ไล่สีระหว่างจุดสองปลายของเส้น โดยแยก R/G/B interpolate ทีละช่องด้วย t (0..1) แล้วประกอบกลับ ได้ gradient" },
+        { q: "อ่านไฟล์กี่รอบ ทำไม?", a: "2 รอบ — รอบแรกนับจำนวนบรรทัด (เพื่อจองตารางพอดี ไม่ต้อง realloc), รอบสองอ่านค่าจริงลงตาราง" },
+        { q: "จัดการ memory/ปิดหน้าต่างยังไง?", a: "close_hook (ผูกกับ event 17 และ ESC) เรียก free_all() คืนทุกอย่าง (z, color, image, window) แล้ว exit(0); ตรวจ leak ด้วย valgrind" },
+        { q: "รูปแบบ token ของไฟล์เป็นยังไง?", a: "แต่ละช่องคือ \"z\" หรือ \"z,0xRRGGBB\" คั่นด้วยช่องว่าง; ถ้ามี comma คือมีสีกำกับ ไม่งั้นใช้สีขาว default" },
+        { q: "ESC กับปุ่มปิด [X] ต่างกันไหม?", a: "ผูกคนละ event (ESC ผ่าน key_hook event 2, [X] ผ่าน close_hook event 17) แต่สุดท้ายเรียก close_hook เหมือนกัน → คืน memory แล้วออก" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`./fdf maps/42.fdf
+./fdf maps/mars.fdf
+./fdf                       # usage (ไม่มี argument)
+./fdf doesnotexist.fdf      # Error (เปิดไฟล์ไม่ได้)
+make bonus && ./fdf_bonus maps/mars.fdf   # หมุน/ซูม/เลื่อน`, lang: "bash" },
+    ],
+  },
+},
+/* ===================== PHILOSOPHERS ===================== */
+{
+  id: "philosophers",
+  name: "Philosophers",
+  tag: { th: "นักปรัชญานั่งกินข้าวรอบโต๊ะ แชร์ส้อมกัน — เรียน thread, mutex, และการกัน deadlock", en: "Philosophers share forks around a table — learn threads, mutexes, and avoiding deadlock" },
+  accent: "#ff6b6b",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร (Dining Philosophers)" },
+      { p: "นักปรัชญา N คน นั่งรอบโต๊ะกลม ทำวน 3 อย่าง: **กิน → นอน → คิด**. ระหว่างคนแต่ละคนมี **ส้อม 1 อัน** (ส้อมทั้งหมด = N อัน) การจะกินต้องถือส้อม **2 อัน** (ซ้าย+ขวา) พร้อมกัน — แต่ส้อมแชร์กับเพื่อนข้าง ๆ" },
+      { code: String.raw`        P1
+      🍴  🍴
+   P5          P2
+    🍴          🍴
+      P4 🍴 P3
+แต่ละคนต้องหยิบส้อมซ้าย+ขวา ถึงจะกินได้
+→ เพื่อนสองข้างก็อยากได้ส้อมเดียวกัน = แย่งกัน`, cap: "ส้อมมีจำกัด คนเยอะกว่า → ต้องจัดคิวให้ทุกคนได้กินโดยไม่มีใครอดตาย", lang: "txt" },
+      { h: "เงื่อนไขชนะ/แพ้" },
+      { ul: [
+        "ถ้านักปรัชญาคนใด **ไม่ได้กินภายใน `time_to_die` ms** นับจากมื้อล่าสุด → **ตาย** → โปรแกรมต้องพิมพ์ `died` แล้วหยุดทันที",
+        "ห้ามนักปรัชญาตาย — ต้องจัดจังหวะให้ทุกคนได้กินทันเวลา",
+        "ถ้ามี argument ที่ 5 (`must_eat`): พอทุกคนกินครบจำนวนมื้อนั้น → จบเกมอย่างสงบ",
+      ]},
+      { h: "argument ที่รับ" },
+      { code: String.raw`./philo  n_philo  t_die  t_eat  t_sleep  [n_meals]
+             │      │      │      │        └ (optional) กินกี่มื้อแล้วจบ
+             │      │      │      └ เวลานอน (ms)
+             │      │      └ เวลากิน (ms)
+             │      └ ตายถ้าไม่กินภายในกี่ ms
+             └ จำนวนนักปรัชญา`, lang: "txt" },
+      { h: "ทำไมโจทย์นี้โหด" },
+      { p: "นี่คือปัญหา **concurrency** คลาสสิก — หลาย thread ทำงานพร้อมกันและแย่ง resource ร่วมกัน. ความท้าทายคือ 3 อย่างพร้อมกัน: (1) **ห้าม deadlock** (ทุกคนถือส้อมเดียวแล้วรอกันวน), (2) **ห้าม data race** (เขียน/อ่านตัวแปรร่วมพร้อมกัน), (3) **ตรงเวลาเป๊ะ** (ตรวจตายแม่นระดับ ms)" },
+      { h: "Deadlock คืออะไร — หัวใจของโจทย์" },
+      { p: "ถ้าทุกคนหยิบส้อม **ซ้ายพร้อมกัน** ทุกคนจะถือส้อม 1 อันแล้วรอส้อมขวา (ที่เพื่อนถืออยู่) ตลอดกาล → ค้างทั้งวง = **deadlock**. การออกแบบลำดับหยิบส้อมให้ดีคือกุญแจที่ทำให้โจทย์นี้ผ่าน" },
+      { note: "วิธีกัน deadlock ในโค้ดนี้: คนเลข **คู่หยิบซ้ายก่อน, คนเลขคี่หยิบขวาก่อน** — ทำลายความสมมาตร ทำให้ไม่มีทางที่ทุกคนถือส้อมเดียวแล้วรอวน" },
+    ],
+    theory: [
+      { p: "หมวดนี้รวมทฤษฎี **multithreading + การซิงค์** ที่ต้องเข้าใจก่อนอ่านโค้ด philosophers" },
+      { h: "1) Process vs Thread" },
+      { table: { head: ["", "Process", "Thread"], rows: [
+        ["หน่วยความจำ", "แยกกันคนละก้อน", "แชร์ก้อนเดียวกัน"],
+        ["สื่อสารกัน", "ยาก (ต้อง IPC)", "ง่าย (อ่านตัวแปรเดียวกัน)"],
+        ["mandatory ใช้", "—", "✓ pthread (1 thread/คน)"],
+        ["bonus ใช้", "✓ fork (1 process/คน)", "—"],
+      ]}},
+      { p: "mandatory ใช้ **thread**: นักปรัชญาแต่ละคน = 1 thread ทุก thread แชร์ memory เดียวกัน (struct data) ทำให้แชร์สถานะง่าย — แต่ก็ต้องระวัง race condition" },
+      { h: "2) Race condition คืออะไร" },
+      { p: "**Race condition** = เมื่อ 2 thread อ่าน/เขียนตัวแปรร่วมพร้อมกัน ผลลัพธ์ขึ้นกับ 'ใครชนะการแข่ง' ที่คาดเดาไม่ได้ → bug ที่เกิดบ้างไม่เกิดบ้าง (heisenbug)" },
+      { code: String.raw`thread A: meals_eaten++   (อ่าน 5 → +1 → เขียน 6)
+thread B: meals_eaten++   (อ่าน 5 → +1 → เขียน 6)
+ถ้าทำซ้อนกัน: ควรได้ 7 แต่ได้ 6 → ข้อมูลหาย!`, cap: "การ ++ ไม่ใช่ atomic — มันคือ อ่าน-บวก-เขียน 3 ขั้น ที่ถูกแทรกได้", lang: "txt" },
+      { h: "3) Mutex (Mutual Exclusion)" },
+      { p: "**Mutex** = กุญแจล็อก ที่การันตีว่า 'ครั้งละ 1 thread เท่านั้น' ที่เข้าถึง resource ได้. thread ต้อง `lock` ก่อนเข้า และ `unlock` เมื่อออก — ถ้ามีคนถือกุญแจอยู่ คนอื่นต้องรอ" },
+      { table: { head: ["ฟังก์ชัน", "ทำอะไร"], rows: [
+        ["`pthread_mutex_init`", "สร้างกุญแจ"],
+        ["`pthread_mutex_lock`", "ขอถือกุญแจ (รอถ้ามีคนถือ)"],
+        ["`pthread_mutex_unlock`", "คืนกุญแจ"],
+        ["`pthread_mutex_destroy`", "ทำลายกุญแจ (ตอนจบ)"],
+      ]}},
+      { p: "ใน philosophers: **ส้อมแต่ละอัน = 1 mutex**. การหยิบส้อม = lock mutex, การวางส้อม = unlock. นอกจากนี้ยังมี mutex สำหรับ print, stop flag, และ meal data" },
+      { h: "4) Deadlock — เงื่อนไข 4 ข้อ (Coffman)" },
+      { p: "deadlock เกิดเมื่อครบทั้ง 4 เงื่อนไขนี้พร้อมกัน — ทำลายข้อใดข้อหนึ่งก็กันได้:" },
+      { table: { head: ["เงื่อนไข", "ความหมาย", "เรากันด้วย"], rows: [
+        ["Mutual exclusion", "resource ใช้ได้ทีละคน", "(จำเป็น คงไว้)"],
+        ["Hold and wait", "ถือของอยู่แล้วรอของเพิ่ม", "—"],
+        ["No preemption", "แย่งของจากคนอื่นไม่ได้", "—"],
+        ["Circular wait", "รอกันเป็นวงกลม", "✓ คู่/คี่หยิบสลับลำดับ → ตัดวงจร"],
+      ]}},
+      { h: "5) วัดเวลาแบบ ms: gettimeofday" },
+      { p: "ต้องตรวจการตายแม่นระดับ millisecond. ใช้ `gettimeofday` แปลงเป็น ms:" },
+      { code: String.raw`long get_time(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000L + tv.tv_usec / 1000);
+}`, cap: "วินาที×1000 + ไมโครวินาที/1000 = เวลาเป็น ms", lang: "c" },
+      { h: "🔬 เจาะลึก: ทำไม usleep ธรรมดาไม่แม่นพอ" },
+      { p: "`usleep(n)` การันตีแค่ 'อย่างน้อย n' แต่ OS อาจปลุกช้ากว่านั้น — ถ้านอนยาวทีเดียวอาจเลยเวลาตายไปแล้วค่อยตื่น. โค้ดนี้จึงทำ **precise_sleep**: นอนทีละ 200µs สั้น ๆ แล้ววน เช็คเวลาจริงและ stop flag ทุกครั้ง → ตื่นตรงเวลาและหยุดได้ทันทีเมื่อมีคนตาย" },
+      { code: String.raw`void precise_sleep(long ms, t_data *data) {
+    long start = get_time();
+    while (get_time() - start < ms) {
+        if (is_stopped(data)) break;   // มีคนตายแล้ว หยุดเลย
+        usleep(200);                    // นอนสั้น ๆ แล้วเช็คใหม่
+    }
+}`, cap: "busy-wait แบบฉลาด: แม่นกว่า usleep ก้อนเดียว และตอบสนอง stop ได้ไว", lang: "c" },
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **struct, การแชร์ memory, และ mutex** ที่ philosophers ใช้" },
+      { h: "struct 2 ตัวหลัก" },
+      { code: String.raw`typedef struct s_philo {
+    int             id;
+    pthread_t       thread;        /* thread ของคนนี้ */
+    long            meals_eaten;
+    long            last_meal;     /* เวลากินมื้อล่าสุด (ms) */
+    pthread_mutex_t *left_fork;    /* ชี้ไปส้อมซ้าย */
+    pthread_mutex_t *right_fork;   /* ชี้ไปส้อมขวา */
+    pthread_mutex_t meal_lock;     /* กันแก้ last_meal/meals_eaten พร้อมกัน */
+    t_data          *data;         /* ชี้กลับไปข้อมูลกลาง */
+} t_philo;
+
+typedef struct s_data {
+    int             num_philo;
+    long            time_to_die, time_to_eat, time_to_sleep, must_eat;
+    int             stop;          /* ธงบอกว่าจบเกมหรือยัง */
+    long            start_time;
+    pthread_mutex_t *forks;        /* อาเรย์ของ mutex (ส้อม) */
+    pthread_mutex_t print_lock;    /* กัน print ทับกัน */
+    pthread_mutex_t stop_lock;     /* กันอ่าน/เขียน stop พร้อมกัน */
+    t_philo         *philos;
+} t_data;`, cap: "data = สถานะกลางที่ทุก thread แชร์; philo = สถานะเฉพาะตัวของแต่ละคน", lang: "c" },
+      { h: "ส้อม = อาเรย์ของ mutex ที่แชร์ระหว่างเพื่อนบ้าน" },
+      { code: String.raw`philos[i].left_fork  = &forks[i];
+philos[i].right_fork = &forks[(i + 1) % num_philo];`, cap: "ส้อมซ้ายของคน i = forks[i]; ส้อมขวา = forks[i+1] วนกลับด้วย %num → โต๊ะกลม", lang: "c" },
+      { p: "สังเกต: ส้อมขวาของคนที่ i **คือส้อมเดียวกับ** ส้อมซ้ายของคนที่ i+1 — นี่คือการ 'แชร์' ที่ทำให้ต้องใช้ mutex กันแย่ง" },
+      { h: "mutex 4 ประเภทในโค้ดนี้" },
+      { table: { head: ["mutex", "ป้องกันอะไร"], rows: [
+        ["`forks[i]`", "ส้อมแต่ละอัน — ครั้งละ 1 คนถือ"],
+        ["`meal_lock` (ต่อคน)", "last_meal & meals_eaten ของคนนั้น"],
+        ["`print_lock`", "บรรทัด log ไม่พิมพ์ทับกัน"],
+        ["`stop_lock`", "ธง stop ที่หลาย thread อ่าน/เขียน"],
+      ]}},
+      { note: "ทำไมต้อง meal_lock แยกต่อคน: monitor (อีก thread) อ่าน last_meal ขณะที่เจ้าตัวกำลังเขียน → ต้องล็อกกันชนกัน ไม่งั้น race" },
+      { h: "ทำไม stop เป็น int + mutex ไม่ใช่ตัวแปรธรรมดา" },
+      { p: "ธง `stop` ถูกอ่านโดยทุก thread (ในลูป) และเขียนโดย monitor — เป็น shared data ที่ race ได้ จึงต้องอ่าน/เขียนผ่าน `stop_lock` เสมอ (ฟังก์ชัน `is_stopped` และ `set_stop`)" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์ (mandatory)" },
+      { table: { head: ["ไฟล์", "หน้าที่"], rows: [
+        ["`main.c`", "parse → init → สร้าง thread → monitor → join → cleanup"],
+        ["`parse.c`", "อ่าน argument + ตรวจความถูกต้อง"],
+        ["`init.c`", "จอง+init mutex ทั้งหมด, ตั้งค่า philo"],
+        ["`routine.c`", "สิ่งที่แต่ละ thread ทำ (กิน/นอน/คิด)"],
+        ["`monitor.c`", "thread หลักคอยตรวจว่าใครตาย/กินครบ"],
+        ["`utils.c`", "get_time, precise_sleep, print แบบ thread-safe"],
+      ]}},
+      { h: "โครงการทำงาน 2 ฝั่ง" },
+      { code: String.raw`main thread
+  ├─ สร้าง N thread (แต่ละคนรัน routine)
+  ├─ monitor(data)  ← วนตรวจไม่หยุด:
+  │     • ใครไม่กินเกิน time_to_die? → พิมพ์ died, set_stop
+  │     • ทุกคนกินครบ must_eat? → set_stop
+  └─ join ทุก thread → cleanup mutex
+
+แต่ละ philosopher thread (routine):
+  while (!stopped) {
+     หยิบส้อม → กิน → อัปเดต last_meal
+     นอน → คิด
+  }`, cap: "monitor เป็นกรรมการ, philosopher เป็นผู้เล่น — สื่อสารผ่านธง stop", lang: "txt" },
+      { h: "ลำดับใน main()" },
+      { code: String.raw`if (argc != 5 && argc != 6) → usage
+parse_args()                  // ตรวจ input
+if (must_eat == 0) return 0   // กิน 0 มื้อ = ไม่ต้องทำอะไร
+init_data()                   // จอง+init mutex
+start_threads()               // สร้าง thread + ตั้ง last_meal=start
+monitor()                     // main thread ทำหน้าที่ตรวจ
+join_threads()                // รอทุกคนจบ
+cleanup()                     // destroy mutex + free`, lang: "txt" },
+      { note: "เคสพิเศษ: คนเดียว (num_philo==1) มีส้อมแค่อันเดียว หยิบได้ข้างเดียว → กินไม่ได้ → ต้องตาย. โค้ดแยก lone_philo() จัดการเคสนี้ (หยิบส้อมเดียวแล้วรอจนตาย)" },
+    ],
+    dataflow: [
+      { p: "ไล่ฟังก์ชันสำคัญทีละตัว" },
+      { h: "routine() — ชีวิตของนักปรัชญา 1 คน" },
+      { code: String.raw`void *routine(void *arg)
+{
+    t_philo *philo = (t_philo *)arg;
+    if (philo->data->num_philo == 1)
+        return (lone_philo(philo));          // เคสคนเดียว
+    if (philo->id % 2 == 0)
+        precise_sleep(time_to_eat / 2, ...);  // คนคู่หน่วงเริ่ม
+    while (!is_stopped(philo->data))
+    {
+        do_eat(philo);                        // หยิบส้อม + กิน
+        if (is_stopped(philo->data)) break;
+        print_status(philo, "is sleeping");
+        precise_sleep(time_to_sleep, ...);
+        print_status(philo, "is thinking");
+    }
+    return (NULL);
+}`, cap: "วนกิน-นอน-คิด จนกว่าจะมีคนตาย/กินครบ (stop)", lang: "c" },
+      { p: "**ทำไมคนคู่หน่วงตอนเริ่ม:** ถ้าทุกคนพุ่งหยิบส้อมพร้อมกันจะแย่งกันชุลมุน. ให้คนเลขคู่รอครึ่งหนึ่งของ time_to_eat ก่อน → คนคี่ได้กินก่อน แล้วคนคู่ค่อยกิน → จังหวะ 'สลับฟันปลา' ลื่นไหล ลดการแย่ง" },
+      { h: "take_forks() — หยิบส้อมแบบกัน deadlock" },
+      { code: String.raw`static void take_forks(t_philo *philo)
+{
+    if (philo->id % 2 == 0) {              // คนเลขคู่: ซ้ายก่อน
+        lock(left_fork);  print "has taken a fork";
+        lock(right_fork); print "has taken a fork";
+    } else {                                // คนเลขคี่: ขวาก่อน
+        lock(right_fork); print "has taken a fork";
+        lock(left_fork);  print "has taken a fork";
+    }
+}`, cap: "ลำดับหยิบต่างกันตามคู่/คี่ → ทำลาย circular wait → ไม่มี deadlock", lang: "c" },
+      { h: "do_eat() — กินพร้อมอัปเดตเวลาอย่างปลอดภัย" },
+      { code: String.raw`static void do_eat(t_philo *philo)
+{
+    take_forks(philo);
+    lock(meal_lock);
+      philo->last_meal = get_time();   // รีเซ็ตนาฬิกาตาย
+    unlock(meal_lock);
+    print_status(philo, "is eating");
+    precise_sleep(time_to_eat, data);
+    lock(meal_lock);
+      philo->meals_eaten++;
+    unlock(meal_lock);
+    unlock(left_fork);
+    unlock(right_fork);                  // วางส้อมทั้งคู่
+}`, cap: "อัปเดต last_meal/meals_eaten ใต้ meal_lock เสมอ เพราะ monitor อ่านพร้อมกัน", lang: "c" },
+      { h: "monitor() — กรรมการตรวจการตาย" },
+      { code: String.raw`void monitor(t_data *data)
+{
+    while (!is_stopped(data)) {
+        for แต่ละคน:
+            if (someone_died(&philos[i])) return;  // เกิน t_die → died
+        if (all_ate(data)) return;                 // ทุกคนกินครบ
+        usleep(500);                                // เช็คถี่ ๆ
+    }
+}`, lang: "c" },
+      { code: String.raw`static int someone_died(t_philo *philo)
+{
+    lock(meal_lock);
+      since = get_time() - philo->last_meal;
+    unlock(meal_lock);
+    if (since > time_to_die) {
+        lock(print_lock);
+          set_stop(data);                  // หยุดก่อน
+          put_msg(data, id, "died");        // แล้วค่อยพิมพ์
+        unlock(print_lock);
+        return (1);
+    }
+    return (0);
+}`, cap: "set_stop ก่อนพิมพ์ died ใต้ print_lock → ไม่มี thread อื่นแทรกพิมพ์หลังคนตาย", lang: "c" },
+      { h: "print_status() — log แบบ thread-safe" },
+      { code: String.raw`void print_status(t_philo *philo, char *msg)
+{
+    lock(print_lock);
+      if (!is_stopped(philo->data))     // ห้ามพิมพ์อะไรหลังเกมจบ
+          put_msg(data, id, msg);
+    unlock(print_lock);
+}`, cap: "เช็ค stop ใต้ print_lock กันพิมพ์สถานะหลังมีคนตายไปแล้ว", lang: "c" },
+      { h: "is_stopped / set_stop — เข้าถึงธงอย่างปลอดภัย" },
+      { code: String.raw`int is_stopped(t_data *data) {
+    lock(stop_lock); int s = data->stop; unlock(stop_lock);
+    return (s);
+}
+void set_stop(t_data *data) {
+    lock(stop_lock); data->stop = 1; unlock(stop_lock);
+}`, cap: "ทุกการแตะ stop ผ่าน mutex → ไม่มี data race บนธงนี้", lang: "c" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. parse + ตรวจ argument (ตัวเลขบวก, จำนวน arg ถูก)",
+        "2. get_time + precise_sleep ให้แม่นก่อน — เป็นรากฐานทั้งหมด",
+        "3. init mutex ทั้งหมด + ตั้งค่า philo (ส้อมซ้าย/ขวา)",
+        "4. routine แบบยังไม่กัน deadlock + print_status thread-safe",
+        "5. monitor ตรวจการตาย",
+        "6. กัน deadlock (คู่/คี่ + หน่วงเริ่ม) + เคสคนเดียว",
+        "7. must_eat (จบเมื่อทุกคนกินครบ) + cleanup ไม่ให้ leak",
+        "8. ตรวจด้วย valgrind --tool=helgrind (หา data race)",
+      ]},
+      { h: "บั๊กยอดฮิตและวิธีกัน" },
+      { table: { head: ["อาการ", "สาเหตุ", "แก้"], rows: [
+        ["ค้าง/ไม่ขยับเลย", "deadlock — ทุกคนถือส้อมเดียวรอวน", "คู่/คี่หยิบสลับลำดับ"],
+        ["ตายทั้งที่ไม่ควร", "นาฬิกาเริ่มผิด / last_meal ไม่ตั้งตอนเริ่ม", "ตั้ง last_meal = start_time ก่อนสร้าง thread"],
+        ["died พิมพ์ช้า/ซ้อนบรรทัดอื่น", "ไม่ set_stop ก่อนพิมพ์ / ไม่มี print_lock", "set_stop ก่อน แล้วพิมพ์ใต้ print_lock"],
+        ["helgrind ฟ้อง race", "อ่าน/เขียน shared โดยไม่ล็อก", "ทุก last_meal/meals_eaten/stop ต้องใต้ mutex"],
+        ["คนเดียวไม่ตาย/ค้าง", "ไม่แยกเคส num==1", "lone_philo หยิบส้อมเดียวแล้วรอจนตาย"],
+      ]}},
+      { h: "build / รัน" },
+      { code: String.raw`make
+./philo 5 800 200 200       # 5 คน ไม่มีใครควรตาย
+./philo 4 410 200 200       # ก้ำกึ่ง — เทสจังหวะ
+./philo 1 800 200 200       # คนเดียว → ตาย (ส้อมไม่พอ)
+./philo 5 800 200 200 7     # ทุกคนกิน 7 มื้อแล้วจบ`, lang: "bash" },
+    ],
+    tricks: [
+      { h: "ทริค 1: คู่/คี่หยิบส้อมสลับลำดับ — กัน deadlock" },
+      { p: "หัวใจของโปรเจกต์. ถ้าทุกคนหยิบซ้ายก่อนเหมือนกัน = deadlock แน่. ให้คนเลขคู่หยิบซ้ายก่อน คนคี่หยิบขวาก่อน → ทำลายความสมมาตร = ตัด circular wait หนึ่งในเงื่อนไข deadlock" },
+      { h: "ทริค 2: หน่วงคนเลขคู่ตอนเริ่ม" },
+      { p: "ให้คนคู่ `precise_sleep(time_to_eat/2)` ก่อนเริ่ม → กระจายการแย่งส้อมเป็นจังหวะสลับฟันปลา ทำให้ throughput ดีและไม่มีใครอดนาน" },
+      { h: "ทริค 3: precise_sleep แทน usleep ก้อนเดียว" },
+      { p: "นอนทีละ 200µs แล้ววนเช็คเวลาจริง — แม่นกว่า usleep ยาว ๆ (ที่ OS อาจปลุกช้า) และยังเช็ค stop flag ได้ทุกรอบ → หยุดทันทีเมื่อมีคนตาย ไม่ค้างนอนต่อ" },
+      { h: "ทริค 4: mutex ต่อคนสำหรับ meal data" },
+      { p: "แยก `meal_lock` ของแต่ละคน (ไม่ใช้ตัวเดียวรวม) → monitor ตรวจคนหนึ่งไม่บล็อกการกินของอีกคน = ลดการแย่ง lock และ log ตรงเวลากว่า" },
+      { h: "ทริค 5: set_stop ก่อนพิมพ์ died ใต้ print_lock" },
+      { p: "ตั้งธง stop ก่อน แล้วค่อยพิมพ์ `died` โดยถือ print_lock ตลอด → การันตีว่า `died` เป็นบรรทัดสุดท้าย ไม่มี thread อื่นแทรกพิมพ์ 'is eating' หลังจากมีคนตายแล้ว" },
+      { h: "ทริค 6: เขียน log ด้วย write ครั้งเดียว" },
+      { p: "ประกอบข้อความทั้งบรรทัด (เวลา + id + msg + \\n) ลง buffer แล้ว `write` ครั้งเดียว — ลดโอกาสที่ output แตกกลางบรรทัด (เร็วและ atomic กว่าหลาย printf)" },
+    ],
+    eval: [
+      { qa: [
+        { q: "ทำไมใช้ thread ไม่ใช่ process (mandatory)?", a: "นักปรัชญาแชร์ส้อม (resource ร่วม) — thread แชร์ memory เดียวกันทำให้แชร์สถานะง่าย; mandatory บังคับ pthread, bonus ใช้ process+semaphore" },
+        { q: "mutex คืออะไร ใช้ทำอะไรในโจทย์นี้?", a: "กุญแจที่ให้เข้าถึง resource ได้ครั้งละ 1 thread; ส้อมแต่ละอัน = 1 mutex, หยิบ=lock วาง=unlock, ยังใช้กัน race บน print/stop/meal data" },
+        { q: "deadlock เกิดยังไง กันยังไง?", a: "ถ้าทุกคนหยิบส้อมซ้ายพร้อมกันจะถือ 1 อันแล้วรอขวาที่เพื่อนถือ ค้างวน; กันด้วยให้คนคู่หยิบซ้ายก่อน คนคี่หยิบขวาก่อน = ตัด circular wait" },
+        { q: "race condition คืออะไร เจอที่ไหนในโค้ด?", a: "หลาย thread อ่าน/เขียนตัวแปรร่วมพร้อมกันได้ผลคาดเดาไม่ได้; เจอที่ last_meal, meals_eaten, stop — แก้ด้วยล็อก mutex ทุกครั้งที่แตะ" },
+        { q: "ตรวจการตายยังไงให้แม่น?", a: "monitor (thread แยก) วนเช็ค get_time()-last_meal > time_to_die ทุก ~500µs; อ่าน last_meal ใต้ meal_lock กัน race" },
+        { q: "ทำไมต้อง precise_sleep ไม่ใช้ usleep ตรง ๆ?", a: "usleep ก้อนใหญ่ OS อาจปลุกช้าทำให้เลยเวลาตาย; precise_sleep นอนทีละ 200µs วนเช็คเวลาจริง+stop flag → แม่นและหยุดได้ทันที" },
+        { q: "เคสคนเดียวจัดการยังไง?", a: "มีส้อมแค่อันเดียว หยิบได้ข้างเดียว กินไม่ได้ → lone_philo หยิบส้อมแล้วรอจน time_to_die → ตาย (ถูกต้องตามโจทย์)" },
+        { q: "ทำไมพิมพ์ด้วย write ก้อนเดียว + print_lock?", a: "print_lock กัน 2 thread พิมพ์ทับกัน; ประกอบทั้งบรรทัดแล้ว write ครั้งเดียวกัน output แตกกลางบรรทัด" },
+        { q: "must_eat ทำงานยังไง?", a: "ถ้าระบุ arg ที่ 5 monitor นับว่าทุกคน meals_eaten >= must_eat ไหม ครบทุกคนก็ set_stop จบเกมอย่างสงบ (ไม่มีใครตาย)" },
+        { q: "ทำไมหน่วงคนเลขคู่ตอนเริ่ม?", a: "กระจายการแย่งส้อมเป็นจังหวะสลับ (คี่กินก่อน คู่ตามมา) ลดการชนกันแย่งส้อม ทำให้ทุกคนได้กินทันเวลา throughput ดีขึ้น" },
+        { q: "จัดการ memory/mutex ตอนจบยังไง?", a: "cleanup() เรียก pthread_mutex_destroy ทุก mutex (forks, meal_lock, print_lock, stop_lock) แล้ว free(forks/philos); ตรวจ leak ด้วย valgrind" },
+        { q: "stop ทำไมต้องมี mutex ของตัวเอง?", a: "stop ถูกอ่านโดยทุก thread และเขียนโดย monitor = shared data; เข้าถึงผ่าน stop_lock เสมอ (is_stopped/set_stop) กัน data race" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`./philo 5 800 200 200       # ไม่ควรมีใครตาย (รันยาว ๆ ดู)
+./philo 4 410 200 200       # จังหวะก้ำกึ่ง
+./philo 1 800 200 200       # ต้องตายที่ ~800ms
+./philo 5 800 200 200 7     # จบเมื่อทุกคนกิน 7 มื้อ
+valgrind --tool=helgrind ./philo 4 410 200 200   # หา data race`, lang: "bash" },
+    ],
+  },
+},
+/* ===================== CPP MODULE 00 ===================== */
+{
+  id: "cpp_module_00",
+  name: "CPP Module 00",
+  tag: { th: "ก้าวแรกสู่ C++ และ OOP — class, encapsulation, static member ผ่านโจทย์ Account ที่ต้องไล่จาก log", en: "First steps into C++ & OOP — classes, encapsulation, static members via the reverse-from-log Account exercise" },
+  accent: "#feca57",
+  sections: {
+    principle: [
+      { h: "โมดูลนี้สอนอะไร" },
+      { p: "CPP Module 00 คือ **ก้าวแรกจาก C ไป C++** — เปลี่ยนจากคิดแบบ 'ฟังก์ชัน + struct' ไปเป็น **OOP (Object-Oriented Programming)**: ห่อข้อมูล + พฤติกรรมไว้ใน **class** เดียวกัน. หัวข้อหลัก: namespace, class, member function, encapsulation, และ **static member**" },
+      { h: "โจทย์ในโฟลเดอร์นี้: ex02 — Account (GlobalBanksters United)" },
+      { p: "โจทย์สุดคลาสสิก: ให้ `Account.hpp` (header ตายตัว ห้ามแก้), `tests.cpp` (โปรแกรมทดสอบตายตัว), และ **ไฟล์ log ผลลัพธ์ที่คาดหวัง** มาให้ — แต่ **ไม่ให้ตัวโค้ด `Account.cpp`**. งานคือ **เขียน Account.cpp ขึ้นมาเองให้ output ตรงกับ log เป๊ะ** (ต่างกันได้แค่ timestamp)" },
+      { code: String.raw`[19920104_091532] index:0;amount:42;created
+[19920104_091532] index:1;amount:54;created
+...
+[19920104_091532] accounts:8;total:20049;deposits:0;withdrawals:0
+[19920104_091532] index:0;p_amount:42;deposit:5;amount:47;nb_deposits:1`, cap: "ส่วนหนึ่งของ log ที่ต้องทำให้ตรง — เราต้อง 'ถอดรหัส' ว่าแต่ละ method ต้องพิมพ์อะไร", lang: "txt" },
+      { note: "นี่คือ reverse engineering: อ่าน log + header + tests แล้วเดา behavior ของแต่ละ method ให้ผลลัพธ์ออกมาเหมือนกัน — ฝึกอ่านโค้ดและอนุมานพฤติกรรม" },
+      { h: "ทำไมโจทย์นี้สอน OOP ได้ดี" },
+      { ul: [
+        "**Account แต่ละตัว = 1 object** มีเงินของตัวเอง (`_amount`) แยกกัน",
+        "**ตัวนับรวมทั้งธนาคาร** (จำนวนบัญชี, เงินรวม) = **static member** ที่ทุก object แชร์ร่วมกัน",
+        "ข้อมูลทั้งหมดเป็น `private` — แตะได้ผ่าน method เท่านั้น = **encapsulation**",
+      ]},
+      { h: "เป้าหมายการเรียนรู้" },
+      { table: { head: ["แนวคิด", "เห็นได้จาก"], rows: [
+        ["Class & object", "Account หนึ่งตัว = หนึ่งบัญชี"],
+        ["Constructor / Destructor", "พิมพ์ ;created ตอนเกิด, ;closed ตอนตาย"],
+        ["Static member", "ตัวนับรวม _nbAccounts, _totalAmount"],
+        ["Encapsulation", "ข้อมูล private + method public"],
+        ["const member function", "checkAmount() const, displayStatus() const"],
+      ]}},
+    ],
+    theory: [
+      { p: "หมวดนี้รวมทฤษฎี **C++ และ OOP** ที่ต้องเข้าใจก่อนอ่าน Account" },
+      { h: "1) C++ ต่างจาก C ยังไง" },
+      { table: { head: ["", "C", "C++"], rows: [
+        ["รวมข้อมูล+ฟังก์ชัน", "struct + ฟังก์ชันแยก", "class (รวมในตัว)"],
+        ["พิมพ์ออกจอ", "printf", "std::cout <<"],
+        ["จัด memory", "malloc/free", "new/delete"],
+        ["namespace", "ไม่มี", "std::, ::"],
+        ["compiler", "cc / gcc", "c++ / g++"],
+      ]}},
+      { note: "Module นี้บังคับ -std=c++98 — มาตรฐาน C++ เก่า (ไม่มี auto, nullptr, range-for) เพื่อฝึกพื้นฐานแน่น ๆ" },
+      { h: "2) Class & Object" },
+      { p: "**Class** = พิมพ์เขียว (blueprint) บอกว่า object ชนิดนี้มีข้อมูลอะไร (member variable) และทำอะไรได้ (member function). **Object** = ตัวจริงที่สร้างจาก class. หนึ่ง class สร้างได้หลาย object แต่ละตัวมีข้อมูลของตัวเอง" },
+      { code: String.raw`class Account { ... };          // พิมพ์เขียว
+Account a(42);                   // object ตัวที่ 1 (เงิน 42)
+Account b(54);                   // object ตัวที่ 2 (เงิน 54)
+// a กับ b มี _amount แยกกัน`, lang: "cpp" },
+      { h: "3) Encapsulation (การห่อหุ้ม)" },
+      { p: "ซ่อนข้อมูลภายในไว้ ไม่ให้แก้ตรง ๆ จากข้างนอก — เข้าถึงได้ผ่าน method ที่เราควบคุมเท่านั้น. ป้องกันการแก้ค่ามั่ว ๆ และทำให้แก้โค้ดภายในได้โดยไม่กระทบผู้ใช้" },
+      { table: { head: ["access", "ใครเข้าถึงได้"], rows: [
+        ["`public`", "ใครก็ได้ (interface ภายนอก)"],
+        ["`private`", "เฉพาะ method ของ class นี้"],
+        ["`protected`", "class นี้ + class ลูก (สืบทอด)"],
+      ]}},
+      { p: "ใน Account: `_amount`, `_nbAccounts` เป็น `private` ทั้งหมด — โลกภายนอกดูได้แค่ผ่าน `checkAmount()`, `getNbAccounts()` ที่เป็น `public`" },
+      { h: "4) Constructor & Destructor" },
+      { p: "**Constructor** = ฟังก์ชันพิเศษที่รันอัตโนมัติตอน object **เกิด** (ตั้งค่าเริ่มต้น). **Destructor** (`~`) = รันอัตโนมัติตอน object **ตาย** (เก็บกวาด). ชื่อต้องตรงกับชื่อ class" },
+      { code: String.raw`Account( int initial_deposit );  // constructor (รับเงินตั้งต้น)
+~Account( void );                 // destructor (ไม่มีพารามิเตอร์)`, cap: "ใน Account ทั้งคู่พิมพ์ timestamp + สถานะ (;created / ;closed)", lang: "cpp" },
+      { h: "5) Static member — ของที่ 'ทั้ง class แชร์ร่วมกัน'" },
+      { p: "member ปกติ → แต่ละ object มีสำเนาของตัวเอง. **static member** → มีชุดเดียว **ทุก object แชร์ร่วมกัน** เหมือนตัวแปรกลางของทั้ง class. เหมาะกับ 'ตัวนับรวม' เช่น มีกี่บัญชีทั้งหมด, เงินรวมทั้งธนาคาร" },
+      { code: String.raw`static int _nbAccounts;    // นับจำนวนบัญชีทั้งหมด (ชุดเดียว)
+// ในไฟล์ .cpp ต้องนิยามค่าเริ่มต้นนอก class:
+int Account::_nbAccounts = 0;`, cap: "static member ต้อง 'นิยาม' แยกในไฟล์ .cpp ครั้งเดียว ไม่งั้น linker error", lang: "cpp" },
+      { h: "6) static member function" },
+      { p: "method ที่ทำงานกับ static member ได้โดย **ไม่ต้องมี object** — เรียกผ่านชื่อ class ตรง ๆ เช่น `Account::getNbAccounts()`. มันไม่มี `this` เพราะไม่ผูกกับ object ตัวใดตัวหนึ่ง" },
+      { h: "7) const member function" },
+      { p: "method ที่ต่อท้ายด้วย `const` สัญญาว่า **จะไม่แก้ไขข้อมูลของ object**. เรียกได้กับ object ที่เป็น const และช่วยให้ compiler จับ bug ถ้าเผลอแก้ค่า" },
+      { code: String.raw`int  checkAmount( void ) const;      // แค่อ่าน _amount → const
+void displayStatus( void ) const;    // แค่แสดงผล → const`, lang: "cpp" },
+      { h: "🔬 เจาะลึก: this pointer คืออะไร" },
+      { p: "ทุก non-static method มี pointer ซ่อนชื่อ `this` ชี้ไปยัง object ที่เรียก method นั้นอยู่. `this->_amount` คือ 'เงินของ object ตัวที่กำลังทำงานอยู่' — ทำให้ method เดียวใช้ได้กับทุก object โดยรู้ว่าตอนนี้ทำงานกับตัวไหน" },
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **โครงสร้างข้อมูลใน class Account** — member variable, static, และ memory" },
+      { h: "member 2 ระดับใน Account" },
+      { code: String.raw`class Account {
+private:
+    /* static = ของรวมทั้งธนาคาร (ทุก object แชร์) */
+    static int _nbAccounts;          // มีกี่บัญชี
+    static int _totalAmount;         // เงินรวมทั้งหมด
+    static int _totalNbDeposits;     // ฝากรวมกี่ครั้ง
+    static int _totalNbWithdrawals;  // ถอนรวมกี่ครั้ง
+
+    /* ปกติ = ของเฉพาะบัญชีนี้ (แต่ละ object มีของตัวเอง) */
+    int _accountIndex;               // เลขบัญชี
+    int _amount;                     // เงินในบัญชีนี้
+    int _nbDeposits;                 // บัญชีนี้ฝากกี่ครั้ง
+    int _nbWithdrawals;              // บัญชีนี้ถอนกี่ครั้ง
+};`, cap: "เส้นแบ่งสำคัญ: static = ระดับ class (รวม), ปกติ = ระดับ object (เฉพาะตัว)", lang: "cpp" },
+      { h: "ทำไม static ต้องนิยามแยกในไฟล์ .cpp" },
+      { p: "ใน header แค่ **ประกาศ** ว่า 'มี static member นี้อยู่' แต่ยังไม่จองที่จริง. ต้อง **นิยาม** (จองที่ + ตั้งค่า) ในไฟล์ .cpp ครั้งเดียว ไม่งั้น linker หาตัวจริงไม่เจอ:" },
+      { code: String.raw`/* บนสุดของ Account.cpp */
+int Account::_nbAccounts        = 0;
+int Account::_totalAmount       = 0;
+int Account::_totalNbDeposits   = 0;
+int Account::_totalNbWithdrawals = 0;`, cap: "ถ้าลืมบรรทัดนี้ → undefined reference ตอน link", lang: "cpp" },
+      { h: "lifecycle ของ static counter" },
+      { code: String.raw`สร้าง Account(42):
+  _accountIndex = _nbAccounts;   // จอง index จากตัวนับปัจจุบัน (0)
+  _amount = 42;
+  _nbAccounts++;                 // เพิ่มตัวนับรวม → 1
+  _totalAmount += 42;            // บวกเข้าเงินรวม
+
+สร้าง Account(54):
+  _accountIndex = _nbAccounts;   // ได้ index 1
+  _nbAccounts++;                 // → 2
+  ...`, cap: "index ของบัญชีใหม่ = จำนวนบัญชีที่มีอยู่ก่อนหน้า — นับ 0,1,2,... อัตโนมัติ", lang: "txt" },
+      { h: "typedef Account t — ลูกเล่นใน header" },
+      { p: "`typedef Account t;` สร้างชื่อเล่น `Account::t` ให้ใช้แทน `Account` — `tests.cpp` ใช้มันสร้าง `std::vector<Account::t>`. เป็นแค่ alias ไม่มีผลต่อ logic แต่ต้องมีใน header (ซึ่งให้มาแล้ว)" },
+      { h: "ทำไมทุกอย่างเป็น int (ไม่ใช่ float)" },
+      { p: "ระบบบัญชีในโจทย์ใช้จำนวนเต็มล้วน — ไม่มีเศษสตางค์. ทำให้ output เป็นเลขกลม ๆ ตรงกับ log ได้ง่าย ไม่ต้องกังวลเรื่องความแม่นยำทศนิยม" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์ (ex02)" },
+      { table: { head: ["ไฟล์", "แก้ได้ไหม", "หน้าที่"], rows: [
+        ["`Account.hpp`", "❌ ห้ามแก้", "ประกาศ class (interface ตายตัว)"],
+        ["`tests.cpp`", "❌ ห้ามแก้", "โปรแกรมทดสอบ (สร้างบัญชี ฝาก ถอน)"],
+        ["`*.log`", "อ้างอิง", "ผลลัพธ์ที่ถูกต้อง ใช้เทียบ"],
+        ["`Account.cpp`", "✅ ที่เราเขียน", "implement ทุก method ให้ตรง log"],
+        ["`Makefile`", "✅", "build ด้วย -std=c++98"],
+      ]}},
+      { h: "interface ที่ต้อง implement (จาก header)" },
+      { code: String.raw`/* static — เรียกผ่านชื่อ class ไม่ต้องมี object */
+static int  getNbAccounts();
+static int  getTotalAmount();
+static int  getNbDeposits();
+static int  getNbWithdrawals();
+static void displayAccountsInfos();
+
+/* ปกติ — ทำงานกับ object */
+Account( int initial_deposit );      // constructor
+~Account();                           // destructor
+void makeDeposit( int deposit );
+bool makeWithdrawal( int withdrawal );
+int  checkAmount() const;
+void displayStatus() const;
+
+/* private helper */
+static void _displayTimestamp();`, cap: "header กำหนด signature ทั้งหมด — งานคือเติม 'เนื้อใน' ให้ output ตรง log", lang: "cpp" },
+      { h: "tests.cpp ทำอะไร (ลำดับการเรียก)" },
+      { code: String.raw`1. สร้าง 8 บัญชี เงินตั้งต้น {42,54,957,...}  → 8 บรรทัด ;created
+2. displayAccountsInfos()                       → 1 บรรทัดสรุป
+3. displayStatus() ทุกบัญชี                      → 8 บรรทัด
+4. makeDeposit() ทุกบัญชี                         → 8 บรรทัด deposit
+5. displayAccountsInfos() + displayStatus()×8
+6. makeWithdrawal() ทุกบัญชี (บางอันถูกปฏิเสธ)
+7. displayAccountsInfos() + displayStatus()×8
+8. จบ main → destructor พิมพ์ ;closed ×8`, cap: "ลำดับนี้กำหนดลำดับบรรทัดใน log ที่เราต้องทำให้ตรง", lang: "txt" },
+      { note: "ตอนจบ main object ใน vector ถูกทำลายเรียง index → destructor พิมพ์ ;closed 8 บรรทัดเป็นท้ายสุดของ log" },
+    ],
+    dataflow: [
+      { p: "ไล่ทุก method ทีละตัว — เทียบกับบรรทัด log ที่มันสร้าง" },
+      { h: "Constructor — Account(int initial_deposit)" },
+      { code: String.raw`Account::Account( int initial_deposit )
+{
+    this->_accountIndex = _nbAccounts;   // เลขบัญชี = ตัวนับปัจจุบัน
+    this->_amount = initial_deposit;
+    this->_nbDeposits = 0;
+    this->_nbWithdrawals = 0;
+    _nbAccounts++;                        // เพิ่มตัวนับรวม
+    _totalAmount += initial_deposit;      // เพิ่มเงินรวม
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex
+              << ";amount:" << _amount << ";created" << std::endl;
+}`, cap: "ออก: [ts] index:0;amount:42;created", lang: "cpp" },
+      { h: "Destructor — ~Account()" },
+      { code: String.raw`Account::~Account( void )
+{
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex
+              << ";amount:" << _amount << ";closed" << std::endl;
+}`, cap: "ออก: [ts] index:0;amount:42;closed", lang: "cpp" },
+      { h: "makeDeposit(int deposit)" },
+      { code: String.raw`void Account::makeDeposit( int deposit )
+{
+    int p_amount = this->_amount;        // จำเงินก่อนฝาก (previous)
+    this->_amount += deposit;
+    this->_nbDeposits++;
+    _totalAmount += deposit;             // อัปเดต static รวม
+    _totalNbDeposits++;
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+              << ";deposit:" << deposit << ";amount:" << _amount
+              << ";nb_deposits:" << _nbDeposits << std::endl;
+}`, cap: "ออก: [ts] index:0;p_amount:42;deposit:5;amount:47;nb_deposits:1", lang: "cpp" },
+      { h: "makeWithdrawal(int withdrawal) — มีเงื่อนไขปฏิเสธ" },
+      { code: String.raw`bool Account::makeWithdrawal( int withdrawal )
+{
+    int p_amount = this->_amount;
+    _displayTimestamp();
+    if ( withdrawal > this->_amount )            // เงินไม่พอ
+    {
+        std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+                  << ";withdrawal:refused" << std::endl;
+        return (false);
+    }
+    this->_amount -= withdrawal;
+    this->_nbWithdrawals++;
+    _totalAmount -= withdrawal;
+    _totalNbWithdrawals++;
+    std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+              << ";withdrawal:" << withdrawal << ";amount:" << _amount
+              << ";nb_withdrawals:" << _nbWithdrawals << std::endl;
+    return (true);
+}`, cap: "ถ้าถอนเกินเงิน → ;withdrawal:refused และ return false (เบาะแสจาก log)", lang: "cpp" },
+      { h: "static getters + displayAccountsInfos" },
+      { code: String.raw`int  Account::getNbAccounts()  { return (_nbAccounts); }
+int  Account::getTotalAmount() { return (_totalAmount); }
+/* ... */
+void Account::displayAccountsInfos()
+{
+    _displayTimestamp();
+    std::cout << "accounts:" << _nbAccounts << ";total:" << _totalAmount
+              << ";deposits:" << _totalNbDeposits
+              << ";withdrawals:" << _totalNbWithdrawals << std::endl;
+}`, cap: "ออก: [ts] accounts:8;total:20049;deposits:0;withdrawals:0", lang: "cpp" },
+      { h: "_displayTimestamp() — หัวใจของทุกบรรทัด" },
+      { code: String.raw`void Account::_displayTimestamp( void )
+{
+    std::time_t now = std::time(NULL);
+    std::tm    *lt  = std::localtime(&now);
+    char        buf[32];
+    std::strftime(buf, sizeof(buf), "[%Y%m%d_%H%M%S] ", lt);
+    std::cout << buf;
+}`, cap: "ใช้ <ctime> ฟอร์แมต [YYYYMMDD_HHMMSS] นำหน้าทุกบรรทัด — timestamp ต่างจาก log ได้ (อันเดียวที่ต่างได้)", lang: "cpp" },
+    ],
+    implementation: [
+      { h: "วิธีไล่ reverse engineering จาก log" },
+      { ul: [
+        "1. อ่าน `tests.cpp` → รู้ลำดับว่า method ไหนถูกเรียกเมื่อไหร่",
+        "2. จับคู่แต่ละ 'การเรียก' กับ 'บรรทัด log' → รู้ว่า method นั้นต้องพิมพ์อะไร",
+        "3. ดูฟิลด์ในบรรทัด (`index`, `p_amount`, `amount`, `nb_deposits`) → อนุมานว่าต้องเก็บ/คำนวณค่าอะไร",
+        "4. สังเกตเคสพิเศษ: `withdrawal:refused` → มีเงื่อนไข if เงินไม่พอ",
+        "5. เขียน Account.cpp → build → diff กับ log (ละ timestamp)",
+      ]},
+      { h: "เบาะแสสำคัญที่อ่านได้จาก log" },
+      { table: { head: ["บรรทัด log บอกว่า", "อนุมานได้ว่า"], rows: [
+        ["index เริ่ม 0,1,2...", "index = _nbAccounts ตอนสร้าง"],
+        ["total:20049 = ผลรวม initial", "constructor บวก _totalAmount"],
+        ["p_amount แสดงก่อน amount", "ต้องจำค่าเก่าไว้ก่อนเปลี่ยน"],
+        ["withdrawal:refused", "if (withdrawal > _amount) → ปฏิเสธ"],
+        [";closed อยู่ท้ายสุด", "destructor ทำงานตอน object ตาย"],
+      ]}},
+      { h: "การ build (สำคัญ: ต้อง c++98)" },
+      { code: String.raw`# Makefile
+CC     = c++
+CFLAGS = -Wall -Wextra -Werror -std=c++98
+# SRCS = Account.cpp tests.cpp
+make && ./account > my.log
+diff <(sed 's/\[[0-9_]*\]//' my.log) \
+     <(sed 's/\[[0-9_]*\]//' 19920104_091532.log)
+# ถ้า diff ว่าง = ตรงเป๊ะ (เทียบโดยตัด timestamp ออก)`, lang: "bash" },
+      { note: "ถ้าเจอ error 'mem_fun_ref is not a member of std' → เพราะลืม -std=c++98 (mem_fun_ref ถูกถอดใน C++ ใหม่) ใส่ flag นี้แก้ได้" },
+    ],
+    tricks: [
+      { h: "ทริค 1: index = _nbAccounts ก่อน ++ " },
+      { p: "ตั้ง `_accountIndex = _nbAccounts` **ก่อน** `_nbAccounts++` → บัญชีแรกได้ index 0, ตัวถัดไป 1, 2... อัตโนมัติ โดยไม่ต้องมีตัวแปรนับ index แยก" },
+      { h: "ทริค 2: เก็บ p_amount ก่อนเปลี่ยนค่า" },
+      { p: "log แสดงทั้งเงินเก่า (p_amount) และเงินใหม่ (amount) — ต้อง `int p_amount = this->_amount;` **ก่อน** แก้ `_amount` ไม่งั้นค่าเก่าหายไปแล้ว" },
+      { h: "ทริค 3: static counter อัปเดต 2 ที่พร้อมกัน" },
+      { p: "ทุก deposit/withdrawal อัปเดตทั้ง member ของบัญชีตัวเอง (`_nbDeposits`) และ static รวมของธนาคาร (`_totalNbDeposits`) → ตัวเลขสรุปใน displayAccountsInfos ถึงจะตรง" },
+      { h: "ทริค 4: diff โดยตัด timestamp ออก" },
+      { p: "timestamp ใน output ของเราต่างจาก log แน่นอน (รันคนละเวลา) — ใช้ `sed` ลบส่วน `[...]` ออกก่อน diff → เทียบเฉพาะเนื้อหาที่ต้องตรงจริง ๆ" },
+      { h: "ทริค 5: -std=c++98 บังคับเสมอ" },
+      { p: "tests.cpp ใช้ `std::mem_fun_ref` ที่ถูกถอดออกใน C++ มาตรฐานใหม่ — ต้อง compile ด้วย `-std=c++98` ทุกครั้ง (และทั้ง Module นี้ก็บังคับ c++98 อยู่แล้ว)" },
+      { h: "ทริค 6: _displayTimestamp เป็น static private" },
+      { p: "มันไม่ผูกกับบัญชีตัวใดตัวหนึ่ง (แค่พิมพ์เวลา) จึงเป็น `static` และเป็น `private` เพราะเป็น helper ภายใน — ทุก method เรียกใช้ร่วมกันก่อนพิมพ์บรรทัดของตัวเอง" },
+    ],
+    eval: [
+      { qa: [
+        { q: "class กับ object ต่างกันยังไง?", a: "class = พิมพ์เขียว (บอกว่ามีข้อมูล/พฤติกรรมอะไร), object = ตัวจริงที่สร้างจาก class; หนึ่ง class สร้างได้หลาย object แต่ละตัวมีข้อมูลของตัวเอง" },
+        { q: "static member คืออะไร ทำไมใช้ในโจทย์นี้?", a: "member ที่มีชุดเดียวทุก object แชร์ร่วมกัน (ระดับ class) — ใช้เก็บตัวนับรวมทั้งธนาคาร เช่น _nbAccounts, _totalAmount ที่ทุกบัญชีต้องเห็นค่าเดียวกัน" },
+        { q: "ทำไม static member ต้องนิยามในไฟล์ .cpp?", a: "ใน header แค่ประกาศ ยังไม่จองที่จริง; ต้องนิยาม (int Account::_nbAccounts = 0;) ใน.cpp ครั้งเดียวให้ linker มีตัวจริง ไม่งั้น undefined reference" },
+        { q: "encapsulation คืออะไร เห็นยังไงใน Account?", a: "การซ่อนข้อมูลภายใน — _amount/_nbAccounts เป็น private แตะตรง ๆ ไม่ได้ ต้องผ่าน method public (checkAmount/getNbAccounts); ป้องกันแก้ค่ามั่วและซ่อน implementation" },
+        { q: "constructor/destructor ทำงานเมื่อไหร่?", a: "constructor รันอัตโนมัติตอนสร้าง object (พิมพ์ ;created), destructor รันตอน object ถูกทำลาย/หมด scope (พิมพ์ ;closed); ชื่อตรงกับ class, destructor มี ~ นำหน้า" },
+        { q: "const member function คืออะไร?", a: "method ที่ต่อท้าย const สัญญาว่าจะไม่แก้ไขข้อมูล object เช่น checkAmount() const, displayStatus() const; เรียกกับ const object ได้ และ compiler จับ bug ถ้าเผลอแก้" },
+        { q: "this pointer คืออะไร?", a: "pointer ซ่อนใน non-static method ชี้ไปยัง object ที่กำลังเรียก method; this->_amount = เงินของ object ตัวที่ทำงานอยู่ ทำให้ method เดียวใช้กับทุก object ได้" },
+        { q: "p_amount ใน log มาจากไหน?", a: "เงินก่อนทำรายการ (previous amount) — ต้องเก็บค่า _amount ไว้ก่อนแก้ แล้วพิมพ์ทั้งค่าเก่า (p_amount) และค่าใหม่ (amount)" },
+        { q: "ทำไม makeWithdrawal คืน bool?", a: "บอกว่าถอนสำเร็จไหม — ถ้าเงินไม่พอ (withdrawal > _amount) พิมพ์ withdrawal:refused แล้ว return false ไม่หักเงิน; สำเร็จ return true" },
+        { q: "ทำไมต้อง -std=c++98?", a: "tests.cpp ใช้ std::mem_fun_ref ที่ถูกถอดใน C++ ใหม่ และ Module นี้บังคับมาตรฐาน c++98; ไม่ใส่จะ compile error" },
+        { q: "static member function ต่างจาก method ปกติยังไง?", a: "static method ไม่มี this เรียกได้โดยไม่ต้องมี object (Account::getNbAccounts()) ทำงานกับ static member เท่านั้น; method ปกติผูกกับ object และมี this" },
+        { q: "ลำดับ ;closed ใน log อธิบายยังไง?", a: "ตอนจบ main object ใน vector ถูกทำลาย → destructor แต่ละตัวพิมพ์ ;closed เรียงตาม index เป็นบล็อกท้ายสุดของ output" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`make
+./account > my.log
+# เทียบโดยตัด timestamp ([...]) ออก — ควรไม่มีความต่าง
+diff <(sed 's/\[[0-9_]*\]//' my.log) \
+     <(sed 's/\[[0-9_]*\]//' 19920104_091532.log)`, lang: "bash" },
+    ],
+  },
+},
+/* ===================== MINISHELL ===================== */
+{
+  id: "minishell",
+  name: "minishell",
+  tag: { th: "เขียน shell แบบ bash ของตัวเอง — lexer, parser, pipe, redirect, builtin, signal ครบวงจร", en: "Write your own bash-like shell — lexer, parser, pipes, redirects, builtins, and signals" },
+  accent: "#a29bfe",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร" },
+      { p: "เขียน **shell ของตัวเอง** ที่ทำงานเหมือน bash แบบย่อ: รับคำสั่งจากผู้ใช้ → แยกวิเคราะห์ → รันโปรแกรม จัดการ pipe, redirect, ตัวแปร environment, quote, และ signal ให้เหมือน bash จริง" },
+      { code: String.raw`minishell$ cat file.txt | grep hello | wc -l > out.txt
+minishell$ echo "Home is $HOME"
+minishell$ export NAME=42 && env | grep NAME`, cap: "ต้องรองรับ pipe (|), redirect (< > >>), ตัวแปร ($), quote, builtin", lang: "bash" },
+      { h: "5 ขั้นตอนหลัก (pipeline ของ shell)" },
+      { table: { head: ["ขั้น", "ทำอะไร", "ไฟล์"], rows: [
+        ["1. Lexer", "หั่นบรรทัดเป็น token (คำ/ตัวดำเนินการ)", "lexer.c"],
+        ["2. Syntax", "ตรวจไวยากรณ์ (| ติดกัน, redirect ลอย)", "syntax.c"],
+        ["3. Parser", "จัด token เป็นคำสั่ง + redirect", "parser.c"],
+        ["4. Expand", "แทนค่า $VAR, $?, จัดการ quote", "expand.c"],
+        ["5. Execute", "fork/pipe/dup2/execve รันจริง", "executor.c"],
+      ]}},
+      { note: "นี่คือ pipeline แบบ compiler ย่อ ๆ: ข้อความดิบ → token → โครงสร้าง → ลงมือทำ — แนวคิดเดียวกับที่ภาษาโปรแกรมประมวลผลโค้ด" },
+      { h: "ความสามารถที่ต้องมี (mandatory)" },
+      { ul: [
+        "รันคำสั่งจาก PATH (เช่น `ls`, `cat`) ผ่าน execve",
+        "**Pipe** `|` ต่อ output ของคำสั่งหนึ่งเป็น input ของอีกคำสั่ง",
+        "**Redirect** `<` (input), `>` (output), `>>` (append), `<<` (heredoc)",
+        "**Quote**: `'...'` (ดิบทั้งหมด), `\"...\"` (ขยาย $ ได้)",
+        "**Expand**: `$VAR` (ค่า env), `$?` (exit status คำสั่งก่อน)",
+        "**Builtin 7 ตัว**: echo, cd, pwd, export, unset, env, exit",
+        "**Signal**: Ctrl+C, Ctrl+D, Ctrl+\\ ทำตัวเหมือน bash",
+      ]},
+      { h: "ทำไมโจทย์นี้ใหญ่และยาก" },
+      { p: "minishell รวมทุกอย่างที่เรียนมาทั้งปี: parsing, linked list, memory management, process (fork/exec), file descriptor (pipe/dup2), signal — และต้องทำงานร่วมกันโดยไม่ leak, ไม่ค้าง, และ behavior ตรงกับ bash เป๊ะ ๆ. เป็นโปรเจกต์กลุ่มที่ใหญ่ที่สุดของ Common Core" },
+    ],
+    theory: [
+      { p: "หมวดนี้รวมทฤษฎี **การแยกวิเคราะห์ + process + file descriptor** ที่ minishell ต้องใช้" },
+      { h: "1) shell ทำงานยังไง (REPL loop)" },
+      { p: "shell คือ **Read-Eval-Print Loop**: อ่านบรรทัด → ประมวลผล → แสดงผล → วนใหม่ ไม่จบจนกว่าจะ exit/Ctrl+D" },
+      { code: String.raw`while (1) {
+    line = readline("minishell$ ");   // อ่าน
+    if (!line) break;                  // Ctrl+D = EOF → ออก
+    run_line(line);                    // ประมวลผล + รัน
+    free(line);
+}`, lang: "c" },
+      { h: "2) Lexing & Parsing (จากภาษา compiler)" },
+      { table: { head: ["ขั้น", "input → output", "ตัวอย่าง"], rows: [
+        ["Lexer", "string → token list", "`ls -l | wc` → [WORD ls][WORD -l][PIPE][WORD wc]"],
+        ["Parser", "token list → โครงสร้างคำสั่ง", "→ cmd(ls -l) → cmd(wc)"],
+      ]}},
+      { p: "**Token** = หน่วยความหมายเล็กสุด (คำ หรือ ตัวดำเนินการ). Parser เอา token มาจัดเป็น 'คำสั่ง' แต่ละตัว พร้อม argument และ redirect" },
+      { h: "3) Process: fork / execve / wait" },
+      { table: { head: ["syscall", "ทำอะไร"], rows: [
+        ["`fork()`", "โคลน process เป็น 2 (parent + child)"],
+        ["`execve()`", "แทนที่ตัวเองด้วยโปรแกรมใหม่ (child)"],
+        ["`waitpid()`", "parent รอ child จบ + เก็บ exit status"],
+      ]}},
+      { code: String.raw`pid = fork();
+if (pid == 0) {            // child
+    execve(path, argv, envp);   // กลายเป็น ls/cat/...
+} else {                   // parent
+    waitpid(pid, &status, 0);   // รอลูกจบ
+}`, cap: "fork สร้างลูก → ลูก execve เป็นโปรแกรมจริง → พ่อรอ", lang: "c" },
+      { h: "4) File descriptor & dup2 (หัวใจ pipe/redirect)" },
+      { p: "ทุก process มี fd มาตรฐาน: **0=stdin, 1=stdout, 2=stderr**. `dup2(a, b)` ทำให้ fd `b` ชี้ไปที่เดียวกับ `a` — เป็นกลไกเปลี่ยนทาง input/output" },
+      { code: String.raw`int fd = open("out.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+dup2(fd, STDOUT_FILENO);   // ทุกอย่างที่เขียนออก stdout (fd 1)
+close(fd);                  // จะไปลงไฟล์แทน
+/* ... execve ... */`, cap: "redirect > = dup2(file_fd, STDOUT) → สิ่งที่เขียนออก stdout ไปลงไฟล์แทน", lang: "c" },
+      { h: "5) Pipe — ท่อเชื่อม 2 process" },
+      { p: "`pipe(fds)` สร้างท่อ: `fds[0]` = ปลายอ่าน, `fds[1]` = ปลายเขียน. สิ่งที่เขียนเข้า fds[1] อ่านออกได้ที่ fds[0] → ใช้ต่อ stdout ของคำสั่งซ้ายเข้า stdin ของคำสั่งขวา" },
+      { code: String.raw`cmd1 | cmd2:
+  pipe(fds)
+  cmd1: dup2(fds[1], STDOUT)  → เขียนออกเข้า ท่อ
+  cmd2: dup2(fds[0], STDIN)   → อ่าน input จาก ท่อ`, cap: "ปิด fd ที่ไม่ใช้ให้หมด ไม่งั้น cmd2 จะรอ EOF ไม่มา= ค้าง", lang: "txt" },
+      { h: "6) Environment variables" },
+      { p: "ตัวแปรสภาพแวดล้อม (เช่น `PATH`, `HOME`) ส่งต่อจาก parent ถึง child ผ่าน `envp`. minishell เก็บเป็น linked list (key=value) เพื่อ export/unset ได้ แล้วแปลงกลับเป็น array ตอน execve" },
+      { h: "🔬 เจาะลึก: ทำไม pipe ค้างถ้าไม่ปิด fd" },
+      { p: "process ที่อ่านจาก pipe (เช่น `wc`) จะรอจนกว่าจะได้ **EOF** ซึ่งเกิดเมื่อ **ปลายเขียนทุกอันถูกปิด**. ถ้า parent หรือ child อื่นยังถือ fds[1] ค้างไว้ → wc ไม่เห็น EOF → รอตลอดกาล = ค้าง. กฎเหล็ก: **ปิด fd ทุกอันที่ไม่ได้ใช้ทันที**" },
+      { code: String.raw`หลัง fork ในแต่ละ loop:
+  parent: close(in เก่า), close(fds[1])  ← ปิดปลายเขียนทันที
+  child:  dup2 เสร็จแล้ว close ต้นฉบับ
+→ เหลือแต่ปลายที่ใช้จริง → EOF มาถูกเวลา → ไม่ค้าง`, lang: "txt" },
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **struct และ data structure** ที่ minishell ใช้ — ส่วนใหญ่เป็น linked list" },
+      { h: "struct หลัก 5 ตัว" },
+      { code: String.raw`typedef struct s_token {        /* ผลจาก lexer */
+    char            *value;
+    t_toktype       type;       /* WORD / PIPE / REDIR_IN / ... */
+    struct s_token  *next;
+} t_token;
+
+typedef struct s_redir {        /* redirect 1 อัน */
+    t_toktype       type;       /* < > >> << */
+    char            *target;    /* ชื่อไฟล์ หรือ delimiter */
+    int             quoted;     /* heredoc delimiter ถูก quote ไหม */
+    int             hdoc_fd;
+    struct s_redir  *next;
+} t_redir;
+
+typedef struct s_cmd {          /* 1 คำสั่งในไปป์ไลน์ */
+    char            **argv;     /* ["ls","-l",NULL] */
+    t_redir         *redirs;    /* redirect ของคำสั่งนี้ */
+    struct s_cmd    *next;      /* คำสั่งถัดไปหลัง | */
+} t_cmd;
+
+typedef struct s_env {          /* ตัวแปร env 1 ตัว */
+    char            *key, *value;
+    int             exported;
+    struct s_env    *next;
+} t_env;
+
+typedef struct s_shell {        /* สถานะกลางทั้ง shell */
+    t_env   *env;
+    int     exit_status;        /* = $? */
+    t_token *tokens;
+    t_cmd   *cmds;
+    char    *line;
+} t_shell;`, cap: "ทุกอย่างเป็น linked list เพราะจำนวนไม่รู้ล่วงหน้า (token/cmd/env กี่ตัวก็ได้)", lang: "c" },
+      { h: "ทำไม token type เป็น enum" },
+      { code: String.raw`typedef enum e_toktype {
+    T_WORD, T_PIPE, T_REDIR_IN, T_REDIR_OUT, T_APPEND, T_HEREDOC
+} t_toktype;`, cap: "enum ทำให้โค้ดอ่านง่าย (T_PIPE ชัดกว่าเลข 1) และ compiler ช่วยเช็ค", lang: "c" },
+      { h: "การไหลของโครงสร้าง: string → cmd list" },
+      { code: String.raw`"ls -l | wc -l > out"
+   │ lexer
+   ▼
+[WORD:ls][WORD:-l][PIPE][WORD:wc][WORD:-l][REDIR_OUT][WORD:out]
+   │ parser
+   ▼
+cmd1: argv=[ls,-l]    redirs=NULL
+   └─next─►
+cmd2: argv=[wc,-l]    redirs=[> out]`, cap: "PIPE แยกเป็นคนละ cmd; REDIR ผูกเข้า redirs ของ cmd ปัจจุบัน", lang: "txt" },
+      { h: "exit_status = $? ผูกกับทั้งระบบ" },
+      { p: "`sh->exit_status` คือค่า `$?` — เก็บ exit code ของคำสั่งล่าสุด ใช้ทั้งใน expand (`echo $?`) และ return จาก main. convention: 0=สำเร็จ, 1-2=error, 126=ไม่มีสิทธิ์รัน, 127=ไม่พบคำสั่ง, 128+n=ถูก signal n" },
+      { h: "ทำไม env เป็น linked list ไม่ใช่ array" },
+      { p: "ต้อง add (export), remove (unset), modify ตัวแปรได้ตลอด → linked list จัดการง่ายกว่า array ที่ต้อง realloc. ตอน execve ค่อยแปลงเป็น `char **` ด้วย `env_to_array`" },
+    ],
+    architecture: [
+      { h: "กลุ่มไฟล์ (33 ไฟล์ แบ่งตามหน้าที่)" },
+      { table: { head: ["กลุ่ม", "ไฟล์", "หน้าที่"], rows: [
+        ["loop", "main.c, init.c", "REPL loop, ตั้งค่าเริ่มต้น"],
+        ["lexer", "lexer.c, lexer_utils.c", "หั่น token + quote"],
+        ["syntax", "syntax.c", "ตรวจไวยากรณ์"],
+        ["parser", "parser.c, parser_redir.c, parser_utils.c", "token → cmd list"],
+        ["expand", "expand*.c", "ขยาย $VAR/$?, quote removal"],
+        ["executor", "executor.c, exec_pipe.c, exec_utils.c", "fork/exec/pipe/wait"],
+        ["redirect", "redirect.c, heredoc*.c", "< > >> <<"],
+        ["builtin", "builtin_*.c", "echo/cd/pwd/export/unset/env/exit"],
+        ["env", "env*.c, path.c", "จัดการ env + หา PATH"],
+        ["signal", "signals.c", "Ctrl+C / Ctrl+\\"],
+        ["free", "free.c, utils.c", "คืน memory"],
+      ]}},
+      { h: "ลำดับการทำงานต่อ 1 บรรทัด (run_line)" },
+      { code: String.raw`run_line(sh, line)
+  └─ parse_line(sh):
+       ├─ lexer()         string → tokens
+       ├─ check_syntax()  ผิดไวยากรณ์? → exit 2
+       ├─ parser()        tokens → cmds
+       └─ expand_cmds()   ขยาย $ + quote
+  └─ execute(sh, cmds):
+       ├─ preprocess_heredocs()
+       ├─ 1 builtin เดี่ยว → exec_in_parent (ไม่ fork!)
+       ├─ 1 คำสั่งทั่วไป   → exec_single (fork)
+       └─ หลายคำสั่ง      → exec_pipeline (fork ทุกตัว + pipe)
+  └─ reset_shell()  เคลียร์ tokens/cmds ของบรรทัดนี้`, lang: "txt" },
+      { note: "จุดสำคัญ: builtin เดี่ยว (เช่น `cd`, `export`) ต้องรันใน **parent** ไม่ใช่ fork — เพราะถ้า fork แล้ว cd ใน child การเปลี่ยน directory จะหายไปเมื่อ child ตาย (parent ไม่ได้ย้ายตาม)" },
+      { h: "global ตัวเดียวที่อนุญาต: g_signal" },
+      { code: String.raw`extern volatile sig_atomic_t g_signal;`, cap: "subject อนุญาต global ได้แค่ 1 ตัว สำหรับเก็บหมายเลข signal เท่านั้น — ห้ามเก็บข้อมูลอื่น", lang: "c" },
+    ],
+    dataflow: [
+      { p: "ไล่ฟังก์ชันแกนหลักทีละตัว" },
+      { h: "shell_loop() — หัวใจ REPL" },
+      { code: String.raw`void shell_loop(t_shell *sh)
+{
+    tty = isatty(STDIN_FILENO);          // interactive ไหม
+    while (1) {
+        setup_signals();                  // ตั้ง Ctrl+C handler
+        line = read_input(tty);           // readline หรือ gnl
+        if (g_signal == SIGINT) {
+            sh->exit_status = 130;        // Ctrl+C → $?=130
+            g_signal = 0;
+        }
+        if (!line) break;                 // Ctrl+D → ออก
+        if (tty && *line) add_history(line);
+        run_line(sh, line);
+        free(line);
+    }
+}`, cap: "ใช้ readline (interactive) หรือ get_next_line (รับจาก pipe/ไฟล์)", lang: "c" },
+      { h: "lexer() — หั่นบรรทัดเป็น token" },
+      { code: String.raw`t_token *lexer(char *line, int *err)
+{
+    while (line[i]) {
+        i = skip_spaces(line, i);
+        if (is_metachar(line[i]))         // | < >
+            i = read_op(line, i, &lst);
+        else
+            i = read_word(line, i, &lst); // คำ (รวม quote)
+        if (i < 0) { *err = 1; ... }      // quote ไม่ปิด
+    }
+    return (lst);
+}`, cap: "วนทั้งบรรทัด: ถ้าเจอ meta อ่านเป็น operator, ไม่งั้นอ่านเป็นคำ; quote ไม่ปิด = error", lang: "c" },
+      { h: "execute() — เลือกวิธีรัน" },
+      { code: String.raw`int execute(t_shell *sh, t_cmd *cmds)
+{
+    if (preprocess_heredocs(sh, cmds))   // อ่าน heredoc ก่อน
+        return (130);
+    n = cmd_count(cmds);
+    if (n == 1 && (!argv[0] || is_builtin(argv[0])))
+        return (exec_in_parent(sh, cmds));  // builtin เดี่ยว
+    if (n == 1)
+        return (exec_single(sh, cmds));     // คำสั่งเดี่ยว
+    return (exec_pipeline(sh, cmds, n));    // ไปป์ไลน์
+}`, cap: "3 ทาง: builtin ใน parent, คำสั่งเดี่ยว fork, หลายคำสั่ง pipeline", lang: "c" },
+      { h: "child_process() — สิ่งที่ลูกทำหลัง fork" },
+      { code: String.raw`void child_process(t_shell *sh, t_cmd *cmd, int in, int out)
+{
+    signals_default();                    // ลูกรับ signal ปกติ
+    if (in != STDIN_FILENO)  { dup2(in, STDIN);  close(in); }
+    if (out != STDOUT_FILENO){ dup2(out, STDOUT); close(out); }
+    if (apply_redirs(sh, cmd->redirs)) clean_exit(sh, 1);
+    if (is_builtin(cmd->argv[0]))
+        clean_exit(sh, run_builtin(sh, cmd));
+    exec_external(sh, cmd);               // execve
+}`, cap: "ต่อ in/out จาก pipe → ใช้ redirect (ทับ pipe ได้) → รัน builtin หรือ execve", lang: "c" },
+      { h: "exec_pipeline() — ต่อหลายคำสั่งด้วย pipe" },
+      { code: String.raw`int exec_pipeline(t_shell *sh, t_cmd *cmds, int n)
+{
+    in = STDIN_FILENO;
+    signals_ignore();                     // parent ไม่สน Ctrl+C
+    while (cmds) {
+        if (cmds->next) pipe(fds);        // มีคำสั่งถัดไป → สร้างท่อ
+        pid = fork();
+        if (pid == 0) pipe_child(sh, cmds, in, fds);
+        if (in != STDIN_FILENO) close(in);
+        if (cmds->next) { close(fds[1]); in = fds[0]; }
+        cmds = cmds->next;
+    }
+    return (wait_all(pid, n));            // รอทุกตัว, เก็บ status ตัวสุดท้าย
+}`, cap: "วน fork ทุกคำสั่ง ต่อ output→input ด้วย pipe; ปิด fd ที่ไม่ใช้ทันทีกันค้าง", lang: "c" },
+      { h: "exec_external() — หา PATH แล้ว execve" },
+      { code: String.raw`static void exec_external(t_shell *sh, t_cmd *cmd)
+{
+    path = find_path(sh, cmd->argv[0]);   // ค้นใน $PATH
+    if (!path) clean_exit(sh, 127);       // ไม่พบคำสั่ง
+    envp = env_to_array(sh->env);         // list → array
+    execve(path, cmd->argv, envp);
+    /* ถ้ามาถึงตรงนี้ = execve fail */
+    if (errno == EACCES || errno == EISDIR) clean_exit(sh, 126);
+    clean_exit(sh, 127);
+}`, cap: "127 = ไม่พบคำสั่ง, 126 = พบแต่รันไม่ได้ (สิทธิ์/เป็น directory)", lang: "c" },
+      { h: "handle_sigint() — Ctrl+C เหมือน bash" },
+      { code: String.raw`static void handle_sigint(int sig)
+{
+    g_signal = sig;
+    write(STDOUT_FILENO, "\n", 1);
+    rl_on_new_line();                     // readline ขึ้นบรรทัดใหม่
+    rl_replace_line("", 0);               // ล้างบรรทัดที่พิมพ์ค้าง
+    rl_redisplay();                       // แสดง prompt ใหม่
+}`, cap: "Ctrl+C: ขึ้นบรรทัดใหม่ + prompt สด ๆ โดยไม่ฆ่า shell (ต่างจากค่า default)", lang: "c" },
+      { h: "wait_all() — เก็บ exit status ตัวสุดท้าย" },
+      { code: String.raw`/* status_code แปลง raw status เป็น exit code แบบ bash */
+if (WIFSIGNALED(status)) return (128 + WTERMSIG(status));
+return (WEXITSTATUS(status));`, cap: "$? ของไปป์ไลน์ = exit ของคำสั่งขวาสุด; ถ้าถูก signal → 128+เลข signal", lang: "c" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. REPL loop + readline + history (ยังไม่ทำอะไรกับ input)",
+        "2. lexer — หั่น token รวมจัดการ quote ' และ \"",
+        "3. parser — token → cmd list (ยังไม่มี pipe/redirect)",
+        "4. executor คำสั่งเดี่ยว: fork + find_path + execve + wait",
+        "5. builtin 7 ตัว (cd/export/unset/exit ต้องรันใน parent)",
+        "6. expand $VAR / $? + quote removal",
+        "7. redirect < > >> + pipe (หลายคำสั่ง)",
+        "8. heredoc <<",
+        "9. signal: Ctrl+C / Ctrl+\\ / Ctrl+D ให้ตรง bash",
+        "10. ไล่ leak ด้วย valgrind + diff behavior กับ bash จริง",
+      ]},
+      { h: "บั๊กยอดฮิตและวิธีกัน" },
+      { table: { head: ["อาการ", "สาเหตุ", "แก้"], rows: [
+        ["ไปป์ค้าง (wc ไม่จบ)", "ไม่ปิด fd ปลายเขียน", "close fds ที่ไม่ใช้ทุกอันหลัง fork"],
+        ["cd ไม่เปลี่ยน dir จริง", "รัน cd ใน child (fork)", "builtin เดี่ยวรันใน parent"],
+        ["$? ผิด", "ไม่อัปเดต exit_status / ใช้ status ดิบ", "แปลงผ่าน WEXITSTATUS/WIFSIGNALED"],
+        ["quote หลุด", "ไม่ลบ quote ตอน expand", "quote removal หลังขยายตัวแปร"],
+        ["heredoc ขยาย $ ทั้งที่ delimiter ถูก quote", "ไม่เช็ค quoted flag", "ถ้า delimiter quote → ไม่ขยาย"],
+        ["Ctrl+C ฆ่า shell", "ใช้ signal default", "ตั้ง handler ที่แค่รีเฟรช prompt"],
+      ]}},
+      { h: "build / รัน" },
+      { code: String.raw`make
+./minishell
+minishell$ echo "hi $USER" | cat -e
+minishell$ ls -l | grep .c | wc -l
+minishell$ cat << EOF
+make bonus && ./minishell   # && || () wildcard *`, lang: "bash" },
+      { note: "ต้อง link readline: -lreadline (บางเครื่องต้อง -L path ของ readline ด้วย)" },
+    ],
+    tricks: [
+      { h: "ทริค 1: builtin เดี่ยวรันใน parent ไม่ fork" },
+      { p: "cd/export/unset/exit ต้องเปลี่ยนสถานะของ shell เอง (directory, env, ออกโปรแกรม) — ถ้า fork แล้วรันใน child การเปลี่ยนจะหายเมื่อ child ตาย. โค้ดเช็ค `n==1 && is_builtin` → `exec_in_parent` (save/restore fd ด้วย dup)" },
+      { h: "ทริค 2: ปิด fd ทุกอันทันทีหลัง fork" },
+      { p: "ใน pipeline หลัง fork แต่ละรอบ: parent ปิด `in` เก่าและ `fds[1]` ทันที — เหลือเฉพาะปลายที่ใช้จริง → EOF ส่งถึงคำสั่งถัดไปถูกเวลา ไม่ค้าง. กฎนี้คือหัวใจที่ทำให้ไปป์ไม่ deadlock" },
+      { h: "ทริค 3: 3 โหมด signal ตามบริบท" },
+      { table: { head: ["โหมด", "เมื่อไหร่"], rows: [
+        ["setup_signals", "ตอนรอ prompt (Ctrl+C รีเฟรช, Ctrl+\\ เมิน)"],
+        ["signals_ignore", "parent ระหว่างรอ child (ไม่สน Ctrl+C)"],
+        ["signals_default", "ใน child ก่อน exec (รับ signal ปกติ)"],
+      ]}},
+      { h: "ทริค 4: g_signal เก็บแค่หมายเลข signal" },
+      { p: "subject ให้ global ได้ตัวเดียว — เก็บแค่ 'signal อะไรเพิ่งเกิด' (`volatile sig_atomic_t`) ไม่เก็บ struct/ข้อมูลอื่น. handler ทำงานน้อยที่สุด (set ค่า + รีเฟรช readline) เพื่อความปลอดภัยใน async context" },
+      { h: "ทริค 5: env เป็น list แปลงเป็น array ตอน execve" },
+      { p: "เก็บ env เป็น linked list (export/unset ง่าย) แต่ execve ต้องการ `char **` — แปลงด้วย `env_to_array` เฉพาะตอนจะ exec แล้ว free ทิ้ง. แยกหน้าที่ชัดเจน" },
+      { h: "ทริค 6: heredoc preprocess ก่อน fork" },
+      { p: "อ่าน heredoc (`<<`) ทั้งหมดให้เสร็จก่อนเริ่มรันคำสั่ง — เก็บเนื้อหาลง fd/ไฟล์ชั่วคราว เพื่อให้ Ctrl+C ระหว่างพิมพ์ heredoc ยกเลิกได้สะอาด (return 130) โดยไม่กระทบ pipeline" },
+      { h: "ทริค 7: exit code ตาม convention ของ bash" },
+      { p: "127=ไม่พบคำสั่ง, 126=รันไม่ได้, 128+n=ถูก signal n, 130=Ctrl+C, 2=syntax error — ทำให้ `$?` ตรงกับ bash ทุกกรณี (กรรมการชอบเทสตรงนี้)" },
+    ],
+    eval: [
+      { qa: [
+        { q: "shell ประมวลผลคำสั่ง 1 บรรทัดยังไง?", a: "lexer (string→token) → check syntax → parser (token→cmd list) → expand ($VAR/$?/quote) → execute (fork/pipe/dup2/execve); เหมือน pipeline ของ compiler ย่อ" },
+        { q: "fork กับ execve ต่างกันยังไง?", a: "fork โคลน process เป็น 2 (parent+child เหมือนกัน), execve แทนที่ image ของ process ด้วยโปรแกรมใหม่; ปกติ fork แล้วให้ child execve, parent waitpid รอ" },
+        { q: "pipe ทำงานยังไง ทำไมต้องปิด fd?", a: "pipe() สร้างท่อมีปลายอ่าน/เขียน, dup2 ต่อ stdout ของซ้าย→ท่อ→stdin ของขวา; ต้องปิดปลายเขียนทุกอันไม่งั้นคำสั่งฝั่งอ่านไม่เห็น EOF → ค้างตลอดกาล" },
+        { q: "ทำไม cd/export ต้องรันใน parent?", a: "ต้องเปลี่ยนสถานะของ shell เอง (directory/env); ถ้า fork รันใน child การเปลี่ยนจะหายเมื่อ child ตาย parent ไม่ได้รับผล" },
+        { q: "dup2 ใช้ทำอะไร?", a: "ทำให้ fd หนึ่งชี้ไปที่เดียวกับอีก fd — redirect > ใช้ dup2(file, STDOUT) ให้ output ลงไฟล์; pipe ใช้ dup2 ต่อ stdin/stdout เข้าท่อ" },
+        { q: "$? คืออะไร เก็บยังไง?", a: "exit status ของคำสั่งล่าสุด เก็บใน sh->exit_status; แปลงจาก wait ด้วย WEXITSTATUS (จบปกติ) หรือ 128+WTERMSIG (ถูก signal); ใช้ใน expand $?" },
+        { q: "single quote ต่างจาก double quote ยังไง?", a: "'...' = literal ทั้งหมด ไม่ขยายอะไร; \"...\" = ขยาย $VAR/$? ได้ แต่ยังกัน word splitting; ทั้งคู่ถูกลบ (quote removal) หลัง expand" },
+        { q: "จัดการ Ctrl+C / Ctrl+D / Ctrl+\\ ยังไง?", a: "Ctrl+C (SIGINT) ขึ้นบรรทัด+prompt ใหม่ ($?=130) ไม่ฆ่า shell; Ctrl+D (EOF) ออก shell; Ctrl+\\ (SIGQUIT) เมินตอน prompt; ใช้ g_signal + 3 โหมด signal" },
+        { q: "ทำไมใช้ global ได้แค่ตัวเดียว?", a: "subject บังคับ — เก็บแค่หมายเลข signal (volatile sig_atomic_t g_signal) เพราะ handler ห้ามทำงานซับซ้อน/แตะ struct ใน async context; ข้อมูลอื่นส่งผ่าน t_shell" },
+        { q: "หา path ของคำสั่งยังไง?", a: "ถ้ามี / ใช้ตรง ๆ; ไม่งั้นวน $PATH แต่ละโฟลเดอร์ ต่อกับชื่อคำสั่ง เช็ค access(X_OK); ไม่พบ → exit 127" },
+        { q: "exit code 126/127/130 หมายถึงอะไร?", a: "127=ไม่พบคำสั่ง, 126=พบแต่รันไม่ได้ (สิทธิ์/เป็น dir), 130=ถูก Ctrl+C (128+SIGINT), 128+n=ถูก signal n; ตาม convention ของ bash" },
+        { q: "heredoc (<<) ทำงานยังไง?", a: "อ่าน input จนเจอ delimiter, เก็บเนื้อหาแล้วป้อนเป็น stdin; ขยาย $ ถ้า delimiter ไม่ถูก quote, ไม่ขยายถ้า quote; preprocess ก่อนรันเพื่อให้ Ctrl+C ยกเลิกได้สะอาด" },
+        { q: "เป็น builtin หรือ external ตัดสินยังไง?", a: "is_builtin เช็คชื่อกับ 7 ตัว (echo/cd/pwd/export/unset/env/exit); ถ้าใช่รัน run_builtin, ไม่ใช่ก็ find_path + execve" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`./minishell
+minishell$ echo hello | cat -e
+minishell$ ls -l | grep .c | wc -l > count.txt
+minishell$ export X=42; echo "$X and $?"
+minishell$ cat << END
+# เทียบ behavior กับ bash จริง + valgrind หา leak
+valgrind --leak-check=full ./minishell`, lang: "bash" },
+    ],
+  },
+},
 ];
