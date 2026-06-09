@@ -892,6 +892,27 @@ g.add_conditional_edges("classify", route,
       { p: "ใส่ทางหนีไฟเป็น edge: ถ้าขั้นสำคัญล้ม ให้ routing ลัดไป node สรุป/ตอบ fallback แทนการฝืนทำต่อจนพังทั้งกราฟ. แต่ละ node ก็มี try/except คืนค่า default ของตัวเอง" },
       { h: "5) Stateless ต่อรอบ" },
       { p: "compile กราฟครั้งเดียว แต่ invoke ด้วย state ใหม่ทุกครั้ง — ไม่ให้ข้อมูลรอบก่อนรั่วมารอบนี้ (สำคัญในระบบ real-time/หลายผู้ใช้)" },
+      { h: "6) จากของจริง: LangChain v1 + LangGraph (สรุปจากวิดีโอสอน)" },
+      { p: "ในทางปฏิบัติ LangChain v1 ย่อการสร้าง agent ให้สั้นมาก ส่วน LangGraph คือ runtime ที่คุม flow:" },
+      { code: String.raw`from langchain.chat_models import init_chat_model
+from langchain.agents import create_agent
+from langchain.tools import tool
+
+@tool
+def search_docs(q: str) -> str:
+    "ค้นเอกสารภายใน — docstring จำเป็น! เป็นคำอธิบายให้ LLM รู้ว่า tool ทำอะไร"
+    return run_search(q)
+
+model = init_chat_model("claude-haiku-4-5-20251001")   # สลับ provider แค่เปลี่ยนชื่อ
+agent = create_agent(model, tools=[search_docs], system_prompt="...")
+out   = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
+print(out["messages"][-1].content)`, cap: "create_agent + @tool — agent loop: คิด→เรียก tool→อ่านผล→ตอบ", lang: "py" },
+      { ul: [
+        "`@tool` ต้องมี **docstring** เสมอ — มันคือคำอธิบายให้โมเดลตัดสินใจว่าจะเรียก tool นี้ไหม",
+        "ถ้า agent หยุดหลังเรียก tool แล้วตอบว่าง → system prompt ต้องสั่งให้ 'เอาผล tool มาเรียบเรียงตอบ'",
+        "LangGraph เสริม: `Annotated[list, operator.add]` = reducer ต่อ list อัตโนมัติ, `checkpointer`+`thread_id` = จำข้ามรอบ, `interrupt()/Command(resume=)` = human-in-the-loop, `Command(goto=)` = routing ภายใน node",
+        "**LangSmith** = เครื่องมือ debug/trace/eval ของ flow — ใช้ดูว่า agent เรียก tool อะไร พลาดตรงไหน",
+      ]},
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "LangGraph — Low-level concepts", url: "https://langchain-ai.github.io/langgraph/concepts/low_level/", note: "State, Node, Edge, conditional edges" },
@@ -910,7 +931,8 @@ g.add_conditional_edges("classify", route,
         { label: "LangGraph Tutorial — Build Advanced AI Agent Systems", url: "https://www.youtube.com/watch?v=1w5cCXlh7JQ", note: "เจาะลึก state graph" },
         { label: "Building Effective Agents with LangGraph (LangChain official)", url: "https://www.youtube.com/watch?v=aHCDrAbH_go", note: "อิงหลัก Building Effective Agents" },
         { label: "LangGraph & LangSmith: Build AI Agents (Full Demo)", url: "https://www.youtube.com/watch?v=vhKM27MOgME", note: "เดโมเต็มพร้อม debug" },
-        { label: "mikelopster — LangGraph 101 (ไทย)", url: "https://www.youtube.com/@mikelopster/videos", note: "ค้น 'LangGraph 101' ในช่อง" },
+        { label: "mikelopster — LangGraph 101 (ไทย)", url: "https://www.youtube.com/watch?v=DJ2ZrbIkkO8", note: "StateGraph/node/edge/routing/checkpoint" },
+        { label: "mikelopster — LangChain 101 (ไทย)", url: "https://www.youtube.com/watch?v=mH36GOYeJmw", note: "create_agent + @tool + structured output" },
       ]},
     ],
     foundations: [
@@ -1115,6 +1137,24 @@ if not (0 < d.amount <= req["amount"]):  return reject("จำนวนเงิ
 cost = usage.input * P["input"] + usage.output * P["output"]`, cap: "นับ cost จาก usage จริง × ราคาต่อ token", lang: "py" },
       { h: "5) วัดคุณภาพ — eval harness" },
       { p: "นอกจาก cost ต้องวัด 'ตอบดีไหม'. RAG วัดด้วย **Recall@k**; งานจัดหมวด/ตัดสินใจวัดด้วย accuracy เทียบชุดเฉลย; ใช้ **LLM-as-judge** ให้คะแนนคำตอบปลายเปิดได้" },
+      { h: "6) จากของจริง: นิยาม Agent Harness (สรุปจากวิดีโอสอน)" },
+      { p: "**Agent Harness = Infrastructure (เครื่องมือ/sandbox ที่เตรียมให้ agent) + Rules (กฎคุมว่าจะใช้ tool เมื่อไร, จัดการ loop/context/security)** เป็นชั้น deterministic ที่เขียนด้วยโค้ด ไม่ใช่ระดับ prompt — โมเดลเดียวกันบน Claude Code / Cursor / Copilot ให้ผลต่างกันเพราะ harness ต่างกัน" },
+      { ul: [
+        "แกนคือ **ReAct loop**: reasoning (โมเดลเลือก tool) + action (harness รัน tool → เช็คผล/เงื่อนไขหยุด → วน) — ยุค AutoGPT ล้มเพราะ loop ไม่มีจุดหยุด + ไม่มี context/security management",
+        "องค์ประกอบ harness: loop/retry condition, context compression (auto-compact), tool/skill registry, permission gating, sub-agent splitting, session persist/resume, system prompt + caching, lifecycle hooks (pre/post tool-use)",
+        "**Harness ≠ MCP ≠ Skill**: MCP = protocol/ท่อต่อ tool · Skill = คู่มือระดับ prompt · Harness = runtime ที่ครอบ ตรวจผลก่อน execute และ deterministic (สั่งเขียนไฟล์ต้องเขียนเสมอ, ทำงานใน workspace จนกว่าจะขอสิทธิ์)",
+      ]},
+      { h: "Agent Skill — คู่มือที่ agent โหลดตามต้องการ" },
+      { p: "**Skill = procedure/runbook แยกไฟล์** สำหรับงาน pattern ซ้ำ ๆ. โครง: 1 โฟลเดอร์ = `SKILL.md` (front-matter: name + description + instruction) + (ทางเลือก) `scripts/`, `references/`" },
+      { code: String.raw`my-skill/
+├─ SKILL.md        # front-matter: name + description (≤~1024 ตัวอักษร) + instruction
+├─ scripts/        # โค้ดรันคู่ (เช่น run/clean) — ทางเลือก
+└─ references/     # เอกสารอ้างอิง โหลดแบบ lazy เมื่อต้องใช้`, cap: "1 โฟลเดอร์ = 1 skill", lang: "txt" },
+      { ul: [
+        "**Progressive loading**: ตอน startup โหลดแค่ front-matter (name+description) ของทุก skill; เมื่อ agent ตัดสินใจใช้ค่อยโหลด instruction เต็ม → **description คือ trigger** เขียนให้ชัดว่า 'ใช้เมื่อไร'",
+        "instruction สั้น (~≤500 บรรทัด); อะไรยาวลิงก์ไป references แบบ lazy; อย่าใส่สิ่งที่โมเดลรู้อยู่แล้ว ใส่เฉพาะ project-specific เพื่อประหยัด token",
+        "เมื่อไรควรทำ skill: งาน pattern ซ้ำ (code/security review checklist, sync requirement/design-token, รันสคริปต์ประจำ)",
+      ]},
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Guardrails AI (overview)", url: "https://www.guardrailsai.com/docs", note: "แนวคิด guardrail รอบ LLM" },
@@ -1133,7 +1173,8 @@ cost = usage.input * P["input"] + usage.output * P["output"]`, cap: "นับ c
         { label: "Anthropic Masterclass on Building Agent Harnesses", url: "https://www.youtube.com/watch?v=efRIrLXoOVA", note: "ตรงหัวข้อ harness โดยตรง" },
         { label: "Anthropic Workshop: Build Agents That Run for Hours", url: "https://www.youtube.com/watch?v=mR-WAvEPRwE", note: "self-eval + adversarial evaluator" },
         { label: "Tool Use (Function Calling) with Claude API — Step by Step", url: "https://www.youtube.com/watch?v=W7z4Zas--20", note: "สร้าง tool ทีละขั้น" },
-        { label: "mikelopster — รู้จักกับ Agent Harness กัน (ไทย)", url: "https://www.youtube.com/@mikelopster/videos", note: "ค้น 'Agent Harness' ในช่อง" },
+        { label: "mikelopster — รู้จักกับ Agent Harness กัน (ไทย)", url: "https://www.youtube.com/watch?v=xIVl5X9yUWM", note: "นิยาม harness + ReAct + 9 องค์ประกอบ" },
+        { label: "mikelopster — มารู้จักกับ Agent Skill กัน (ไทย)", url: "https://www.youtube.com/watch?v=4hLCFUJV1sM", note: "SKILL.md + progressive loading" },
       ]},
     ],
     foundations: [
