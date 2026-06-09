@@ -834,7 +834,8 @@
     if (tab === "demo") {
       body = Demo ? h(Demo, null) : h("p", null, t({ th: "ยังไม่มีเดโมสำหรับโปรเจกต์นี้", en: "No demo for this project yet" }));
     } else if (tab === "flowviz") {
-      body = FLOWS[proj.id] ? h(FlowViz, { flow: FLOWS[proj.id] })
+      var flow = FLOWS[proj.id] || (window.EXTRA_FLOWS || {})[proj.id];
+      body = flow ? h(FlowViz, { flow: flow })
         : h("p", null, t({ th: "ยังไม่มี visualizer สำหรับโปรเจกต์นี้", en: "No flow visualizer for this project yet" }));
     } else {
       body = blocks.map(function (b, i) { return h(Block, { key: i, b: b }); });
