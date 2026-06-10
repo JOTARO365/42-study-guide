@@ -234,6 +234,24 @@ code.inline { background: var(--bg3); color: #ffd9a0; padding: 2px 6px; border-r
   .flow-wrap { flex-direction: column; }
   .flow-list { flex: 1 1 auto; width: 100%; max-height: 240px; }
   .flow-detail { position: static; width: 100%; }
+
+  /* แท็บบนมือถือ: แถวเดียวเลื่อนแนวนอน (ไม่ห่อเป็นบล็อกสูงที่ค้างทับเนื้อหา) */
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;            /* Firefox */
+    top: 53px;                         /* ให้พอดีใต้ topbar บนจอเล็ก */
+    padding: 10px 0;
+  }
+  .tabs::-webkit-scrollbar { display: none; }   /* WebKit */
+  .tab { flex: 0 0 auto; white-space: nowrap; }
+
+  /* ลดขนาด hero บนมือถือ */
+  .hero { padding: 28px 0 18px; }
+  .hero h1 { font-size: 28px; }
+  .hero .tag { font-size: 15px; }
 }
 
 footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
