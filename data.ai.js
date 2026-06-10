@@ -66,6 +66,16 @@ window.TEACHING_DATA.push({
         ["`langgraph`", "ต่อหลายขั้นเป็น state graph (agent)"],
         ["Vector DB (pgvector / FAISS / Pinecone)", "เก็บ + ค้น embedding"],
       ]}},
+      { h: "6) เทคนิคเขียน prompt (จาก docs ผู้ให้บริการ)" },
+      { table: { head: ["เทคนิค", "ทำอะไร / ใช้เมื่อ"], rows: [
+        ["ชัดเจน-ตรงประเด็น", "สั่งเจาะจง output + บอก 'ทำไม' (คิดเหมือนสอนพนักงานใหม่)"],
+        ["Few-shot (multishot)", "ใส่ตัวอย่าง 3-5 อันที่หลากหลาย → คุม format/โทน (steer ได้ผลสุด)"],
+        ["Chain-of-thought", "ให้ 'คิดก่อนตอบ' แยกขั้นตอน → งาน reasoning หลายขั้น"],
+        ["XML tags", "ห่อส่วนต่าง ๆ <instructions>/<context>/<example> กันตีความปนกัน"],
+        ["บอกสิ่งที่ให้ทำ", "พูด 'เขียนเป็นย่อหน้า' แทน 'ห้ามใช้ markdown'"],
+        ["เอกสารยาวไว้บนสุด", "long-context: วางเหนือคำถาม + ให้ดึง quote ก่อนตอบ"],
+      ]}},
+      { note: "หมายเหตุจาก docs: การ 'prefill' คำตอบเลิกใช้บนโมเดลใหม่แล้ว — ใช้ structured output หรือสั่งตรง ๆ ว่า 'ตอบโดยไม่ต้องเกริ่น' แทน" },
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Anthropic — Intro to Claude", url: "https://docs.anthropic.com/en/docs/intro-to-claude", note: "ภาพรวม LLM + เริ่มต้นใช้ Claude" },
@@ -282,6 +292,22 @@ class Review(BaseModel):
       { p: "ไม่ใช่ทุกงานต้องใช้โมเดลฉลาดสุด. ใช้ **โมเดลถูก/เร็ว** (Haiku, GPT-mini, Gemini Flash) สำหรับงานง่าย/ปริมาณมาก เช่นสรุป/จัดหมวด และ **โมเดลฉลาดกว่า** (Sonnet, GPT, Gemini Pro) สำหรับงานตัดสินใจ/วิเคราะห์ซับซ้อน" },
       { h: "5) temperature & max_tokens" },
       { p: "`temperature=0` → ตอบนิ่งคงเส้นคงวา (เหมาะงานดึงข้อมูล/ตัดสินใจ). `max_tokens` → เพดานความยาวคำตอบ กันบานปลาย. ทั้งคู่ตั้งตอนสร้าง client" },
+      { h: "6) Streaming — ทยอยส่งคำตอบ (จาก docs)" },
+      { p: "ตั้ง `stream: true` แล้วคำตอบจะไหลมาทีละชิ้นผ่าน **SSE** — user เห็นตัวอักษรทันที (latency ที่รู้สึกได้ต่ำ) และจำเป็นเมื่อ max_tokens สูงเพื่อกัน HTTP timeout. ถ้าต้องการแค่ผลก้อนเดียวไปประมวลผลต่อ ไม่ต้อง stream ก็ได้" },
+      { ul: [
+        "ลำดับ event: `message_start` → (`content_block_start` → `content_block_delta`×N → `content_block_stop`) ต่อ block → `message_delta` (stop_reason/usage) → `message_stop`; อาจมี ping/error แทรก โค้ดต้องข้าม event ที่ไม่รู้จักได้",
+        "ประกอบคำตอบ: ฟัง `content_block_delta` แล้วต่อ `delta.text` (text_delta) ตาม index",
+        "ฝั่ง tool/structured: delta เป็น `input_json_delta` = **partial JSON string** ต้องสะสมแล้วค่อย parse ตอน block จบ",
+      ]},
+      { h: "7) Multimodal — ส่งรูปให้โมเดลอ่าน (จาก docs)" },
+      { p: "โมเดลรับ **รูปภาพ** พร้อมข้อความได้ (อ่าน chart/screenshot/ฟอร์ม/เอกสาร) — เข้าใจภาพเท่านั้น สร้างรูปไม่ได้. ส่งเป็น content-block ชนิด `image` (base64 / URL / file_id); รองรับ JPEG/PNG/GIF/WebP" },
+      { code: String.raw`{ "type": "image",
+  "source": { "type": "base64", "media_type": "image/jpeg", "data": "<BASE64>" } }
+// วาง block รูป "ก่อน" block text เสมอ`, cap: "1 รูป ≈ width×height/750 tokens — รูปใหญ่ถูก resize ก่อน (คิดเงินตาม token)", lang: "json" },
+      { ul: [
+        "use cases: อ่าน/ตีความกราฟ-ตาราง, ดึงข้อมูลจากฟอร์ม/เอกสาร, วิเคราะห์ screenshot",
+        "ลิมิต: ไฟล์ ≤10MB/รูป, มิติ ≤8000px, ภาพควรคม; ระบุชื่อคน/นับวัตถุ/spatial เป๊ะ ๆ ไม่แม่น",
+      ]},
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Anthropic — Messages API", url: "https://docs.anthropic.com/en/api/messages", note: "พารามิเตอร์ทั้งหมด" },
@@ -1182,6 +1208,25 @@ cost = usage.input * P["input"] + usage.output * P["output"]`, cap: "นับ c
         "ใส่ **acceptance criteria** ที่ตรวจได้ลงคำสั่ง (เช่น 'lint ต้องผ่านไม่มี error') → agent วนแก้เองจนผ่านสเปก",
         "เขียนกฎลง **AGENTS.md** หรือทำเป็น **skill** ('ก่อนสร้างหน้าใหม่ เช็ค DESIGN.md ก่อน') = guardrail ที่ติดทุกรอบ ประหยัด context",
         "สเปกควรอ้าง 'ชื่อ token เดียวกัน' ทั้งไฟล์ ลด ambiguity ที่ทำให้โมเดลเดา",
+      ]},
+      { h: "8) Tool use loop ของจริง (จาก docs)" },
+      { p: "tool calling แบบ A กลไกจริงคือวงจร request/response หลายเทิร์น:" },
+      { code: String.raw`tool = {"name": "get_weather",
+        "description": "บอกอากาศของเมือง (อธิบายละเอียด 3-4 ประโยค)",
+        "input_schema": {"type": "object",
+          "properties": {"city": {"type": "string"}}, "required": ["city"]}}
+
+# 1) โมเดลตอบ stop_reason="tool_use" + block {id, name, input}
+# 2) โค้ดรัน tool ตาม name ด้วย input
+# 3) ส่ง message role "user" ที่มี block:
+#    {"type":"tool_result", "tool_use_id": <id เดิม>, "content": ...}
+# 4) วนจนกว่า stop_reason ไม่ใช่ tool_use`, cap: "model ขอเรียก → โค้ดรัน → ส่งผลกลับ → วนต่อ", lang: "py" },
+      { ul: [
+        "`tool_result` ต้องตามหลัง message ที่มี `tool_use` **ทันที** และมาก่อน text ในข้อความนั้น (ไม่งั้น error 400)",
+        "หลาย tool ในเทิร์นเดียว → รันทุกตัว แล้วส่ง `tool_result` **ครบทุกอัน** ในข้อความ user เดียว (จับคู่ด้วย tool_use_id)",
+        "`tool_choice`: auto (เลือกเอง) / any (บังคับใช้สักตัว) / tool (บังคับตัวที่ระบุ) / none (ห้าม)",
+        "tool พัง → ส่ง `tool_result` ที่ `is_error: true` + เหตุผล โมเดลจะ retry เอง",
+        "**security**: เนื้อหาใน tool_result มาจากภายนอก = untrusted ระวัง prompt injection — เก็บใน tool_result เท่านั้น อย่ายัดเข้า system/user",
       ]},
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
