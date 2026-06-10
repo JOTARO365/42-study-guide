@@ -821,9 +821,23 @@
     ["eval", { th: "คำถาม Evaluation", en: "Evaluation Q&A" }]
   ];
 
+  /* ชื่อแท็บสำหรับสาย AI Engineer — ใช้แทน label ของ 42 เมื่อ id ขึ้นต้นด้วย ai_ */
+  var AI_TAB_LABELS = {
+    principle:      { th: "ภาพรวม", en: "Overview" },
+    theory:         { th: "แนวคิด & ทฤษฎี", en: "Concepts & Theory" },
+    foundations:    { th: "พื้นฐาน & องค์ประกอบ", en: "Foundations" },
+    architecture:   { th: "สถาปัตยกรรมระบบ", en: "System Architecture" },
+    dataflow:       { th: "การไหลของข้อมูล", en: "Data Flow" },
+    flowviz:        { th: "Visualizer ▶", en: "Flow Visualizer ▶" },
+    implementation: { th: "ลงมือทำ & ตัวอย่าง", en: "Hands-on & Examples" },
+    tricks:         { th: "ทริค & Best Practice", en: "Tips & Best Practices" },
+    eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
+  };
+
   /* ---- หน้าโปรเจกต์ ---- */
   function ProjectPage(props) {
     var proj = props.proj;
+    var isAI = proj.id.indexOf("ai_") === 0;
     var st = useState("principle"), tab = st[0], setTab = st[1];
     document.documentElement.style.setProperty("--accent", proj.accent);
     var enSec = (LANG === "en" && window.TEACHING_EN && window.TEACHING_EN[proj.id])
@@ -848,14 +862,16 @@
         null
       ),
       h("div", { className: "tabs" },
-        TABS.map(function (tb) {
-          var k = tb[0], label = tb[1];
-          return h("button", {
-            key: k,
-            className: "tab" + (tab === k ? " active" : ""),
-            onClick: function () { setTab(k); window.scrollTo(0, 0); }
-          }, t(label));
-        })
+        TABS.filter(function (tb) { return !(isAI && tb[0] === "demo"); })
+          .map(function (tb) {
+            var k = tb[0];
+            var label = (isAI && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
+            return h("button", {
+              key: k,
+              className: "tab" + (tab === k ? " active" : ""),
+              onClick: function () { setTab(k); window.scrollTo(0, 0); }
+            }, t(label));
+          })
       ),
       h("div", { className: "section", key: tab }, body),
       h("footer", null,
