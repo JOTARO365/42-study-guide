@@ -161,6 +161,123 @@ cb = cost_of(6, 7): 6 <= 7/2 (=3.5)? ไม่ → -(7-6) = -1  (rrb 1 ครั
 นี่คือเหตุผลที่ pick_cost ใช้ max(|ca|,|cb|) ตอนทิศเดียวกัน
 (เพราะส่วนที่ซ้อนกันได้ถูกยุบด้วย rr/rrr)`, cap: "หัวใจที่ทำให้ op count ต่ำลงจนผ่านเกณฑ์", lang: "txt" },
       { note: "สรุปเชิงทฤษฎี: empirically Turkish sort ให้ ops โต ~n·log n (100→~580, 500→~5233) ซึ่งเข้าใกล้ขอบล่าง n·log₂n — เป็นเหตุผลว่าทำไมมันชนะ radix/selection ในแง่ op count" },
+
+      { h: "🔬 เจาะลึก E: พิสูจน์ว่า normalization รักษาลำดับถูกต้อง" },
+      { p: "Normalization แปลงค่าจริงเป็น rank 0..n-1. คำถามสำคัญ: **การเรียง rank 0→n-1 เท่ากับการเรียงค่าจริงจริงไหม?** มาพิสูจน์กัน" },
+      { code: String.raw`นิยาม: rank(x) = จำนวนสมาชิกที่น้อยกว่า x ในเซตเดียวกัน
+
+พิสูจน์ว่า:  rank(a) < rank(b)  ⟺  a < b
+
+(→) ถ้า a < b:
+  a มีสมาชิกที่น้อยกว่า a บางส่วน (เรียกชุด S_a)
+  b มีสมาชิกที่น้อยกว่า b = S_a ∪ {a} ∪ (สมาชิกระหว่าง a,b)
+  → rank(b) ≥ rank(a) + 1 > rank(a)  ✓
+
+(←) ถ้า rank(a) < rank(b):
+  b มีสมาชิกน้อยกว่า b มากกว่า a → ต้องมี a < b จริง
+  (ถ้า a ≥ b จะได้ rank(a) ≥ rank(b) ขัดแย้ง)  ✓
+
+ตัวอย่าง: เซต = [-999, 0, 42, 1000000]
+  rank(-999)  = 0  (ไม่มีใครน้อยกว่า)
+  rank(0)     = 1  (มี -999 น้อยกว่า 1 ตัว)
+  rank(42)    = 2
+  rank(1000000) = 3
+
+→ เรียง rank 0,1,2,3 = เรียง -999,0,42,1000000 ถูกต้อง ✓`, cap: "rank เป็น order-preserving mapping: รักษาลำดับเป๊ะ และทุกค่าอยู่ในช่วง 0..n-1 ที่คำนวณง่าย", lang: "txt" },
+      { code: String.raw`ทำไม rank ดีกว่าค่าจริงในการคำนวณ:
+
+สมมติอยากหา "ตำแหน่งที่ควรแทรก 42" ใน stack A ที่มี [0, 100, 200, 1000]
+
+แบบค่าจริง: ต้องเทียบ 42 กับ 0, 100, 200, 1000 ทีละตัว
+  → ถ้าค่ากระจาย [-2^31 .. 2^31] การเทียบเสี่ยง overflow
+
+แบบ rank (สมมติ n=5, 42 rank=1):
+  target = rank ที่น้อยที่สุดใน A ที่มากกว่า rank ปัจจุบัน
+  → คำนวณด้วยเลข 0..4 ล้วน ไม่มีทาง overflow`, cap: "rank เปลี่ยนปัญหา 'เทียบค่าที่กระจายทั่ว 32 bit' เป็น 'เทียบเลข 0..n-1'", lang: "txt" },
+      { note: " normalization เป็น O(n²) (เทียบทุกคู่) แต่ทำแค่ครั้งเดียวตอนต้น — คุ้มเพราะจากนั้น algorithm ทั้งหมดทำงานบน rank ล้วน ๆ ที่ O(1) ต่อการเทียบ", lang: "txt" },
+
+      { h: "🔬 เจาะลึก F: ทำไม greedy ถึงได้ผลดี — บทพิสูจน์เชิงประสบการณ์" },
+      { p: "Greedy algorithm ไม่การันตี optimal เสมอไป (เช่น traveling salesman ที่ greedy ได้ผลแย่มาก). แต่ **push_swap เป็นกรณีพิเศษ** ที่ greedy ให้ผลดีมาก — มาดูกันว่าทำไม" },
+      { code: String.raw`สมมติ n ตัว, push_all_to_b ดัน n-3 ตัวลง B
+→ เหลือ 3 ตัวใน A → sort_3 ใช้ ≤ 3 ops (hardcode)
+→ ต้อง "ดึงกลับ" n-3 ตัว จาก B กลับเข้า A
+
+แต่ละรอบ:
+  1. find_target: หาตำแหน่งใน A ที่ควรแทรก (O(n))
+  2. best_b_pos: ลองทุกตัวใน B หาตัวที่ cost ต่ำสุด (O(n²))
+  3. do_move: ทำ rr/rrr + pa (O(n))
+
+จำนวนรอบ = n-3
+ต่อรอบ = O(n²) ภายใน (แต่ ops ที่พิมพ์ = O(n) ต่อรอบ)
+
+จำนวน ops ทั้งหมด ≈ (n-3) × O(n) = O(n²) สำหรับ insert phase
+บวก push_all_to_b = O(n)
+รวม ≈ O(n²) ops ที่พิมพ์`, lang: "txt" },
+      { code: String.raw`แต่ทำไม empirically ได้ ~n·log n ไม่ใช่ n²?
+
+คำตอบ: แม้ worst case ของ greedy จะเป็น O(n²)
+แต่ใน practice:
+  - แต่ละรอบเลือก "ตัวถูกสุด" → แต่ละ round ทำให้ A "เรียงมากขึ้น"
+  - rr/rrr รวมการหมุน → ประหยัด ops เดือนละครึ่งหนึ่ง
+  - 3 ตัวสุดท้าย hardcode → ไม่เสีย ops กับช่วงท้าย
+
+ผลจริง (วัดจากเดโม):
+  n=100  → ~580 ops   (n·log₂n = 664)
+  n=500  → ~5233 ops  (n·log₂n = 4482)
+  → แกว่ง ~10-15% เหนือขอบล่าง ซึ่งดีมากสำหรับ greedy`, cap: "greedy ไม่ optimal เชิงทฤษฎี แต่ในทางปฏิบัติให้ผล 'ดีพอ' สำหรับโจทย์นี้", lang: "txt" },
+      { code: String.raw`เปรียบเทียบกับ algorithm อื่น:
+
+Selection sort:
+  หา min → หมุนขึ้น top → pb → วนไป
+  ops ≈ n²/2 (ทุกรอบต้อง rotate ผ่าน n/2 ตัวเฉลี่ย)
+  n=100 → ~5000 ops (เกินเกณฑ์ < 700 หลายเท่า)
+
+Radix sort (base 2):
+  ดูทีละ bit → pb/pa ตาม bit
+  ops ≈ n × (จำนวน bit) = n × log₂n
+  n=100 → ~700-1100 ops (ก้ำกึ่งเกณฑ์)
+
+Turkish (greedy):
+  ops ≈ n × log₂n × constant (constant ≈ 0.87)
+  n=100 → ~580 ops (ต่ำกว่าเกณฑ์ชัดเจน)`, cap: "Turkish sort ชนะเพราะ constant factor ต่ำ — rr/rrr + cost-based selection ทำให้แต่ละรอบคุ้มสุด", lang: "txt" },
+      { note: "เหตุผลเชิงลึก: greedy ใช้ได้ดีที่นี่เพราะ 'cost function มีโครงสร้างเชิงเส้นพอ' — ค่าใช้จ่ายในการแทรกไม่ได้เพิ่มขึ้นแบบทวีคูณเมื่อ n โต จึงเลือกตัวถูกสุดได้ผลรวมที่ดี", lang: "txt" },
+
+      { h: "🔬 เจาะลึก G: วิเคราะห์เกณฑ์คะแนน — ทำไม <700 และ ≤5500" },
+      { p: "หลายคนสงสัยว่าเกณฑ์ `< 700 ops (100 ตัว)` และ `≤ 5500 ops (500 ตัว)` ตั้งมาจากไหน — มันไม่ได้สุ่มมา แต่อิงจาก **ขอบล่างเชิงทฤษฎี** และ **algorithm ที่ดีที่สุดที่ทำได้จริง**" },
+      { code: String.raw`ขอบล่างเชิงทฤษฎี (lower bound):
+  Ω(n · log₂n) สำหรับ comparison sort
+
+n = 100:
+  n · log₂n = 100 × 6.64 = 664
+  → เกณฑ์เต็ม = < 700  (สูงกว่าขอบล่าง ~5% เท่านั้น!)
+  → เกณฑ์ผ่าน = < 1100 (สูงกว่าขอบล่าง ~66%)
+
+n = 500:
+  n · log₂n = 500 × 8.97 = 4482
+  → เกณฑ์เต็ม = ≤ 5500 (สูงกว่าขอบล่าง ~23%)
+  → เกณฑ์ผ่าน = < 8500 (สูงกว่าขอบล่าง ~90%)`, cap: "เกณฑ์เต็มถูกออกแบบให้ 'ยากแต่ทำได้ถ้าเลือก algorithm ถูก'", lang: "txt" },
+      { code: String.raw`วิเคราะห์ว่า algorithm แต่ละตัวผ่านเกณฑ์ไหม:
+
+n=100, เกณฑ์เต็ม < 700:
+  Selection:  ~5000  ← ห้ามหวัง
+  Radix:      ~700-1100  ← ก้ำกึ่ง (บางรอบผ่าน บางรอบไม่)
+  Turkish:    ~580  ← ผ่านชัดเจนทุกรอบ
+
+n=500, เกณฑ์เต็ม ≤ 5500:
+  Selection:  ~125000  ← ห้ามหวัง
+  Radix:      ~4500-5500  ← ก้ำกึ่งมาก
+  Turkish:    ~5233  ← ผ่านชัดเจน`, cap: "Turkish sort เป็น algorithm เดียวที่ผ่านเกณฑ์เต็มได้ทุกรอบอย่างมั่นคง", lang: "txt" },
+      { code: String.raw`ทำไมเกณฑ์เต็มถึงตั้ง "สูงกว่าขอบล่างนิดเดียว":
+
+เป้าหมายของ 42 คือบังคับให้ใช้ algorithm ที่ "ดีจริง" ไม่ใช่ "พอผ่าน":
+  - ถ้าเกณฑ์ตั้งที่ 2000 → radix ก็ผ่าน → นักเรียนไม่ต้องคิดมาก
+  - ถ้าเกณฑ์ตั้งที่ 550 → เกือบทุก algorithm ไม่ผ่าน → ท้อ
+  - 700 = "ถ้าเข้าใจ problem จริง จะผ่าน; ถ้าจำมาแค่ก็ไม่ผ่าน"
+
+เกณฑ์ผ่าน (< 1100) ยังอนุญาตให้ radix บางรอบผ่าน
+เพื่อไม่ให้คนที่เลือก radix ต้องทำใหม่ทั้งหมด`, cap: "เกณฑ์คือ 'ยาขมที่พอดี' — บังคับให้เรียน algorithm จริง แต่ไม่โหดจนท้อ", lang: "txt" },
+      { note: "วิธีเช็คว่า algorithm เราผ่านเกณฑ์: รัน 5-10 รอบด้วย input สุ่ม 100/500 ตัว แล้วดูค่า max ops — ถ้า max < 700 (100) หรือ max ≤ 5500 (500) = ผ่านชัวร์", lang: "txt" },
+
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Big-O notation — Wikipedia", url: "https://en.wikipedia.org/wiki/Big_O_notation", note: "นิยามเป็นทางการ + ตารางเทียบอัตราการเติบโต" },
@@ -169,6 +286,8 @@ cb = cost_of(6, 7): 6 <= 7/2 (=3.5)? ไม่ → -(7-6) = -1  (rrb 1 ครั
         { label: "VisuAlgo — Linked List & Stack", url: "https://visualgo.net/en/list", note: "เห็น pointer ของ linked list ขยับทีละขั้น" },
         { label: "Two's complement — Wikipedia", url: "https://en.wikipedia.org/wiki/Two%27s_complement", note: "ทำไม INT_MIN/INT_MAX ไม่สมมาตร + overflow" },
         { label: "Stirling's approximation — Wikipedia", url: "https://en.wikipedia.org/wiki/Stirling%27s_approximation", note: "ที่มาของ log₂(n!) ≈ n·log₂n" },
+        { label: "Greedy algorithm — Wikipedia", url: "https://en.wikipedia.org/wiki/Greedy_algorithm", note: "เมื่อไหร่ greedy ได้ผลดี vs เมื่อไหร่ไม่ได้ (MATOID theory)" },
+        { label: "Rank (statistics) — Wikipedia", url: "https://en.wikipedia.org/wiki/Rank_(statistics)", note: "ที่มาของ rank ที่ใช้ใน normalization" },
       ]},
     ],
     foundations: [

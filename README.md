@@ -50,7 +50,7 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 
 | Project | จำนวน | หัวข้อ |
 |---------|:-----:|--------|
-| push_swap | 4 | Big-O formal def, comparison sort lower bound, two's complement, cost calculation |
+| push_swap | **7** | Big-O formal def, comparison sort lower bound, two's complement, cost calculation, normalization proof, greedy optimality, scoring thresholds analysis |
 | pipex | 4 | fork returns twice, fd table trace, pipe reference counting, exec memory layout |
 | so_long | 4 | DFS/BFS O(V+E), recursion & stack overflow, camera formula, formal FSM |
 | fractol | 4 | Complex multiplication, escape radius proof, IEEE 754, pixel↔complex mapping |
