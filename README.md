@@ -62,6 +62,17 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | cpp_module_00 | 1 | this pointer |
 | minishell | 1 | Pipe EOF reference counting |
 
+## AI Engineer Deep Dives
+
+| Module | จำนวน | หัวข้อ |
+|--------|:-----:|--------|
+| **ai_foundations** | 2 | Autoregressive decoding (how LLM generates text), BPE tokenizer internals |
+| **ai_llm** | 2 | Structured output (constrained decoding), Prompt caching mechanics & cost math |
+| **ai_vector** | 2 | Cosine similarity mathematical proof, HNSW algorithm walkthrough |
+| **ai_rag** | 2 | Chunking strategies impact analysis, BM25 vs Vector vs Hybrid search |
+| **ai_agents** | 2 | ReAct loop (why reasoning+action beats pure reasoning), Graph topology (DAG vs Cyclic) |
+| **ai_harness** | 2 | Prompt injection taxonomy & defense, Cost optimization math (cache break-even) |
+
 ## Tech Stack
 
 - React 18 (vanilla JS, no JSX/Babel — opens as `file://`)
