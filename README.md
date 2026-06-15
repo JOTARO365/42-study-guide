@@ -5,7 +5,9 @@
 
 ## Live Demo
 
-เปิด `index.html` ในเบราว์เซอร์เพื่อดูหน้ารวมลิงก์ทั้งหมด
+**[https://jotaro365.github.io/42-study-guide/](https://jotaro365.github.io/42-study-guide/)**
+
+หรือเปิด `index.html` ในเครื่อง (ไม่ต้อง build)
 
 ---
 
