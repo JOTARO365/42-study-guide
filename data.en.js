@@ -537,5 +537,258 @@ pthread_mutex_unlock(&philo->meal_lock);
         { label: "man7 — pthread_mutex_lock(3p)", url: "https://man7.org/linux/man-pages/man3/pthread_mutex_lock.3p.html", note: "official mutex lock/unlock docs" },
       ]},
     ],
+    principle: [
+      { h: "What's the problem (Dining Philosophers)" },
+      { p: "N philosophers sit around a round table doing 3 things in a loop: **eat → sleep → think**. Between each pair of people sits **one fork** (N forks total). To eat you must hold **two forks** (left + right) at once — but each fork is shared with the neighbour." },
+      { code: String.raw`        P1
+      🍴  🍴
+   P5          P2
+    🍴          🍴
+      P4 🍴 P3
+each person needs left+right forks to eat
+-> both neighbours want the same fork = contention`, cap: "Forks are scarce, people outnumber them -> you must schedule so everyone eats and nobody starves", lang: "txt" },
+      { h: "Win/lose conditions" },
+      { ul: [
+        "If any philosopher **doesn't eat within `time_to_die` ms** since their last meal → they **die** → the program must print `died` and stop immediately",
+        "No philosopher may die — you must time things so everyone eats in time",
+        "If a 5th argument (`must_eat`) is given: once everyone has eaten that many meals → end the simulation cleanly",
+      ]},
+      { h: "Arguments" },
+      { code: String.raw`./philo  n_philo  t_die  t_eat  t_sleep  [n_meals]
+             │      │      │      │        └ (optional) stop after this many meals
+             │      │      │      └ time to sleep (ms)
+             │      │      └ time to eat (ms)
+             │      └ die if no meal within this many ms
+             └ number of philosophers`, lang: "txt" },
+      { h: "Why this problem is brutal" },
+      { p: "This is the classic **concurrency** problem — many threads run at once and contend for shared resources. The challenge is three things at once: (1) **no deadlock** (everyone holds one fork and waits in a cycle), (2) **no data race** (writing/reading shared variables simultaneously), (3) **exact timing** (detecting death accurate to the ms)." },
+      { h: "What is deadlock — the heart of the problem" },
+      { p: "If everyone grabs their **left fork at the same time**, each holds one fork and waits forever for the right (which the neighbour holds) → the whole ring hangs = **deadlock**. Designing a good fork-pickup order is the key to passing this project." },
+      { note: "How this code prevents deadlock: **even-numbered philosophers grab left first, odd-numbered grab right first** — breaking the symmetry so it's impossible for everyone to hold one fork and wait in a cycle." },
+    ],
+    foundations: [
+      { p: "This section digs into the **struct, shared memory, and mutexes** philosophers uses." },
+      { h: "The 2 main structs" },
+      { code: String.raw`typedef struct s_philo {
+    int             id;
+    pthread_t       thread;        /* this person's thread */
+    long            meals_eaten;
+    long            last_meal;     /* time of last meal (ms) */
+    pthread_mutex_t *left_fork;    /* points to the left fork */
+    pthread_mutex_t *right_fork;   /* points to the right fork */
+    pthread_mutex_t meal_lock;     /* guards last_meal/meals_eaten */
+    t_data          *data;         /* points back to shared data */
+} t_philo;
+
+typedef struct s_data {
+    int             num_philo;
+    long            time_to_die, time_to_eat, time_to_sleep, must_eat;
+    int             stop;          /* flag: is the sim over yet */
+    long            start_time;
+    pthread_mutex_t *forks;        /* array of mutexes (forks) */
+    pthread_mutex_t print_lock;    /* keeps prints from overlapping */
+    pthread_mutex_t stop_lock;     /* guards reads/writes of stop */
+    t_philo         *philos;
+} t_data;`, cap: "data = shared central state every thread sees; philo = each person's own state", lang: "c" },
+      { h: "Forks = an array of mutexes shared between neighbours" },
+      { code: String.raw`philos[i].left_fork  = &forks[i];
+philos[i].right_fork = &forks[(i + 1) % num_philo];`, cap: "person i's left fork = forks[i]; right fork = forks[i+1] wrapped with %num -> round table", lang: "c" },
+      { p: "Note: person i's right fork **is the same fork** as person i+1's left fork — this 'sharing' is exactly why you need a mutex to avoid contention." },
+      { h: "The 4 kinds of mutex in this code" },
+      { table: { head: ["mutex", "protects what"], rows: [
+        ["`forks[i]`", "each fork — held by one person at a time"],
+        ["`meal_lock` (per person)", "that person's last_meal & meals_eaten"],
+        ["`print_lock`", "log lines don't print over each other"],
+        ["`stop_lock`", "the stop flag read/written by many threads"],
+      ]}},
+      { note: "Why a separate meal_lock per person: the monitor (another thread) reads last_meal while the owner is writing it → you must lock against each other, or it's a race." },
+      { h: "Why stop is an int + mutex, not a plain variable" },
+      { p: "The `stop` flag is read by every thread (in its loop) and written by the monitor — shared data that can race, so it must always be read/written through `stop_lock` (the `is_stopped` and `set_stop` functions)." },
+    ],
+    architecture: [
+      { h: "Project files (mandatory)" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`main.c`", "parse → init → spawn threads → monitor → join → cleanup"],
+        ["`parse.c`", "read arguments + validate them"],
+        ["`init.c`", "allocate + init all mutexes, set up philos"],
+        ["`routine.c`", "what each thread does (eat/sleep/think)"],
+        ["`monitor.c`", "the main thread watches who dies / who's full"],
+        ["`utils.c`", "get_time, precise_sleep, thread-safe print"],
+      ]}},
+      { h: "Two sides of the design" },
+      { code: String.raw`main thread
+  ├─ spawn N threads (each runs routine)
+  ├─ monitor(data)  <- loops forever checking:
+  │     • anyone past time_to_die? -> print died, set_stop
+  │     • has everyone eaten must_eat? -> set_stop
+  └─ join all threads -> cleanup mutexes
+
+each philosopher thread (routine):
+  while (!stopped) {
+     take forks -> eat -> update last_meal
+     sleep -> think
+  }`, cap: "the monitor is the referee, philosophers are the players — they talk through the stop flag", lang: "txt" },
+      { h: "Order inside main()" },
+      { code: String.raw`if (argc != 5 && argc != 6) -> usage
+parse_args()                  // validate input
+if (must_eat == 0) return 0   // eat 0 meals = nothing to do
+init_data()                   // allocate + init mutexes
+start_threads()               // spawn threads + set last_meal=start
+monitor()                     // the main thread does the watching
+join_threads()                // wait for everyone to finish
+cleanup()                     // destroy mutexes + free`, lang: "txt" },
+      { note: "Special case: a single philosopher (num_philo==1) has only one fork, can grab one side → can't eat → must die. The code handles this separately in lone_philo() (grab one fork and wait until death)." },
+    ],
+    dataflow: [
+      { p: "Walk through the key functions one by one." },
+      { h: "routine() — one philosopher's life" },
+      { code: String.raw`void *routine(void *arg)
+{
+    t_philo *philo = (t_philo *)arg;
+    if (philo->data->num_philo == 1)
+        return (lone_philo(philo));          // single-person case
+    if (philo->id % 2 == 0)
+        precise_sleep(time_to_eat / 2, ...);  // even ones delay start
+    while (!is_stopped(philo->data))
+    {
+        do_eat(philo);                        // take forks + eat
+        if (is_stopped(philo->data)) break;
+        print_status(philo, "is sleeping");
+        precise_sleep(time_to_sleep, ...);
+        print_status(philo, "is thinking");
+    }
+    return (NULL);
+}`, cap: "loop eat-sleep-think until someone dies / everyone's full (stop)", lang: "c" },
+      { p: "**Why even philosophers delay at the start:** if everyone lunges for forks at once it's a scramble. Make even-numbered people wait half a time_to_eat first → odd ones eat first, then even ones → a smooth 'interleaved' rhythm that reduces contention." },
+      { h: "take_forks() — picking up forks without deadlock" },
+      { code: String.raw`static void take_forks(t_philo *philo)
+{
+    if (philo->id % 2 == 0) {              // even: left first
+        lock(left_fork);  print "has taken a fork";
+        lock(right_fork); print "has taken a fork";
+    } else {                                // odd: right first
+        lock(right_fork); print "has taken a fork";
+        lock(left_fork);  print "has taken a fork";
+    }
+}`, cap: "different pickup order by even/odd -> breaks circular wait -> no deadlock", lang: "c" },
+      { h: "do_eat() — eat while updating time safely" },
+      { code: String.raw`static void do_eat(t_philo *philo)
+{
+    take_forks(philo);
+    lock(meal_lock);
+      philo->last_meal = get_time();   // reset the death clock
+    unlock(meal_lock);
+    print_status(philo, "is eating");
+    precise_sleep(time_to_eat, data);
+    lock(meal_lock);
+      philo->meals_eaten++;
+    unlock(meal_lock);
+    unlock(left_fork);
+    unlock(right_fork);                  // put down both forks
+}`, cap: "always update last_meal/meals_eaten under meal_lock, because the monitor reads them concurrently", lang: "c" },
+      { h: "monitor() — the referee checking for death" },
+      { code: String.raw`void monitor(t_data *data)
+{
+    while (!is_stopped(data)) {
+        for each person:
+            if (someone_died(&philos[i])) return;  // past t_die -> died
+        if (all_ate(data)) return;                 // everyone full
+        usleep(500);                                // check frequently
+    }
+}`, lang: "c" },
+      { code: String.raw`static int someone_died(t_philo *philo)
+{
+    lock(meal_lock);
+      since = get_time() - philo->last_meal;
+    unlock(meal_lock);
+    if (since > time_to_die) {
+        lock(print_lock);
+          set_stop(data);                  // stop first
+          put_msg(data, id, "died");        // then print
+        unlock(print_lock);
+        return (1);
+    }
+    return (0);
+}`, cap: "set_stop before printing died, under print_lock -> no other thread can print after a death", lang: "c" },
+      { h: "print_status() — thread-safe logging" },
+      { code: String.raw`void print_status(t_philo *philo, char *msg)
+{
+    lock(print_lock);
+      if (!is_stopped(philo->data))     // never print after the sim ends
+          put_msg(data, id, msg);
+    unlock(print_lock);
+}`, cap: "check stop under print_lock to avoid printing a status after someone has already died", lang: "c" },
+      { h: "is_stopped / set_stop — safe flag access" },
+      { code: String.raw`int is_stopped(t_data *data) {
+    lock(stop_lock); int s = data->stop; unlock(stop_lock);
+    return (s);
+}
+void set_stop(t_data *data) {
+    lock(stop_lock); data->stop = 1; unlock(stop_lock);
+}`, cap: "every touch of stop goes through a mutex -> no data race on this flag", lang: "c" },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. parse + validate arguments (positive numbers, right arg count)",
+        "2. get_time + precise_sleep accurate first — it's the foundation of everything",
+        "3. init all mutexes + set up philos (left/right forks)",
+        "4. routine without deadlock prevention yet + thread-safe print_status",
+        "5. monitor that checks for death",
+        "6. prevent deadlock (even/odd + start delay) + the single-person case",
+        "7. must_eat (end when everyone's full) + cleanup with no leaks",
+        "8. check with valgrind --tool=helgrind (find data races)",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["Hangs / never moves", "deadlock — everyone holds one fork waiting in a cycle", "even/odd staggered pickup order"],
+        ["Dies when it shouldn't", "clock started wrong / last_meal not set at start", "set last_meal = start_time before spawning threads"],
+        ["died prints late / overlaps other lines", "no set_stop before printing / no print_lock", "set_stop first, then print under print_lock"],
+        ["helgrind reports a race", "reading/writing shared data without a lock", "every last_meal/meals_eaten/stop must be under a mutex"],
+        ["Single person doesn't die / hangs", "didn't separate the num==1 case", "lone_philo grabs one fork then waits until death"],
+      ]}},
+      { h: "build / run" },
+      { code: String.raw`make
+./philo 5 800 200 200       # 5 people, nobody should die
+./philo 4 410 200 200       # borderline — tests timing
+./philo 1 800 200 200       # single person -> dies (not enough forks)
+./philo 5 800 200 200 7     # everyone eats 7 meals then ends`, lang: "bash" },
+    ],
+    tricks: [
+      { h: "Trick 1: even/odd staggered fork pickup — prevents deadlock" },
+      { p: "The heart of the project. If everyone grabs left first the same way = guaranteed deadlock. Make even-numbered people grab left first, odd ones grab right first → break the symmetry = cut circular wait, one of the deadlock conditions." },
+      { h: "Trick 2: delay even-numbered philosophers at the start" },
+      { p: "Have even ones `precise_sleep(time_to_eat/2)` before starting → spread fork contention into an interleaved rhythm, giving good throughput so nobody starves for long." },
+      { h: "Trick 3: precise_sleep instead of one big usleep" },
+      { p: "Sleep in 200µs slices and re-check the real clock — more precise than a long usleep (which the OS may wake late) and you can check the stop flag each round → stop immediately when someone dies instead of sleeping on." },
+      { h: "Trick 4: a per-person mutex for meal data" },
+      { p: "Use a separate `meal_lock` per person (not one shared lock) → the monitor checking one person doesn't block another's eating = less lock contention and more on-time logs." },
+      { h: "Trick 5: set_stop before printing died, under print_lock" },
+      { p: "Set the stop flag first, then print `died` while holding print_lock the whole time → guarantees `died` is the last line, with no other thread sneaking in an 'is eating' after someone has died." },
+      { h: "Trick 6: write the log with a single write" },
+      { p: "Assemble the whole line (time + id + msg + \\n) into a buffer then `write` once — reduces the chance of output breaking mid-line (faster and more atomic than several printfs)." },
+    ],
+    eval: [
+      { qa: [
+        { q: "Why threads, not processes (mandatory)?", a: "Philosophers share forks (a common resource) — threads share the same memory, making shared state easy; mandatory requires pthread, bonus uses process+semaphore." },
+        { q: "What is a mutex, what's it for here?", a: "A lock that gives access to a resource one thread at a time; each fork = 1 mutex, pickup=lock put-down=unlock, also used to guard races on print/stop/meal data." },
+        { q: "How does deadlock happen, how do you prevent it?", a: "If everyone grabs the left fork at once they hold one and wait for the right the neighbour holds, stuck in a cycle; prevent it by even ones grabbing left first, odd ones right first = cut circular wait." },
+        { q: "What is a race condition, where in the code?", a: "Several threads reading/writing a shared variable at once give unpredictable results; found at last_meal, meals_eaten, stop — fixed by locking a mutex every time you touch them." },
+        { q: "How do you detect death accurately?", a: "The monitor (a separate thread) loops checking get_time()-last_meal > time_to_die every ~500µs; reads last_meal under meal_lock to avoid a race." },
+        { q: "Why precise_sleep instead of plain usleep?", a: "A big usleep may be woken late by the OS, overshooting the death time; precise_sleep sleeps in 200µs slices, re-checking the real clock + stop flag → precise and can stop immediately." },
+        { q: "How do you handle the single-person case?", a: "Only one fork, can grab one side, can't eat → lone_philo grabs the fork and waits until time_to_die → dies (correct per the subject)." },
+        { q: "Why print with a single write + print_lock?", a: "print_lock stops 2 threads printing over each other; assembling the whole line then writing once stops the output breaking mid-line." },
+        { q: "How does must_eat work?", a: "If a 5th arg is given the monitor checks whether everyone's meals_eaten >= must_eat; once all are, it set_stops and ends the sim cleanly (nobody dies)." },
+        { q: "Why delay even-numbered philosophers at the start?", a: "Spreads fork contention into an alternating rhythm (odd eat first, even follow), reducing fork clashes so everyone eats in time and throughput improves." },
+        { q: "How do you handle memory/mutexes at the end?", a: "cleanup() calls pthread_mutex_destroy on every mutex (forks, meal_lock, print_lock, stop_lock) then free(forks/philos); check leaks with valgrind." },
+        { q: "Why does stop need its own mutex?", a: "stop is read by every thread and written by the monitor = shared data; always accessed through stop_lock (is_stopped/set_stop) to avoid a data race." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./philo 5 800 200 200       # nobody should die (let it run a while)
+./philo 4 410 200 200       # borderline timing
+./philo 1 800 200 200       # must die at ~800ms
+./philo 5 800 200 200 7     # ends when everyone has eaten 7 meals
+valgrind --tool=helgrind ./philo 4 410 200 200   # find data races`, lang: "bash" },
+    ],
   },
 };
