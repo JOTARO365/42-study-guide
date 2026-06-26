@@ -452,14 +452,33 @@ The wait cycle (when everyone grabs left first at once):
   P2 holds fork2 waits fork3 (P3 holds)
   P3 holds fork3 waits fork4 (P4 holds)
   P4 holds fork4 waits fork0 (P0 holds)  -> cycle closed = hang`, cap: "Everyone 'grabs in the same direction', forming a closed loop — the heart of deadlock is this symmetry", lang: "txt" },
-      { p: "**Proof of why even/odd cuts the cycle:** let even-id philosophers grab **left before right**, and odd-id ones grab **right before left**. For a circular wait to form, everyone must request resources 'in the same rotational direction' around the table — but once even and odd request in opposite directions, the symmetry breaks. There will be at least one spot where two people reach for the **same** fork from opposite sides → one gets both, the other gets none → no closed loop → no deadlock ▮" },
-      { code: String.raw`Example, 2 people 2 forks (n=2):
-  P0 (even): wait fork0(left) -> fork1(right)
-  P1 (odd):  wait fork0(right) -> fork1(left)   <- both ask fork0 first!
-  -> both contend for fork0: whoever wins takes it
-  -> that one then takes fork1 -> eats -> releases -> the other eats
-  (the 'each holds one and waits' state never forms)`, cap: "Resource ordering = Dijkstra's classic way to cut circular wait", lang: "txt" },
-      { note: "Prove it yourself: draw 3 people 3 forks with everyone grabbing left first — you'll see the closed loop P0->P1->P2->P0. Then make the odd one (P1) grab right first and trace where the loop breaks." },
+      { p: "**Step 1 — formalize with a Resource Allocation Graph (RAG):** draw a directed graph — an arrow 'person → fork' = 'waiting for' that fork, an arrow 'fork → person' = that fork is 'held by' that person. **Theorem (single-instance resources):** when each resource has exactly one instance (one fork = one mutex), the system is in deadlock **if and only if** the RAG contains a cycle. So 'preventing deadlock' = 'making a cycle impossible'." },
+      { code: String.raw`RAG once everyone has grabbed their left fork at once (n=5):
+
+  P0 ──wait──▶ fork1 ──held by──▶ P1 ──wait──▶ fork2 ──held──▶ P2
+  ▲                                                              │
+  held                                                          wait
+  │                                                              ▼
+  fork0 ◀─held─ P4 ◀─wait─ fork4 ◀─held─ P3 ◀─wait─ fork3 ◀─held─┘
+
+  follow the arrows back to P0 = a "closed loop" (cycle) -> deadlock`, cap: "single-instance forks → a cycle in the RAG is the necessary AND sufficient condition for deadlock — so the problem reduces to 'never allow a cycle'", lang: "txt" },
+      { p: "**Step 2 — proof that 'resource ordering' (Dijkstra) provably cuts the cycle:** number every fork 0..n−1 and enforce one rule — **everyone must lock the lower-numbered fork first**. Proof by contradiction: suppose a cycle does form. In a closed loop there must be at least one person who 'holds a **higher**-numbered fork while waiting for a **lower**-numbered one' (because if everyone held-low/waited-high climbing upward, the loop could never close back — there must be at least one point where the number drops). But the rule says lock the lower number before the higher → that person must have **already** acquired the lower fork before holding the higher one, so it's impossible for them to be 'holding higher, waiting for lower' → contradiction → **no cycle can ever form** ▮" },
+      { p: "**even/odd cuts circular wait by the same principle (a lighter variant):** it isn't strict resource-ordering (it doesn't compare min/max fork numbers each time), but it achieves the same end: **never letting everyone lock 'in the same rotational direction'**. With even people grabbing left (fork i) first and odd grabbing right (fork (i+1)%n) first → the rotational symmetry breaks → at least one adjacent pair collides on a shared fork, one grabs both first → the loop never closes (and it's norm-friendly since you don't store/compare fork numbers)." },
+      { code: String.raw`worked example, tick by tick: n=3 (fork number = index)
+  P0(even): lock fork0(left) -> fork1(right)
+  P1(odd):  lock fork2(right) -> fork1(left)    <- asks fork2 first
+  P2(even): lock fork2(left) -> fork0(right)    <- asks fork2 first
+
+  t0: P0 grabs fork0,fork1 -> eats
+      P1 grabs fork2, waits fork1 (P0 holds)
+      P2 waits fork2 (P1 holds)               <- P1,P2 collide on fork2: P1 wins
+  t1: P0 releases fork0,fork1
+      P1 grabs fork1 too -> eats
+      P2 still waits fork2
+  t2: P1 releases fork2,fork1
+      P2 grabs fork2 -> fork0(free) -> eats
+  -> everyone eats, the RAG never closes into a cycle at any tick ✓`, cap: "every tick has a 'winner' that gets both forks → the 'everyone holds one and hangs' state never arises → the cycle never closes", lang: "txt" },
+      { note: "Prove it yourself: draw the RAG of 3 people when everyone grabs left first — you'll clearly see the cycle P0→P1→P2→P0. Then apply the even/odd rule and redraw the RAG at every tick: you won't find a cycle at any moment — that's the visual evidence for the proof above." },
       { qa: [
         { q: "Could you prevent deadlock by cutting 'Hold and wait' instead of Circular wait?", a: "Yes — e.g. force 'grab both forks all-or-nothing' (if you can't get both, put them back immediately). Cutting any one Coffman condition is enough; even/odd just happens to cut Circular wait because it's the easiest to implement." },
         { q: "Does n=1 (a single philosopher) deadlock?", a: "It's not deadlock but **starvation by design**: there's only one fork, you can grab one side → you can't eat → you must die at time_to_die. You must handle this case separately (lone_philo), otherwise you'd lock the same fork twice and hang." },
