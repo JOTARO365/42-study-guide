@@ -497,6 +497,27 @@ If the monitor reads last_meal in the middle:
   the owner thread: mid-write of last_meal = now (not finished)
   the monitor:      reads last_meal right now -> a half-written value
   -> decides 'dead or not' from garbage -> wrong verdict`, cap: "This kind of bug is intermittent (a heisenbug) — passes 100 runs, breaks on run 101", lang: "txt" },
+      { p: "**Trace it tick by tick to see the data 'vanish' (lost update):** suppose 2 threads increment meals_eaten (currently 4) at once with no lock — the CPU can switch threads at any step:" },
+      { code: String.raw`start meals_eaten = 4 (in memory)
+
+  time │ thread A           │ thread B           │ memory
+  ─────┼────────────────────┼────────────────────┼────────
+   t0  │ R_A = load (4)     │                    │  4
+   t1  │                    │ R_B = load (4)     │  4   <- B reads before A writes
+   t2  │ R_A = R_A + 1 (5)  │                    │  4
+   t3  │                    │ R_B = R_B + 1 (5)  │  4
+   t4  │ store R_A -> 5     │                    │  5
+   t5  │                    │ store R_B -> 5     │  5   <- overwrites!
+
+  -> 2 meals eaten but meals_eaten = 5 (should be 6) -> must_eat breaks`, cap: "the load/compute/store of 2 threads 'interleave' — a mutex forces those 3 steps to finish before another thread starts", lang: "txt" },
+      { p: "**Why the monitor can mis-judge death (torn read):** a 64-bit `long last_meal` is written as 2 halves (hi/lo word) on some architectures. If the monitor reads right across a write:" },
+      { code: String.raw`owner: old last_meal = 1000, writing new value = 5000
+  store lo-word first ... (value is a transient mix, e.g. 4096)
+       ^ monitor reads exactly here -> gets 4096 (half old, half new)
+
+  now = 5200, time_to_die = 1000
+  since = now - last_meal = 5200 - 4096 = 1104  > 1000
+  -> monitor declares "died" though it just finished eating! (false positive)`, cap: "reading a 64-bit value across a write = garbage -> wrong death verdict; this is why BOTH the read and write side must sit under the same meal_lock", lang: "txt" },
       { p: "**Fix:** wrap every read/write of shared data with the **same** mutex, forcing those 3 steps to be indivisible (atomic) from another thread's view:" },
       { code: String.raw`// write (the owner, when starting to eat)
 pthread_mutex_lock(&philo->meal_lock);
@@ -532,6 +553,18 @@ pthread_mutex_unlock(&philo->meal_lock);
               sem_wait(forks)   // take 2 forks = wait twice
   put fork:   sem_post(forks)   // counter +1
               sem_post(forks)`, cap: "The semaphore counts 'total free forks' — it doesn't care who holds which, unlike a mutex tied to each fork", lang: "c" },
+      { p: "**Proof that 'limiting to n−1 active diners' prevents deadlock:** deadlock (a full circular wait) can only happen when **all n philosophers hold one fork at the same time** (the full cycle from Deep Dive A). Use a second semaphore as 'seats' = n−1 to cap simultaneous fork-takers at n−1 → it becomes impossible for all n to hold a fork at once → the cycle can never close → no deadlock ▮" },
+      { code: String.raw`bonus prevents deadlock with n-1 'seats':
+  sem_t *seats = sem_open("/seats", O_CREAT, 0644, num_philo - 1);
+
+  before taking forks:  sem_wait(seats)     // claim a seat (wait if full)
+    sem_wait(forks); sem_wait(forks)          // take 2 forks
+    ...eat...
+    sem_post(forks); sem_post(forks)          // put forks down
+  sem_post(seats)                           // leave the seat
+
+  -> at most n-1 act at once -> all n can never hold a fork together`, cap: "capping 'contestants' below the headcount removes the full-cycle condition entirely", lang: "c" },
+      { p: "**The pitfall of a semaphore having no 'ownership':** a mutex is tied to its owner (whoever locks must unlock), but anyone can post a semaphore — if you accidentally `sem_post` more than you `sem_wait`, the counter 'inflates' beyond reality → 2 processes can grab the same fork at once = silent corruption with no error. Always pair wait/post exactly." },
       { note: "bonus pitfall: the semaphore counts a total without knowing fork 'positions' → prevent deadlock by limiting to num_philo-1 eaters at a time. And you must sem_close + sem_unlink at the end, or the semaphore lingers in /dev/shm." },
       { qa: [
         { q: "Why can't a mutex work across processes (bonus)?", a: "A normal mutex keeps its state in the process's memory. After fork splits the processes, each has its own memory block → each sees its own mutex, not the same one. You need a named semaphore owned centrally by the OS." },
@@ -548,6 +581,15 @@ pthread_mutex_unlock(&philo->meal_lock);
         usleep(200);                    // sleep briefly, recheck
     }
 }`, cap: "smart busy-wait: more precise than one big usleep, and reacts to stop quickly", lang: "c" },
+      { p: "**Why one big usleep overshoots:** the OS scheduler wakes a thread on a system 'tick' (typically ~1–10 ms) plus current load — `usleep(200000)` (200 ms) may actually wake at ~207 ms. If only 203 ms of time_to_die remained, you'd die when you shouldn't. Slicing the sleep into 200µs pieces keeps the accumulated error within ~1 slice (~0.2 ms) instead of drifting by several ms." },
+      { p: "**Death-detection latency:** the monitor loops every ~500µs, so in the worst case it learns of a death up to ~500µs after the real deadline. The slice must be **small relative to time_to_die** so `died` prints within the tolerated error (42 usually allows ~10 ms)." },
+      { code: String.raw`slice-size balance (both precise_sleep and the monitor):
+  big slice (e.g. 5 ms)  -> light CPU but slow death detection (may exceed limit)
+  tiny slice (e.g. 50 us) -> fast detection but high CPU (near busy-loop)
+  ~200us-500us           -> the sweet spot: catches deaths in time without burning CPU
+
+rule of thumb: the slice should be << the smallest time in the problem (often time_to_die)`, cap: "slice size = trade-off between timing accuracy (smaller = sharper) and CPU use (smaller = costlier)", lang: "txt" },
+      { note: "Measure it yourself: wrap `gettimeofday` around precise_sleep(200) and print the real elapsed time — compare one usleep(200000) vs slicing 200µs: the single block jitters more and overshoots more easily under load." },
       { h: "📖 Further reading" },
       { links: [
         { label: "Dining philosophers problem — Wikipedia", url: "https://en.wikipedia.org/wiki/Dining_philosophers_problem", note: "the original problem + several solutions" },

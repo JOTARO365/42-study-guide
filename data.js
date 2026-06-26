@@ -2400,6 +2400,27 @@ thread B: meals_eaten++   (อ่าน 5 → +1 → เขียน 6)
   thread เจ้าตัว: กำลังเขียน last_meal = now (ยังเขียนไม่เสร็จ)
   monitor:        อ่าน last_meal ตอนนี้พอดี → ได้ค่าครึ่ง ๆ กลาง ๆ
   → คำนวณ 'ตายหรือยัง' จากค่าขยะ → ตัดสินผิด`, cap: "บั๊กชนิดนี้เกิดบ้างไม่เกิดบ้าง (heisenbug) — รันร้อยรอบผ่าน รอบที่ 101 พัง", lang: "txt" },
+      { p: "**ไล่ทีละ tick ให้เห็นข้อมูล 'หายไป' (lost update):** สมมติ 2 thread เพิ่ม meals_eaten ที่ตอนนี้ = 4 พร้อมกันโดยไม่มี lock — CPU สลับ thread ได้ทุกขั้น:" },
+      { code: String.raw`เริ่ม meals_eaten = 4 (ใน memory)
+
+  เวลา │ thread A           │ thread B           │ memory
+  ─────┼────────────────────┼────────────────────┼────────
+   t0  │ R_A = load (4)     │                    │  4
+   t1  │                    │ R_B = load (4)     │  4   ← B อ่านก่อน A เขียน
+   t2  │ R_A = R_A + 1 (5)  │                    │  4
+   t3  │                    │ R_B = R_B + 1 (5)  │  4
+   t4  │ store R_A → 5      │                    │  5
+   t5  │                    │ store R_B → 5      │  5   ← ทับค่าเดิม!
+
+  → กิน 2 มื้อ แต่ meals_eaten = 5 (ควรเป็น 6) → must_eat เพี้ยน`, cap: "load/compute/store ของ 2 thread 'สอดไส้' กัน — mutex บังคับให้ 3 ขั้นนี้ทำจบก่อนอีก thread จะเริ่ม", lang: "txt" },
+      { p: "**ทำไม monitor ตัดสินตายผิดได้ (torn read):** ค่า `long last_meal` 64-bit บนบางสถาปัตย์ถูกเขียนเป็น 2 ครึ่ง (hi/lo word). ถ้า monitor อ่านคาบเกี่ยวจังหวะเขียนพอดี:" },
+      { code: String.raw`เจ้าตัว: last_meal เก่า = 1000, กำลังเขียนค่าใหม่ = 5000
+  store lo-word ก่อน ... (ค่ากลายเป็นเลขผสมชั่วขณะ เช่น 4096)
+       ▲ monitor อ่านตรงนี้พอดี → ได้ 4096 (ครึ่งเก่าครึ่งใหม่)
+
+  now = 5200, time_to_die = 1000
+  since = now - last_meal = 5200 - 4096 = 1104  > 1000
+  → monitor ประกาศ "died" ทั้งที่เพิ่งกินเสร็จ! (false positive)`, cap: "อ่านค่า 64-bit คาบจังหวะเขียน = ได้เลขขยะ → ตัดสินตายผิด นี่คือเหตุผลที่ 'ทั้งฝั่งอ่านและเขียน' ต้องอยู่ใต้ meal_lock ดอกเดียวกัน", lang: "txt" },
       { p: "**ทางแก้:** ครอบทุกการอ่าน/เขียน shared data ด้วย mutex 'ตัวเดียวกัน' เพื่อบังคับให้ 3 ขั้นนั้นแบ่งแยกไม่ได้ (atomic) ในสายตา thread อื่น:" },
       { code: String.raw`// เขียน (เจ้าตัว ตอนเริ่มกิน)
 pthread_mutex_lock(&philo->meal_lock);
@@ -2435,6 +2456,18 @@ pthread_mutex_unlock(&philo->meal_lock);
              sem_wait(forks)   // หยิบ 2 อัน = wait 2 ครั้ง
   วางส้อม:   sem_post(forks)   // เพิ่มตัวนับ 1
              sem_post(forks)`, cap: "semaphore นับ 'จำนวนส้อมว่างรวม' — ไม่สนว่าใครถืออันไหน ต่างจาก mutex ที่ผูกส้อมเป็นรายอัน", lang: "c" },
+      { p: "**พิสูจน์ว่าทำไม 'จำกัดให้ลงมือได้ทีละ n−1 คน' กัน deadlock ได้:** deadlock (circular wait เต็มวง) เกิดได้ก็ต่อเมื่อ **ครบทั้ง n คนถือส้อมคนละอันพร้อมกัน** (วงปิดเต็มวง ตามเจาะลึก A). ถ้าใช้ semaphore ตัวที่สองเป็น 'จำนวนเก้าอี้' = n−1 เพื่อจำกัดให้มีคนลงมือหยิบส้อมได้สูงสุด n−1 คนในเวลาเดียวกัน → เป็นไปไม่ได้ที่ทั้ง n คนจะถือส้อมพร้อมกัน → วงปิดไม่มีวันครบ → ไม่ deadlock ▮" },
+      { code: String.raw`bonus กัน deadlock ด้วย 'เก้าอี้' n-1 ตัว:
+  sem_t *seats = sem_open("/seats", O_CREAT, 0644, num_philo - 1);
+
+  ก่อนหยิบส้อม:  sem_wait(seats)     // ขอเก้าอี้ (ถ้าเต็มต้องรอ)
+    sem_wait(forks); sem_wait(forks)   // หยิบ 2 ส้อม
+    ...กิน...
+    sem_post(forks); sem_post(forks)   // วางส้อม
+  sem_post(seats)                     // ลุกจากเก้าอี้
+
+  → มากสุด n-1 คนลงมือพร้อมกัน → เป็นไปไม่ได้ที่ครบ n คนถือส้อมพร้อมกัน`, cap: "จำกัด 'ผู้เข้าแข่ง' ให้น้อยกว่าจำนวนคนทั้งหมด = ตัดเงื่อนไขวงปิดเต็มวงทิ้งไปเลย", lang: "c" },
+      { p: "**กับดักจากการ 'ไม่มี ownership' ของ semaphore:** mutex ผูกกับเจ้าของ (ใคร lock ต้อง unlock) แต่ semaphore ใครก็ post ได้ — ถ้าเผลอ `sem_post` เกินจำนวน `sem_wait` ตัวนับจะ 'พอง' เกินจริง → 2 process หยิบส้อมอันเดียวกันพร้อมกันได้ = ข้อมูลพังโดยไม่มี error ฟ้อง. ต้องจับคู่ wait/post ให้เป๊ะเสมอ" },
       { note: "กับดัก bonus: semaphore นับรวมไม่รู้ 'ตำแหน่ง' ส้อม → กัน deadlock ด้วยการจำกัดให้หยิบได้ทีละ num_philo−1 คน. และต้อง sem_close + sem_unlink ตอนจบ ไม่งั้น semaphore ค้างใน /dev/shm" },
       { qa: [
         { q: "ทำไม mutex ใช้ข้าม process (bonus) ไม่ได้?", a: "mutex ปกติเก็บสถานะไว้ใน memory ของ process. พอ fork แยก process แต่ละตัวมี memory คนละก้อน → ต่างคนต่างเห็น mutex ของตัวเอง ไม่ใช่ตัวเดียวกัน. ต้องใช้ named semaphore ที่ OS เป็นเจ้าของกลาง" },
@@ -2451,6 +2484,15 @@ pthread_mutex_unlock(&philo->meal_lock);
         usleep(200);                    // นอนสั้น ๆ แล้วเช็คใหม่
     }
 }`, cap: "busy-wait แบบฉลาด: แม่นกว่า usleep ก้อนเดียว และตอบสนอง stop ได้ไว", lang: "c" },
+      { p: "**ทำไม usleep ก้อนใหญ่ overshoot:** OS scheduler ปลุก thread ตาม 'tick' ของระบบ (ปกติ ~1–10 ms) บวกกับ load ตอนนั้น — `usleep(200000)` (200 ms) อาจตื่นจริงที่ ~207 ms. ถ้า time_to_die เหลือ 203 ms = ตายทั้งที่ไม่ควร. การหั่นนอนทีละ 200µs ทำให้ error สะสมไม่เกิน ~1 slice (≈0.2 ms) แทนที่จะหลุดเป็นหลาย ms" },
+      { p: "**ความหน่วงของการตรวจตาย (detection latency):** monitor วนเช็คทุก ~500µs ดังนั้น worst case มันรู้ว่ามีคนตายช้าได้ถึง ~500µs หลังเส้นตายจริง. ต้องตั้ง slice ให้ **เล็กพอเทียบกับ time_to_die** เพื่อให้พิมพ์ `died` ภายในความคลาดเคลื่อนที่ยอมรับ (42 มักยอม ~10 ms)" },
+      { code: String.raw`สมดุลของ slice size (ทั้ง precise_sleep และ monitor):
+  slice ใหญ่ (เช่น 5 ms)  → CPU เบา แต่ตรวจตายช้า (อาจหลุด > เกณฑ์)
+  slice เล็ก (เช่น 50 µs) → ตรวจไว แต่กิน CPU สูง (เกือบ busy-loop)
+  ~200µs–500µs           → จุดสมดุล: ตรวจตายทันเกณฑ์ 42 โดยไม่ burn CPU
+
+กฎคร่าว ๆ: slice ควร << เวลาที่สั้นที่สุดในโจทย์ (มัก = time_to_die)`, cap: "slice size = trade-off ระหว่างความแม่นของเวลา (ยิ่งเล็กยิ่งแม่น) กับการใช้ CPU (ยิ่งเล็กยิ่งเปลือง)", lang: "txt" },
+      { note: "ลองวัดเอง: ใส่ `gettimeofday` คร่อม precise_sleep(200) แล้วพิมพ์เวลาจริงที่ใช้ — เทียบ usleep(200000) ก้อนเดียว vs หั่นทีละ 200µs จะเห็นว่าก้อนเดียวแกว่งกว่าและ overshoot ง่ายกว่าเมื่อระบบมี load" },
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Dining philosophers problem — Wikipedia", url: "https://en.wikipedia.org/wiki/Dining_philosophers_problem", note: "โจทย์ต้นฉบับ + วิธีแก้หลายแบบ" },
