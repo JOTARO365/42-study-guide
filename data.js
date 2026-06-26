@@ -3238,12 +3238,119 @@ close(fd);                  // จะไปลงไฟล์แทน
   cmd2: dup2(fds[0], STDIN)   → อ่าน input จาก ท่อ`, cap: "ปิด fd ที่ไม่ใช้ให้หมด ไม่งั้น cmd2 จะรอ EOF ไม่มา= ค้าง", lang: "txt" },
       { h: "6) Environment variables" },
       { p: "ตัวแปรสภาพแวดล้อม (เช่น `PATH`, `HOME`) ส่งต่อจาก parent ถึง child ผ่าน `envp`. minishell เก็บเป็น linked list (key=value) เพื่อ export/unset ได้ แล้วแปลงกลับเป็น array ตอน execve" },
-      { h: "🔬 เจาะลึก: ทำไม pipe ค้างถ้าไม่ปิด fd" },
-      { p: "process ที่อ่านจาก pipe (เช่น `wc`) จะรอจนกว่าจะได้ **EOF** ซึ่งเกิดเมื่อ **ปลายเขียนทุกอันถูกปิด**. ถ้า parent หรือ child อื่นยังถือ fds[1] ค้างไว้ → wc ไม่เห็น EOF → รอตลอดกาล = ค้าง. กฎเหล็ก: **ปิด fd ทุกอันที่ไม่ได้ใช้ทันที**" },
-      { code: String.raw`หลัง fork ในแต่ละ loop:
-  parent: close(in เก่า), close(fds[1])  ← ปิดปลายเขียนทันที
-  child:  dup2 เสร็จแล้ว close ต้นฉบับ
-→ เหลือแต่ปลายที่ใช้จริง → EOF มาถูกเวลา → ไม่ค้าง`, lang: "txt" },
+      { h: "🔬 เจาะลึก A: Lexer เป็น State Machine — quote เปลี่ยนกฎการหั่นยังไง" },
+      { p: "**ภาพในหัว:** หั่นบรรทัดเป็นคำดูเหมือน 'แค่ตัดที่ช่องว่าง' แต่พอมี quote กฎเปลี่ยนทันที — `'a b'` คือ **คำเดียว** (ช่องว่างข้างในไม่ตัด). วิธีคิดที่ถูกคือมองเป็น **finite state machine**: เครื่องอยู่ในสถานะหนึ่ง อักขระที่เจอเปลี่ยนสถานะ/ตัดสินว่าจะตัดคำไหม" },
+      { code: String.raw`3 สถานะของ lexer:
+  NORMAL  : ช่องว่าง = ตัดคำ ; | < > = operator ; ' " = เข้าโหมด quote
+  S_QUOTE : (หลังเจอ ') ทุกอย่าง literal จนเจอ ' อีกตัว — $ ไม่ขยาย
+  D_QUOTE : (หลังเจอ ") literal ยกเว้น $ (ยังขยาย) จนเจอ " อีกตัว
+
+transition:
+  NORMAL --'--> S_QUOTE --'--> NORMAL
+  NORMAL --"--> D_QUOTE --"--> NORMAL
+  ภายใน quote: ช่องว่าง "ไม่ตัดคำ"`, cap: "quote = เปลี่ยน state ชั่วคราว ทำให้ช่องว่างข้างในไม่ถูกใช้ตัดคำ", lang: "txt" },
+      { p: "**ไล่ทีละอักขระ** — tokenize `echo \"a b\"'cd'`:" },
+      { code: String.raw`input:  e c h o ␣ " a ␣ b " ' c d '
+state:  N N N N N D D D D N S S S N
+                  │         │ │     │
+                เข้า D     ออก D  เข้า/ออก S
+
+  'echo'                  → WORD "echo"   (ตัดที่ ␣)
+  "a b" ติดกับ 'cd'       → WORD "a bcd"  (ไม่มี ␣ คั่น = คำเดียว!)
+→ argv = ["echo", "a bcd"]  (ไม่ใช่ 3 คำ)`, cap: "หัวใจที่หลายคนพลาด: token ที่ติดกัน (ไม่มีช่องว่างคั่น) = คำเดียว แม้ quote คนละชนิด", lang: "txt" },
+      { p: "**ลำดับสำคัญ: ขยาย $ ก่อน แล้วค่อยลบ quote (quote removal):** `$?` ใน double-quote ต้องขยาย แต่ใน single-quote ห้ามขยาย — จึงต้องจำว่าอักขระเคยอยู่ใน quote ชนิดไหน 'ระหว่าง' ขั้น lex/expand แล้วค่อยลบ quote ทิ้งเป็นขั้นสุดท้าย. ถ้าลบ quote ก่อน จะแยกไม่ออกว่า `$` ตัวไหนต้องขยาย" },
+      { note: "ลองพิสูจน์เอง: `echo '$HOME'` ต้องได้ `$HOME` ตรง ๆ แต่ `echo \"$HOME\"` ต้องได้ path จริง — เพราะตัวแรกอยู่สถานะ S_QUOTE ที่ `$` ไม่ขยาย ส่วนตัวหลังอยู่ D_QUOTE ที่ `$` ขยาย" },
+      { qa: [
+        { q: "ทำไมต้องลบ quote 'หลัง' ขยาย $ ไม่ใช่ก่อน?", a: "เพราะกฎการขยาย `$` ขึ้นกับว่าตอนนั้นอยู่ใน quote ชนิดไหน. ถ้าลบ quote ทิ้งก่อน จะไม่เหลือข้อมูลว่า `$x` อยู่ใน single (ห้ามขยาย) หรือ double (ขยาย) → ขยายผิด" },
+        { q: "`a'b'c` ได้กี่ token?", a: "1 token = `abc` เพราะไม่มีช่องว่างคั่นเลย, quote แค่เปลี่ยน state ชั่วคราว ไม่ได้ตัดคำ" },
+        { q: "quote ไม่ปิด (`echo \"hi`) ควรทำยังไง?", a: "bash จะขึ้น prompt รอ quote ปิด (ต่อบรรทัด); minishell ส่วนใหญ่จัดเป็น syntax error คืน exit 2 ก็ผ่านได้ (ตามที่ subject/peer ตกลง)" },
+      ]},
+
+      { h: "🔬 เจาะลึก B: fd table หลัง fork + ลำดับ dup2/close ใน pipeline หลายขั้น" },
+      { p: "**ภาพในหัว:** ตอน fork ลูกได้ 'สำเนาตาราง fd' ของพ่อมาทั้งใบ — fd เลขเดียวกันชี้ของเดียวกัน. การต่อ `a | b | c` คือการ 'เดินสาย' ว่า stdout ของ a → เข้า b, stdout ของ b → เข้า c ด้วย dup2 แล้วต้อง 'ปิดปลายที่ไม่ใช้' ให้เกลี้ยง" },
+      { p: "**กลไก rolling pipe:** วน fork ทีละคำสั่ง เก็บ 'fd อ่านของท่อก่อนหน้า' ไว้เป็น stdin ของคำสั่งถัดไป:" },
+      { code: String.raw`exec_pipeline(cmds):
+  in = STDIN                 // คำสั่งแรกอ่านจาก stdin จริง
+  while (มี cmd):
+     ถ้ามีคำสั่งถัดไป: pipe(fds)        // fds[0]=read, fds[1]=write
+     fork:
+       child: dup2(in, STDIN)            // อ่านจากท่อก่อนหน้า/stdin
+              ถ้ามีถัดไป: dup2(fds[1], STDOUT)  // เขียนเข้าท่อใหม่
+              close(in, fds[0], fds[1]) ให้หมด → execve
+     parent: close(in); close(fds[1])    // ★ ปิดทันที!
+             in = fds[0]                 // ท่ออ่านนี้ = stdin ของรอบถัดไป`, cap: "พ่อปิด write-end ทันทีหลัง fork — ปลายเดียวที่เหลือเปิดคือใน child ที่ใช้จริง", lang: "c" },
+      { p: "**ไล่ fd table ทีละขั้น** — `a | b | c` (เลข fd สมมติ):" },
+      { code: String.raw`pipe1=(3,4)   pipe2=(5,6)
+
+fork a: child  stdout→4 (pipe1 write) ; close 3,5,6 เกิน → exec a
+        parent close 4 ; in=3
+fork b: child  stdin→3 (pipe1 read), stdout→6 (pipe2 write) ; close → exec b
+        parent close 3,6 ; in=5
+c:      child  stdin→5 (pipe2 read), stdout→stdout จริง ; close → exec c
+        parent close 5
+
+→ ทุก write-end (4,6) ถูกปิดในพ่อทันที → เหลือเปิดแค่ใน child ที่ใช้
+→ a จบ → pipe1 write ปิดหมด → b เห็น EOF ; b จบ → c เห็น EOF`, cap: "ปิดในพ่อทันทีทุกรอบ = กัน fork รอบถัดไปไม่ให้สืบทอด write-end เก่าติดไป", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ถ้าพ่อ 'เลื่อน' การ close ไปทำทีเดียวตอนจบ (แทนที่จะปิดทันทีหลัง fork) → ตอน fork b พ่อยังถือ write-end 4 อยู่ → b ได้สำเนา fd 4 ติดไปด้วย → write-end ของ pipe1 ไม่มีวันเหลือ 0 → b รอ EOF ไม่มา = ค้าง. นี่คือเหตุผลที่ต้อง close ในพ่อ 'ทันที' ทุกรอบ" },
+      { qa: [
+        { q: "ทำไมต้อง dup2 'ก่อน' close เสมอ?", a: "dup2(old,new) ก๊อป old ไป new — ถ้า close(old) ก่อนจะไม่มีอะไรให้ก๊อป. ลำดับถูก: dup2(fds[1],STDOUT) แล้วค่อย close(fds[1])" },
+        { q: "พ่อต้อง close write-end ทันทีหลัง fork ทำไม?", a: "เพราะทุก fork ลูกได้สำเนา write-end ติดไป ยิ่ง fork มากยิ่งมีสำเนาค้าง. พ่อปิดของตัวเองทันที + child ปิดของที่ไม่ใช้ → refcount ของ write-end ลดถึง 0 ได้ → EOF เกิด" },
+        { q: "`cat | ls` ทำไม ls ออกผลทันทีไม่รอ cat?", a: "ls ไม่อ่าน stdin จึงไม่รอ EOF — รันแล้วจบเลย; ส่วน cat รออ่าน stdin จาก terminal ต่อ (จนกด Ctrl-D) เป็น behavior ที่ถูกของ bash เหมือนกัน" },
+      ]},
+
+      { h: "🔬 เจาะลึก C: ทำไม pipe ค้าง — pipe write-end reference counting" },
+      { p: "**ภาพในหัว:** ปลายอ่านของ pipe จะได้สัญญาณ 'จบ' (EOF, read คืน 0) **ก็ต่อเมื่อปลายเขียนทุกสำเนาถูกปิดหมด** ไม่ใช่แค่ปลายเขียนหลัก. kernel นับว่ามีกี่ fd ที่ยังเปิด write-end อยู่ (reference count)" },
+      { p: "**กลไก:** ทุกครั้งที่ fork ตาราง fd ถูกก๊อป → write-end มีสำเนาเพิ่ม. EOF เกิดเมื่อ refcount = 0 เท่านั้น:" },
+      { code: String.raw`refcount ของ write-end (pipe เดียว ใน cmd1 | cmd2):
+
+  pipe(fds)                       write-end refcount = 1 (พ่อ)
+  fork cmd1                       → 2 (พ่อ + cmd1)
+  fork cmd2                       → 3 (พ่อ + cmd1 + cmd2)
+  ────────────────────────────────────────────
+  cmd1 dup2(fds[1],STDOUT)+exec   (cmd1 ถือผ่าน STDOUT)
+  cmd2 close(fds[1])              → 2
+  พ่อ close(fds[1])               → 1   ★ ถ้าลืมตรงนี้ = ค้างตรงนี้
+  cmd1 จบ → ปิด stdout            → 0   → EOF ส่งถึง cmd2 ✓
+
+ถ้าพ่อ "ลืม" close(fds[1]): refcount ค้างที่ 1 ตลอด
+  → cmd2 อ่าน stdin รอ EOF ที่ไม่มีวันมา → ค้าง`, cap: "EOF = ฟังก์ชันของ refcount: ต้อง 0 เท่านั้น — ลืมปิดที่เดียว refcount ไม่ถึง 0 = ค้าง", lang: "txt" },
+      { p: "**heredoc ก็ใช้หลักเดียวกัน:** `<< EOF` คือ pipe ที่พ่อเขียนบรรทัด heredoc ลง write-end แล้ว **ปิด write-end** เพื่อส่ง EOF ให้คำสั่งอ่านจบ — ถ้าไม่ปิด คำสั่งจะรอ input ต่อไม่จบ" },
+      { note: "ลองพิสูจน์เอง: เขียน `cat | cat | cat` แล้วจงใจคอมเมนต์ close(fds[1]) ของพ่อออก 1 บรรทัด → รันแล้วค้าง. เปิด `ls -l /proc/<pid>/fd` ดูจะเห็น write-end ค้างเปิดอยู่ตามทฤษฎี refcount" },
+      { qa: [
+        { q: "ทำไมแค่ปิด write-end หลักไม่พอ ต้องปิดทุกสำเนา?", a: "เพราะ EOF อิงจาก refcount = จำนวนสำเนา write-end ที่ยังเปิด. เหลือเปิดสำเนาเดียว (เช่นพ่อลืมปิด) refcount ≠ 0 → ปลายอ่านไม่ได้ EOF → ค้าง" },
+        { q: "อ่าน read-end ตอน write-end ยังเปิดและไม่มีข้อมูลจะได้อะไร?", a: "read 'บล็อก' รอ (ไม่ใช่ EOF). EOF (read คืน 0) เกิดเฉพาะตอน write-end ปิดหมดเท่านั้น" },
+        { q: "เขียนเข้า pipe ที่ปลายอ่านปิดหมดแล้วเกิดอะไร?", a: "ได้ SIGPIPE (ปกติฆ่า process) หรือ write คืน -1 errno=EPIPE — เป็นเหตุที่ `yes | head` ทำให้ yes ตายเองหลัง head ปิด" },
+      ]},
+
+      { h: "🔬 เจาะลึก D: Signal (interactive + heredoc) & การส่งต่อ $? (exit status)" },
+      { p: "**ภาพในหัว:** กด Ctrl-C ตอนอยู่ที่ prompt ว่าง ๆ ต้อง 'ขึ้น prompt ใหม่บรรทัดถัดไป' (ไม่ออกจาก shell) แต่กด Ctrl-C ตอนคำสั่งกำลังรัน (เช่น `cat` รออยู่) ต้อง 'ฆ่าคำสั่งนั้น' แล้วกลับมา prompt. behavior ต่างกันตามบริบท" },
+      { code: String.raw`สถานการณ์ของ SIGINT (Ctrl-C):
+  ที่ prompt ว่าง  → handler: พิมพ์ \n, rl_replace_line(""),
+                     rl_on_new_line(), rl_redisplay() → prompt ใหม่ ; $?=130
+  ระหว่างคำสั่งรัน → child ตั้ง signal เป็น DEFAULT → Ctrl-C ฆ่า child
+                     (ไม่ใช่ shell) ; shell เก็บ $? = 128 + SIGINT(2) = 130
+  ใน heredoc       → Ctrl-C ยกเลิก heredoc, คืน prompt ; $? = 130`, cap: "shell ที่ prompt 'จับ' SIGINT แต่ child 'ปล่อยให้ default' → Ctrl-C โดนคำสั่ง ไม่โดน shell", lang: "txt" },
+      { p: "**ทำไมต้องมี global ตัวเดียว (`g_signal`):** signal handler ห้ามทำงานหนัก/ห้ามแตะ struct ใหญ่ (async-signal-safety). pattern ที่ปลอดภัยคือ handler แค่ 'บันทึกหมายเลข signal' ลง `volatile sig_atomic_t g_signal` แล้วให้ main loop อ่านทีหลังเพื่อตั้ง `$?` — นี่คือ global เดียวที่ subject อนุญาต" },
+      { p: "**$? propagation — ค่าตามมาตรฐาน:**" },
+      { code: String.raw`exit code มาตรฐาน (เก็บใน sh->exit_status = $?):
+  0          สำเร็จ
+  1          error ทั่วไป (เช่น builtin ล้มเหลว)
+  2          misuse / syntax error
+  126        เจอไฟล์แต่รันไม่ได้ (no exec permission)
+  127        ไม่พบคำสั่ง (command not found)
+  128 + n    ถูกฆ่าด้วย signal หมายเลข n
+
+worked example:
+  ls /nope         → $? = 2    (ls error)
+  ./no_such        → $? = 127  (not found)
+  cat แล้ว Ctrl-C  → $? = 130  (128 + SIGINT 2)
+  คำสั่ง segfault   → $? = 139  (128 + SIGSEGV 11)`, cap: "อ่าน exit status: WIFEXITED→WEXITSTATUS ; WIFSIGNALED→128+WTERMSIG", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ใน bash จริงพิมพ์ `sleep 5` แล้วกด Ctrl-C ตามด้วย `echo $?` จะได้ 130. แล้วลอง `ls /nope; echo $?` ได้ 2 — minishell ต้องให้ค่าตรงกันเป๊ะ" },
+      { qa: [
+        { q: "ทำไม child ต้องตั้ง signal กลับเป็น default ก่อน execve?", a: "ตอน prompt shell จับ SIGINT/SIGQUIT ไว้ (ไม่ให้ตัวเองตาย). ถ้า child สืบทอด handler นั้นไป Ctrl-C จะไม่ฆ่าคำสั่ง — ต้อง reset เป็น SIG_DFL ใน child เพื่อให้ Ctrl-C ฆ่าคำสั่งได้ตามปกติ" },
+        { q: "ทำไม handler เก็บแค่หมายเลข signal ไม่ทำงานอื่น?", a: "async-signal-safety: handler แทรกได้ทุกจังหวะ ถ้าไปแตะ malloc/struct/print อาจพังแบบสุ่ม. เก็บเลขลง sig_atomic_t แล้วให้ main loop จัดการทีหลังจึงปลอดภัย" },
+        { q: "`$?` หลัง `cat | ls` เอาค่าจากคำสั่งไหน?", a: "จากคำสั่ง 'ขวาสุด' (ls) เสมอ — bash เก็บ exit ของคำสั่งสุดท้ายในไปป์ไลน์เป็น $?" },
+      ]},
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Beej's Guide to Unix IPC", url: "https://beej.us/guide/bgipc/", note: "pipe / fork / dup2 ครบ อ่านสนุก" },
