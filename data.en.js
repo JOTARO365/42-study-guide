@@ -1306,4 +1306,398 @@ minishell$ cat << END
 valgrind --leak-check=full ./minishell`, lang: "bash" },
     ],
   },
+
+  "fdf": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "**FdF = Fil de Fer** (French for 'wireframe', literally 'iron wire'). Read a `.fdf` file that is a **grid of altitude numbers (z)** and draw it as a **3D wireframe** in a window using MiniLibX." },
+      { code: String.raw`.fdf file:           drawn as:
+0  0  0  0              ◇──◇──◇──◇
+0  5  5  0      →      ╱ ╲╱ ╲╱ ╲ ╲
+0  5  5  0            ◇  ◇──◇  ◇    (the middle bulges up)
+0  0  0  0`, cap: "each cell's number = that point's height z — bigger = bulges up", lang: "txt" },
+      { h: "The 3 core stages" },
+      { table: { head: ["Stage", "Does what"], rows: [
+        ["1. Parse", "read the file → store as a 2D grid of z values (and colors if any)"],
+        ["2. Project", "map each point's 3D coords (x, y, z) → 2D (screen) coords via isometric projection"],
+        ["3. Draw", "connect neighbouring points (right + down) with Bresenham's line algorithm"],
+      ]}},
+      { note: "Key idea: we have 3D data but the screen is 2D — you must 'project' the 3D onto a 2D plane so the eye sees depth." },
+      { h: "What is isometric projection" },
+      { p: "**Isometric** = a 3D projection seen from an angled view that makes all three axes look equal (like old SimCity-style games). The upside is no perspective (distant things don't shrink), computed with a fixed formula:" },
+      { code: String.raw`x_iso = (x - y) · cos(30°)
+y_iso = (x + y) · sin(30°) - z · scale`, cap: "rotate the grid 45° then squash vertically → the classic angled view; z lifts the point by its height", lang: "txt" },
+      { h: "Why use Bresenham to draw lines" },
+      { p: "The screen is pixels in discrete cells (integers) but a mathematical line is continuous (floats). **Bresenham's algorithm** finds which pixel is 'closest to the true line' using only integer add/subtract (no division/floats) → very fast and gap-free." },
+      { h: "MiniLibX's role" },
+      { p: "**MiniLibX (mlx)** is the minimal graphics library 42 provides: open a window, draw pixels, receive events (keypress/window close). We never touch X11/OpenGL directly — mlx wraps it all." },
+    ],
+    theory: [
+      { p: "This section gathers the **geometry + graphics** theory you need before reading the FdF code." },
+      { h: "1) Screen coordinate system" },
+      { p: "The screen uses coords where the **top-left is (0,0)**, x points right, and **y points down** (opposite to maths where y points up). This is why many graphics formulas flip y." },
+      { h: "2) 3D → 2D (projection)" },
+      { table: { head: ["Type", "Looks like", "Used in FdF"], rows: [
+        ["Isometric", "fixed angle, distant things don't shrink", "✓ main"],
+        ["Perspective", "distant things shrink (like a real eye)", "no (more complex)"],
+        ["Top-down / Side", "straight from above/side", "bonus (switch views)"],
+      ]}},
+      { h: "3) Basic trigonometry: sin/cos" },
+      { p: "Rotating a point in the plane uses sin/cos. For isometric we use a fixed 30° angle, so we precompute them as constants (no need to call `cos()` per point):" },
+      { code: String.raw`# define COS30 0.866025403784   /* cos(30°) */
+# define SIN30 0.5              /* sin(30°) */`, cap: "embed the constants → faster than calling a math function every time", lang: "c" },
+      { h: "4) Linear interpolation (lerp)" },
+      { p: "**lerp** = finding a value between two values linearly with a parameter t (0..1): `result = a + (b - a)·t`. FdF uses lerp to fade **colors** along a line (one end one color, gradually to another)." },
+      { code: String.raw`t = 0.0  →  point a's color (line start)
+t = 0.5  →  the half-blend
+t = 1.0  →  point b's color (line end)`, lang: "txt" },
+      { h: "5) RGB color in hex" },
+      { p: "A pixel color = 24 bits split into 3 channels (red/green/blue) of 8 bits each (0..255), packed into one number `0xRRGGBB`:" },
+      { table: { head: ["Part", "bits", "extract with"], rows: [
+        ["R (red)", "16–23", "`(c >> 16) & 0xFF`"],
+        ["G (green)", "8–15", "`(c >> 8) & 0xFF`"],
+        ["B (blue)", "0–7", "`c & 0xFF`"],
+      ]}},
+      { h: "6) Bresenham's line algorithm (theory)" },
+      { p: "Problem: draw a line from (x0,y0) to (x1,y1) on a pixel grid smoothly. Bresenham keeps an 'accumulated error' and decides each step whether to move x, y, or both — using only integers and additions, no division or floats." },
+      { code: String.raw`dx =  |x1 - x0|        sx = x direction (+1/-1)
+dy = -|y1 - y0|        sy = y direction (+1/-1)
+err = dx + dy
+
+each step:
+  e2 = 2·err
+  if e2 >= dy:  err += dy;  x += sx   (move horizontally)
+  if e2 <= dx:  err += dx;  y += sy   (move vertically)
+  until the endpoint`, cap: "the error tells you which way the true line currently 'leans' → move the axis that keeps you nearest the true line", lang: "txt" },
+
+      { h: "🔬 Deep Dive A: where the isometric formula comes from — built from rotating the axes" },
+      { p: "**Picture it:** isometric draws the world's 3 axes tilted 30° equally on screen. Instead of memorizing `(x−y)cos30`, let's see how it 'falls out' of where each axis points." },
+      { code: String.raw`place each world axis onto the screen (screen y points down):
+  step +1 along world x → screen moves (+cos30, +sin30)   (down-right 30°)
+  step +1 along world y → screen moves (−cos30, +sin30)   (down-left 30°)
+  step +1 along world z (height) → screen moves (0, −1)·scale  (straight up)
+
+sum the contributions of point (x, y, z):
+  screen_x = x·cos30 − y·cos30        = (x − y)·cos30
+  screen_y = x·sin30 + y·sin30 − z·s  = (x + y)·sin30 − z·scale`, cap: "the formula isn't magic — it's the sum of 'which way each axis moves the point on screen'", lang: "txt" },
+      { p: "**Plug in real numbers** (cos30 ≈ 0.866, sin30 = 0.5):" },
+      { code: String.raw`point (x=2, y=0, z=0):
+  screen_x = (2−0)·0.866 = 1.732
+  screen_y = (2+0)·0.5 − 0 = 1.0      → moves down-right ✓ (x axis tilts down-right)
+
+high point (x=0, y=0, z=3):
+  screen_x = 0
+  screen_y = 0 − 3·scale              → moves "up" (negative y = higher on screen) ✓`, cap: "z is subtracted from screen_y because screen y points down — higher points must go upward (smaller y)", lang: "txt" },
+      { note: "Prove it yourself: plug in (x=0,y=2,z=0); you should get screen_x = −1.732 (down-left) — confirming the x and y axes tilt to opposite sides, creating the angled view." },
+      { qa: [
+        { q: "Why does screen_x use (x−y) but screen_y use (x+y)?", a: "Because the x axis tilts down-'right' (screen_x positive) while the y axis tilts down-'left' (screen_x negative) → screen_x = x·cos30 − y·cos30. Vertically both axes tilt 'down' the same way → screen_y = (x+y)·sin30." },
+        { q: "Why subtract z·scale, not add?", a: "The screen has y pointing down (top-left = 0,0). A point that's high in the world must be drawn 'higher on screen' = a smaller y → so z is subtracted from screen_y." },
+        { q: "What if you used cos45/sin45 instead of 30?", a: "You'd get a flat '45°-rotated' view (dimetric/military projection) — true isometric actually uses ~35.26°, but games/FdF prefer 30° because it computes cleanly and looks good." },
+      ]},
+
+      { h: "🔬 Deep Dive B: Bresenham — proof of why integer-only draws a smooth line" },
+      { p: "**Picture it:** a mathematical line is continuous (y = mx + c) but the screen has integer pixel cells. Bresenham picks the pixel 'nearest the true line' one step at a time using only integer add/subtract — fast and gap-free." },
+      { p: "**The error-term mechanism:** keep an 'accumulated error' of how far the current pixel is from the true line, and when it builds past half a cell, step the other axis. The all-octant version (works in every direction) keeps err = dx + dy:" },
+      { code: String.raw`dx =  abs(x1-x0)      sx = (x0<x1) ? +1 : -1
+dy = -abs(y1-y0)      sy = (y0<y1) ? +1 : -1
+err = dx + dy
+loop:
+  plot(x0, y0)
+  if (x0==x1 && y0==y1) break
+  e2 = 2*err
+  if (e2 >= dy) { err += dy; x0 += sx }    // move horizontally
+  if (e2 <= dx) { err += dx; y0 += sy }    // move vertically`, cap: "every value is an int, no division/floats — err decides which axis (or both) to step this round", lang: "c" },
+      { p: "**Step through it** — draw (0,0) to (5,2): dx=5, dy=−2, err=3" },
+      { code: String.raw`step │ plot   │ e2=2err │ e2>=dy(-2)? → x  │ e2<=dx(5)? → y │ err
+  ───┼────────┼─────────┼──────────────────┼───────────────┼────
+   1 │ (0,0)  │   6     │ yes x→1          │ no             │  1
+   2 │ (1,0)  │   2     │ yes x→2          │ yes y→1        │  4
+   3 │ (2,1)  │   8     │ yes x→3          │ no             │  2
+   4 │ (3,1)  │   4     │ yes x→4          │ yes y→2        │  5
+   5 │ (4,2)  │  10     │ yes x→5          │ no             │  3
+   6 │ (5,2)  │ — endpoint reached, break —                │
+  → pixels: (0,0)(1,0)(2,1)(3,1)(4,2)(5,2) = a neat slanted staircase`, cap: "slope 2/5: step x every round, step y only when the error has built up enough → the staircase nearest the true line", lang: "txt" },
+      { note: "Prove it yourself: draw (0,0)→(2,5) (steeper) with the table — this time it 'steps y every round, x only sometimes', the reverse, because |dy|>|dx|. Bresenham adjusts automatically via the e2 conditions." },
+      { qa: [
+        { q: "Why not just use float (y = mx+c)?", a: "Floats are slower and accumulate rounding error; line drawing happens millions of times per frame. Bresenham uses only int add/subtract → much faster and no rounding drift." },
+        { q: "Why does err start at dx+dy?", a: "It centers the axis-step decision symmetrically around the 'middle of the pixel cell' — so the line leans correctly from the very first step without bias toward either axis." },
+        { q: "Why have sx/sy (+1 or −1)?", a: "So it draws in every direction (all 8 octants) — whether the endpoint is left/right/up/down. abs() + the sx/sy direction lets one loop cover every case instead of writing 8 variants." },
+      ]},
+
+      { h: "🔬 Deep Dive C: fading color along a line (lerp) — why split R/G/B before mixing" },
+      { p: "**Picture it:** one end of a line is red, the other blue, and you want the shades to fade in between. Do it with **linear interpolation**: at fraction t (0→1) along the line, the color = a mix of red and blue by t." },
+      { p: "**Key pitfall:** never lerp the whole `0xRRGGBB` number directly — because R/G/B sit in different bit channels, mixing the whole thing overflows across channels. You must **unpack the 3 channels, interpolate each, then repack:**" },
+      { code: String.raw`int lerp_color(int a, int b, double t)
+{
+    int ar=(a>>16)&0xFF, ag=(a>>8)&0xFF, ab=a&0xFF;   // unpack a
+    int br=(b>>16)&0xFF, bg=(b>>8)&0xFF, bb=b&0xFF;   // unpack b
+    int r = ar + (br - ar) * t;     // interpolate per channel
+    int g = ag + (bg - ag) * t;     // lerp: a + (b-a)·t
+    int bl= ab + (bb - ab) * t;
+    return ((r<<16) | (g<<8) | bl); // repack 0xRRGGBB
+}`, cap: "t is the fraction along the line (i/steps from Bresenham). lerp formula = a + (b−a)·t per channel", lang: "c" },
+      { p: "**Plug in numbers** — from red `0xFF0000` to blue `0x0000FF` at t=0.5:" },
+      { code: String.raw`R: 255 + (0−255)·0.5 = 127
+G: 0   + (0−0)·0.5   = 0
+B: 0   + (255−0)·0.5 = 127
+→ (127<<16)|(0<<8)|127 = 0x7F007F  (purple, halfway ✓)`, cap: "lerping the whole 0xFF0000↔0x0000FF would be wrong due to carries across channels — split channels only", lang: "txt" },
+      { note: "Prove it yourself: t=0 must give color a exactly, t=1 must give b exactly. Plug t=0 into a+(b−a)·0 = a ✓ ; t=1 gives a+(b−a) = b ✓ — that's how you check the lerp formula is right." },
+      { qa: [
+        { q: "Why can't you lerp the whole color number directly?", a: "Because R is bits 16-23, G bits 8-15, B bits 0-7. Adding/multiplying the whole number lets a lower channel's carry overflow into a higher channel → wrong color. You must mask & 0xFF each channel first." },
+        { q: "Where does t come from while drawing a line?", a: "From progress along the line = i/steps (i = which step, steps = total steps). Line start t≈0, line end t≈1." },
+        { q: "Why is `int r = ar + (br-ar)*t` safe even though t is a double?", a: "The product is a double but assigned to an int → truncated. The value always stays 0-255 because it interpolates between two values already in that range, so it can't overflow." },
+      ]},
+
+      { h: "🔬 Deep Dive D: auto-fit (centering + zoom + z_scale) — why any map size fits the screen" },
+      { p: "**Picture it:** a 3×3 map and a 100×100 map should both fill the screen about equally. The trick is 3 steps: **(1) move the center to the origin** (centering) **(2) pick a fitting zoom** **(3) add an offset to the screen center**." },
+      { code: String.raw`step 1 centering — subtract the grid's center before projecting:
+  xx = x − width/2 ;  yy = y − height/2 ;  zz = z − (z_min+z_max)/2
+  → the map's center moves to (0,0,0) of the projection system
+
+step 2 zoom — pick the "smaller" of the width/height fits:
+  zoom_w = WIN_W·0.8 / projected_width
+  zoom_h = WIN_H·0.8 / projected_height
+  zoom   = min(zoom_w, zoom_h)        ← guarantees no overflow on either axis
+
+step 3 offset — push the image to the screen center:
+  off_x = WIN_W/2 ;  off_y = WIN_H/2`, cap: "centering first makes zoom/rotate pivot around the center, not flee to a corner", lang: "txt" },
+      { p: "**Why centering must precede zoom:** multiplying by zoom scales out from the origin (0,0). Without moving the center to the origin first, the image scales out from the top-left corner → the more you zoom the more it leaves the screen. Center first → zoom scales neatly around the image's middle." },
+      { note: "Prove it yourself: comment out the `− width/2` line and run — the image piles into the top-left corner and flies off-screen as soon as you zoom. That's the empirical proof of why centering is needed." },
+      { qa: [
+        { q: "Why does auto-fit pick min(zoom_w, zoom_h), not max?", a: "The smaller one is the more 'constraining' → it guarantees neither width nor height overflows the screen. Picking max would let the longer side blow past the edges." },
+        { q: "How does z_scale differ from zoom?", a: "zoom scales the whole image (x,y); z_scale adjusts only the height z so mountains don't poke off-screen even once zoom fits — a separate control for the height dimension." },
+        { q: "Why also center z (subtract (z_min+z_max)/2)?", a: "So rotation/height balance around the middle — the lowest and highest points spread evenly around 0, so the image doesn't tilt or pile to the top/bottom." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Isometric projection — Wikipedia", url: "https://en.wikipedia.org/wiki/Isometric_projection", note: "where the 30° angle + isometric projection come from" },
+        { label: "Bresenham's line algorithm — Wikipedia", url: "https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm", note: "the full integer-only line algorithm" },
+        { label: "3D projection — Wikipedia", url: "https://en.wikipedia.org/wiki/3D_projection", note: "overview of every 3D → 2D projection" },
+        { label: "Linear interpolation — Wikipedia", url: "https://en.wikipedia.org/wiki/Linear_interpolation", note: "the lerp basics used to fade color along a line" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **struct, pointers, and memory** FdF uses to store the map and state." },
+      { h: "The 4 main structs" },
+      { code: String.raw`typedef struct s_map {        /* map data */
+    int  width;
+    int  height;
+    int  **z;                 /* 2D grid of heights */
+    int  **color;             /* 2D grid of colors */
+    int  z_min;
+    int  z_max;
+} t_map;
+
+typedef struct s_cam {        /* camera/view */
+    double zoom;
+    double z_scale;
+    int    off_x;             /* shift the image to screen center */
+    int    off_y;
+} t_cam;
+
+typedef struct s_fdf {        /* everything together */
+    void  *mlx; void *win; void *img;
+    char  *addr;              /* pointer to the image buffer */
+    int   bpp; int line_len; int endian;
+    t_map map;
+    t_cam cam;
+} t_fdf;`, cap: "t_fdf is the 'central state blob' — pass one pointer to every function, no globals needed", lang: "c" },
+      { h: "Why z is int ** (pointer to pointer)" },
+      { p: "Because the map size isn't known ahead of time (it depends on the file), so you allocate dynamically: `int **z` is an 'array of pointers' each pointing to one row. Access with `z[y][x]` — row y, column x." },
+      { code: String.raw`z ──► [ row0 ] ──► [z, z, z, z]   (row 0)
+      [ row1 ] ──► [z, z, z, z]   (row 1)
+      [ row2 ] ──► [z, z, z, z]   (row 2)`, cap: "allocate row by row to support any map size", lang: "txt" },
+      { h: "Why store z_min / z_max" },
+      { p: "For 'auto-fit' — knowing the full height range lets you adjust `z_scale` so the mountains don't overflow the screen. Computed during parsing (update min/max each time you read a value)." },
+      { h: "image buffer: addr / bpp / line_len" },
+      { p: "Instead of drawing pixel by pixel through mlx (slow), we ask for a 'pointer straight to the image's memory' (`addr`) and write colors ourselves:" },
+      { table: { head: ["Variable", "Meaning"], rows: [
+        ["`addr`", "the start address of the image buffer"],
+        ["`bpp`", "bits per pixel (usually 32 = 4 bytes per pixel)"],
+        ["`line_len`", "bytes per one image row"],
+      ]}},
+      { code: String.raw`dst = addr + (y * line_len + x * (bpp / 8));
+*(unsigned int *)dst = color;   /* write 1 pixel's color */`, cap: "compute pixel (x,y)'s offset in the buffer then write directly — many times faster than mlx_pixel_put", lang: "c" },
+      { note: "Why faster: write the whole image into memory first, then mlx_put_image_to_window once — no talking to the X server per pixel." },
+    ],
+    architecture: [
+      { h: "Project files (mandatory)" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`main.c`", "init mlx, hook events, start the loop"],
+        ["`parse.c`", "count lines, read the file into a string array"],
+        ["`token.c`", "split z value and color (incl. parsing hex)"],
+        ["`grid.c`", "fill the z/color grid + update bounds"],
+        ["`project.c`", "set up the camera + project 3D → 2D"],
+        ["`draw.c`", "Bresenham line algorithm"],
+        ["`pixel.c`", "write pixels, lerp colors, render the whole image"],
+        ["`hooks.c`", "handle the ESC key + window close"],
+        ["`free.c`", "free memory + report errors"],
+      ]}},
+      { h: "Order of work in main()" },
+      { code: String.raw`main(argc, argv)
+  ├─ check argc == 2                    (needs a map file)
+  ├─ ft_bzero(&fdf)                    clear the struct to 0
+  ├─ parse_map(&fdf, argv[1])          read file → z/color grid
+  ├─ init_mlx(&fdf)                    open window + create image
+  ├─ setup_camera(&fdf)                auto-compute zoom/offset
+  ├─ render(&fdf)                      draw the first frame
+  ├─ mlx_hook(... key_hook ...)        bind keys
+  ├─ mlx_hook(... close_hook ...)      bind the window close [X]
+  └─ mlx_loop(fdf.mlx)                 loop receiving events forever`, lang: "txt" },
+      { h: "Data flow (map → image)" },
+      { code: String.raw`.fdf file
+   │  parse_map / read_lines
+   ▼
+char **rows  (each line a string)
+   │  fill_grid → fill_row → parse_token
+   ▼
+map.z[y][x], map.color[y][x]  (2D grid)
+   │  render: loop every point → project()
+   ▼
+t_pt (2D screen coords + color)
+   │  draw_line (Bresenham) → put_pixel
+   ▼
+image buffer → mlx_put_image_to_window → screen`, cap: "text file → number grid → screen points → lines → image", lang: "txt" },
+      { note: "render() draws just 2 lines per point: to the right (x+1) and down (y+1) — once every point is done you get the full mesh without drawing any line twice." },
+    ],
+    dataflow: [
+      { p: "Walk through the key functions in run order." },
+      { h: "parse_map() — read the file into the grid" },
+      { code: String.raw`int parse_map(t_fdf *f, char *path)
+{
+    f->map.z_min = INT_MAX;
+    f->map.z_max = INT_MIN;
+    f->map.height = count_lines(path);     // count rows
+    rows = read_lines(path, f->map.height); // read every line
+    w = get_width(rows[0]);                  // count columns from row 0
+    f->map.width = w;
+    fill_grid(f, rows);                      // fill the grid
+    free_rows(rows);
+    return (1);
+}`, cap: "read the file twice: first pass counts rows (to allocate exactly), second reads for real", lang: "c" },
+      { h: "parse_token() — split z value and color" },
+      { code: String.raw`void parse_token(char *tok, int *z, int *color)
+{
+    *z = ft_atoi(tok);              // the height number
+    *color = DEF_COLOR;            // default color = white
+    i = 0;
+    while (tok[i] && tok[i] != ',') i++;
+    if (tok[i] == ',')
+        *color = parse_hex(tok + i + 1);  // a color is given, e.g. "5,0xFF0000"
+}`, cap: "token format: \"z\" or \"z,0xRRGGBB\" — a comma means a color is attached", lang: "c" },
+      { h: "project() — the heart of 3D → 2D" },
+      { code: String.raw`t_pt project(t_fdf *f, int x, int y)
+{
+    xx = x - f->map.width / 2.0;            // move the center to origin
+    yy = y - f->map.height / 2.0;
+    zz = f->map.z[y][x] - (z_min + z_max)/2.0;
+    zz = zz * f->cam.z_scale;               // scale height to fit the screen
+    p.x = (int)((xx - yy) * COS30 * zoom) + off_x;
+    p.y = (int)((xx + yy) * SIN30 * zoom - zz) + off_y;
+    p.color = f->map.color[y][x];
+    return (p);
+}`, cap: "isometric formula: (x-y) for horizontal, (x+y) for vertical, subtract zz to lift high points (screen y points down)", lang: "c" },
+      { h: "setup_camera() — automatic auto-fit" },
+      { p: "Compute zoom from the map size so the image fills ~80% of the screen, comparing both width and height and taking the smaller (to avoid overflow), then set the offset to the screen center. `set_zscale()` keeps mountains from poking off-screen." },
+      { h: "draw_line() — draw a line with a color fade" },
+      { code: String.raw`void draw_line(t_fdf *f, t_pt a, t_pt b)
+{
+    init_bres(&d, a, b);
+    while (1)
+    {
+        t = (steps != 0) ? i/steps : 0;     // (concept) fraction along the line
+        put_pixel(f, a.x, a.y, lerp_color(a.color, b.color, t));
+        if (a.x == b.x && a.y == b.y) break;
+        bres_step(&d, &a);                   // step to the next pixel
+    }
+}`, cap: "every pixel along the way gets a color blended between the two ends (gradient)", lang: "c" },
+      { h: "render() — assemble the whole image" },
+      { code: String.raw`void render(t_fdf *f)
+{
+    ft_bzero(f->addr, f->line_len * WIN_H);  // clear the screen to black
+    while (y < height) {
+        while (x < width) {
+            if (x+1 < width)  draw_line(project(x,y), project(x+1,y));
+            if (y+1 < height) draw_line(project(x,y), project(x,y+1));
+            x++;
+        }
+        y++;
+    }
+    mlx_put_image_to_window(f->mlx, f->win, f->img, 0, 0);
+}`, cap: "draw the whole buffer first, then push it to the screen once", lang: "c" },
+      { h: "key_hook / close_hook" },
+      { code: String.raw`int key_hook(int key, t_fdf *f) {
+    if (key == ESC_KEY) close_hook(f);   // ESC = quit
+    return (0);
+}
+int close_hook(t_fdf *f) {
+    free_all(f);                          // free everything
+    exit(0);
+}`, cap: "the window close [X] (event 17) and ESC both call close_hook → no leak", lang: "c" },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. parser first — read the file into a z grid and print it to check (no mlx yet)",
+        "2. open an empty mlx window first + close it with ESC/[X]",
+        "3. put_pixel + draw one test dot in the screen center",
+        "4. Bresenham — get a single line drawn first",
+        "5. project() isometric + render the whole grid",
+        "6. auto-fit camera (zoom/offset/z_scale)",
+        "7. color fade (lerp) + support colors in the file",
+        "8. bonus: zoom/pan/rotate/switch projection",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["Image piles in a corner", "no centering before projecting / no offset added", "subtract width/2, height/2 then add off_x/off_y"],
+        ["Image is a single dot / tiny", "zoom not computed from the map size", "auto-fit in setup_camera"],
+        ["Mountains poke off-screen", "z_scale too large", "clamp z_scale by the z_max-z_min range"],
+        ["Line breaks into dots", "Bresenham wrong / used a plain loop", "use Bresenham's error term correctly"],
+        ["segfault while parsing", "uneven row lengths / empty file", "check width on every row, check height>0"],
+      ]}},
+      { h: "build / run" },
+      { code: String.raw`make                       # mandatory
+make bonus                 # zoom/rotate/pan/switch view
+./fdf maps/42.fdf
+./fdf maps/mars.fdf`, lang: "bash" },
+      { note: "On Windows run through WSL + WSLg (has DISPLAY) or the mlx window won't open — see the build-42-projects-on-windows skill." },
+    ],
+    tricks: [
+      { h: "Trick 1: precompute cos30/sin30 as macros" },
+      { p: "Isometric uses a fixed 30° angle, so embed cos/sin as `#define` — no calling a math function millions of times per frame, clearly faster." },
+      { h: "Trick 2: write straight to the image buffer" },
+      { p: "Instead of `mlx_pixel_put` (talks to the X server per pixel = very slow) we get the buffer addr, compute the offset, write the color ourselves, then put the image once — dozens of times faster." },
+      { h: "Trick 3: center before projecting" },
+      { p: "Subtract the grid's center (`x - width/2`) before projecting so the image always sits center-screen and zoom/rotate pivot nicely around the middle instead of drifting away." },
+      { h: "Trick 4: auto-fit picks the smaller zoom" },
+      { p: "Compute the zoom that fits the width and the zoom that fits the height, then **pick the smaller** — guaranteeing the image never overflows whatever the map's shape." },
+      { h: "Trick 5: lerp color along the line" },
+      { p: "Split R/G/B into 3 channels, interpolate each with t (0..1), then repack — giving a smooth gradient between two points' colors." },
+      { h: "Trick 6: draw only 2 lines per point" },
+      { p: "No need to draw all 4 directions — just 'right' and 'down' of every point gives the full mesh without duplicate lines (left/up are the right/down lines of the neighbours) → half the work." },
+      { h: "Trick 7 (bonus): switch projection with a rotation matrix" },
+      { p: "The bonus adds 3-axis rotation angles (ax, ay, az) for free rotation, and pressing `p` cycles isometric / top-down / side via preset angles." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How is isometric projection computed?", a: "x_screen = (x-y)·cos30·zoom, y_screen = (x+y)·sin30·zoom - z·scale, then add the offset to center the screen; equivalent to rotating the grid 45° then squashing vertically." },
+        { q: "Why subtract z from y (not add)?", a: "Because the screen's y axis points down — a high point (large z) must be higher on screen = a smaller y, so z is subtracted." },
+        { q: "How does Bresenham work, why use it?", a: "It keeps an accumulated error and decides each step whether to move x, y, or both, using only integers + add/subtract, no float/division — fast and gap-free on a pixel grid." },
+        { q: "Why is the map int ** not a fixed array?", a: "The map size isn't known ahead of time, you allocate dynamically per file — int ** is an array of pointers each to one row, accessed via z[y][x]." },
+        { q: "How does the auto-fit camera work?", a: "Compute zoom from the map size against both width and height, take the smaller to avoid overflow, set the offset to the screen center, clamp z_scale by the height range." },
+        { q: "Why write pixels to a buffer instead of mlx_pixel_put?", a: "mlx_pixel_put talks to the X server per pixel, very slow; writing to the image buffer in memory then mlx_put_image_to_window once is dozens of times faster." },
+        { q: "What does lerp_color do?", a: "Fades color between a line's two ends by splitting R/G/B and interpolating each with t (0..1) then repacking, giving a gradient." },
+        { q: "How many times is the file read, why?", a: "Twice — first pass counts lines (to allocate the grid exactly, no realloc), second reads the real values into the grid." },
+        { q: "How do you handle memory / window close?", a: "close_hook (bound to event 17 and ESC) calls free_all() to release everything (z, color, image, window) then exit(0); check leaks with valgrind." },
+        { q: "What's the file's token format?", a: "Each cell is \"z\" or \"z,0xRRGGBB\" separated by spaces; a comma means a color is attached, otherwise default white." },
+        { q: "Do ESC and the close [X] button differ?", a: "They bind different events (ESC via key_hook event 2, [X] via close_hook event 17) but both end up calling close_hook → free memory and exit." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./fdf maps/42.fdf
+./fdf maps/mars.fdf
+./fdf                       # usage (no argument)
+./fdf doesnotexist.fdf      # Error (can't open file)
+make bonus && ./fdf_bonus maps/mars.fdf   # rotate/zoom/pan`, lang: "bash" },
+    ],
+  },
 };
