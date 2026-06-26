@@ -401,4 +401,141 @@ ARG=$(shuf -i 1-500 -n 500 | tr '\n' ' '); ./push_swap $ARG | ./checker_linux $A
 ./push_swap 1 2 2        # Error (duplicate)`, lang: "bash" },
     ],
   },
+
+  "philosophers": {
+    theory: [
+      { p: "This section gathers the **multithreading + synchronization** theory you need before reading the philosophers code." },
+      { h: "1) Process vs Thread" },
+      { table: { head: ["", "Process", "Thread"], rows: [
+        ["Memory", "separate blocks", "shared, one block"],
+        ["Communication", "hard (needs IPC)", "easy (read the same variable)"],
+        ["mandatory uses", "—", "✓ pthread (1 thread/philosopher)"],
+        ["bonus uses", "✓ fork (1 process/philosopher)", "—"],
+      ]}},
+      { p: "mandatory uses **threads**: each philosopher = 1 thread, all threads share the same memory (the data struct), which makes sharing state easy — but you must watch out for race conditions." },
+      { h: "2) What is a race condition" },
+      { p: "A **race condition** happens when 2 threads read/write a shared variable at the same time, and the result depends on 'who wins the race' — unpredictable → a bug that sometimes happens, sometimes not (a heisenbug)." },
+      { code: String.raw`thread A: meals_eaten++   (read 5 -> +1 -> write 6)
+thread B: meals_eaten++   (read 5 -> +1 -> write 6)
+overlap: should be 7 but ends up 6 -> data lost!`, cap: "++ is not atomic — it's read-add-write, three steps that can be interleaved", lang: "txt" },
+      { h: "3) Mutex (Mutual Exclusion)" },
+      { p: "A **mutex** is a lock guaranteeing 'only 1 thread at a time' touches a resource. A thread must `lock` before entering and `unlock` when leaving — if someone holds the key, others wait." },
+      { p: "In philosophers: **each fork = 1 mutex**. Picking up a fork = lock; putting it down = unlock. There are also mutexes for print, the stop flag, and meal data." },
+      { h: "4) Deadlock — the 4 Coffman conditions" },
+      { p: "Deadlock happens only when all 4 of these hold at once — break any single one and you prevent it:" },
+      { table: { head: ["Condition", "Meaning", "We break it by"], rows: [
+        ["Mutual exclusion", "a resource is used by one at a time", "(necessary, kept)"],
+        ["Hold and wait", "hold one resource while waiting for another", "—"],
+        ["No preemption", "can't snatch a resource from someone else", "—"],
+        ["Circular wait", "everyone waits in a cycle", "✓ even/odd pick order → cut the cycle"],
+      ]}},
+      { h: "5) Measuring time in ms: gettimeofday" },
+      { p: "You must detect death accurately to the millisecond. Use `gettimeofday` converted to ms:" },
+      { code: String.raw`long get_time(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000L + tv.tv_usec / 1000);
+}`, cap: "seconds x1000 + microseconds/1000 = time in ms", lang: "c" },
+
+      { h: "🔬 Deep Dive A: Deadlock & the Coffman conditions — proof of why 'staggered pick order' avoids deadlock" },
+      { p: "**Picture it first:** 5 people around a round table, a fork between each pair (5 forks). If **everyone grabs their left fork at the same time** → everyone holds a left fork, then reaches right for a fork 'the neighbour is already holding' → everyone waits in a circle forever, nobody lets go = the whole table hangs. That's deadlock." },
+      { p: "**Mechanism:** deadlock can only occur when all **4 Coffman conditions hold simultaneously** — the key theorem is that removing any one of them prevents deadlock entirely:" },
+      { code: String.raw`Coffman conditions (all 4 needed for deadlock):
+  1. Mutual exclusion : a fork is held by one at a time   (necessary - keep)
+  2. Hold and wait    : hold the left fork, wait for the right
+  3. No preemption    : can't grab a fork from someone's hand
+  4. Circular wait    : P0->P1->P2->P3->P4->P0 wait in a cycle  <- we cut this
+
+The wait cycle (when everyone grabs left first at once):
+  P0 holds fork0 waits fork1 (P1 holds)
+  P1 holds fork1 waits fork2 (P2 holds)
+  P2 holds fork2 waits fork3 (P3 holds)
+  P3 holds fork3 waits fork4 (P4 holds)
+  P4 holds fork4 waits fork0 (P0 holds)  -> cycle closed = hang`, cap: "Everyone 'grabs in the same direction', forming a closed loop — the heart of deadlock is this symmetry", lang: "txt" },
+      { p: "**Proof of why even/odd cuts the cycle:** let even-id philosophers grab **left before right**, and odd-id ones grab **right before left**. For a circular wait to form, everyone must request resources 'in the same rotational direction' around the table — but once even and odd request in opposite directions, the symmetry breaks. There will be at least one spot where two people reach for the **same** fork from opposite sides → one gets both, the other gets none → no closed loop → no deadlock ▮" },
+      { code: String.raw`Example, 2 people 2 forks (n=2):
+  P0 (even): wait fork0(left) -> fork1(right)
+  P1 (odd):  wait fork0(right) -> fork1(left)   <- both ask fork0 first!
+  -> both contend for fork0: whoever wins takes it
+  -> that one then takes fork1 -> eats -> releases -> the other eats
+  (the 'each holds one and waits' state never forms)`, cap: "Resource ordering = Dijkstra's classic way to cut circular wait", lang: "txt" },
+      { note: "Prove it yourself: draw 3 people 3 forks with everyone grabbing left first — you'll see the closed loop P0->P1->P2->P0. Then make the odd one (P1) grab right first and trace where the loop breaks." },
+      { qa: [
+        { q: "Could you prevent deadlock by cutting 'Hold and wait' instead of Circular wait?", a: "Yes — e.g. force 'grab both forks all-or-nothing' (if you can't get both, put them back immediately). Cutting any one Coffman condition is enough; even/odd just happens to cut Circular wait because it's the easiest to implement." },
+        { q: "Does n=1 (a single philosopher) deadlock?", a: "It's not deadlock but **starvation by design**: there's only one fork, you can grab one side → you can't eat → you must die at time_to_die. You must handle this case separately (lone_philo), otherwise you'd lock the same fork twice and hang." },
+        { q: "Why is everyone grabbing the left fork together more dangerous than grabbing randomly?", a: "Because it's 'symmetric' — everyone does exactly the same thing, so a closed loop forms most easily. Breaking the symmetry (even/odd grab opposite sides) is the key to preventing deadlock." },
+      ]},
+
+      { h: "🔬 Deep Dive B: Data race & atomicity — why last_meal must live under a mutex" },
+      { p: "**Picture it:** 2 threads touch the same variable 'at the same time' with nobody guarding it = like 2 people writing over each other on one whiteboard — the result depends on unpredictable CPU timing." },
+      { p: "**Mechanism:** the problem is that an operation that looks like 'one line' is actually not atomic. `meals_eaten++` is 3 steps:" },
+      { code: String.raw`philo->meals_eaten++  breaks into 3 steps (read-modify-write):
+  1. load old value from memory -> register   (e.g. 4)
+  2. +1 in the register                        (= 5)
+  3. write back to memory                       (= 5)
+
+If the monitor reads last_meal in the middle:
+  the owner thread: mid-write of last_meal = now (not finished)
+  the monitor:      reads last_meal right now -> a half-written value
+  -> decides 'dead or not' from garbage -> wrong verdict`, cap: "This kind of bug is intermittent (a heisenbug) — passes 100 runs, breaks on run 101", lang: "txt" },
+      { p: "**Fix:** wrap every read/write of shared data with the **same** mutex, forcing those 3 steps to be indivisible (atomic) from another thread's view:" },
+      { code: String.raw`// write (the owner, when starting to eat)
+pthread_mutex_lock(&philo->meal_lock);
+philo->last_meal = get_time();
+philo->meals_eaten++;
+pthread_mutex_unlock(&philo->meal_lock);
+
+// read (the monitor)
+pthread_mutex_lock(&philo->meal_lock);
+long since = get_time() - philo->last_meal;
+pthread_mutex_unlock(&philo->meal_lock);
+// then decide 'outside' the lock, from the copied value`, cap: "Iron rule: reading and writing the same shared value must use the same mutex, or they still collide", lang: "c" },
+      { note: "Run it yourself: compile with `-fsanitize=thread`, or run `valgrind --tool=helgrind ./philo 4 410 200 200` — if there's a data race it points to the exact colliding read/write lines." },
+      { qa: [
+        { q: "Why lock even when only 'reading' (the monitor doesn't write)?", a: "Because 'reading while another thread is writing' is also a data race — you may get a half-written value (especially a 64-bit variable on some machines). You must lock both the read and the write side." },
+        { q: "Does using different mutexes for the read and write side prevent the race?", a: "No — a mutex only excludes those fighting over the 'same key'. If the reader uses key A and the writer uses key B, both can enter at once = still a race. It must be the same key." },
+        { q: "Why does printing ('philo x is eating') need print_lock?", a: "If several threads call write at once, characters can interleave mid-line. print_lock forces one complete line at a time (and you must check stop under the same lock, so nothing prints after 'died' is announced)." },
+      ]},
+
+      { h: "🔬 Deep Dive C: Mutex vs Semaphore — why mandatory uses thread+mutex but bonus uses process+semaphore" },
+      { p: "**Picture it:** a mutex = a single bathroom key (one at a time, and the one who locked it must unlock it). A semaphore = a seat counter in a shop (k seats; each entry decrements it, when it hits 0 you wait — and anyone may release)." },
+      { table: { head: ["", "Mutex", "Semaphore"], rows: [
+        ["Value held", "binary (locked/unlocked)", "a counter (0..k)"],
+        ["Ownership", "yes — the locker must unlock", "none — anyone can post/wait"],
+        ["Scope", "within one process (shared memory)", "across processes (named: sem_open)"],
+        ["philosophers uses it for", "mandatory (1 thread/philo, 1 mutex/fork)", "bonus (1 process/philo, a semaphore counting forks)"],
+      ]}},
+      { p: "**Why bonus must switch to a semaphore:** bonus uses `fork()` to split into separate processes → **memory is not shared** → a mutex (which lives in shared memory) can't work across processes. A named semaphore (`sem_open`) lives in the OS; every process opens it by the same name and they share it." },
+      { code: String.raw`bonus: forks = one semaphore, counter = number of free forks
+  sem_t *forks = sem_open("/forks", O_CREAT, 0644, num_philo);
+
+  take fork:  sem_wait(forks)   // counter -1 (if 0 -> wait)
+              sem_wait(forks)   // take 2 forks = wait twice
+  put fork:   sem_post(forks)   // counter +1
+              sem_post(forks)`, cap: "The semaphore counts 'total free forks' — it doesn't care who holds which, unlike a mutex tied to each fork", lang: "c" },
+      { note: "bonus pitfall: the semaphore counts a total without knowing fork 'positions' → prevent deadlock by limiting to num_philo-1 eaters at a time. And you must sem_close + sem_unlink at the end, or the semaphore lingers in /dev/shm." },
+      { qa: [
+        { q: "Why can't a mutex work across processes (bonus)?", a: "A normal mutex keeps its state in the process's memory. After fork splits the processes, each has its own memory block → each sees its own mutex, not the same one. You need a named semaphore owned centrally by the OS." },
+        { q: "What does initializing the semaphore to num_philo mean?", a: "It means there are num_philo free forks to grab. Each sem_wait decrements the counter; at 0 the next taker waits until someone sem_posts (puts a fork back)." },
+        { q: "How does a mutex differ from a binary semaphore (k=1)?", a: "They look similar but differ in 'ownership': a mutex requires the locking thread to unlock it (ownership), while a binary semaphore can be posted by anyone → useful to signal across threads/processes, but easy to misuse if you post too many times." },
+      ]},
+
+      { h: "🔬 Deep Dive D: why plain usleep isn't precise enough" },
+      { p: "`usleep(n)` only guarantees 'at least n' — the OS may wake you later. If you sleep one long block, you might overshoot the death time before waking. So the code does a **precise_sleep**: sleep in short 200µs slices in a loop, checking the real clock and the stop flag each time → wakes on time and stops immediately when someone dies." },
+      { code: String.raw`void precise_sleep(long ms, t_data *data) {
+    long start = get_time();
+    while (get_time() - start < ms) {
+        if (is_stopped(data)) break;   // someone died, stop now
+        usleep(200);                    // sleep briefly, recheck
+    }
+}`, cap: "smart busy-wait: more precise than one big usleep, and reacts to stop quickly", lang: "c" },
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Dining philosophers problem — Wikipedia", url: "https://en.wikipedia.org/wiki/Dining_philosophers_problem", note: "the original problem + several solutions" },
+        { label: "Deadlock — Wikipedia", url: "https://en.wikipedia.org/wiki/Deadlock", note: "the 4 Coffman conditions + deadlock prevention" },
+        { label: "man7 — pthreads(7)", url: "https://man7.org/linux/man-pages/man7/pthreads.7.html", note: "POSIX threads overview" },
+        { label: "man7 — pthread_mutex_lock(3p)", url: "https://man7.org/linux/man-pages/man3/pthread_mutex_lock.3p.html", note: "official mutex lock/unlock docs" },
+      ]},
+    ],
+  },
 };
