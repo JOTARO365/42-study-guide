@@ -852,4 +852,458 @@ void set_stop(t_data *data) {
 valgrind --tool=helgrind ./philo 4 410 200 200   # find data races`, lang: "bash" },
     ],
   },
+
+  "minishell": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Write **your own shell** that behaves like a trimmed-down bash: read a command from the user → parse it → run the program, handling pipes, redirects, environment variables, quotes, and signals just like real bash." },
+      { code: String.raw`minishell$ cat file.txt | grep hello | wc -l > out.txt
+minishell$ echo "Home is $HOME"
+minishell$ export NAME=42 && env | grep NAME`, cap: "must support pipes (|), redirects (< > >>), variables ($), quotes, builtins", lang: "bash" },
+      { h: "The 5 main stages (a shell pipeline)" },
+      { table: { head: ["Stage", "Does what", "File"], rows: [
+        ["1. Lexer", "split the line into tokens (words/operators)", "lexer.c"],
+        ["2. Syntax", "check grammar (back-to-back |, dangling redirect)", "syntax.c"],
+        ["3. Parser", "arrange tokens into commands + redirects", "parser.c"],
+        ["4. Expand", "substitute $VAR, $?, handle quotes", "expand.c"],
+        ["5. Execute", "fork/pipe/dup2/execve for real", "executor.c"],
+      ]}},
+      { note: "This is a miniature compiler pipeline: raw text → tokens → structure → action — the same idea a programming language uses to process code." },
+      { h: "Required features (mandatory)" },
+      { ul: [
+        "Run commands from PATH (e.g. `ls`, `cat`) via execve",
+        "**Pipe** `|` feeds one command's output into another's input",
+        "**Redirect** `<` (input), `>` (output), `>>` (append), `<<` (heredoc)",
+        "**Quotes**: `'...'` (fully literal), `\"...\"` (expands $)",
+        "**Expand**: `$VAR` (env value), `$?` (previous command's exit status)",
+        "**7 builtins**: echo, cd, pwd, export, unset, env, exit",
+        "**Signals**: Ctrl+C, Ctrl+D, Ctrl+\\ behave like bash",
+      ]},
+      { h: "Why this project is big and hard" },
+      { p: "minishell pulls together everything from the whole year: parsing, linked lists, memory management, processes (fork/exec), file descriptors (pipe/dup2), signals — all working together without leaking, hanging, or diverging from bash's exact behavior. It's the largest group project of Common Core." },
+    ],
+    theory: [
+      { p: "This section gathers the **parsing + process + file descriptor** theory minishell needs." },
+      { h: "1) How a shell works (the REPL loop)" },
+      { p: "A shell is a **Read-Eval-Print Loop**: read a line → process → display → repeat, never ending until exit/Ctrl+D." },
+      { code: String.raw`while (1) {
+    line = readline("minishell$ ");   // read
+    if (!line) break;                  // Ctrl+D = EOF -> exit
+    run_line(line);                    // process + run
+    free(line);
+}`, lang: "c" },
+      { h: "2) Lexing & Parsing (from compiler theory)" },
+      { table: { head: ["Stage", "input → output", "Example"], rows: [
+        ["Lexer", "string → token list", "`ls -l | wc` → [WORD ls][WORD -l][PIPE][WORD wc]"],
+        ["Parser", "token list → command structure", "→ cmd(ls -l) → cmd(wc)"],
+      ]}},
+      { p: "A **token** is the smallest meaningful unit (a word or an operator). The parser arranges tokens into individual 'commands', each with its arguments and redirects." },
+      { h: "3) Processes: fork / execve / wait" },
+      { table: { head: ["syscall", "does what"], rows: [
+        ["`fork()`", "clone the process into 2 (parent + child)"],
+        ["`execve()`", "replace yourself with a new program (child)"],
+        ["`waitpid()`", "parent waits for the child + collects its exit status"],
+      ]}},
+      { code: String.raw`pid = fork();
+if (pid == 0) {            // child
+    execve(path, argv, envp);   // becomes ls/cat/...
+} else {                   // parent
+    waitpid(pid, &status, 0);   // wait for the child
+}`, cap: "fork makes the child -> the child execve's into the real program -> the parent waits", lang: "c" },
+      { h: "4) File descriptor & dup2 (the heart of pipe/redirect)" },
+      { p: "Every process has standard fds: **0=stdin, 1=stdout, 2=stderr**. `dup2(a, b)` makes fd `b` point to the same thing as `a` — the mechanism for redirecting input/output." },
+      { code: String.raw`int fd = open("out.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+dup2(fd, STDOUT_FILENO);   // everything written to stdout (fd 1)
+close(fd);                  // now goes to the file instead
+/* ... execve ... */`, cap: "redirect > = dup2(file_fd, STDOUT) -> what's written to stdout lands in the file", lang: "c" },
+      { h: "5) Pipe — a tube between 2 processes" },
+      { p: "`pipe(fds)` makes a tube: `fds[0]` = read end, `fds[1]` = write end. What's written into fds[1] can be read from fds[0] → used to feed the left command's stdout into the right command's stdin." },
+      { code: String.raw`cmd1 | cmd2:
+  pipe(fds)
+  cmd1: dup2(fds[1], STDOUT)  -> writes into the tube
+  cmd2: dup2(fds[0], STDIN)   -> reads input from the tube`, cap: "close every unused fd or cmd2 waits for an EOF that never comes = hang", lang: "txt" },
+      { h: "6) Environment variables" },
+      { p: "Environment variables (like `PATH`, `HOME`) pass from parent to child via `envp`. minishell stores them as a linked list (key=value) so it can export/unset, then converts back to an array at execve time." },
+
+      { h: "🔬 Deep Dive A: the lexer is a state machine — how quotes change the splitting rules" },
+      { p: "**Picture it:** splitting a line into words looks like 'just cut on spaces', but a quote changes the rule instantly — `'a b'` is **one word** (the inner space doesn't split). The right mental model is a **finite state machine**: the machine is in some state, and each character changes the state / decides whether to split." },
+      { code: String.raw`the lexer's 3 states:
+  NORMAL  : space = split ; | < > = operator ; ' " = enter quote mode
+  S_QUOTE : (after ') everything literal until the next ' — $ not expanded
+  D_QUOTE : (after ") literal except $ (still expands) until the next "
+
+transitions:
+  NORMAL --'--> S_QUOTE --'--> NORMAL
+  NORMAL --"--> D_QUOTE --"--> NORMAL
+  inside a quote: a space "does not split"`, cap: "a quote = a temporary state change, so inner spaces aren't used to split words", lang: "txt" },
+      { p: "**Trace it char by char** — tokenize `echo \"a b\"'cd'`:" },
+      { code: String.raw`input:  e c h o ␣ " a ␣ b " ' c d '
+state:  N N N N N D D D D N S S S N
+                  │         │ │     │
+                enter D    exit D  enter/exit S
+
+  'echo'                 → WORD "echo"   (split at ␣)
+  "a b" next to 'cd'     → WORD "a bcd"  (no ␣ between = one word!)
+→ argv = ["echo", "a bcd"]  (not 3 words)`, cap: "the part people miss: adjacent tokens (no space between) = one word, even with different quote types", lang: "txt" },
+      { p: "**Crucial order: expand $ first, then remove quotes (quote removal):** `$?` inside a double-quote must expand, but inside a single-quote must not — so you must remember which quote type each character was in 'during' the lex/expand step, and only strip the quotes as the last step. If you remove quotes first you can't tell which `$` should expand." },
+      { note: "Prove it yourself: `echo '$HOME'` must print `$HOME` literally, but `echo \"$HOME\"` must print the real path — because the first is in state S_QUOTE where `$` doesn't expand, while the second is in D_QUOTE where `$` does." },
+      { qa: [
+        { q: "Why remove quotes 'after' expanding $, not before?", a: "Because the `$`-expansion rule depends on which quote type you're in at the time. If you strip quotes first, you lose the info about whether `$x` was in single (no expand) or double (expand) → wrong expansion." },
+        { q: "How many tokens is `a'b'c`?", a: "1 token = `abc`, because there's no space anywhere; the quote just changes state temporarily, it doesn't split words." },
+        { q: "What to do with an unclosed quote (`echo \"hi`)?", a: "bash prompts for the quote to be closed (continuation line); most minishells treat it as a syntax error returning exit 2, which passes (per the subject/peer agreement)." },
+      ]},
+
+      { h: "🔬 Deep Dive B: fd-table inheritance after fork + dup2/close ordering across a multi-stage pipeline" },
+      { p: "**Picture it:** on fork the child gets a whole 'copy of the parent's fd table' — the same fd numbers point to the same things. Building `a | b | c` is 'wiring' a's stdout → into b, b's stdout → into c with dup2, then closing every unused end cleanly." },
+      { p: "**The rolling-pipe mechanism:** loop forking one command at a time, keeping 'the previous tube's read fd' as the next command's stdin:" },
+      { code: String.raw`exec_pipeline(cmds):
+  in = STDIN                 // the first command reads from real stdin
+  while (a cmd remains):
+     if there's a next cmd: pipe(fds)   // fds[0]=read, fds[1]=write
+     fork:
+       child: dup2(in, STDIN)            // read from the previous tube/stdin
+              if next exists: dup2(fds[1], STDOUT)  // write into the new tube
+              close(in, fds[0], fds[1]) all -> execve
+     parent: close(in); close(fds[1])    // * close immediately!
+             in = fds[0]                 // this read end = next round's stdin`, cap: "the parent closes the write end immediately after fork — the only end left open is in the child that actually uses it", lang: "c" },
+      { p: "**Trace the fd table step by step** — `a | b | c` (fd numbers are illustrative):" },
+      { code: String.raw`pipe1=(3,4)   pipe2=(5,6)
+
+fork a: child  stdout→4 (pipe1 write) ; close extra 3,5,6 → exec a
+        parent close 4 ; in=3
+fork b: child  stdin→3 (pipe1 read), stdout→6 (pipe2 write) ; close → exec b
+        parent close 3,6 ; in=5
+c:      child  stdin→5 (pipe2 read), stdout→real stdout ; close → exec c
+        parent close 5
+
+→ every write end (4,6) is closed in the parent at once → only the using child keeps it
+→ a ends → pipe1 write all closed → b sees EOF ; b ends → c sees EOF`, cap: "closing in the parent immediately each round stops the next fork from inheriting a stale write end", lang: "txt" },
+      { note: "Prove it yourself: if the parent 'defers' closing until the end (instead of right after each fork) → when forking b the parent still holds write end 4 → b inherits a copy of fd 4 too → pipe1's write end can never reach 0 → b waits for an EOF that never comes = hang. That's why you must close in the parent 'immediately' every round." },
+      { qa: [
+        { q: "Why must you always dup2 'before' close?", a: "dup2(old,new) copies old to new — if you close(old) first there's nothing to copy. Correct order: dup2(fds[1],STDOUT) then close(fds[1])." },
+        { q: "Why must the parent close the write end right after fork?", a: "Because every fork hands the child a copy of the write end; the more you fork the more copies linger. The parent closing its own immediately + the child closing what it doesn't use → the write-end refcount can reach 0 → EOF happens." },
+        { q: "Why does `cat | ls` print ls's output immediately without waiting for cat?", a: "ls doesn't read stdin so it doesn't wait for EOF — it runs and exits; cat keeps reading stdin from the terminal (until Ctrl-D), which is also correct bash behavior." },
+      ]},
+
+      { h: "🔬 Deep Dive C: why a pipe hangs — pipe write-end reference counting" },
+      { p: "**Picture it:** a pipe's read end gets the 'end' signal (EOF, read returns 0) **only when every copy of the write end is closed** — not just the main write end. The kernel counts how many fds still have the write end open (a reference count)." },
+      { p: "**Mechanism:** each fork copies the fd table → the write end gains a copy. EOF happens only when the refcount = 0:" },
+      { code: String.raw`write-end refcount (single pipe in cmd1 | cmd2):
+
+  pipe(fds)                       write-end refcount = 1 (parent)
+  fork cmd1                       -> 2 (parent + cmd1)
+  fork cmd2                       -> 3 (parent + cmd1 + cmd2)
+  ────────────────────────────────────────────
+  cmd1 dup2(fds[1],STDOUT)+exec   (cmd1 holds it via STDOUT)
+  cmd2 close(fds[1])              -> 2
+  parent close(fds[1])            -> 1   * forget this = hang right here
+  cmd1 ends -> closes stdout      -> 0   -> EOF reaches cmd2 ✓
+
+if the parent "forgets" close(fds[1]): refcount stays at 1 forever
+  -> cmd2 reads stdin waiting for an EOF that never comes -> hang`, cap: "EOF is a function of the refcount: it must be 0 — forget one close, the refcount never hits 0 = hang", lang: "txt" },
+      { p: "**heredoc uses the same principle:** `<< EOF` is a pipe where the parent writes the heredoc lines to the write end then **closes the write end** to send EOF so the reading command finishes — if you don't close it, the command waits for more input forever." },
+      { note: "Prove it yourself: write `cat | cat | cat` and deliberately comment out one of the parent's close(fds[1]) lines → it hangs. Run `ls -l /proc/<pid>/fd` and you'll see the write end still open, exactly as the refcount theory predicts." },
+      { qa: [
+        { q: "Why isn't closing the main write end enough — why close every copy?", a: "Because EOF depends on the refcount = the number of write-end copies still open. Leave even one open (e.g. the parent forgot) and the refcount ≠ 0 → the read end never gets EOF → hang." },
+        { q: "What do you get reading the read end while the write end is open with no data?", a: "read 'blocks' and waits (not EOF). EOF (read returns 0) only happens once all write ends are closed." },
+        { q: "What happens writing to a pipe whose read ends are all closed?", a: "You get SIGPIPE (usually kills the process) or write returns -1 with errno=EPIPE — this is why `yes | head` makes yes die on its own after head closes." },
+      ]},
+
+      { h: "🔬 Deep Dive D: signals (interactive + heredoc) & $? (exit status) propagation" },
+      { p: "**Picture it:** pressing Ctrl-C at an empty prompt must 'show a fresh prompt on the next line' (not exit the shell), but pressing Ctrl-C while a command runs (e.g. `cat` waiting) must 'kill that command' and return to the prompt. The behavior differs by context." },
+      { code: String.raw`SIGINT (Ctrl-C) scenarios:
+  empty prompt   -> handler: print \n, rl_replace_line(""),
+                    rl_on_new_line(), rl_redisplay() -> new prompt ; $?=130
+  command running -> child sets signal to DEFAULT -> Ctrl-C kills the child
+                    (not the shell) ; shell records $? = 128 + SIGINT(2) = 130
+  in a heredoc   -> Ctrl-C cancels the heredoc, returns to prompt ; $? = 130`, cap: "the shell at the prompt 'catches' SIGINT but the child 'lets it default' -> Ctrl-C hits the command, not the shell", lang: "txt" },
+      { p: "**Why a single global (`g_signal`):** a signal handler must not do heavy work / touch big structs (async-signal-safety). The safe pattern is for the handler to just 'record the signal number' into a `volatile sig_atomic_t g_signal`, and let the main loop read it later to set `$?` — this is the one global the subject allows." },
+      { p: "**$? propagation — the standard values:**" },
+      { code: String.raw`standard exit codes (stored in sh->exit_status = $?):
+  0          success
+  1          general error (e.g. a builtin failed)
+  2          misuse / syntax error
+  126        found the file but can't run it (no exec permission)
+  127        command not found
+  128 + n    killed by signal number n
+
+worked example:
+  ls /nope          → $? = 2    (ls error)
+  ./no_such         → $? = 127  (not found)
+  cat then Ctrl-C   → $? = 130  (128 + SIGINT 2)
+  a segfaulting cmd → $? = 139  (128 + SIGSEGV 11)`, cap: "reading exit status: WIFEXITED→WEXITSTATUS ; WIFSIGNALED→128+WTERMSIG", lang: "txt" },
+      { note: "Prove it yourself: in real bash type `sleep 5` then press Ctrl-C, then `echo $?` → 130. Then `ls /nope; echo $?` → 2 — minishell must match these exactly." },
+      { qa: [
+        { q: "Why must the child reset signals to default before execve?", a: "At the prompt the shell catches SIGINT/SIGQUIT (so it doesn't die itself). If the child inherits that handler, Ctrl-C won't kill the command — you must reset to SIG_DFL in the child so Ctrl-C kills the command normally." },
+        { q: "Why does the handler only store the signal number and nothing else?", a: "async-signal-safety: a handler can interrupt at any moment; touching malloc/structs/print could break randomly. Storing the number in a sig_atomic_t and handling it later in the main loop is safe." },
+        { q: "After `cat | ls`, which command's value does `$?` take?", a: "Always the rightmost command (ls) — bash stores the last pipeline command's exit as $?." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Beej's Guide to Unix IPC", url: "https://beej.us/guide/bgipc/", note: "pipe / fork / dup2 in full, a fun read" },
+        { label: "man7 — pipe(2)", url: "https://man7.org/linux/man-pages/man2/pipe.2.html", note: "pipe mechanics + EOF / closing fds" },
+        { label: "man7 — execve(2)", url: "https://man7.org/linux/man-pages/man2/execve.2.html", note: "replacing a process image" },
+        { label: "Bash Reference Manual — GNU", url: "https://www.gnu.org/software/bash/manual/bash.html", note: "reference for the bash behavior to mimic" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **structs and data structures** minishell uses — mostly linked lists." },
+      { h: "The 5 main structs" },
+      { code: String.raw`typedef struct s_token {        /* result of the lexer */
+    char            *value;
+    t_toktype       type;       /* WORD / PIPE / REDIR_IN / ... */
+    struct s_token  *next;
+} t_token;
+
+typedef struct s_redir {        /* one redirect */
+    t_toktype       type;       /* < > >> << */
+    char            *target;    /* filename or delimiter */
+    int             quoted;     /* was the heredoc delimiter quoted */
+    int             hdoc_fd;
+    struct s_redir  *next;
+} t_redir;
+
+typedef struct s_cmd {          /* one command in the pipeline */
+    char            **argv;     /* ["ls","-l",NULL] */
+    t_redir         *redirs;    /* this command's redirects */
+    struct s_cmd    *next;      /* next command after | */
+} t_cmd;
+
+typedef struct s_env {          /* one env variable */
+    char            *key, *value;
+    int             exported;
+    struct s_env    *next;
+} t_env;
+
+typedef struct s_shell {        /* the shell's central state */
+    t_env   *env;
+    int     exit_status;        /* = $? */
+    t_token *tokens;
+    t_cmd   *cmds;
+    char    *line;
+} t_shell;`, cap: "everything is a linked list because the counts are unknown ahead of time (any number of tokens/cmds/env)", lang: "c" },
+      { h: "Why token type is an enum" },
+      { code: String.raw`typedef enum e_toktype {
+    T_WORD, T_PIPE, T_REDIR_IN, T_REDIR_OUT, T_APPEND, T_HEREDOC
+} t_toktype;`, cap: "an enum makes the code readable (T_PIPE is clearer than the number 1) and the compiler helps check it", lang: "c" },
+      { h: "Structure flow: string → cmd list" },
+      { code: String.raw`"ls -l | wc -l > out"
+   │ lexer
+   ▼
+[WORD:ls][WORD:-l][PIPE][WORD:wc][WORD:-l][REDIR_OUT][WORD:out]
+   │ parser
+   ▼
+cmd1: argv=[ls,-l]    redirs=NULL
+   └─next─►
+cmd2: argv=[wc,-l]    redirs=[> out]`, cap: "PIPE splits into a separate cmd; REDIR attaches to the current cmd's redirs", lang: "txt" },
+      { h: "exit_status = $? is wired through the whole system" },
+      { p: "`sh->exit_status` is the `$?` value — it holds the last command's exit code, used both in expansion (`echo $?`) and as main's return. Convention: 0=success, 1-2=error, 126=no permission to run, 127=command not found, 128+n=killed by signal n." },
+      { h: "Why env is a linked list, not an array" },
+      { p: "You must add (export), remove (unset), and modify variables anytime → a linked list handles this more easily than an array that needs realloc. At execve time you convert it to a `char **` with `env_to_array`." },
+    ],
+    architecture: [
+      { h: "File groups (33 files split by responsibility)" },
+      { table: { head: ["Group", "Files", "Role"], rows: [
+        ["loop", "main.c, init.c", "REPL loop, initial setup"],
+        ["lexer", "lexer.c, lexer_utils.c", "tokenize + quotes"],
+        ["syntax", "syntax.c", "grammar check"],
+        ["parser", "parser.c, parser_redir.c, parser_utils.c", "tokens → cmd list"],
+        ["expand", "expand*.c", "expand $VAR/$?, quote removal"],
+        ["executor", "executor.c, exec_pipe.c, exec_utils.c", "fork/exec/pipe/wait"],
+        ["redirect", "redirect.c, heredoc*.c", "< > >> <<"],
+        ["builtin", "builtin_*.c", "echo/cd/pwd/export/unset/env/exit"],
+        ["env", "env*.c, path.c", "manage env + find PATH"],
+        ["signal", "signals.c", "Ctrl+C / Ctrl+\\"],
+        ["free", "free.c, utils.c", "free memory"],
+      ]}},
+      { h: "Order of work per line (run_line)" },
+      { code: String.raw`run_line(sh, line)
+  └─ parse_line(sh):
+       ├─ lexer()         string → tokens
+       ├─ check_syntax()  grammar wrong? → exit 2
+       ├─ parser()        tokens → cmds
+       └─ expand_cmds()   expand $ + quotes
+  └─ execute(sh, cmds):
+       ├─ preprocess_heredocs()
+       ├─ a single builtin → exec_in_parent (no fork!)
+       ├─ a single command → exec_single (fork)
+       └─ many commands    → exec_pipeline (fork all + pipe)
+  └─ reset_shell()  clear this line's tokens/cmds`, lang: "txt" },
+      { note: "Key point: a single builtin (e.g. `cd`, `export`) must run in the **parent**, not a fork — because if you fork and cd in the child, the directory change is lost when the child dies (the parent didn't move)." },
+      { h: "The one allowed global: g_signal" },
+      { code: String.raw`extern volatile sig_atomic_t g_signal;`, cap: "the subject allows just 1 global, only to store the signal number — nothing else", lang: "c" },
+    ],
+    dataflow: [
+      { p: "Walk through the core functions one by one." },
+      { h: "shell_loop() — the REPL heart" },
+      { code: String.raw`void shell_loop(t_shell *sh)
+{
+    tty = isatty(STDIN_FILENO);          // interactive?
+    while (1) {
+        setup_signals();                  // set the Ctrl+C handler
+        line = read_input(tty);           // readline or gnl
+        if (g_signal == SIGINT) {
+            sh->exit_status = 130;        // Ctrl+C -> $?=130
+            g_signal = 0;
+        }
+        if (!line) break;                 // Ctrl+D -> exit
+        if (tty && *line) add_history(line);
+        run_line(sh, line);
+        free(line);
+    }
+}`, cap: "uses readline (interactive) or get_next_line (input from a pipe/file)", lang: "c" },
+      { h: "lexer() — split the line into tokens" },
+      { code: String.raw`t_token *lexer(char *line, int *err)
+{
+    while (line[i]) {
+        i = skip_spaces(line, i);
+        if (is_metachar(line[i]))         // | < >
+            i = read_op(line, i, &lst);
+        else
+            i = read_word(line, i, &lst); // a word (incl. quotes)
+        if (i < 0) { *err = 1; ... }      // unclosed quote
+    }
+    return (lst);
+}`, cap: "loop the whole line: a meta char reads as an operator, otherwise read a word; an unclosed quote = error", lang: "c" },
+      { h: "execute() — choose how to run" },
+      { code: String.raw`int execute(t_shell *sh, t_cmd *cmds)
+{
+    if (preprocess_heredocs(sh, cmds))   // read heredocs first
+        return (130);
+    n = cmd_count(cmds);
+    if (n == 1 && (!argv[0] || is_builtin(argv[0])))
+        return (exec_in_parent(sh, cmds));  // single builtin
+    if (n == 1)
+        return (exec_single(sh, cmds));     // single command
+    return (exec_pipeline(sh, cmds, n));    // pipeline
+}`, cap: "3 paths: builtin in the parent, single command forked, many commands piped", lang: "c" },
+      { h: "child_process() — what the child does after fork" },
+      { code: String.raw`void child_process(t_shell *sh, t_cmd *cmd, int in, int out)
+{
+    signals_default();                    // child takes default signals
+    if (in != STDIN_FILENO)  { dup2(in, STDIN);  close(in); }
+    if (out != STDOUT_FILENO){ dup2(out, STDOUT); close(out); }
+    if (apply_redirs(sh, cmd->redirs)) clean_exit(sh, 1);
+    if (is_builtin(cmd->argv[0]))
+        clean_exit(sh, run_builtin(sh, cmd));
+    exec_external(sh, cmd);               // execve
+}`, cap: "wire in/out from the pipe -> apply redirects (which can override the pipe) -> run builtin or execve", lang: "c" },
+      { h: "exec_pipeline() — chain commands with pipes" },
+      { code: String.raw`int exec_pipeline(t_shell *sh, t_cmd *cmds, int n)
+{
+    in = STDIN_FILENO;
+    signals_ignore();                     // parent ignores Ctrl+C
+    while (cmds) {
+        if (cmds->next) pipe(fds);        // a next cmd exists -> make a tube
+        pid = fork();
+        if (pid == 0) pipe_child(sh, cmds, in, fds);
+        if (in != STDIN_FILENO) close(in);
+        if (cmds->next) { close(fds[1]); in = fds[0]; }
+        cmds = cmds->next;
+    }
+    return (wait_all(pid, n));            // wait for all, keep the last status
+}`, cap: "fork every command, connect output->input with pipes; close unused fds immediately to avoid hanging", lang: "c" },
+      { h: "exec_external() — find PATH then execve" },
+      { code: String.raw`static void exec_external(t_shell *sh, t_cmd *cmd)
+{
+    path = find_path(sh, cmd->argv[0]);   // search $PATH
+    if (!path) clean_exit(sh, 127);       // command not found
+    envp = env_to_array(sh->env);         // list -> array
+    execve(path, cmd->argv, envp);
+    /* reaching here = execve failed */
+    if (errno == EACCES || errno == EISDIR) clean_exit(sh, 126);
+    clean_exit(sh, 127);
+}`, cap: "127 = command not found, 126 = found but not runnable (permission/is a directory)", lang: "c" },
+      { h: "handle_sigint() — Ctrl+C like bash" },
+      { code: String.raw`static void handle_sigint(int sig)
+{
+    g_signal = sig;
+    write(STDOUT_FILENO, "\n", 1);
+    rl_on_new_line();                     // readline moves to a new line
+    rl_replace_line("", 0);               // clear the line typed so far
+    rl_redisplay();                       // show a fresh prompt
+}`, cap: "Ctrl+C: new line + fresh prompt without killing the shell (unlike the default)", lang: "c" },
+      { h: "wait_all() — keep the last command's exit status" },
+      { code: String.raw`/* status_code turns the raw status into a bash-like exit code */
+if (WIFSIGNALED(status)) return (128 + WTERMSIG(status));
+return (WEXITSTATUS(status));`, cap: "the pipeline's $? = the rightmost command's exit; if killed by a signal -> 128 + signal number", lang: "c" },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. REPL loop + readline + history (do nothing with the input yet)",
+        "2. lexer — tokenize, including ' and \" quote handling",
+        "3. parser — tokens → cmd list (no pipe/redirect yet)",
+        "4. single-command executor: fork + find_path + execve + wait",
+        "5. the 7 builtins (cd/export/unset/exit must run in the parent)",
+        "6. expand $VAR / $? + quote removal",
+        "7. redirects < > >> + pipes (many commands)",
+        "8. heredoc <<",
+        "9. signals: Ctrl+C / Ctrl+\\ / Ctrl+D matching bash",
+        "10. chase leaks with valgrind + diff behavior against real bash",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["Pipe hangs (wc never ends)", "didn't close the write-end fd", "close every unused fd after fork"],
+        ["cd doesn't change the real dir", "ran cd in a child (fork)", "run a single builtin in the parent"],
+        ["$? wrong", "didn't update exit_status / used the raw status", "convert via WEXITSTATUS/WIFSIGNALED"],
+        ["Quotes leak through", "didn't remove quotes during expand", "quote removal after variable expansion"],
+        ["heredoc expands $ though the delimiter was quoted", "didn't check the quoted flag", "if the delimiter is quoted → don't expand"],
+        ["Ctrl+C kills the shell", "used the default signal", "set a handler that just refreshes the prompt"],
+      ]}},
+      { h: "build / run" },
+      { code: String.raw`make
+./minishell
+minishell$ echo "hi $USER" | cat -e
+minishell$ ls -l | grep .c | wc -l
+minishell$ cat << EOF
+make bonus && ./minishell   # && || () wildcard *`, lang: "bash" },
+      { note: "You must link readline: -lreadline (some machines also need -L path to readline)." },
+    ],
+    tricks: [
+      { h: "Trick 1: a single builtin runs in the parent, no fork" },
+      { p: "cd/export/unset/exit must change the shell's own state (directory, env, exiting) — if you fork and run them in a child the change is lost when the child dies. The code checks `n==1 && is_builtin` → `exec_in_parent` (save/restore fds with dup)." },
+      { h: "Trick 2: close every fd immediately after fork" },
+      { p: "In the pipeline, after each fork the parent closes the old `in` and `fds[1]` right away — leaving only the ends actually used → EOF reaches the next command on time, no hang. This rule is the key to a non-deadlocking pipe." },
+      { h: "Trick 3: 3 signal modes by context" },
+      { table: { head: ["Mode", "When"], rows: [
+        ["setup_signals", "waiting at the prompt (Ctrl+C refreshes, Ctrl+\\ ignored)"],
+        ["signals_ignore", "the parent while waiting for a child (ignores Ctrl+C)"],
+        ["signals_default", "in the child before exec (takes default signals)"],
+      ]}},
+      { h: "Trick 4: g_signal stores only the signal number" },
+      { p: "The subject allows one global — store only 'which signal just happened' (`volatile sig_atomic_t`), not structs/other data. The handler does the minimum (set the value + refresh readline) for safety in async context." },
+      { h: "Trick 5: env is a list, converted to an array at execve" },
+      { p: "Keep env as a linked list (easy export/unset) but execve needs a `char **` — convert with `env_to_array` only when about to exec, then free it. Clear separation of concerns." },
+      { h: "Trick 6: preprocess heredocs before fork" },
+      { p: "Read all heredocs (`<<`) before running commands — store the content into a temp fd/file, so a Ctrl+C while typing a heredoc cancels cleanly (return 130) without affecting the pipeline." },
+      { h: "Trick 7: exit codes follow bash convention" },
+      { p: "127=command not found, 126=not runnable, 128+n=killed by signal n, 130=Ctrl+C, 2=syntax error — making `$?` match bash in every case (evaluators love testing this)." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How does the shell process one command line?", a: "lexer (string→token) → check syntax → parser (token→cmd list) → expand ($VAR/$?/quote) → execute (fork/pipe/dup2/execve); like a miniature compiler pipeline." },
+        { q: "How do fork and execve differ?", a: "fork clones the process into 2 (identical parent+child); execve replaces the process image with a new program; normally you fork then have the child execve while the parent waitpids." },
+        { q: "How does a pipe work, why must you close fds?", a: "pipe() makes a tube with a read/write end; dup2 connects the left's stdout→tube→right's stdin; you must close every write end or the reading command never sees EOF → hangs forever." },
+        { q: "Why must cd/export run in the parent?", a: "They must change the shell's own state (directory/env); if forked and run in a child the change is lost when the child dies, the parent unaffected." },
+        { q: "What is dup2 for?", a: "It makes one fd point to the same place as another — redirect > uses dup2(file, STDOUT) to send output to a file; a pipe uses dup2 to connect stdin/stdout to the tube." },
+        { q: "What is $?, how is it stored?", a: "The last command's exit status, kept in sh->exit_status; converted from wait via WEXITSTATUS (normal exit) or 128+WTERMSIG (killed by signal); used in expanding $?." },
+        { q: "How does single quote differ from double quote?", a: "'...' = fully literal, expands nothing; \"...\" = expands $VAR/$? but still prevents word splitting; both are removed (quote removal) after expansion." },
+        { q: "How do you handle Ctrl+C / Ctrl+D / Ctrl+\\?", a: "Ctrl+C (SIGINT) shows a new line+prompt ($?=130) without killing the shell; Ctrl+D (EOF) exits the shell; Ctrl+\\ (SIGQUIT) ignored at the prompt; via g_signal + the 3 signal modes." },
+        { q: "Why is only one global allowed?", a: "The subject mandates it — store only the signal number (volatile sig_atomic_t g_signal) because the handler must not do complex work/touch structs in async context; other data goes through t_shell." },
+        { q: "How do you find a command's path?", a: "If it has a /, use it directly; otherwise loop $PATH folders, join with the command name, check access(X_OK); not found → exit 127." },
+        { q: "What do exit codes 126/127/130 mean?", a: "127=command not found, 126=found but not runnable (permission/a dir), 130=killed by Ctrl+C (128+SIGINT), 128+n=killed by signal n; per bash convention." },
+        { q: "How does a heredoc (<<) work?", a: "Read input until the delimiter, store the content and feed it as stdin; expand $ if the delimiter isn't quoted, don't if it is; preprocess before running so Ctrl+C can cancel cleanly." },
+        { q: "How do you decide builtin vs external?", a: "is_builtin checks the name against the 7 (echo/cd/pwd/export/unset/env/exit); if yes run run_builtin, otherwise find_path + execve." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./minishell
+minishell$ echo hello | cat -e
+minishell$ ls -l | grep .c | wc -l > count.txt
+minishell$ export X=42; echo "$X and $?"
+minishell$ cat << END
+# diff behavior against real bash + valgrind for leaks
+valgrind --leak-check=full ./minishell`, lang: "bash" },
+    ],
+  },
 };
