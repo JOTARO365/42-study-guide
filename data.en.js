@@ -3591,4 +3591,332 @@ make re         # fclean + all`, lang: "bash" },
 ./client_bonus 12345 "with acknowledgement"`, lang: "bash" },
     ],
   },
+
+  "ai_foundations": {
+    principle: [
+      { h: "Who and what this page teaches" },
+      { p: "For people who've **never touched AI**. By the end you'll understand what an LLM is, how the AI Engineer role differs from a normal programmer, and what pieces a real AI system is made of — with runnable example code." },
+      { h: "What an LLM is (in plain terms)" },
+      { p: "An **LLM (Large Language Model)** like Claude, GPT, Gemini is a model trained on enormous text until it can do one thing: **guess the next word**. Feed in text (a prompt) and it continues it (a completion) one token at a time. All the intelligence — summarizing, translating, coding, deciding — comes from 'guessing the next word very accurately'." },
+      { note: "An AI Engineer doesn't mainly 'train models' — the job is to **assemble existing models into a working system** (call APIs, design prompts, connect data, control cost, handle errors). Training models is the ML Engineer/Researcher's job." },
+      { h: "How an AI Engineer differs from a normal dev" },
+      { table: { head: ["", "Normal dev", "AI Engineer"], rows: [
+        ["a function's result", "deterministic", "probabilistic — not the same every time"],
+        ["what you pay for", "CPU/RAM", "tokens (paid per word in/out)"],
+        ["debugging", "read a stack trace", "read the prompt + output + tweak words"],
+        ["correctness", "pass/fail", "measured as % (accuracy, recall) — needs eval"],
+        ["risk", "crash", "hallucinate (confident but wrong), prompt injection"],
+      ]}},
+      { h: "What a real AI system contains" },
+      { p: "A real AI system usually **isn't 'call the LLM once'** but **several steps chained**, each with a specific job — like an assembly line. Example: a customer-support assistant:" },
+      { code: String.raw`receive the customer's question
+   -> retrieve relevant data (RAG)
+   -> LLM drafts an answer
+   -> check/filter the answer (guardrail)
+   -> send the answer + log it/cost`, cap: "a real system is 'several steps' chained, not one prompt", lang: "txt" },
+      { h: "The 5 pillars of AI Engineering (= the following pages)" },
+      { p: "This track covers, in order: **LLM & API** -> **Embeddings & Vector DB** -> **RAG** -> **Agents/LangGraph** -> **Harness/Tool/Eval/Cost**. Each page builds on the last." },
+    ],
+    theory: [
+      { h: "1) Token — the unit the LLM sees (and that you pay for)" },
+      { p: "An LLM doesn't read characters or words but **tokens** (word pieces). Roughly, in English 1 token ≈ 4 characters ≈ 0.75 words. Cost is per input + output token — the longer the prompt, the pricier and slower." },
+      { h: "2) Prompt = the LLM's only input" },
+      { p: "Everything the LLM knows that round comes only from the prompt. The standard structure has 2 parts: **system** (role/rules, set once) and **user** (this round's data/question)." },
+      { code: String.raw`messages = [
+  {"role": "system", "content": "You are a support assistant. Be polite and concise."},
+  {"role": "user",   "content": "How many days do I have to return an item?"},
+]`, cap: "the standard structure every provider uses", lang: "py" },
+      { h: "3) Why results vary — temperature" },
+      { p: "An LLM samples the next word from probabilities. **temperature** controls the randomness: 0 = always pick the most confident (steady, good for decisions/extraction), high = varied (good for creative work)." },
+      { h: "4) Hallucination — the #1 risk" },
+      { p: "An LLM 'guesses words' even when it doesn't truly know -> sometimes confidently wrong (hallucinates). To reduce it: (1) feed real data into the prompt (= RAG), (2) force the output format (structured output), (3) have a fallback when the result is untrustworthy." },
+      { h: "5) SDK landscape — common tools" },
+      { table: { head: ["Tool", "Used for"], rows: [
+        ["`openai` / `anthropic` / `google-genai`", "call each vendor's model directly"],
+        ["`langchain`", "wrap LLM + structured output + chains"],
+        ["`langgraph`", "chain many steps into a state graph (agents)"],
+        ["Vector DB (pgvector / FAISS / Pinecone)", "store + search embeddings"],
+      ]}},
+      { h: "6) Prompt-writing techniques (from vendor docs)" },
+      { table: { head: ["Technique", "What/when"], rows: [
+        ["Be clear & specific", "specify the output + say 'why' (think of training a new hire)"],
+        ["Few-shot (multishot)", "give 3-5 varied examples -> control format/tone (most effective steering)"],
+        ["Chain-of-thought", "let it 'think before answering' step by step -> multi-step reasoning"],
+        ["XML tags", "wrap parts <instructions>/<context>/<example> to avoid mixing"],
+        ["Say what TO do", "say 'write in paragraphs' rather than 'don't use markdown'"],
+        ["Long docs at the top", "long-context: put them above the question + ask it to quote first"],
+      ]}},
+      { note: "Note from the docs: 'prefilling' the answer is deprecated on new models — use structured output or just instruct 'answer without preamble' instead." },
+
+      { h: "🔬 Deep Dive A: how an LLM actually generates text — autoregressive decoding" },
+      { p: "Many think an LLM 'thinks then writes', but really it **writes one word at a time, feeding that word back as the next round's input** (autoregressive). Let's see the real pipeline." },
+      { code: String.raw`one real LLM round:
+
+Input: "how to make noodles"
+  v
+[Tokenize]  -> ["how", "to", "make", "noodles"]
+  v
+[Embed]     -> turn each token into a meaning vector (e.g. 768 dimensions)
+  v
+[Transformer] -> through many Attention layers (Claude ~100+ layers)
+  v
+[Output]    -> compute the probability of every possible token
+  v
+[SAMPLE]    -> sample 1 token from those probabilities
+  v
+Output: "soup"   (highest probability = 0.35)
+
+loop:
+  "how to make noodle soup" -> "add" (0.28)
+  ... until an [EOS] token`, cap: "an LLM doesn't 'think the whole sentence' then write — it guesses one word at a time, looking at everything written so far", lang: "txt" },
+      { code: String.raw`what happens inside the Output Layer:
+
+output logits (raw scores for every token):
+  "soup": 8.2   "boil": 7.9   "cat": 2.1    "Hello": -3.4  ...
+
+softmax(logits, temperature=1.0) -> probabilities:
+  "soup": 0.35  "boil": 0.28  "cat": 0.01   "Hello": 0.00001
+
+if temperature=0.7 (less random):
+  "soup": 0.48  "boil": 0.38  "cat": 0.005  ... (concentrated)
+
+if temperature=1.5 (more random):
+  "soup": 0.22  "boil": 0.19  "cat": 0.08   ... (spread out)`, cap: "softmax turns scores into probabilities, temperature controls how concentrated/spread", lang: "txt" },
+      { note: "top_p (nucleus sampling) = another randomness control: keep only tokens whose cumulative probability ≤ p. top_p=0.9 means 'cut the unlikely bottom 10%' -> fewer weird outputs." },
+      { code: String.raw`output differences by temperature:
+
+same prompt: "what happens if cats disappear?"
+
+temperature=0 (deterministic):
+  -> "if cats disappear, owners will search..." (same every time)
+
+temperature=0.7 (balanced):
+  -> "if cats disappear, the ecosystem would be affected..." (credible + varied)
+
+temperature=1.2 (creative):
+  -> "if cats disappear, the universe will tremble..." (novel + risk of weird)
+
+-> choose temperature by task:
+  facts/code: 0
+  customer answers: 0.3-0.7
+  fiction/ideas: 0.7-1.2`, lang: "txt" },
+
+      { h: "🔬 Deep Dive B: how a tokenizer works — the BPE algorithm" },
+      { p: "An LLM reads not characters but **tokens** (word pieces). A tokenizer converts text -> token numbers. The most widely used method is **BPE (Byte Pair Encoding)**." },
+      { code: String.raw`BPE: trained on enormous text -> find "frequent word pieces" and make them tokens
+
+example BPE vocabulary (abridged):
+  "a"=1, "b"=2, "c"=3, "d"=4, "e"=5, "n"=6, "t"=7, "g"=8, "i"=9
+  "ca"=10, "cat"=11, "in"=12, "ing"=13
+
+text: "cating"  (BPE merges one adjacent pair per round)
+  Round 1: ["c", "a", "t", "i", "n", "g"]   (start from characters)
+  Round 2: ["ca", "t", "i", "n", "g"]        (merge c+a = ca)
+  Round 3: ["cat", "i", "n", "g"]            (merge ca+t = cat)
+  Round 4: ["cat", "in", "g"]                (merge i+n = in)
+  Round 5: ["cat", "ing"]                    (merge in+g = ing)
+
+result = [token_id_of("cat"), token_id_of("ing")]`, cap: "BPE starts from single characters then repeatedly merges the most frequent pair until a covering vocabulary forms", lang: "txt" },
+      { code: String.raw`why Thai tokens cost more than English:
+
+English: "hello" = 1 token (the word-level vocab has "hello")
+Thai:    "สวัสดี" = 3 tokens (not in the vocab -> split into small pieces)
+
+-> a Thai sentence = about 2-3x an English one
+-> cost = number of tokens × price per token
+-> so Thai is ~2-3x pricier (for the same content)
+
+real example (Claude 3.5):
+  English: "Hello, how are you?" = 8 tokens
+  Thai:    "สวัสดี สบายดีไหม"    = 14 tokens
+  -> Thai is ~75% pricier`, cap: "the tokenizer is trained mostly on English -> other languages split into small pieces -> pricier", lang: "txt" },
+      { code: String.raw`Byte fallback — handling unusual characters:
+
+if a character isn't in the vocab (e.g. emoji 🎉 or special chars):
+  -> split into raw bytes (0-255) and encode each byte
+
+"🎉" = [byte_0xF0, byte_0x9F, byte_0x8E, byte_0x89] = 4 tokens
+"ก"  = [byte_0xE0, byte_0xB8, byte_0x81] = 3 tokens
+"A"  = [token "A"] = 1 token
+
+-> the more 'unusual' the character, the more tokens it costs`, lang: "txt" },
+
+      { h: "🔬 Deep Dive C: Context window — the LLM's 'working memory' + why position matters" },
+      { p: "**Picture it:** an LLM has no memory across calls — the only thing it 'knows' that round is every token in the context window (system + history + docs + question). The context window is its entire working memory; once full, you must trim/summarize." },
+      { code: String.raw`context window = the token ceiling per round (e.g. Claude ~200k tokens)
+
+  [ system prompt ] + [ chat history ] + [ docs (RAG) ] + [ question ]
+  +------------------- must sum under the ceiling -------------------+
+
+when it's about to overflow -> you must:
+  - drop old history (sliding window)
+  - summarize history into a digest (summarization)
+  - retrieve only truly relevant docs (RAG instead of stuffing everything)`, cap: "every token counts toward the ceiling — 'send it all' isn't the answer, you must pick what's relevant", lang: "txt" },
+      { p: "**Why long context = quadratically slower and pricier:** a transformer's attention costs **O(n²)** in length — 2x the context uses ~4x the compute. So stuffing excess context = paying quadratically more + slower." },
+      { p: "**Lost in the middle — the model forgets the middle:** research finds models 'attend' better to information at the **start and end** of the context than the middle. Important info buried in the middle of a long prompt is recalled less accurately." },
+      { code: String.raw`position in the prompt (best -> worst for recall):
+  start of context   ########  best
+  end of context     #######   good (near the question)
+  middle of context  ###       poor ('lost in the middle')
+
+-> practice: put 'important docs/instructions at the top' and 'the question at the bottom'
+  RAG: order the most-relevant chunks near the edges (start/end), not in the middle of a pile`, cap: "put important things at the start or end, not the middle — matches the 'long docs at the top' tip in the Theory tab", lang: "txt" },
+      { note: "Prove it yourself: hide one important instruction line in the 'middle' of a 50-paragraph document and ask the model to follow it — vs putting the same line at the 'top'. The top version follows it noticeably better." },
+      { qa: [
+        { q: "Does an LLM remember the previous conversation on its own?", a: "No — it has no state across calls. You must 'resend the whole history' every time (which is why tokens accumulate in a long chat)." },
+        { q: "Why is stuffing lots of context bad even when the ceiling isn't full?", a: "(1) attention O(n²) -> quadratically slower+pricier, (2) lost in the middle -> too much info dilutes attention, recalling key info less accurately. Send only what's relevant rather than everything." },
+        { q: "Where should the question go in the prompt?", a: "At the 'bottom' (near where the model starts answering), with long docs/context above — reducing lost-in-the-middle and making the question clear before answering." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Anthropic — Intro to Claude", url: "https://docs.anthropic.com/en/docs/intro-to-claude", note: "LLM overview + getting started with Claude" },
+        { label: "What are tokens? (OpenAI help)", url: "https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them", note: "what tokens are, how to count (any model)" },
+        { label: "Prompt engineering overview (Anthropic)", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview", note: "prompt-writing principles" },
+        { label: "How GPT Tokenizers Work (tiktoken)", url: "https://github.com/openai/tiktoken", note: "OpenAI's BPE tokenizer — see the real code" },
+        { label: "LLM Visualization (bbycroft.net)", url: "https://bbycroft.net/llm", note: "visualize attention, transformer layers step by step" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "the official guide, from what an agent is" },
+        { label: "OpenAI Cookbook", url: "https://cookbook.openai.com/", note: "tons of real code examples" },
+        { label: "Anthropic Academy — Build with Claude", url: "https://www.anthropic.com/learn/build-with-claude", note: "Anthropic's official course" },
+        { label: "Google — Gemini API quickstart", url: "https://ai.google.dev/gemini-api/docs/quickstart", note: "get started with Gemini" },
+      ]},
+      { h: "🎬 Video lessons (deeper)" },
+      { links: [
+        { label: "How I'd Learn AI Engineering in 2026 (Complete Roadmap)", url: "https://www.youtube.com/watch?v=O2UmHpNlwUw", note: "the full AI Engineer career path" },
+        { label: "How to Actually Learn LLMs in 2026 (Ex-Google/Microsoft)", url: "https://www.youtube.com/watch?v=U07MHi4Suj8", note: "understand how LLMs really work" },
+        { label: "From Zero to AI Engineer: 2026 Roadmap (No CS Degree)", url: "https://www.youtube.com/watch?v=1Eq4El-XpTg", note: "start from zero" },
+        { label: "mikelopster — Developer's Learning Roadmap (Thai)", url: "https://www.youtube.com/watch?v=F11AK8oGcW0", note: "a dev's perspective, in Thai" },
+      ]},
+    ],
+    foundations: [
+      { h: "What you need before writing an AI app" },
+      { ul: [
+        "an **API key** from a model provider (e.g. OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY) — keep it in `.env`, never hardcode",
+        "Python 3.10+ and a virtualenv",
+        "basic JSON + async understanding",
+        "a vector-capable database if doing RAG (e.g. Postgres + pgvector)",
+      ]},
+      { h: "Store the key safely" },
+      { code: String.raw`# .env  (in .gitignore, never commit)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# code reads from env, no hardcoding
+import os
+API_KEY = os.environ["ANTHROPIC_API_KEY"]`, cap: "swap the key without touching code, and it never leaks into git", lang: "py" },
+      { h: "Your first LLM call (the AI Engineer's hello world)" },
+      { code: String.raw`# pip install anthropic
+import os, anthropic
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+resp = client.messages.create(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=200,
+    messages=[{"role": "user", "content": "Explain an AI Engineer in 1 sentence"}],
+)
+print(resp.content[0].text)`, cap: "the same shape for every vendor: pick model + max_tokens + messages", lang: "py" },
+      { h: "How to structure an AI system's code" },
+      { code: String.raw`my_ai_app/
+├─ llm.py        <- wrap the model calls (client + helpers)
+├─ vectordb.py   <- embed + search (for RAG)
+├─ agents/       <- one file per step (one job)
+├─ schemas.py    <- output formats (pydantic)
+└─ config.py     <- load keys + settings`, cap: "separate responsibilities so you can test/fix piece by piece", lang: "txt" },
+      { note: "Key principle: **one step = one single job**. Don't make one prompt do everything — break it into small pieces chained together, so you can test/fix/measure cost one at a time." },
+    ],
+    architecture: [
+      { h: "Overview: input -> answer/action" },
+      { code: String.raw`user data ----+
+external data +-> [layered analysis steps] -> decide -> act/answer
+old memory ---+        (RAG: relevant data)`, cap: "the system combines 3 sources: live input + the model's knowledge + retrieved data (RAG)", lang: "txt" },
+      { h: "Why many steps, not one long prompt" },
+      { ul: [
+        "**more accurate** — each step focuses on one job, short prompts, less chance to hallucinate",
+        "**cheaper** — easy tasks use a cheap model (Haiku/mini), hard ones a pricey model (Sonnet/GPT)",
+        "**fix/measure per step** — you know which step broke / how many tokens it used",
+        "**add/remove freely** — slot in a new step without rebuilding the system",
+      ]},
+      { h: "The code layers" },
+      { table: { head: ["Layer", "Role"], rows: [
+        ["Orchestration", "ordering + routing of each step (LangGraph)"],
+        ["Agent/Step (the brain)", "call the LLM + domain-specific logic"],
+        ["Schema (the contract)", "force the output format"],
+        ["Memory", "RAG stores/retrieves data"],
+        ["Tool (the limbs)", "fetch data / do real actions"],
+        ["Metering", "count tokens + latency + cost"],
+      ]}},
+    ],
+    dataflow: [
+      { h: "One system round — data flows through a central state" },
+      { p: "Multi-step systems often **pass data through a state** (a central dict every step reads/writes) instead of talking directly — making the order flexible: skip/shortcut/loop." },
+      { code: String.raw`state = {}                  # start empty
+state["docs"]    = retrieve(question)      # step 1 fills docs
+state["draft"]   = llm_answer(state)       # step 2 fills draft
+state["checked"] = guard(state["draft"])   # step 3 fills the check
+return state["checked"]`, cap: "each step fills in its own data on one shared state", lang: "py" },
+      { note: "See the flow interactively in the Visualizer ▶ tab — step through with the variables each one writes." },
+    ],
+    implementation: [
+      { h: "🧪 A complete runnable example (copy and try)" },
+      { p: "Structure: `client` -> an `ask()` function (one LLM call) -> chain 2 steps into a mini pipeline (summarize -> decide) to see 'multiple steps chained' from the start." },
+      { code: String.raw`# pip install anthropic   |   export ANTHROPIC_API_KEY=sk-ant-...
+import os, anthropic
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+def ask(prompt, model="claude-haiku-4-5-20251001", max_tokens=200):
+    r = client.messages.create(model=model, max_tokens=max_tokens,
+                               messages=[{"role": "user", "content": prompt}])
+    return r.content[0].text.strip()
+
+review = "Great product, fast shipping, but the box was a bit dented"
+summary = ask(f"Summarize this review in 1 short sentence:\n{review}")            # step 1
+verdict = ask(f"Is this review positive/negative/neutral? One word:\n{summary}")  # step 2
+print("Summary:", summary)
+print("Verdict:", verdict)`, cap: "your first AI app — call the LLM + chain 2 steps (really runnable with a key)", lang: "py" },
+      { ul: [
+        "`client` — the connection to the model, created once",
+        "`ask()` — wraps one LLM call for easy reuse",
+        "step 1->2 — feed the first step's result as the next step's input = the pipeline idea",
+        "want it smarter? change the model to `claude-sonnet-4-6`",
+      ]},
+      { h: "The AI Engineer learning path (suggested order)" },
+      { ul: [
+        "1. **LLM + API** — call models, prompt, structured output, control token/context",
+        "2. **Embeddings + Vector DB** — search by meaning",
+        "3. **RAG** — combine 1+2: retrieve data to augment the prompt",
+        "4. **Agents / LangGraph** — chain many steps into a system",
+        "5. **Harness/Tool/Eval/Cost** — filter, act, measure, control budget",
+      ]},
+      { h: "Iron rules of production AI" },
+      { table: { head: ["Rule", "Why"], rows: [
+        ["every LLM call has try/except + fallback", "APIs fail / respond oddly anytime"],
+        ["force the output into a schema", "else you parse free text and break often"],
+        ["always set max_tokens", "guard against runaway cost/time"],
+        ["log tokens + latency per call", "no measure = no cost control"],
+        ["pick the model by task", "easy task = cheap model, hard task = smart model"],
+      ]}},
+    ],
+    tricks: [
+      { h: "Trick 1: always start with the cheap model" },
+      { p: "Try the task with a cheap model (Haiku / GPT-mini) first; if quality is enough, done. Only upgrade the steps that truly need high intelligence." },
+      { h: "Trick 2: think in pipelines, not a giant prompt" },
+      { p: "Don't cram everything into one prompt — break it into small chained steps. Easier to debug, separately measurable cost, and each piece is more accurate." },
+      { h: "Trick 3: design fallbacks from the start" },
+      { p: "Every step should have a default value when the LLM fails, so the system continues even if one piece falls over." },
+      { h: "Trick 4: measure everything numerically" },
+      { p: "Count tokens+latency per step; for RAG measure Recall@k. What you can't measure you can't improve." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How does an LLM work in one sentence?", a: "It predicts the next token from the input text, one token at a time until done — all its abilities come from guessing the next word accurately." },
+        { q: "How does an AI Engineer differ from an ML Engineer?", a: "An AI Engineer assembles ready-made models into a working system (API, prompt, RAG, agent, cost); an ML Engineer focuses on building/training models." },
+        { q: "What is a token, why does it matter?", a: "The word-piece unit an LLM reads, and the billing unit (input+output); more = pricier/slower — design it to fit the task." },
+        { q: "Why do real systems use many steps, not one prompt?", a: "Each step focuses on one job -> more accurate, model choice per task (cheaper), and testable/measurable/fixable one at a time." },
+        { q: "What is hallucination, how to prevent it?", a: "The LLM answers confidently wrong because it just guesses words; reduce with RAG (real data), structured output, and fallbacks." },
+        { q: "What does temperature=0 mean?", a: "Always pick the most confident word, giving consistent results, good for decisions; high values give varied results, good for creative work." },
+        { q: "What are the 5 pillars of AI Engineering?", a: "LLM+API, Embeddings+Vector DB, RAG, Agents/LangGraph, and Harness/Tool/Eval/Cost." },
+        { q: "What is the state in a multi-step system?", a: "A central dict every step reads/writes to pass data, instead of talking directly, making the order flexible." },
+      ]},
+    ],
+  },
 };
