@@ -387,3 +387,225 @@ cd 42_examshell && bash exam.sh
     ],
   },
 });
+
+/* ===================== EXAM RANK 03 ===================== */
+window.TEACHING_DATA.push({
+  id: "exam_rank03",
+  name: "Exam Rank 03",
+  tag: { th: "ขยับขึ้นอีกขั้น — ซ่อม get_next_line, ฟังก์ชัน I/O ขั้นสูง (filter, ft_scanf) และอัลกอริทึม backtracking (n_queens, permutations, powerset, rip, tsp)",
+         en: "A step up — repair get_next_line, advanced I/O (filter, ft_scanf), and backtracking algorithms (n_queens, permutations, powerset, rip, tsp)" },
+  accent: "#34d399",
+  sections: {
+    principle: [
+      { h: "Exam Rank 03 ต่างจาก Rank 02 ยังไง" },
+      { p: "กติกา/examshell เหมือนเดิม (isolate, rendu/, grademe, ไม่ตรวจ norm) แต่โจทย์ **ใหญ่ขึ้นและคิดมากขึ้น** — มีแค่ 2 level แต่แต่ละข้อกินเวลานานกว่า Rank 02 มาก. หลายข้อ **ให้โค้ดเริ่มต้นมาแล้ว** ให้เราเติม/ซ่อม" },
+      { h: "2 level ของ Rank 03" },
+      { table: { head: ["Level", "แนว", "โจทย์"], rows: [
+        ["**1**", "ซ่อม/เลียนแบบฟังก์ชัน I/O", "broken_gnl, filter, ft_scanf"],
+        ["**2**", "อัลกอริทึม backtracking", "n_queens, permutations, powerset, rip, tsp"],
+      ]}},
+      { note: "หัวใจ Rank 03 คือ **backtracking** (level 2 เกือบทุกข้อ) + **get_next_line ที่ต้องแม่นจริง** (level 1). เตรียม 2 อย่างนี้ให้แน่น = ครอบคลุมเกือบหมด" },
+      { h: "ทำไมยากกว่า" },
+      { ul: [
+        "level 1 ทดสอบด้วย **buffer size สุ่ม** / read แบบ custom → โค้ดต้องทนทุกขนาด buffer",
+        "level 2 เป็น recursion + backtracking ที่ debug ยากในเวลาจำกัด",
+        "output ต้อง **เรียง/ไม่ซ้ำ** ตามกติกาเป๊ะ (permutations เรียง alphabet, powerset ห้ามซ้ำ)",
+      ]},
+    ],
+    theory: [
+      { p: "Pool โจทย์จริง Rank 03 — 2 level" },
+      { h: "Level 1 — ฟังก์ชัน I/O ขั้นสูง" },
+      { table: { head: ["โจทย์", "ทำอะไร", "allowed"], rows: [
+        ["`broken_gnl`", "ซ่อม get_next_line ที่พังให้คืนทีละบรรทัด (มี BUFFER_SIZE)", "read, malloc, free"],
+        ["`filter`", "อ่าน stdin แทนทุก occurrence ของ arg ด้วย '*' (เท่าความยาว)", "read, write, memmem, memmove, malloc..."],
+        ["`ft_scanf`", "เลียน scanf เฉพาะ %s %d %c (มีโค้ดเริ่มให้)", "fgetc, ungetc, va_arg..."],
+      ]}},
+      { h: "Level 2 — Backtracking & อัลกอริทึม" },
+      { table: { head: ["โจทย์", "ทำอะไร", "เทคนิค"], rows: [
+        ["`n_queens`", "วางควีน n ตัวไม่ตีกัน พิมพ์ทุกคำตอบ (row index ต่อ column)", "backtrack + safe check"],
+        ["`permutations`", "พิมพ์ทุก permutation ของ string เรียง alphabet", "backtrack + used set"],
+        ["`powerset`", "พิมพ์ subset ที่ผลรวม = n", "backtrack include/exclude + sum"],
+        ["`rip`", "ลบวงเล็บให้สมดุลโดยลบน้อยสุด พิมพ์ทุกคำตอบ", "นับเกิน → enumerate"],
+        ["`tsp`", "เส้นทางปิดสั้นสุดผ่านทุกเมือง (อ่านพิกัดจาก stdin)", "permute + min distance"],
+      ]}},
+      { note: "permutations / powerset / n_queens = backtracking pattern เดียวกันแทบเป๊ะ (เลือก → recurse → undo). ฝึกอันเดียวให้เข้าใจ = ทำได้ทั้งกลุ่ม" },
+    ],
+    foundations: [
+      { p: "2 เสาหลักของ Rank 03: โครง get_next_line และ template backtracking" },
+      { h: "1) โครง get_next_line (ต้องเข้าใจทุกบรรทัด)" },
+      { code: String.raw`char *get_next_line(int fd) {
+    static char *stash = NULL;            // เก็บส่วนที่อ่านเกินข้ามรอบ
+    char buf[BUFFER_SIZE + 1];
+    int  n;
+
+    while (!has_newline(stash)) {          // ยังไม่เจอ \n → อ่านเพิ่ม
+        n = read(fd, buf, BUFFER_SIZE);
+        if (n <= 0) break;                 // EOF หรือ error
+        buf[n] = '\0';
+        stash = join_free(stash, buf);     // ต่อ buf เข้า stash (free เก่า)
+    }
+    if (!stash || !*stash) return (NULL);
+    return (extract_line(&stash));         // ตัด 1 บรรทัด (รวม \n) ออกจาก stash
+}`, cap: "stash (static) = หัวใจ: เก็บไบต์ที่อ่านเกินบรรทัดไว้รอบหน้า; วน read จนเจอ \\n หรือ EOF", lang: "c" },
+      { note: "broken_gnl: เขามักทำพังที่ — ลืม static, ลืม free stash เก่า (leak), จัด \\n ผิด, หรือ off-by-one ของ buffer. อ่านโค้ดที่ให้มาแล้วไล่จุดเหล่านี้" },
+      { h: "2) Template backtracking (ใช้ได้ทั้ง level 2)" },
+      { code: String.raw`void solve(state, int depth) {
+    if (depth == n) {                      // ครบ → เป็น 1 คำตอบ
+        print_solution(state);
+        return;
+    }
+    for (each choice c at this depth) {
+        if (!valid(c)) continue;           // ตัดกิ่งที่เป็นไปไม่ได้ (pruning)
+        apply(c, state);                   // เลือก
+        solve(state, depth + 1);           // ลงลึก
+        undo(c, state);                    // ★ ถอย (backtrack)
+    }
+}`, cap: "3 จังหวะ: เลือก → recurse → ถอย. 'undo' คือสิ่งที่หลายคนลืม ทำให้ state เพี้ยน", lang: "c" },
+      { h: "3) อ่าน argument/หลายค่า + พิมพ์ไม่มี printf" },
+      { p: "หลายข้อ allowed แค่ `write`/`puts` — เตรียม putstr/putnbr; powerset/tsp มี printf/malloc ให้. เช็ค 'Allowed functions' ทุกครั้งก่อนเลือกวิธีพิมพ์" },
+    ],
+    architecture: [
+      { h: "examshell เหมือน Rank 02 แต่..." },
+      { ul: [
+        "หลายข้อ **ให้โค้ดเริ่มต้น** (broken_gnl ให้ GNL ที่พัง, ft_scanf ให้โครง, vbc-style ให้ parser เริ่ม) → เปิดอ่านให้ครบก่อนแตะ",
+        "filter เทียบกับ `filter.sh` ที่ให้มาได้ (เป็น reference behavior)",
+        "Expected files มัก `*.c *.h` → แยกไฟล์ + มี main ได้ตามใจ",
+      ]},
+      { h: "loop คอมไพล์-เทสต์" },
+      { code: String.raw`# broken_gnl (มี -D BUFFER_SIZE):
+cc -Wall -Wextra -Werror -D BUFFER_SIZE=42 *.c && ./a.out
+# ลองหลาย BUFFER_SIZE: 1, 9999, 42 — ต้องผ่านหมด
+
+# filter เทียบกับ sed/filter.sh:
+echo "hello bonjour" | ./filter bonjour    # → hello *******
+diff <(./filter abc < in) <(sed 's/abc/***/g' in)
+
+# permutations/powerset เทียบ output เรียง:
+./permutations abc | cat -e`, cap: "broken_gnl ต้องเทสต์หลาย BUFFER_SIZE; filter เทียบ sed; backtracking เทียบลำดับ output", lang: "bash" },
+    ],
+    dataflow: [
+      { p: "เจาะลึกข้อหลัก Rank 03 — เน้น GNL + backtracking family" },
+
+      { h: "🔬 broken_gnl — จุดพังที่ต้องไล่ซ่อม" },
+      { p: "เขาให้ get_next_line ที่ 'เกือบถูก' มาให้ แล้วเราหาบั๊ก. จุดที่พังบ่อย:" },
+      { ul: [
+        "**ลืม `static`** ที่ stash → ข้อมูลข้ามรอบหาย, อ่านได้บรรทัดเดียว",
+        "**memory leak** → ไม่ free stash เก่าตอน join, หรือไม่ free ตอน EOF",
+        "**จัด `\\n` ผิด** → คืนบรรทัดไม่รวม \\n หรือรวมเกิน",
+        "**off-by-one** → `buf[BUFFER_SIZE]` ต้องมีที่ใส่ '\\0' (จอง +1)",
+        "**ไม่เช็ค read <= 0** → วนไม่จบตอน EOF/error",
+      ]},
+      { code: String.raw`// เช็คลิสต์ตอนซ่อม:
+static char *stash;                 // ✓ static อยู่ไหม?
+char buf[BUFFER_SIZE + 1];          // ✓ +1 สำหรับ '\0'
+n = read(fd, buf, BUFFER_SIZE);
+if (n <= 0) { /* จัดการ EOF: คืน stash ที่เหลือ แล้ว free */ }
+buf[n] = '\0';
+// join: tmp = strjoin(stash, buf); free(stash); stash = tmp;  ← free เก่า!`, cap: "ไล่ทีละจุด: static? +1? free เก่า? เช็ค read<=0? จัด \\n ถูก?", lang: "c" },
+
+      { h: "🔬 permutations — backtracking + เรียง alphabet" },
+      { p: "**กุญแจ:** เรียง string ก่อน (bubble sort) แล้ว generate ตามลำดับ → output ออกมาเรียง alphabet เอง. ใช้ used[] กันเลือกตัวซ้ำตำแหน่ง" },
+      { code: String.raw`void permute(char *s, char *out, int *used, int len, int depth) {
+    if (depth == len) { write(1, out, len); write(1, "\n", 1); return; }
+    for (int i = 0; i < len; i++) {
+        if (used[i]) continue;             // ตัวนี้ถูกใช้ในตำแหน่งก่อนแล้ว
+        used[i] = 1;
+        out[depth] = s[i];
+        permute(s, out, used, len, depth + 1);
+        used[i] = 0;                        // ถอย
+    }
+}
+// เรียก: sort(s); permute(s, out, used, len, 0);`, cap: "เรียง input ก่อน → วน i ตามลำดับ → output เรียง alphabet อัตโนมัติ", lang: "c" },
+
+      { h: "🔬 powerset — include/exclude + ติดตามผลรวม" },
+      { p: "ทุกสมาชิก 'เลือก' หรือ 'ไม่เลือก'. ถึงปลาย (index==n) ถ้า sum == target พิมพ์ subset. รักษาลำดับเดิม → ไม่มีซ้ำ" },
+      { code: String.raw`void bt(int *set, int n, int idx, int *pick, int cnt,
+        int sum, int target) {
+    if (idx == n) {
+        if (sum == target) print_subset(pick, cnt);
+        return;
+    }
+    pick[cnt] = set[idx];                              // เลือก set[idx]
+    bt(set, n, idx + 1, pick, cnt + 1, sum + set[idx], target);
+    bt(set, n, idx + 1, pick, cnt, sum, target);       // ไม่เลือก
+}`, cap: "2 กิ่งต่อสมาชิก: เลือก (sum+, cnt+) หรือข้าม — เก็บลำดับเดิมจึงไม่ซ้ำ", lang: "c" },
+
+      { h: "🔬 n_queens — วางควีนทีละคอลัมน์" },
+      { p: "วางควีน 1 ตัวต่อ 1 คอลัมน์ ลองทุกแถวที่ 'ปลอดภัย' (ไม่ชนแถว/ทแยงกับที่วางไว้). ครบ n คอลัมน์ = 1 คำตอบ" },
+      { code: String.raw`int safe(int *pos, int col, int row) {
+    for (int c = 0; c < col; c++)
+        if (pos[c] == row                      // แถวเดียวกัน
+            || pos[c] - c == row - col          // ทแยง /
+            || pos[c] + c == row + col)         // ทแยง \
+            return (0);
+    return (1);
+}
+void solve(int *pos, int col, int n) {
+    if (col == n) { print_solution(pos, n); return; }
+    for (int row = 0; row < n; row++)
+        if (safe(pos, col, row)) {
+            pos[col] = row;
+            solve(pos, col + 1, n);             // ไม่ต้อง undo (เขียนทับรอบหน้า)
+        }
+}`, cap: "pos[col] = แถวของควีนในคอลัมน์นั้น; safe เช็คชนแถว + ทแยง 2 ทิศด้วยผลต่าง/ผลบวก index", lang: "c" },
+
+      { h: "🔬 rip — ลบวงเล็บให้สมดุลโดยลบน้อยสุด" },
+      { p: "2 ขั้น: (1) นับว่าต้องลบกี่ตัว (เกินซ้าย + เกินขวา) (2) enumerate ทุกวิธีลบจำนวนนั้นแล้วเช็คว่าสมดุล → พิมพ์ (แทนด้วยช่องว่าง)" },
+      { code: String.raw`// ขั้น 1: หาจำนวนที่ต้องลบ
+int open = 0, rm = 0;
+for each c in s:
+    if (c=='(') open++;
+    else if (c==')') { if (open) open--; else rm++; } // ')' เกิน
+rm += open;                                            // '(' ที่เหลือเกิน
+
+// ขั้น 2: ลองลบ rm ตัว (backtrack เลือกตำแหน่ง) → ถ้าผลสมดุล พิมพ์
+// (แทนตัวที่ลบด้วย ' ')`, cap: "ลบน้อยสุด = จำนวน ')' เกิน + '(' เกิน; แล้ว brute-force ตำแหน่งที่ลบให้ครบจำนวนนั้น", lang: "txt" },
+    ],
+    implementation: [
+      { h: "กลยุทธ์ Rank 03" },
+      { ul: [
+        "**level 1 ก่อน** — broken_gnl/filter เป็นแต้มที่จับต้องได้ ถ้าแม่น GNL จะเร็ว",
+        "ได้ broken_gnl = เปิดอ่านโค้ดที่ให้ ไล่ checklist (static/+1/free/\\n/read<=0)",
+        "**level 2** เลือกข้อที่ถนัด backtracking — permutations มักง่ายสุดในกลุ่ม",
+        "เขียน template backtracking ให้ขึ้นใจ แล้วปรับ valid()/print() ตามโจทย์",
+      ]},
+      { h: "ฝึกก่อนสอบ" },
+      { ul: [
+        "เขียน get_next_line จากศูนย์จนได้ภายใน 20 นาที (เทสต์ BUFFER_SIZE=1 และ 9999)",
+        "เขียน permutations + powerset + n_queens จาก template เดียวกัน",
+        "ฝึกหาบั๊กใน GNL ที่จงใจทำพัง (ลบ static, ลบ free) แล้วไล่ซ่อม",
+      ]},
+    ],
+    tricks: [
+      { h: "กับดัก 1: broken_gnl ลืม static / leak" },
+      { p: "stash ต้อง `static` (ไม่งั้นอ่านได้บรรทัดเดียว); join ต้อง free ตัวเก่า (ไม่งั้น leak ทุกบรรทัด — บาง Moulinette เช็ค leak)" },
+      { h: "กับดัก 2: buffer size สุ่ม (filter/gnl)" },
+      { p: "เทสเตอร์ใช้ read ที่คืนจำนวน byte ไม่แน่นอน — โค้ดต้องสะสมใน buffer ที่โตได้ ห้ามสมมติว่า 1 read = 1 บรรทัด/1 คำ" },
+      { h: "กับดัก 3: filter — pattern คาบ buffer" },
+      { p: "ถ้า arg = 'abc' แต่ read มาได้ 'ab' รอบหนึ่ง 'c' อีกรอบ → ต้อง buffer ไว้ก่อน match ห้ามพิมพ์ทันที. ใช้ buffer สะสม + memmem หา + memmove" },
+      { h: "กับดัก 4: ลำดับ output (permutations/powerset)" },
+      { p: "permutations ต้องเรียง alphabet (เรียง input ก่อน); powerset ห้ามซ้ำ (รักษาลำดับเดิม ไม่สลับ). ลำดับผิด = ตกแม้ logic ถูก" },
+      { h: "กับดัก 5: ลืม undo ใน backtracking" },
+      { p: "used[i]=0 / ถอน state หลัง recurse — ลืมแล้ว state รั่วไปกิ่งถัดไป ได้คำตอบผิด/ซ้ำ (n_queens เขียนทับ pos ได้เลยจึงไม่ต้อง undo แต่ permutations ต้อง)" },
+      { h: "กับดัก 6: ไม่อ่านโค้ดที่ให้มาก่อน" },
+      { p: "ft_scanf/broken_gnl ให้โค้ดเริ่มมา — ถ้าเขียนทับทั้งหมดเองจะเสียเวลา/ผิด prototype. เติมในช่องที่เขาเว้นไว้" },
+    ],
+    eval: [
+      { qa: [
+        { q: "stash ใน get_next_line ทำไมต้อง static?", a: "เพราะไบต์ที่ read มาเกินบรรทัดปัจจุบันต้องเก็บไว้ใช้รอบหน้า; static ทำให้ค่าคงอยู่ข้ามการเรียก — ถ้าเป็น local จะหายทุกรอบ อ่านได้บรรทัดเดียว" },
+        { q: "broken_gnl จุดพังที่พบบ่อยคืออะไร?", a: "ลืม static, ไม่ free stash เก่า (leak), buf ไม่จอง +1 สำหรับ '\\0', จัด \\n ผิด, ไม่เช็ค read<=0 (วนไม่จบ)" },
+        { q: "backtracking template 3 จังหวะคืออะไร?", a: "เลือก (apply) → ลงลึก (recurse depth+1) → ถอย (undo). ที่ปลาย (depth==n) บันทึก/พิมพ์คำตอบ; valid() ตัดกิ่งที่เป็นไปไม่ได้ก่อน" },
+        { q: "permutations ทำให้ output เรียง alphabet ยังไง?", a: "เรียง string input ก่อน (bubble sort) แล้ววนเลือกตามลำดับ index ด้วย used[] → permutation ที่ออกมาเรียง alphabet เอง" },
+        { q: "powerset ป้องกันซ้ำยังไง?", a: "ใช้ include/exclude ตามลำดับ index เดิม (ไม่สลับตำแหน่ง) → subset '1 2' กับ '2 1' ไม่เกิดเพราะรักษาลำดับเดิมเสมอ" },
+        { q: "n_queens เช็ค 'ปลอดภัย' ยังไง?", a: "ควีนใหม่ที่ (col,row) ปลอดภัยถ้าไม่มีตัวก่อนหน้า: แถวเดียวกัน (pos[c]==row), ทแยง / (pos[c]-c==row-col), ทแยง \\ (pos[c]+c==row+col)" },
+        { q: "rip ลบวงเล็บน้อยสุดได้เท่าไร?", a: "= จำนวน ')' ที่เกิน (ไม่มี '(' คู่) + จำนวน '(' ที่เหลือไม่ถูกปิด; แล้ว enumerate ตำแหน่งที่ลบให้ครบจำนวนนั้นที่ทำให้สมดุล" },
+        { q: "filter ทำไม pattern อาจคาบ buffer?", a: "read คืน byte ไม่แน่นอน — pattern อาจถูกหั่นข้าม 2 read; ต้องสะสมใน buffer ก่อนค่อย match (memmem) ห้าม match/พิมพ์ทีละ read" },
+        { q: "Rank 03 เน้นเตรียมอะไร 2 อย่าง?", a: "(1) get_next_line ที่เขียน/ซ่อมได้คล่อง (level 1), (2) backtracking template (n_queens/permutations/powerset — level 2). 2 อย่างนี้ครอบคลุมเกือบหมด" },
+      ]},
+      { h: "ซ้อมจริง", },
+      { code: String.raw`bash exam.sh   # เลือก Rank 03
+# level 1: เขียน gnl ใหม่ใน 20 นาที, เทสต์ BUFFER_SIZE=1 และ 9999
+# level 2: permutations → powerset → n_queens จาก template เดียวกัน`, lang: "bash" },
+    ],
+  },
+});
