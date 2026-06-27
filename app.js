@@ -834,10 +834,23 @@
     eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
   };
 
+  /* ชื่อแท็บสำหรับสื่อติวสอบ Exam Rank — ใช้เมื่อ id ขึ้นต้นด้วย exam_ */
+  var EXAM_TAB_LABELS = {
+    principle:      { th: "ภาพรวม & กติกา", en: "Overview & Rules" },
+    theory:         { th: "Pool โจทย์ทั้งหมด", en: "Exercise Pool" },
+    foundations:    { th: "Pattern ที่ใช้ซ้ำ", en: "Reusable Patterns" },
+    architecture:   { th: "เริ่มเร็ว & workflow", en: "Setup & Workflow" },
+    dataflow:       { th: "เจาะลึกข้อสำคัญ", en: "Key Exercises" },
+    implementation: { th: "กลยุทธ์ & เวลา", en: "Strategy & Timing" },
+    tricks:         { th: "กับดักที่ทำให้ตก", en: "Traps That Fail You" },
+    eval:           { th: "เช็กความพร้อม", en: "Readiness Q&A" }
+  };
+
   /* ---- หน้าโปรเจกต์ ---- */
   function ProjectPage(props) {
     var proj = props.proj;
     var isAI = proj.id.indexOf("ai_") === 0;
+    var isExam = proj.id.indexOf("exam_") === 0;
     var st = useState("principle"), tab = st[0], setTab = st[1];
     document.documentElement.style.setProperty("--accent", proj.accent);
     var enSec = (LANG === "en" && window.TEACHING_EN && window.TEACHING_EN[proj.id])
@@ -862,10 +875,14 @@
         null
       ),
       h("div", { className: "tabs" },
-        TABS.filter(function (tb) { return !(isAI && tb[0] === "demo"); })
+        TABS.filter(function (tb) {
+          if (isExam) return tb[0] !== "demo" && tb[0] !== "flowviz";
+          return !(isAI && tb[0] === "demo");
+        })
           .map(function (tb) {
             var k = tb[0];
-            var label = (isAI && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
+            var label = (isExam && EXAM_TAB_LABELS[k]) ? EXAM_TAB_LABELS[k]
+              : (isAI && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
             return h("button", {
               key: k,
               className: "tab" + (tab === k ? " active" : ""),
