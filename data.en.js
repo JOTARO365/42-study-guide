@@ -2219,4 +2219,324 @@ diff <(sed 's/\[[0-9_]*\]//' my.log) \
      <(sed 's/\[[0-9_]*\]//' 19920104_091532.log)`, lang: "bash" },
     ],
   },
+
+  "pipex": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Make `./pipex infile cmd1 cmd2 outfile` equivalent to the shell: `< infile cmd1 | cmd2 > outfile`" },
+      { h: "The core system calls" },
+      { table: { head: ["call", "role"], rows: [
+        ["fork()", "make a child process (returns 0 in the child, the pid in the parent)"],
+        ["pipe(fd)", "make a tube: fd[0]=read, fd[1]=write"],
+        ["dup2(a,b)", "make fd b point to the same place as a (redirect stdin/stdout)"],
+        ["execve(p,av,env)", "replace the current process with a new program (doesn't return on success)"],
+        ["waitpid", "the parent waits for the child + collects its exit status"],
+      ]}},
+      { note: "Overview: cmd1 reads infile and writes into the pipe -> cmd2 reads the pipe and writes outfile; each cmd is its own process" },
+      { h: "Background: what of the shell does pipex emulate" },
+      { p: "When you type `< infile cmd1 | cmd2 > outfile` in a shell, it does several invisible things behind the scenes: open the files, make a separate process for each command, connect one's output to the other's input, then wait for them to finish. **pipex is doing all of this yourself with system calls** to understand what '|' really is." },
+      { h: "Why these 4 system calls (the reason for each)" },
+      { ul: [
+        "**fork** — each command must be its own program running concurrently, so you need multiple processes; fork is the only way to make a new process in Unix",
+        "**execve** — a forked process is still 'pipex'; you must turn it into a real `ls`/`wc`; execve 'overlays' another program onto the current process",
+        "**pipe** — two commands in different processes can't share variables, so they pass data through a kernel 'tube'; pipe gives a buffer written at one end, read at the other",
+        "**dup2** — a cmd doesn't know our pipe, only stdin(0)/stdout(1); dup2 'points' the cmd's stdin/stdout to the file/tube we want, with the cmd changing nothing",
+      ]},
+      { h: "Why two children run the cmds (not the parent itself)" },
+      { p: "We want the **parent to stay the controller**: close unused fds and `waitpid` for both children to collect their exit status. If the parent execve'd itself, it would 'overlay' and vanish, leaving no one to wait/clean up -> zombies or broken ordering." },
+      { h: "Why 'close every fd' is the heart (not just leak prevention)" },
+      { p: "A command reading stdin (like `wc`, `cat`) **waits until it gets EOF**. A pipe's EOF only happens when **every process has closed the write end**. If anyone (the parent or another child) still holds the write end open -> no EOF ever -> cmd2 hangs forever. So closing fds isn't just about cleanliness — it's the condition that lets the pipeline 'finish'." },
+      { h: "Why find PATH yourself" },
+      { p: "execve needs the **full path** (like `/bin/ls`), not just `ls`. Normally the shell finds it by scanning every folder in `$PATH`; emulating the shell, you must do this step yourself — split PATH by ':' and try `dir/cmd` until you find an executable file." },
+    ],
+    theory: [
+      { p: "pipex is a lesson in **practical operating systems** — the theory behind it is about Unix processes, memory and I/O." },
+      { h: "1) Process vs Program" },
+      { p: "A **program** is a static file on disk. A **process** is a program that's 'running' — with its own memory, fds, state, and **PID (Process ID)**. One program can run as many processes at once." },
+      { h: "2) fork() & Copy-on-Write" },
+      { p: "`fork()` makes a child process that's **almost a complete copy of the parent** (memory, fds). It returns twice: in the parent it returns the child's PID, in the child it returns 0 — we use this to tell which process we're in." },
+      { note: "Copy-on-Write: the kernel doesn't actually copy memory immediately, it lets parent/child share pages first, copying 'for real' only when one writes — making fork fast and cheap." },
+      { h: "3) Virtual memory & Address space" },
+      { p: "Each process sees its own 'private memory' (virtual address space) as if it had the whole machine; the kernel + MMU translate it to real addresses. This is why 2 processes can't share variables directly -> they need a pipe to communicate." },
+      { h: "4) Everything is a file & the File Descriptor table" },
+      { p: "Unix philosophy: real files, pipes, sockets, terminals — everything is seen as a 'file', read/written with read()/write() alike. Each process has an **fd table**, an array where the index (the fd number) points to 'something open'." },
+      { table: { head: ["fd", "name", "usually points to"], rows: [
+        ["0", "stdin", "keyboard"], ["1", "stdout", "screen"], ["2", "stderr", "screen (error)"],
+      ]}},
+      { h: "5) Pipe & IPC (communicating between processes)" },
+      { p: "**IPC = Inter-Process Communication.** A pipe is a buffer in kernel memory with 2 ends: write one, read the other (one-way). Data flows FIFO." },
+      { ul: [
+        "**Buffering:** if the buffer is full the writer waits; if empty the reader waits -> natural synchronisation",
+        "**EOF:** the reader gets the 'end' signal (read returns 0) only when **every copy of the write end is closed** — this is the theory behind the 'pipeline hang' bug",
+      ]},
+      { h: "6) exec family — replace the program image" },
+      { p: "`execve()` doesn't make a new process — it **wipes the current process's memory and loads a new program over it** (new code/data/stack) keeping the same PID. On success it 'doesn't return', so the next line of code is always an error path. The standard pattern is fork first, then have the child exec." },
+      { h: "7) Process synchronization: wait / exit status / zombie" },
+      { ul: [
+        "**exit status:** a finished process sends a status number (0 = success) to the parent",
+        "**wait/waitpid:** the parent 'reaps' the child and reads its status — if you don't wait, a dead child lingers as a **zombie** (taking a slot in the process table)",
+        "**orphan:** if the parent dies first, the child is adopted by init (PID 1)",
+      ]},
+      { h: "8) Environment variables & PATH" },
+      { p: "`envp` is the set of environment variables (KEY=VALUE) a process inherits from its parent. `PATH` holds a ':'-separated list of folders the system searches for commands — the theory behind why typing `ls` finds `/bin/ls`." },
+
+      { h: "🔬 Deep Dive A: fork returns twice + the process tree" },
+      { p: "`fork()` is called **once** but 'returns twice' — once in the parent, once in the child (because by the time it returns there are 2 processes). The returned value differs so you can tell them apart." },
+      { code: String.raw`pid_t pid = fork();
+// -- from this line down, 2 processes run the same code --
+if (pid == 0) {
+    // this runs in the "child"  (fork returns 0 to the child)
+} else if (pid > 0) {
+    // this runs in the "parent"  (fork returns the child's PID = positive)
+} else {
+    // pid < 0 -> fork failed (e.g. the system is out of processes)
+}`, cap: "the child gets 0 (it has no child of its own), the parent keeps the child's PID to wait on later", lang: "c" },
+      { code: String.raw`pipex builds this tree:
+
+         pipex (parent)
+          /          \
+   child1(cmd1)   child2(cmd2)
+   exec ls         exec wc
+
+parent doesn't exec -> stays the "controller", waits for both children`, cap: "if the parent exec'd itself it would vanish, leaving no one to wait -> can't clean up", lang: "txt" },
+
+      { h: "🔬 Deep Dive B: how the fd table changes during dup2 (a real trace)" },
+      { p: "dup2(old, new) = 'make slot new in the fd table point to the same place as old' (closing new first if it's open). Trace it in child1 where infile=fd3, pipe write=fd5:" },
+      { code: String.raw`child1 start:
+  fd0 -> terminal(stdin)
+  fd1 -> terminal(stdout)
+  fd2 -> terminal(stderr)
+  fd3 -> infile
+  fd4 -> pipe[read]
+  fd5 -> pipe[write]
+
+dup2(3, 0):  fd0 -> infile        (stdin now comes from the file)
+dup2(5, 1):  fd1 -> pipe[write]   (stdout now goes into the pipe)
+close(3); close(4); close(5):    close the unused copies
+
+after this, exec(ls): ls writes stdout(fd1) = into the pipe, unknowingly`, cap: "exec keeps the fd table (doesn't reset it) -> the cmd inherits this redirection", lang: "txt" },
+
+      { h: "🔬 Deep Dive C: why a pipeline hangs — pipe reference counting" },
+      { p: "The kernel counts how many fds still have the pipe's 'write end' open (a write-end reference count). The reader gets EOF **only when that count = 0**." },
+      { code: String.raw`the hang scenario (parent forgets to close the write end):
+
+  after fork: the write end is open in  parent, child1, child2 = 3 copies
+  child1 close + exec ls (ls finishes -> closes)   -> 2 left
+  child2 closes its own write end                  -> 1 left
+  * parent "forgets" close(pfd[1])                 -> still 1 left!
+
+  -> write-end count != 0 -> the pipe never produces EOF
+  -> wc (in child2) reads stdin forever waiting for EOF -> hang`, cap: "the fix: the parent must close both pipe ends right after all forks", lang: "txt" },
+      { note: "This is the theory behind the rule 'close every fd' — not just to prevent leaks, but as the condition for the pipeline to actually finish." },
+
+      { h: "🔬 Deep Dive D: exec replaces the process's memory" },
+      { p: "A process has memory divided into segments. `execve` discards all of it and loads a new program:" },
+      { code: String.raw`a process's memory (high -> low addresses):
+  +---------------+ high
+  |   stack       | <- local vars, call frames (grows down)
+  |      v        |
+  |      ^        |
+  |   heap        | <- malloc (grows up)
+  +---------------+
+  |   bss/data    | <- global/static
+  |   text (code) | <- program code
+  +---------------+ low
+
+execve(ls): everything above is "wiped" and replaced by ls's
+  -> anything malloc'd before exec is gone with the old image (not a leak)
+  -> same PID but a brand-new "identity"`, cap: "if execve succeeds it doesn't return; the next line is always an error path", lang: "txt" },
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Beej's Guide to Unix IPC", url: "https://beej.us/guide/bgipc/", note: "the legendary guide to pipe/fork/IPC, fun and clear" },
+        { label: "man7 — fork(2)", url: "https://man7.org/linux/man-pages/man2/fork.2.html", note: "official fork docs (return value, COW)" },
+        { label: "man7 — pipe(2)", url: "https://man7.org/linux/man-pages/man2/pipe.2.html", note: "pipe + the EOF/block conditions" },
+        { label: "man7 — dup2(2)", url: "https://man7.org/linux/man-pages/man2/dup.2.html", note: "fd redirection in detail" },
+        { label: "man7 — execve(2)", url: "https://man7.org/linux/man-pages/man2/execve.2.html", note: "replacing the program image" },
+        { label: "Everything is a file — Wikipedia", url: "https://en.wikipedia.org/wiki/Everything_is_a_file", note: "the Unix fd philosophy" },
+      ]},
+    ],
+    foundations: [
+      { h: "0) Groundwork: what is char ** (argv, envp, the result of ft_split)" },
+      { p: "`char *` = a pointer to a string (really the address of the first char). **`char **` = a pointer to an array of strings** = 'a list of several strings' — argv, envp, and ft_split's result are all `char **`." },
+      { code: String.raw`argv -> [ "./pipex" ][ "infile" ][ "ls -l" ][ "wc -l" ][ "outfile" ][ NULL ]
+          argv[0]     argv[1]    argv[2]   argv[3]    argv[4]
+each box = char*  (the address of a string) ; terminated by NULL`, cap: "argv is an array of char* ; the last is NULL to mark the end" },
+      { p: "`envp` is the same, but each string looks like `\"PATH=/usr/bin:/bin\"`, `\"HOME=/root\"`, so we scan for the one starting with `\"PATH=\"`." },
+      { h: "1) pipex has no big struct — it uses int arrays" },
+      { p: "pipex manages resources with two small arrays, no struct needed:" },
+      { code: String.raw`int pfd[2];   // pipe: pfd[0] = read end, pfd[1] = write end
+int fio[2];   // files: fio[0] = infile fd, fio[1] = outfile fd`, cap: "pipe(pfd) fills these 2 slots itself — pass pfd (the address of the first slot)", lang: "c" },
+      { h: "2) Groundwork: a file descriptor (fd) is a 'ticket number'" },
+      { p: "Every file/pipe you open, the OS returns an **integer (fd)** as a 'ticket' to refer to it. There are 3 special ones open from the start:" },
+      { table: { head: ["fd", "name", "usually points to"], rows: [
+        ["0", "STDIN", "keyboard"],
+        ["1", "STDOUT", "screen"],
+        ["2", "STDERR", "screen (error)"],
+      ]}},
+      { p: "`open()` returns a new fd (e.g. 3,4,...). **An fd is a resource like memory** — open it and you must `close()` it, or it 'leaks' (fd leak); open too many and you can't open more." },
+      { h: "3) dup2 = 'change a ticket's destination'" },
+      { code: String.raw`dup2(infile, STDIN_FILENO);   // make fd 0 (stdin) point to the same as infile
+dup2(pfd[1], STDOUT_FILENO);  // make fd 1 (stdout) point to the pipe's write end`, cap: "after this, when the cmd reads stdin = reads infile, writes stdout = writes into the pipe, unknowingly", lang: "c" },
+      { note: "after dup2 you must close the original fd (infile, pfd[...]) because fd 0/1 now point to the same place; leftover fds = a leak and keep the pipe open -> the cmd hangs waiting for EOF" },
+      { h: "4) Memory: ft_split allocates char ** -> needs free_tab" },
+      { p: "`ft_split` mallocs both the array and every string inside -> you must free them all" },
+      { code: String.raw`void free_tab(char **tab) {
+    int i = 0;
+    if (!tab) return ;
+    while (tab[i])          // free every string first
+        free(tab[i++]);
+    free(tab);              // then free the array itself
+}`, cap: "order matters: free the inner strings first, then the array (swap them = leak / lost pointer)", lang: "c" },
+      { code: String.raw`tmp  = ft_strjoin(dir, "/");   // temporary allocation
+full = ft_strjoin(tmp, cmd);
+free(tmp);                     // free tmp the moment it's unused`, cap: "try_path: temporary strings must be freed right after use, or you leak a bit each loop", lang: "c" },
+      { h: "5) The child process's memory" },
+      { p: "After `fork` the child gets a copy of the parent's memory. Once `execve` succeeds the old memory is **entirely replaced** (anything malloc'd before execve is gone with the old image, so not a leak). But if execve fails, you free + exit yourself in the child." },
+    ],
+    architecture: [
+      { code: String.raw`main.c        check argc==5 -> pipex(argv, envp)
+pipex.c       open_files -> pipe -> fork_children (child1, child2)
+path.c        get_path(): find cmd in PATH ; exec_cmd(): split+execve
+utils.c       free_tab / error_exit
+main_bonus.c  support here_doc + multiple pipes (flexible argc)
+pipex_bonus.c here_doc() + run_cmds() rolling-pipe`, cap: "file map" },
+      { h: "data flow" },
+      { code: String.raw`infile --(dup2 stdin)--> [child1: cmd1] --(stdout->pipe[1])
+                                                    |
+                              pipe[0]->stdin         v
+outfile <--(dup2 stdout)-- [child2: cmd2] <--------- pipe`, cap: "the tube connects 2 processes" },
+    ],
+    dataflow: [
+      { p: "Trace **every function** of pipex — what fd/string it gets from whom, and passes to whom — focusing on the flow of file descriptors" },
+      { h: "Call flow overview" },
+      { code: String.raw`main(argc, argv, envp)
+ |- argc != 5 ? -> usage -> exit(1)
+ \- pipex(argv, envp)
+      |- open_files(argv[1], argv[4], fio) -> open() x2 -> fio[0]=infile, fio[1]=outfile
+      |- pipe(pfd) -> pfd[0]=read, pfd[1]=write
+      \- fork_children(pfd, fio, argv, envp)
+            |- fork -> child1(pfd, fio[0], argv[2], envp)
+            |            \> dup2(stdin<-infile, stdout<-pfd[1]) > close > exec_cmd(argv[2])
+            |- fork -> child2(pfd, fio[1], argv[3], envp)
+            |            \> dup2(stdin<-pfd[0], stdout<-outfile) > close > exec_cmd(argv[3])
+            \- parent: close(pfd,fio) -> waitpid x2
+
+exec_cmd(cmd, envp) -> ft_split(cmd,' ') -> get_path(args[0],envp)
+                                              \> get_env_path / ft_split(':') / search_dirs -> try_path
+                                         -> execve(path, args, envp)`, cap: "arrows = call/pass; fds flow from open/pipe -> fork_children -> child -> dup2", lang: "txt" },
+      { note: "the main flow is the **fd (an integer)**: open/pipe make fds -> passed via the fio[]/pfd[] arrays into fork_children -> handed to a child -> the child dup2's them as stdin/stdout before exec" },
+
+      { h: "🔗 Trace the life of 'cmd1' (argv[2] -> the program that runs)" },
+      { code: String.raw`argv[2] = "ls -l"
+  \> child1 receives it as cmd
+  \> exec_cmd("ls -l")
+       \> ft_split -> args = ["ls", "-l", NULL]
+       \> get_path("ls", envp)
+            \> get_env_path -> "/usr/bin:/bin"
+            \> ft_split(':') -> ["/usr/bin","/bin"]
+            \> search_dirs -> try_path("/bin","ls") -> access("/bin/ls",X_OK)=OK
+            \> returns "/bin/ls"
+       \> execve("/bin/ls", ["ls","-l",NULL], envp)
+            -> the process becomes ls, reads stdin(=infile) writes stdout(=pipe)`, cap: "a string travels argv -> split -> path resolution -> execve", lang: "txt" },
+
+      { h: "main.c / pipex.c — the main structure" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns/passes · to whom"], rows: [
+        ["usage (static)", "print usage when argc is wrong", "— · from main", "write stderr"],
+        ["main", "check argc=5 then start", "argc,argv,envp · from OS", "calls pipex"],
+        ["open_files (static)", "open infile/outfile into the array", "filenames,fio[] · from pipex", "fills fio[0],fio[1]"],
+        ["child1 (static)", "the process running cmd1 (stdin=infile)", "pfd,infile,cmd,envp · from fork_children", "dup2+close -> exec_cmd"],
+        ["child2 (static)", "the process running cmd2 (stdout=outfile)", "pfd,outfile,cmd,envp · from fork_children", "dup2+close -> exec_cmd"],
+        ["fork_children (static)", "fork 2 children + parent closes fds + waits", "pfd,fio,argv,envp · from pipex", "fork->child1/child2; waitpid"],
+        ["pipex", "the main sequence: open files->pipe->fork", "argv,envp · from main", "calls the 3 above"],
+      ]}},
+      { h: "path.c — find/run the command" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns · to whom"], rows: [
+        ["get_env_path (static)", "extract PATH from envp", "envp · from get_path", "points past \"PATH=\" -> get_path"],
+        ["try_path (static)", "join dir+'/'+cmd and check executable", "dir,cmd · from search_dirs", "full path or NULL"],
+        ["search_dirs (static)", "loop every dir calling try_path", "dirs[],cmd · from get_path", "full path or NULL"],
+        ["get_path(cmd,envp)", "find cmd's full path (or use it directly if it has '/')", "cmd,envp · from exec_cmd", "full path -> exec_cmd"],
+        ["exec_cmd(cmd,envp)", "split cmd -> find path -> execve", "cmd,envp · from child1/2/run_child", "execve (no return) / exit"],
+      ]}},
+      { h: "utils.c / bonus" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Result"], rows: [
+        ["free_tab(tab)", "fully free a char** from ft_split", "char** · from exec_cmd/path", "free every string + the array"],
+        ["error_exit(msg)", "print error + exit on fatal", "message · from any error path", "perror/exit(1)"],
+        ["here_doc (static)", "[bonus] read stdin until LIMITER into a pipe", "limiter · from pipex_bonus", "pipe read fd -> used as infile"],
+        ["open_out_bonus (static)", "[bonus] open outfile (append/trunc)", "file,append · from pipex_bonus", "fd -> fds[1]"],
+        ["run_child (static)", "[bonus] fork+dup2+exec one cmd", "in,out,cmd,envp · from run_cmds", "returns pid"],
+        ["run_cmds (static)", "[bonus] rolling pipe across N cmds", "cmds,n,envp,fds · from pipex_bonus", "run_child loop + waitpid"],
+        ["pipex_bonus", "[bonus] drive here_doc + multiple pipes", "argc,argv,envp · from main_bonus", "calls run_cmds"],
+      ]}},
+    ],
+    implementation: [
+      { h: "1) Open the files (pipex.c)" },
+      { code: String.raw`fd_io[0] = open(file_in, O_RDONLY);
+if (fd_io[0] < 0)
+    perror(file_in);          // infile missing -> don't exit (cmd2 still runs, creates outfile)
+fd_io[1] = open(file_out, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+if (fd_io[1] < 0)
+    error_exit(file_out);     // outfile can't open = fatal`, cap: "mimic the shell: a missing infile isn't fatal, but outfile matters", lang: "c" },
+      { h: "2) The child redirects stdin/stdout (pipex.c)" },
+      { code: String.raw`// child1 (cmd1): read infile -> write into the pipe
+dup2(infile, STDIN_FILENO);
+dup2(pfd[1], STDOUT_FILENO);
+close(pfd[0]); close(pfd[1]); close(infile);
+exec_cmd(cmd, envp);
+// child2 (cmd2): read from the pipe -> write outfile
+dup2(pfd[0], STDIN_FILENO);
+dup2(outfile, STDOUT_FILENO);`, cap: "after dup2 close all the original fds, or the pipe stays open -> cmd2 hangs on EOF", lang: "c" },
+      { h: "3) Parent closes fds then waits (pipex.c)" },
+      { code: String.raw`close(pfd[0]); close(pfd[1]);   // the parent never uses the pipe, must close it!
+if (fio[0] >= 0) close(fio[0]);
+close(fio[1]);
+waitpid(pid1, NULL, 0);
+waitpid(pid2, NULL, 0);`, cap: "if the parent doesn't close the pipe's write end -> cmd2 never gets EOF and hangs", lang: "c" },
+      { h: "4) Find the command's path (path.c)" },
+      { code: String.raw`if (ft_strchr(cmd, '/'))                 // has / -> absolute/relative
+    return (access(cmd, X_OK) == 0 ? ft_strdup(cmd) : NULL);
+path_env = get_env_path(envp);           // find "PATH=" in envp
+dirs = ft_split(path_env, ':');          // split each dir
+return (search_dirs(dirs, cmd));          // try dir/cmd + access(X_OK)`, cap: "if not found -> \"command not found\" -> exit(127)", lang: "c" },
+      { h: "5) Bonus: here_doc + multiple pipes (pipex_bonus.c)" },
+      { code: String.raw`// rolling pipe: prev_fd becomes the next cmd's stdin
+prev = fds[0];                       // start from infile (or here_doc)
+while (i < n - 1) {
+    pipe(pfd);
+    run_child(prev, pfd[1], cmds[i], envp);
+    close(pfd[1]);
+    if (prev != fds[0]) close(prev);
+    prev = pfd[0];                   // this pipe becomes the next cmd's input
+    i++;
+}
+run_child(prev, fds[1], cmds[n-1], envp);  // last cmd -> outfile`, cap: "extends from 2 to N commands by rolling the pipe forward", lang: "c" },
+    ],
+    tricks: [
+      { ul: [
+        "**Close every fd** after dup2 — a forgotten fd is the #1 cause of a hanging pipeline (a cmd waiting for an EOF that never comes)",
+        "**Missing infile != fatal** — use perror, don't exit, like the shell (outfile is still created)",
+        "**execve doesn't return on success** — code after execve is always an error path (exit 1)",
+        "**command not found -> exit(127)** per the shell standard",
+        "**rolling pipe** for the bonus: keep prev_fd and pass it forward -> handle N commands in one loop",
+        "**here_doc** writes stdin into a pipe until LIMITER -> use the read end as the first cmd's stdin, open outfile with O_APPEND",
+        "**free_tab every ft_split** — split returns an array of strings, free every one + the array",
+      ]},
+    ],
+    eval: [
+      { qa: [
+        { q: "How does fork work?", a: "It makes a copy of the process; in the child fork returns 0, in the parent it returns the child's pid; we use this to tell which part runs in the child/parent." },
+        { q: "What does dup2 do, why use it?", a: "It makes a destination fd (like STDIN/STDOUT) point to the file/pipe we want, so the exec'd cmd reads/writes from the right place unknowingly." },
+        { q: "Why does a pipeline hang?", a: "Because a process still holds the pipe's write end open (e.g. the parent or another child didn't close it), so the reading cmd never gets EOF; you must close every unused fd." },
+        { q: "How do you find a cmd's path without PATH?", a: "Split PATH by ':' and try dir/cmd + access(X_OK); if cmd has '/', use it directly; if PATH or cmd isn't found -> command not found, exit 127." },
+        { q: "Why pass envp to execve?", a: "So the child program has the same environment (including PATH); some commands need env." },
+        { q: "What should happen if infile doesn't exist?", a: "Like the shell: cmd1 doesn't run / prints an error, but cmd2 still runs and outfile is created (the perror code doesn't exit, child1 exit(1) if fd<0)." },
+        { q: "How does here_doc work? (bonus)", a: "Read stdin line by line, write into a pipe until a line matches LIMITER, then use the pipe's read end as the first cmd's stdin; outfile opened in append mode." },
+        { q: "What is a zombie process, how to prevent it?", a: "A child that finished but the parent hasn't waited on; we call waitpid on every child (bonus uses while waitpid(-1)) so there are no zombies." },
+      ]},
+      { h: "Test against the shell" },
+      { code: String.raw`./pipex infile "grep a" "wc -l" outfile
+< infile grep a | wc -l > expected      # results must match
+diff outfile expected
+valgrind --leak-check=full ./pipex infile "ls" "cat" outfile`, lang: "bash" },
+    ],
+  },
 };
