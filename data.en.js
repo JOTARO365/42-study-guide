@@ -2869,4 +2869,286 @@ mlx_loop(game.mlx);`, cap: "main.c: bind events then enter the loop", lang: "c" 
 valgrind --leak-check=full ./so_long maps/valid.ber`, lang: "bash" },
     ],
   },
+
+  "fractol": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Draw fractals (Mandelbrot, Julia, +1 more) with MiniLibX. Zoom toward the cursor with the mouse wheel, pan with the arrow keys, adjust the iteration depth with +/-." },
+      { h: "The core maths: the escape-time algorithm" },
+      { p: "Every pixel represents a point c in the complex plane. Iterate `z = z² + c`; if |z| grows past 2 (|z|² > 4) before reaching max_iter -> the point 'escapes' (outside the set) -> map the iteration count to a color. If it finishes without escaping -> inside the set -> black." },
+      { table: { head: ["fractal", "z start", "c"], rows: [
+        ["Mandelbrot", "z = 0", "c = the pixel's coordinate"],
+        ["Julia", "z = the pixel's coordinate", "c = a constant (from argv)"],
+      ]}},
+      { note: "Mandelbrot and Julia use the same formula, differing only in 'what is the starting z and what is c'." },
+      { h: "Background: why z = z² + c draws a picture" },
+      { p: "The Mandelbrot set is defined as 'which points c, when you iterate `z = z² + c` (from z=0), keep z from **escaping to infinity**'. Every pixel = one point c, so for each pixel we ask 'does it escape, and how fast', and turn the answer into a color -> a fractal image." },
+      { h: "Why checking |z| > 2 is enough (where the 2 comes from)" },
+      { p: "There's a theorem that once |z| grows past 2, it keeps growing to infinity for sure (escape and never return). So 2 is a 'deadline' you can decide on immediately without iterating to the end — this is where the name **escape-time** comes from (count how many iterations to cross this line)." },
+      { h: "Why use |z|² > 4 instead of |z| > 2 (a speed reason)" },
+      { p: "`|z| = sqrt(re² + im²)` and taking a square root is **slow**. But `|z| > 2` is exactly equivalent to `|z|² > 4` (square both sides), so we compare `re² + im² > 4` instead — dropping the sqrt. This code runs **millions of times per frame** (800×800 px × dozens of iterations), so saving the sqrt matters a lot for smoothness." },
+      { h: "Why write pixels into a buffer yourself (not mlx_pixel_put)" },
+      { p: "`mlx_pixel_put` sends a draw command to the X server **one dot at a time** — huge overhead with millions of dots. Writing colors into your own **in-memory image buffer** then pushing the whole image once (`mlx_put_image_to_window`) is hundreds of times faster — which is why every fractal renderer does this." },
+      { h: "Why Mandelbrot and Julia share the same code" },
+      { p: "Both iterate the exact same `z = z² + c`, differing only in 'what's constant': Mandelbrot fixes z start=0 and varies c per pixel; Julia fixes c (one value for the whole image) and varies z start per pixel. Grasp this one point and you write both fractals with almost no extra code — so we design them to share one loop." },
+    ],
+    theory: [
+      { p: "fract-ol is a lesson in **maths + numerical computing + graphics** — get the theory and the code reads easily." },
+      { h: "1) Complex numbers" },
+      { p: "A complex number is written `z = a + bi` where `i² = −1`. `a` = the real part, `b` = the imaginary part. Multiplication:" },
+      { code: String.raw`z² = (a + bi)² = a² + 2abi + b²i²
+   = (a² − b²) + (2ab)i
+-> real part = a² − b² ,  imaginary part = 2ab`, cap: "this is the origin of z_re = z_re² − z_im² and z_im = 2·z_re·z_im in the code", lang: "txt" },
+      { h: "2) The complex plane (Argand diagram)" },
+      { p: "Plot a complex number as a point in a 2D plane: horizontal axis = real, vertical axis = imaginary. So **every pixel on screen = one complex number** — a fractal is a 'map' of each point's complex behaviour." },
+      { p: "**Magnitude (modulus):** `|z| = √(a² + b²)` = the distance from the origin (Pythagoras)." },
+      { h: "3) Dynamical systems & iterated maps" },
+      { p: "A dynamical system 'feeds the result back into the formula repeatedly': z₀ → z₁ → z₂ → ... with zₙ₊₁ = zₙ² + c. We care whether the sequence **diverges to infinity** or stays **bounded**." },
+      { h: "4) The Mandelbrot/Julia sets & the escape radius theorem" },
+      { p: "The **Mandelbrot set** = the set of c for which the sequence (starting z=0) doesn't diverge. **Theorem:** if `|z| > 2` ever, the sequence diverges for sure (provable from |z²+c| ≥ |z|²−|c| growing out of hand once |z|>2). So 2 is the 'escape radius' you can decide on instantly." },
+      { note: "escape-time = count the iterations until |z|>2; if it completes max_iter without escaping, it's 'in the set' (black). The escape count = the data you turn into a color." },
+      { h: "5) Fractals & self-similarity" },
+      { p: "A fractal = a shape that 'looks similar however far you zoom in', with endless detail. The Mandelbrot set's boundary has a fractal dimension — why zooming deep keeps revealing new patterns (and why you must raise max_iter as you zoom)." },
+      { h: "6) Floating point (IEEE 754)" },
+      { p: "A `double` stores a real number as 64-bit per IEEE 754 (sign + exponent + mantissa) with ~15–16 digits of precision. Zoom very deep and coordinates differ by less than this resolution -> the image starts 'blocking up' (the precision limit). This is why you use double not float, and why zoom has a limit." },
+      { h: "7) Linear interpolation (mapping ranges)" },
+      { p: "Converting a pixel (0..WIDTH) to a complex range (min_re..max_re) is **linear interpolation**:" },
+      { code: String.raw`re = min_re + (x / WIDTH) * (max_re − min_re)`, cap: "the range-mapping formula — used both in render and zoom", lang: "txt" },
+      { h: "8) Color theory: RGB & bit packing" },
+      { p: "A screen color mixes 3 channels R, G, B (each 0–255 = 8 bits) into a 24-bit number via **bit shifting**:" },
+      { code: String.raw`color = (R << 16) | (G << 8) | B`, cap: "R shifted 16 bits, G 8 bits, B last — packed into 0xRRGGBB", lang: "txt" },
+      { p: "A smooth gradient comes from mapping 'the escape count' to a color with a continuous function (a polynomial in color.c) rather than stepping abruptly." },
+
+      { h: "🔬 Deep Dive A: multiplying complex numbers — step by step + a worked example" },
+      { code: String.raw`z² + c  with z = a + bi , c = e + fi :
+
+z² = (a + bi)(a + bi)
+   = a² + abi + abi + b²i²
+   = a² + 2abi + b²(−1)        [since i² = −1]
+   = (a² − b²) + (2ab)i
+
+z² + c = (a² − b² + e) + (2ab + f)i
+         |__ real part __|   |_ imaginary _|`, cap: "matches the code: tmp = zr*zr − zi*zi + c_re ; zi = 2*zr*zi + c_im", lang: "txt" },
+      { code: String.raw`a real example: z = 0.3 + 0.5i , c = −0.7 + 0.27i
+  new real = 0.3² − 0.5² + (−0.7) = 0.09 − 0.25 − 0.7 = −0.86
+  new imag = 2(0.3)(0.5) + 0.27   = 0.30 + 0.27      =  0.57
+  -> z₁ = −0.86 + 0.57i
+  |z₁|² = 0.86² + 0.57² = 0.74 + 0.32 = 1.06  (< 4 -> not escaped, keep going)`, cap: "iterate z₁→z₂→... until |z|²>4 or max_iter is reached", lang: "txt" },
+
+      { h: "🔬 Deep Dive B: proving the escape radius theorem (why the number 2)" },
+      { p: "Claim: if |z| > 2 (and |z| ≥ |c|, true for the points we care about) the sequence diverges to infinity for sure. Proof via the triangle inequality:" },
+      { code: String.raw`triangle inequality:  |z² + c| ≥ |z²| − |c| = |z|² − |c|
+
+assume |z| > 2  and  |z| ≥ |c| :
+  |z² + c| ≥ |z|² − |c| ≥ |z|² − |z|
+          = |z|(|z| − 1)
+
+since |z| > 2  ->  (|z| − 1) > 1  ->  there's a k = |z|−1 > 1
+  |z_next| ≥ k·|z|   with k > 1 constant
+
+-> every iteration multiplies |z| by something > 1 -> grows exponentially -> ∞
+  so "cross 2 = escape for sure"`, cap: "the number 2 isn't arbitrary — it's the provable threshold past which there's no return", lang: "txt" },
+      { code: String.raw`why compare |z|² > 4 instead of |z| > 2 :
+  |z| > 2   <=>   |z|² > 2²   <=>   re² + im² > 4
+  (squaring both sides is valid since both are ≥ 0)
+-> drop the sqrt = much faster (runs millions of times/frame)`, lang: "txt" },
+
+      { h: "🔬 Deep Dive C: IEEE 754 double & why deep zoom blocks up" },
+      { code: String.raw`double = 64 bits:
+  [ 1 sign | 11 exponent | 52 mantissa ]
+  giving relative precision ~2⁻⁵² ≈ 2.2 × 10⁻¹⁶  (~15–16 decimal digits)
+
+when you zoom: the frame width (max_re − min_re) keeps shrinking
+  complex distance per pixel = width / WIDTH
+  if this distance is smaller than ~2⁻⁵² × |coordinate|
+  -> 2 adjacent pixels compute the "same value" (round to one)
+  -> the image blocks into squares (the precision limit)
+
+-> the reason to use double not float (float blocks up far sooner ~2⁻²³)
+  and the reason zoom has a natural "ceiling"`, cap: "this numerical limit is real in every fractal renderer", lang: "txt" },
+
+      { h: "🔬 Deep Dive D: deriving the pixel ↔ complex-plane mapping" },
+      { code: String.raw`we want a linear function where:
+   x = 0      -> re = min_re
+   x = WIDTH  -> re = max_re
+
+general form re = m·x + b :
+   from x=0 : b = min_re
+   from x=WIDTH : max_re = m·WIDTH + min_re
+             -> m = (max_re − min_re) / WIDTH
+
+-> re = min_re + (x / WIDTH) · (max_re − min_re)   * (linear interpolation)
+
+example: frame [−2, 1], WIDTH=800, pixel x=400 (centre)
+   re = −2 + (400/800)(1 −(−2)) = −2 + 0.5·3 = −0.5  / (exactly the centre)
+
+the im axis is flipped:  im = max_im − (y/HEIGHT)(max_im − min_im)
+   because screen y increases downward but the imaginary axis increases upward`, cap: "linear interpolation = map a value from one range to another proportionally, used in both render and zoom", lang: "txt" },
+      { note: "connection: the zoom formula is this interpolation reversed — find the complex point under the mouse, then shrink the [min,max] range toward it by a factor." },
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Mandelbrot set — Wikipedia", url: "https://en.wikipedia.org/wiki/Mandelbrot_set", note: "definition + properties of the set" },
+        { label: "Julia set — Wikipedia", url: "https://en.wikipedia.org/wiki/Julia_set", note: "its relationship to Mandelbrot" },
+        { label: "Plotting algorithms (escape time)", url: "https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set", note: "escape-time + smooth coloring in full" },
+        { label: "Complex number — Wikipedia", url: "https://en.wikipedia.org/wiki/Complex_number", note: "complex numbers + multiplication/magnitude" },
+        { label: "Floating-Point (Goldberg, Oracle)", url: "https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html", note: "\"What Every CS Should Know About Floating-Point\" — the classic IEEE 754 piece" },
+        { label: "3Blue1Brown — Fractals (video)", url: "https://www.youtube.com/watch?v=-RdOwhmqP5s", note: "fractal dimension/self-similarity explained visually" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **struct, image buffer, and complex-plane state** fract-ol uses." },
+      { h: "The main struct" },
+      { code: String.raw`typedef struct s_fractol {
+    void   *mlx; void *win; void *img;
+    char   *addr;                 /* pointer to the image buffer */
+    int    bpp, line_len, endian; /* to compute a pixel's offset */
+    int    type;                  /* MANDELBROT / JULIA */
+    double c_re, c_im;            /* Julia's constant c */
+    double min_re, max_re, min_im, max_im;  /* the visible complex frame */
+    int    max_iter;
+    int    shift;                 /* color-shift (bonus) */
+}   t_fractol;`, cap: "one t_fractol holds all state -> pass one pointer everywhere, no globals", lang: "c" },
+      { h: "The visible frame: min/max re,im" },
+      { p: "The 4 values `min_re, max_re, min_im, max_im` define which rectangle of the complex plane is on screen. Zoom/pan just change these 4 — render reads them to compute each pixel." },
+      { h: "The image buffer: addr / bpp / line_len" },
+      { p: "Instead of drawing pixel by pixel through mlx (slow), we get a 'pointer straight to the image's memory' (`addr`) and write colors ourselves:" },
+      { code: String.raw`dst = addr + (y * line_len + x * (bpp / 8));
+*(unsigned int *)dst = color;   /* write 1 pixel's color */`, cap: "compute the pixel's byte offset in the buffer then write directly — far faster than mlx_pixel_put", lang: "c" },
+      { note: "Why faster: write the whole image into memory first, then mlx_put_image_to_window once — no talking to the X server per pixel." },
+      { h: "Why double, not float" },
+      { p: "Coordinates need high precision so deep zoom stays sharp. `double` (64-bit, ~15–16 digits) blocks up far later than `float` (~7 digits) — see Deep Dive C." },
+    ],
+    architecture: [
+      { code: String.raw`main.c          parse_args -> init_view -> init_mlx -> render -> hooks -> loop
+parse.c         pick mandelbrot/julia + read c from argv (julia)
+fractal_math.c  mandelbrot_iter / julia_iter (iterate z=z²+c)
+render.c        loop every pixel -> map to a complex coord -> put_pixel
+color.c         get_color(): map iteration count -> color (smooth palette)
+events.c        key_hook (pan/iter/ESC) + mouse_hook (zoom)
+init.c, utils.c setup + helpers`, cap: "file map" },
+    ],
+    dataflow: [
+      { p: "Trace **every function** of fract-ol — what it gets from whom and passes to whom — focusing on the flow of `&f` and the image buffer (`f->addr`)" },
+      { h: "Call flow overview" },
+      { code: String.raw`main(argc, argv)
+ |- parse_args(argc, argv, &f)
+ |     |- "mandelbrot" -> f.type = MANDELBROT
+ |     |- "julia" -> parse_julia -> f.type=JULIA, f.c_re/c_im (from argv or default)
+ |     \- invalid -> usage -> return 1
+ |- init_view(&f)  -> set min/max re,im + max_iter + shift (starting frame)
+ |- init_mlx(&f)   -> mlx_init/new_window/new_image -> f.addr, f.bpp, f.line_len
+ |- render(&f)
+ |     \- every pixel (x,y): map -> (re,im) -> compute_iter -> mandelbrot_iter / julia_iter
+ |                                       -> get_color(iter) -> make_rgb
+ |                                       -> put_pixel(f,x,y,color) write into f.addr
+ |     \- mlx_put_image_to_window (push the whole image to screen)
+ |- mlx_hook(2, key_hook) ; mlx_hook(17, close_hook) ; mlx_mouse_hook(mouse_hook)
+ \- mlx_loop ------> wait for events...
+
+[key]   key_hook -> move_view / adjust max_iter -> render(&f)
+[mouse] mouse_hook -> zoom(x,y,factor) -> render(&f)`, cap: "every hook takes &f -> edits the view frame/depth then calls render again", lang: "txt" },
+      { note: "the main flow: `&f` is all the state; every time an event edits f (frame/iter) it calls render -> render reads f.min/max to compute -> writes colors into f.addr -> pushes to screen" },
+
+      { h: "🔗 Trace the life of one pixel (x,y -> color on screen)" },
+      { code: String.raw`pixel (x, y)
+  \> render: re = f.min_re + x/WIDTH*(f.max_re-f.min_re)
+             im = f.max_im - y/HEIGHT*(f.max_im-f.min_im)
+  \> compute_iter(f, re, im)
+       \> f.type==MANDELBROT ? mandelbrot_iter(f,re,im) : julia_iter(f,re,im)
+       \> iterate z=z²+c until |z|²>4 -> return the count i (e.g. 37)
+  \> get_color(f, 37) -> (t=37/max_iter -> RGB polynomial) -> make_rgb -> 0xRRGGBB
+  \> put_pixel(f, x, y, color)
+       \> dst = f.addr + (y*f.line_len + x*(f.bpp/8))
+       \> *(unsigned int*)dst = color   <- write straight into the buffer`, cap: "re/im depend on the current frame f.min/max -> zoom changes the frame -> the image changes", lang: "txt" },
+
+      { h: "main.c / parse.c / init.c — start the system" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns/passes · to whom"], rows: [
+        ["main", "the sequence: parse->init->render->hook->loop", "argc,argv · from OS", "calls everything + binds hooks"],
+        ["parse_args", "pick the fractal type from argv", "argc,argv,&f · from main", "set f.type; 1/0"],
+        ["parse_julia (static)", "read Julia's c (or use the default)", "argc,argv,&f · from parse_args", "set f.c_re,f.c_im"],
+        ["usage", "print usage + the controls", "— · from main/parse", "ft_putstr stdout"],
+        ["init_view", "set the starting complex frame + max_iter", "&f · from main", "set f.min/max_re/im, max_iter, shift"],
+        ["init_mlx", "open mlx/window/image + get addr", "&f · from main", "set f.mlx,win,img,addr,bpp,line_len"],
+      ]}},
+      { h: "fractal_math.c / render.c — compute + draw" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns/passes"], rows: [
+        ["mandelbrot_iter", "iterate z=z²+c (z start 0, c=pixel)", "f,c_re,c_im · from compute_iter", "the escape count (int)"],
+        ["julia_iter", "iterate z=z²+c (z=pixel, c constant)", "f,z_re,z_im · from compute_iter", "the escape count (int)"],
+        ["compute_iter (static)", "pick the formula by f.type", "f,re,im · from render", "int -> get_color"],
+        ["put_pixel", "write one pixel's color into the image buffer", "f,x,y,color · from render", "write f.addr (pointer arithmetic)"],
+        ["render", "loop every pixel -> map -> compute -> color it", "&f · from main/hooks", "compute_iter+get_color+put_pixel; put image"],
+      ]}},
+      { h: "color.c / events.c — color + interaction" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns/result"], rows: [
+        ["make_rgb (static)", "combine R,G,B into one color number (bit shift)", "r,g,b · from get_color", "int 0xRRGGBB"],
+        ["get_color", "map the iteration count -> a color (smooth palette)", "f,iter · from render", "int color -> put_pixel"],
+        ["move_view (static)", "pan the view frame (arrows)", "f,dx,dy · from key_hook", "edit f.min/max"],
+        ["key_hook", "take a key: pan/adjust iter/ESC", "keycode,f · from mlx", "move_view/edit max_iter -> render"],
+        ["zoom (static)", "shrink/grow the frame around the mouse", "f,x,y,factor · from mouse_hook", "edit f.min/max"],
+        ["mouse_hook", "take a scroll: zoom in/out", "button,x,y,f · from mlx", "zoom -> render"],
+        ["close_hook", "close: free mlx resources + exit", "f · from mlx/ESC", "destroy image/win/display+free"],
+      ]}},
+    ],
+    implementation: [
+      { h: "1) The z = z² + c formula (fractal_math.c)" },
+      { code: String.raw`while (i < f->max_iter) {
+    tmp  = z_re * z_re - z_im * z_im + c_re;  // real part of z²+c
+    z_im = 2.0 * z_re * z_im + c_im;          // imaginary part
+    z_re = tmp;
+    if (z_re * z_re + z_im * z_im > 4.0)      // |z|² > 4 -> escaped
+        return (i);
+    i++;
+}
+return (f->max_iter);                          // didn't escape = in the set`, cap: "Mandelbrot starts z=0; Julia starts z=pixel with c constant", lang: "c" },
+      { note: "trick: use |z|² > 4 instead of sqrt(|z|) > 2 -> no sqrt call (much faster, since it runs per pixel per iteration)" },
+      { h: "2) map a pixel -> the complex plane (render.c)" },
+      { code: String.raw`im = f->max_im - (double)y / HEIGHT * (f->max_im - f->min_im);
+re = f->min_re + (double)x / WIDTH  * (f->max_re - f->min_re);
+put_pixel(f, x, y, get_color(f, compute_iter(f, re, im)));`, cap: "screen (x,y) -> point (re,im); the im axis is flipped because screen y increases downward", lang: "c" },
+      { h: "3) write pixels straight into the image buffer (render.c)" },
+      { code: String.raw`dst = f->addr + (y * f->line_len + x * (f->bpp / 8));
+*(unsigned int *)dst = color;`, cap: "write into the in-memory image then put the whole image once — far faster than mlx_pixel_put", lang: "c" },
+      { h: "4) Zoom toward the cursor (events.c)" },
+      { code: String.raw`mouse_re = f->min_re + (double)x / WIDTH  * (f->max_re - f->min_re);
+mouse_im = f->max_im - (double)y / HEIGHT * (f->max_im - f->min_im);
+f->min_re = mouse_re + (f->min_re - mouse_re) * factor;   // shrink/grow around the cursor
+f->max_re = mouse_re + (f->max_re - mouse_re) * factor;
+// ... same for im ; wheel up factor=0.8 (zoom in), down 1.25 (out)`, cap: "shift the frame to scale around the mouse point so zoom doesn't drift from the cursor", lang: "c" },
+      { h: "5) Smooth-palette color (color.c)" },
+      { code: String.raw`if (iter >= f->max_iter) return (0x000000);     // in the set = black
+t = (double)((iter + f->shift) % f->max_iter) / f->max_iter;
+r = 9.0  * (1-t) * t*t*t        * 255;
+g = 15.0 * (1-t)*(1-t) * t*t    * 255;
+b = 8.5  * (1-t)*(1-t)*(1-t)*t  * 255;
+return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth gradient; shift = cycle the hue (bonus)", lang: "c" },
+    ],
+    tricks: [
+      { ul: [
+        "**|z|² > 4 instead of sqrt** — avoid the slow sqrt() (runs millions of times per frame)",
+        "**write straight into the image buffer** (addr + offset) then put the whole image — hundreds of times faster than mlx_pixel_put",
+        "**Mandelbrot/Julia share one code path**, differing only in the z start and c",
+        "**zoom around the cursor**: convert the mouse to a complex coordinate first, then scale the frame around that point",
+        "**flip the imaginary axis** (max_im - ...) because the screen's y axis increases downward",
+        "**clamp max_iter** (20..1000) to avoid hanging / over-detail",
+        "**free all mlx resources** in close_hook: destroy_image/window/display + free",
+      ]},
+    ],
+    eval: [
+      { qa: [
+        { q: "How do Mandelbrot and Julia differ?", a: "Same formula z=z²+c; Mandelbrot: z starts 0, c = the pixel's coordinate. Julia: z starts = the pixel's coordinate, c = a constant (from argv)." },
+        { q: "How does the escape-time algorithm work?", a: "Iterate z=z²+c; if |z| grows past 2 before max_iter it 'escaped' (outside the set), use the count for color; if it finishes without escaping = in the set = black." },
+        { q: "Why use |z|² > 4 not sqrt?", a: "|z|²>4 equals |z|>2 but without calling sqrt, which is slow — this runs millions of times per frame, so it matters for speed." },
+        { q: "How do you map a pixel to a complex point?", a: "re = min_re + x/WIDTH*(max_re-min_re); im = max_im - y/HEIGHT*(max_im-min_im) (im flipped because screen y points down)." },
+        { q: "How do you zoom toward the mouse?", a: "Convert the mouse position to a complex coordinate, then shrink/grow the frame (min/max re,im) around that point by a factor — so the point under the mouse stays put." },
+        { q: "Why is render fast despite looping every pixel?", a: "Write colors straight into the in-memory image buffer (pointer + offset) then mlx_put_image_to_window once, not mlx_pixel_put per dot." },
+        { q: "What do + / - do?", a: "Adjust max_iter (clamped 20..1000) to add detail/depth to the set's boundary, then re-render." },
+        { q: "How do you handle memory/the window on close?", a: "close_hook calls mlx_destroy_image/window/display + free(mlx) then exit(0); valgrind checks for leaks." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./fractol mandelbrot
+./fractol julia -0.7 0.27015
+./fractol            # usage (no args)
+./fractol invalid    # usage (wrong fractal name)`, lang: "bash" },
+    ],
+  },
 };
