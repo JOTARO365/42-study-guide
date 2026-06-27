@@ -1700,4 +1700,523 @@ make bonus                 # zoom/rotate/pan/switch view
 make bonus && ./fdf_bonus maps/mars.fdf   # rotate/zoom/pan`, lang: "bash" },
     ],
   },
+
+  "cpp_module_00": {
+    principle: [
+      { h: "What Module 00 teaches" },
+      { p: "CPP Module 00 is the **first step from C to C++** — moving from 'functions + struct' thinking to **OOP (Object-Oriented Programming)**: wrapping data + behaviour in a single **class**. Main topics: namespaces, std::cout/std::cin, classes, member functions, encapsulation, and **static members**." },
+      { h: "The 3 exercises (easy to hard)" },
+      { table: { head: ["ex", "Name", "Mainly teaches"], rows: [
+        ["ex00", "Megaphone", "basic I/O, argv, std::cout, uppercase conversion"],
+        ["ex01", "PhoneBook", "2 classes, array of objects, table formatting, std::cin/getline"],
+        ["ex02", "Account", "static members, constructor/destructor, encapsulation (reverse from a log)"],
+      ]}},
+      { note: "Code reference note: ex02 (Account) is explained from **our real code** (`Account.cpp`) in the project folder. ex00/ex01 source isn't kept here, so those are **reference code written strictly to the subject** to show the approach." },
+      { h: "ex00 — Megaphone (shout through a megaphone)" },
+      { p: "The module's smallest program: take text from argv and **print it all uppercase**. With no arguments, print a default message. The goal is getting comfortable with `std::cout`, looping argv, and character conversion." },
+      { code: String.raw`$ ./megaphone "shhhhh... I think the students are asleep..."
+SHHHHH... I THINK THE STUDENTS ARE ASLEEP...
+$ ./megaphone Damn   "good"      idea
+DAMN GOOD IDEA
+$ ./megaphone
+* LOUD AND UNBEARABLE FEEDBACK NOISE *`, cap: "subject behaviour: join all argv -> uppercase; no arg -> default message", lang: "txt" },
+      { h: "ex01 — PhoneBook" },
+      { p: "An interactive program: takes `ADD` / `SEARCH` / `EXIT` commands. Stores up to **8 contacts** (overwrites the oldest beyond that). `SEARCH` prints a compact table then asks for an index to see full details. Practices **2 classes** (PhoneBook holds an array of Contact) + column formatting." },
+      { code: String.raw`Enter command (ADD / SEARCH / EXIT): ADD
+First name: John
+...
+Enter command (ADD / SEARCH / EXIT): SEARCH
+|     index|first name| last name|  nickname|
+|         0|      John|       Doe|    johnny|
+Enter index: 0
+First name : John
+...`, cap: "a 4-column table, each column 10 wide, truncated with '.' if too long", lang: "txt" },
+      { h: "ex02 — Account (GlobalBanksters United)" },
+      { p: "The classic puzzle: you're given `Account.hpp` (fixed header, don't edit), `tests.cpp` (fixed test program), and an **expected output log** — but **not the `Account.cpp` code**. The job is to **write Account.cpp yourself so the output matches the log exactly** (only the timestamp may differ)." },
+      { code: String.raw`[19920104_091532] index:0;amount:42;created
+[19920104_091532] index:1;amount:54;created
+...
+[19920104_091532] accounts:8;total:20049;deposits:0;withdrawals:0
+[19920104_091532] index:0;p_amount:42;deposit:5;amount:47;nb_deposits:1`, cap: "part of the log you must match — you 'decode' what each method must print", lang: "txt" },
+      { note: "This is reverse engineering: read the log + header + tests and infer each method's behaviour to reproduce the output — practising code reading and behaviour inference." },
+      { h: "Why this teaches OOP well" },
+      { ul: [
+        "**Each Account = 1 object** with its own money (`_amount`)",
+        "**Bank-wide counters** (number of accounts, total money) = **static members** shared by every object",
+        "All data is `private` — touchable only through methods = **encapsulation**",
+      ]},
+      { h: "Learning goals" },
+      { table: { head: ["Concept", "Seen via"], rows: [
+        ["Class & object", "one Account = one bank account"],
+        ["Constructor / Destructor", "prints ;created on birth, ;closed on death"],
+        ["Static member", "shared counters _nbAccounts, _totalAmount"],
+        ["Encapsulation", "private data + public methods"],
+        ["const member function", "checkAmount() const, displayStatus() const"],
+      ]}},
+    ],
+    theory: [
+      { p: "This section gathers the **C++ and OOP** theory you need before reading Account." },
+      { h: "1) How C++ differs from C" },
+      { table: { head: ["", "C", "C++"], rows: [
+        ["data + functions", "struct + separate functions", "class (combined)"],
+        ["print to screen", "printf", "std::cout <<"],
+        ["memory", "malloc/free", "new/delete"],
+        ["namespace", "none", "std::, ::"],
+        ["compiler", "cc / gcc", "c++ / g++"],
+      ]}},
+      { note: "This module forces -std=c++98 — the old C++ standard (no auto, nullptr, range-for) to drill the fundamentals hard." },
+      { h: "2) Class & Object" },
+      { p: "A **class** is a blueprint declaring what data (member variables) and behaviour (member functions) objects of that type have. An **object** is a real instance built from a class. One class makes many objects, each with its own data." },
+      { code: String.raw`class Account { ... };          // blueprint
+Account a(42);                   // object #1 (money 42)
+Account b(54);                   // object #2 (money 54)
+// a and b have separate _amount`, lang: "cpp" },
+      { h: "3) Encapsulation" },
+      { p: "Hide internal data so it can't be changed directly from outside — accessible only through methods you control. Prevents invalid edits and lets you change the internals without affecting users." },
+      { table: { head: ["access", "who can reach it"], rows: [
+        ["`public`", "anyone (external interface)"],
+        ["`private`", "only this class's methods"],
+        ["`protected`", "this class + derived classes (inheritance)"],
+      ]}},
+      { p: "In Account: `_amount`, `_nbAccounts` are all `private` — the outside world sees them only through `public` `checkAmount()`, `getNbAccounts()`." },
+      { h: "4) Constructor & Destructor" },
+      { p: "A **constructor** is a special function that runs automatically when an object is **born** (sets initial state). A **destructor** (`~`) runs automatically when an object **dies** (cleanup). The name must match the class." },
+      { code: String.raw`Account( int initial_deposit );  // constructor (takes initial money)
+~Account( void );                 // destructor (no parameters)`, cap: "in Account both print a timestamp + status (;created / ;closed)", lang: "cpp" },
+      { h: "5) Static member — shared by the whole class" },
+      { p: "A normal member: each object has its own copy. A **static member**: a single shared copy **for the whole class**, like a class-wide global. Perfect for 'total counters' — how many accounts exist, the bank's total money." },
+      { code: String.raw`static int _nbAccounts;    // total number of accounts (one copy)
+// in the .cpp you must define it outside the class:
+int Account::_nbAccounts = 0;`, cap: "a static member must be 'defined' separately in the .cpp once, or you get a linker error", lang: "cpp" },
+      { h: "6) static member function" },
+      { p: "A method that works with static members **without an object** — called via the class name, e.g. `Account::getNbAccounts()`. It has no `this` because it isn't tied to a particular object." },
+      { h: "7) const member function" },
+      { p: "A method suffixed with `const` promises **not to modify the object's data**. It can be called on const objects and helps the compiler catch bugs if you accidentally write." },
+      { code: String.raw`int  checkAmount( void ) const;      // only reads _amount -> const
+void displayStatus( void ) const;    // only displays -> const`, lang: "cpp" },
+      { h: "8) C++ I/O (all 3 exercises use it)" },
+      { p: "C++ does I/O through **streams**: `std::cout` prints to screen, `std::cin` reads from the keyboard, chained with `<<` (out) and `>>` (in). `std::endl` is a newline + flush." },
+      { table: { head: ["For", "Tool", "Seen in"], rows: [
+        ["print to screen", "`std::cout <<`", "every exercise"],
+        ["read a whole line (with spaces)", "`std::getline(std::cin, s)`", "ex01 (contact fields)"],
+        ["read one word", "`std::cin >> x`", "ex01 (choose index)"],
+        ["check EOF / read failure", "`std::cin.eof()`, `if (!std::cin)`", "ex01"],
+      ]}},
+      { h: "9) std::string & changing case (ex00/ex01)" },
+      { p: "`std::string` is C++'s string that manages its own length/memory (no malloc like C). Loop char by char and call `std::toupper()` (from `<cctype>`) to uppercase — the heart of ex00." },
+      { code: String.raw`#include <cctype>
+std::string s = argv[i];
+for (size_t j = 0; j < s.length(); ++j)
+    std::cout << (char)std::toupper(s[j]);`, cap: "ex00: loop every argv, convert every char to uppercase", lang: "cpp" },
+
+      { h: "🔬 Deep Dive A: Static members — one shared copy for the whole class + lifecycle" },
+      { p: "**Picture it:** `_amount` is each account's own money (everyone has their own), but `_nbAccounts` is 'the bank's total account count' — one shared copy every object sees. static = a class-wide variable, not tied to any one object." },
+      { code: String.raw`where they live:
+  normal member -> "inside" each object (a._amount, b._amount separate)
+  static member -> in static storage, one copy (born before main, dies after)
+                   every object refers to the same one
+
+every Account constructor does:
+  _accountIndex = _nbAccounts;   // record own index "before" incrementing
+  _nbAccounts++;                 // bump the total counter
+  _totalAmount += deposit;       // add to the bank's total money`, cap: "static = one copy per class; instance member = one copy per object", lang: "cpp" },
+      { p: "**Trace it** — create 3 accounts with money {42, 54, 957}:" },
+      { code: String.raw`start: _nbAccounts=0, _totalAmount=0
+
+Account a(42):  _accountIndex=0 (=_nbAccounts before ++), _nbAccounts->1, _totalAmount->42
+Account b(54):  _accountIndex=1,                          _nbAccounts->2, _totalAmount->96
+Account c(957): _accountIndex=2,                          _nbAccounts->3, _totalAmount->1053
+
+-> index runs 0,1,2 automatically because it reads _nbAccounts "before" ++
+-> getNbAccounts() returns 3, getTotalAmount() returns 1053 (no object needed)`, cap: "the heart of ex02: _accountIndex comes from the static counter read-before-increment, so indices are unique and self-ordering", lang: "txt" },
+      { note: "Prove it yourself: a static member must be 'defined' outside the class once in the .cpp (`int Account::_nbAccounts = 0;`). Delete that line -> linker error 'undefined reference to Account::_nbAccounts', because the in-class declaration only 'declares', it doesn't 'allocate'." },
+      { qa: [
+        { q: "Why does a static member function have no `this`?", a: "Because it isn't tied to a particular object — you can call it via the class name (`Account::getNbAccounts()`) with no object at all. No object -> no this -> it can only touch static members." },
+        { q: "Why must a static be defined outside the class?", a: "The in-class declaration only tells the compiler 'this exists' (no memory). You need one real definition (one-definition rule) in a .cpp to allocate it, or the linker can't find it." },
+        { q: "How does the first account's _accountIndex become 0?", a: "The constructor reads `_nbAccounts` (starting at 0) into _accountIndex first, then ++ -> first account gets 0, the next 1, 2,..." },
+      ]},
+
+      { h: "🔬 Deep Dive B: Constructor/Destructor order — why Account's log reads that way" },
+      { p: "**Picture it:** an object is **born** -> the constructor runs (prints `;created`); an object **dies** -> the destructor runs (prints `;closed`). ex02's challenge is making the log order match exactly — which depends on the 'birth/death order'." },
+      { code: String.raw`ordering rules:
+  • the constructor runs when an object is created (in declaration order)
+  • the destructor runs when an object expires:
+      - local (stack) variables -> die at end of scope, in "reverse" order (LIFO)
+      - members of a vector/array -> die when the container is destroyed
+  • an object's members are constructed in "declaration order in the class",
+    NOT the order in the init list`, cap: "constructed front-to-back, destroyed back-to-front (like a stack of plates)", lang: "cpp" },
+      { p: "**Trace the real order** — a block creating 3 accounts on the stack:" },
+      { code: String.raw`{
+    Account a(42);    // [ts] index:0;amount:42;created
+    Account b(54);    // [ts] index:1;amount:54;created
+    Account c(957);   // [ts] index:2;amount:957;created
+}   // end of scope -> destroyed in reverse:
+    // [ts] index:2;amount:957;closed   <- c dies first (born last)
+    // [ts] index:1;amount:54;closed
+    // [ts] index:0;amount:42;closed    <- a dies last`, cap: "LIFO: the last-born dies first — which is why the closed order is the reverse of created", lang: "txt" },
+      { note: "Prove it yourself: why store p_amount (money before deposit) 'before' changing _amount in makeDeposit? Because the log must print both the old (p_amount) and new (_amount) values — if you change first, the old value is gone. The 'read old -> change -> print both' order matters." },
+      { qa: [
+        { q: "Why is the `;closed` log the reverse of `;created`?", a: "Stack objects are destroyed LIFO (last-in-first-out) — the last-born expires first at end of scope, so closed comes out in reverse order." },
+        { q: "In what order are an object's members constructed — init list or declaration?", a: "Always in 'declaration order in the class', not the order in the initializer list — a classic trap if one member depends on another declared later." },
+        { q: "What does Account's destructor do?", a: "Prints `[ts] index:..;amount:..;closed` — a static helper _displayTimestamp() + the account's final status when it's destroyed." },
+      ]},
+
+      { h: "🔬 Deep Dive C: const-correctness — what `const` after a method really means" },
+      { p: "**Picture it:** putting `const` after a method = a promise to the compiler that 'this method only reads, it doesn't modify the object'. It's not just decoration — it lets you call that method on a **const object** and lets the compiler catch accidental writes." },
+      { code: String.raw`mechanism: const after a method changes the type of this
+  normal method: this is  Account*        -> can modify members
+  const method:  this is  const Account*  -> can't modify members (compile error)
+
+void displayStatus( void ) const {
+    // this->_amount += 1;   // x ERROR: assignment of member in const method
+    std::cout << _amount;    // / reading is fine
+}`, cap: "const makes this a pointer-to-const -> the compiler forbids any member write", lang: "cpp" },
+      { p: "**Why it matters — a const object can only call const methods:**" },
+      { code: String.raw`const Account ref(42);   // a const object
+  ref.displayStatus();   // / ok (it's a const method)
+  ref.makeDeposit(5);    // x ERROR: makeDeposit isn't const but ref is const
+
+-> if you forget const on displayStatus -> you can't call it on a const object at all
+-> const "propagates": to use const objects, mark every read-only method const`, cap: "const-correctness = designing so 'everything read-only' is marked const, so const objects are usable", lang: "txt" },
+      { note: "Prove it yourself: add `const Account a(42); a.makeWithdrawal(5);` and compile — it errors because makeWithdrawal modifies _amount (not const). Change to `a.checkAmount()` (const) and it compiles — confirming a const object can only call const methods." },
+      { qa: [
+        { q: "What does the const in `int checkAmount() const` do?", a: "Says this method doesn't modify the object's members (this is const Account*). Result: you can call it on a const object, and if you accidentally write a member the compiler errors." },
+        { q: "Why can't a const object call a non-const method?", a: "A non-const method might modify the object — but the object is const (can't be modified) -> the compiler refuses, to keep the const promise. So you must mark read-only methods const." },
+        { q: "What if you must modify a member inside a const method?", a: "Mark that member `mutable` (e.g. an internal cache/counter) — but use it sparingly, since it's an 'exception' to the const promise." },
+      ]},
+
+      { h: "🔬 Deep Dive D: the this pointer — the hidden pointer that tells a method 'which object called it'" },
+      { p: "**Picture it:** one method (`makeDeposit`) works on every account — how does it know whether it's working on a or b right now? The answer is **`this`**, a hidden pointer to the object that called the method." },
+      { code: String.raw`what really happens (desugared): the compiler adds this as a hidden first param
+  a.makeDeposit(5);
+  -> Account::makeDeposit(&a, 5);     // &a is passed as this
+
+inside the method:
+  _amount += deposit;          // really this->_amount += deposit
+  -> this points to a -> modifies a._amount ; calling b.makeDeposit -> this points to b`, cap: "this = the address of the calling object — lets one body of code work on any object", lang: "cpp" },
+      { p: "**When to use this directly:** (1) when a parameter name clashes with a member (`this->x = x`), (2) returning `*this` to chain methods, (3) in a const method `this` is `const Account*` (read-only)." },
+      { note: "Prove it yourself: in makeWithdrawal, writing `this->_amount` and `_amount` give the same result — because a bare `_amount` is implicitly `this->_amount`. Writing this-> explicitly makes it clear you're touching the object's member." },
+      { qa: [
+        { q: "What exactly is this?", a: "A pointer the compiler secretly passes as the first argument of every non-static method, pointing to the object that called it — a bare `_amount` is `this->_amount`." },
+        { q: "Why does a static method have no this?", a: "A static method isn't tied to any object (callable via the class name) -> there's no object for this to point to -> it can't touch instance members, only static ones." },
+        { q: "Why return `*this` (not this)?", a: "this is a pointer; `*this` is the object itself — returning a reference to the object lets you chain calls like `obj.set(1).set(2)` (common in later modules)." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Classes", url: "https://en.cppreference.com/w/cpp/language/classes", note: "official reference on classes / members" },
+        { label: "cppreference — Static members", url: "https://en.cppreference.com/w/cpp/language/static", note: "static data members + out-of-class definition" },
+        { label: "learncpp — Intro to classes", url: "https://www.learncpp.com/cpp-tutorial/introduction-to-classes/", note: "hands-on C++ OOP, step by step" },
+        { label: "cppreference — The this pointer", url: "https://en.cppreference.com/w/cpp/language/this", note: "definition and use of this" },
+        { label: "cppreference — std::getline", url: "https://en.cppreference.com/w/cpp/string/basic_string/getline", note: "read a whole line (used in ex01)" },
+        { label: "cppreference — std::toupper", url: "https://en.cppreference.com/w/cpp/string/byte/toupper", note: "uppercase a character (used in ex00)" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **data structures of each exercise** — starting with the short ex00/ex01 then going deep on Account (ex02)." },
+      { h: "ex00 — Megaphone: no class at all" },
+      { p: "ex00 is just a single `main()`, no class — the data is the `argc`/`argv` the system passes in. The shape: if `argc == 1` print the default; else loop argv[1..argc-1], uppercase every char, print them joined, end with a newline." },
+      { code: String.raw`int main(int argc, char **argv) {
+    if (argc == 1) {
+        std::cout << "* LOUD AND UNBEARABLE FEEDBACK NOISE *" << std::endl;
+        return 0;
+    }
+    for (int i = 1; i < argc; ++i)
+        for (int j = 0; argv[i][j]; ++j)
+            std::cout << (char)std::toupper(argv[i][j]);
+    std::cout << std::endl;
+    return 0;
+}`, cap: "ex00, the whole program in a few lines (reference code per the subject)", lang: "cpp" },
+      { h: "ex01 — PhoneBook: 2 nested classes" },
+      { p: "Designed as 2 classes: **Contact** holds one entry, **PhoneBook** holds `Contact[8]` + a counter. A fixed 8-slot array (no new/delete), wrapping like a ring when full." },
+      { code: String.raw`class Contact {
+    std::string _first, _last, _nick, _phone, _secret;
+    /* getters/setters per field */
+};
+class PhoneBook {
+    Contact _contacts[8];   // up to 8 entries
+    int     _count;         // how many real entries (0..8)
+    int     _next;          // next slot to write (ring index)
+};`, cap: "PhoneBook uses a fixed 8-element array — when full, overwrite the oldest (_next wraps to 0)", lang: "cpp" },
+      { p: "When adding beyond 8: `_next = (_next + 1) % 8` wraps the index back over the first — always keeping 'the latest 8'." },
+      { h: "ex02 — Account: 2 levels of member (static vs normal)" },
+      { code: String.raw`class Account {
+private:
+    /* static = bank-wide (shared by all objects) */
+    static int _nbAccounts;          // how many accounts
+    static int _totalAmount;         // total money
+    static int _totalNbDeposits;     // total deposits
+    static int _totalNbWithdrawals;  // total withdrawals
+
+    /* normal = this account only (each object has its own) */
+    int _accountIndex;               // account number
+    int _amount;                     // this account's money
+    int _nbDeposits;                 // this account's deposits
+    int _nbWithdrawals;              // this account's withdrawals
+};`, cap: "the key line: static = class level (totals), normal = object level (per account)", lang: "cpp" },
+      { h: "Why static must be defined separately in the .cpp" },
+      { p: "In the header you only **declare** 'this static member exists' but don't allocate it yet. You must **define** (allocate + initialise) it once in the .cpp, or the linker can't find the real thing:" },
+      { code: String.raw`/* top of Account.cpp */
+int Account::_nbAccounts        = 0;
+int Account::_totalAmount       = 0;
+int Account::_totalNbDeposits   = 0;
+int Account::_totalNbWithdrawals = 0;`, cap: "forget these lines -> undefined reference at link time", lang: "cpp" },
+      { h: "Static counter lifecycle" },
+      { code: String.raw`creating Account(42):
+  _accountIndex = _nbAccounts;   // claim index from the current counter (0)
+  _amount = 42;
+  _nbAccounts++;                 // bump the total -> 1
+  _totalAmount += 42;            // add to the total money
+
+creating Account(54):
+  _accountIndex = _nbAccounts;   // gets index 1
+  _nbAccounts++;                 // -> 2
+  ...`, cap: "a new account's index = the count of accounts that existed before it — 0,1,2,... automatically", lang: "txt" },
+      { h: "typedef Account t — a header trick" },
+      { p: "`typedef Account t;` makes an alias `Account::t` for `Account` — `tests.cpp` uses it to make `std::vector<Account::t>`. It's just an alias with no logic impact, but it must exist in the header (which is given)." },
+      { h: "Why everything is int (not float)" },
+      { p: "The account system uses pure integers — no cents. That keeps the output as round numbers matching the log easily, with no floating-point precision worries." },
+    ],
+    architecture: [
+      { h: "ex00 — Megaphone: a single file" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`megaphone.cpp`", "just `main()` — take argv, uppercase, print"],
+        ["`Makefile`", "build a binary named `megaphone` (-std=c++98)"],
+      ]}},
+      { h: "ex01 — PhoneBook: classes split into files" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`Contact.hpp/.cpp`", "class holding one entry + getters/setters"],
+        ["`PhoneBook.hpp/.cpp`", "class holding Contact[8] + add/search"],
+        ["`main.cpp`", "loop reading ADD/SEARCH/EXIT commands"],
+        ["`Makefile`", "build `phonebook`"],
+      ]}},
+      { note: "C++ file-splitting principle: each class has a `.hpp` (interface declaration) paired with a `.cpp` (implementation) — like Account in ex02." },
+      { h: "Project files (ex02)" },
+      { table: { head: ["File", "Editable?", "Role"], rows: [
+        ["`Account.hpp`", "❌ don't edit", "declares the class (fixed interface)"],
+        ["`tests.cpp`", "❌ don't edit", "the test program (creates accounts, deposits, withdraws)"],
+        ["`*.log`", "reference", "the correct output, used to compare"],
+        ["`Account.cpp`", "✅ ours to write", "implement every method to match the log"],
+        ["`Makefile`", "✅", "build with -std=c++98"],
+      ]}},
+      { h: "The interface to implement (from the header)" },
+      { code: String.raw`/* static — called via the class name, no object needed */
+static int  getNbAccounts();
+static int  getTotalAmount();
+static int  getNbDeposits();
+static int  getNbWithdrawals();
+static void displayAccountsInfos();
+
+/* normal — work on an object */
+Account( int initial_deposit );      // constructor
+~Account();                           // destructor
+void makeDeposit( int deposit );
+bool makeWithdrawal( int withdrawal );
+int  checkAmount() const;
+void displayStatus() const;
+
+/* private helper */
+static void _displayTimestamp();`, cap: "the header fixes every signature — the job is filling the 'bodies' to match the log", lang: "cpp" },
+      { h: "What tests.cpp does (call order)" },
+      { code: String.raw`1. create 8 accounts, initial money {42,54,957,...}  -> 8 ;created lines
+2. displayAccountsInfos()                            -> 1 summary line
+3. displayStatus() for every account                 -> 8 lines
+4. makeDeposit() on every account                    -> 8 deposit lines
+5. displayAccountsInfos() + displayStatus() x8
+6. makeWithdrawal() on every account (some refused)
+7. displayAccountsInfos() + displayStatus() x8
+8. end of main -> destructor prints ;closed x8`, cap: "this order fixes the order of lines in the log you must reproduce", lang: "txt" },
+      { note: "At end of main the vector's objects are destroyed in index order -> the destructor prints ;closed for 8 lines as the very end of the log." },
+    ],
+    dataflow: [
+      { h: "ex00 — Megaphone: data path" },
+      { code: String.raw`argv --> argc==1 ? --yes--> print "* LOUD AND ... *" --> done
+              | no
+              v
+       loop i = 1..argc-1
+              |
+              v  loop j over each argv[i]
+       std::toupper(argv[i][j]) --> std::cout
+              v
+       std::cout << std::endl --> done`, cap: "input is argv -> output is the joined uppercase string", lang: "txt" },
+      { h: "ex01 — PhoneBook: command loop" },
+      { code: String.raw`main loop --> read a command (getline)
+   |- "ADD"    > ask 5 fields > PhoneBook.add(Contact)
+   |                              \> _contacts[_next] = c; ring index
+   |- "SEARCH" > print compact table > read index > print full contact
+   \- "EXIT"   > break the loop`, cap: "input is commands+fields from stdin -> store in the array / display", lang: "txt" },
+      { h: "ex02 — Account: every method, one by one" },
+      { p: "Walk through each method — against the log line it produces." },
+      { h: "Constructor — Account(int initial_deposit)" },
+      { code: String.raw`Account::Account( int initial_deposit )
+{
+    this->_accountIndex = _nbAccounts;   // account number = current counter
+    this->_amount = initial_deposit;
+    this->_nbDeposits = 0;
+    this->_nbWithdrawals = 0;
+    _nbAccounts++;                        // bump the total counter
+    _totalAmount += initial_deposit;      // add to the total money
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex
+              << ";amount:" << _amount << ";created" << std::endl;
+}`, cap: "output: [ts] index:0;amount:42;created", lang: "cpp" },
+      { h: "Destructor — ~Account()" },
+      { code: String.raw`Account::~Account( void )
+{
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex
+              << ";amount:" << _amount << ";closed" << std::endl;
+}`, cap: "output: [ts] index:0;amount:42;closed", lang: "cpp" },
+      { h: "makeDeposit(int deposit)" },
+      { code: String.raw`void Account::makeDeposit( int deposit )
+{
+    int p_amount = this->_amount;        // remember money before (previous)
+    this->_amount += deposit;
+    this->_nbDeposits++;
+    _totalAmount += deposit;             // update the static total
+    _totalNbDeposits++;
+    _displayTimestamp();
+    std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+              << ";deposit:" << deposit << ";amount:" << _amount
+              << ";nb_deposits:" << _nbDeposits << std::endl;
+}`, cap: "output: [ts] index:0;p_amount:42;deposit:5;amount:47;nb_deposits:1", lang: "cpp" },
+      { h: "makeWithdrawal(int withdrawal) — with a refusal condition" },
+      { code: String.raw`bool Account::makeWithdrawal( int withdrawal )
+{
+    int p_amount = this->_amount;
+    _displayTimestamp();
+    if ( withdrawal > this->_amount )            // not enough money
+    {
+        std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+                  << ";withdrawal:refused" << std::endl;
+        return (false);
+    }
+    this->_amount -= withdrawal;
+    this->_nbWithdrawals++;
+    _totalAmount -= withdrawal;
+    _totalNbWithdrawals++;
+    std::cout << "index:" << _accountIndex << ";p_amount:" << p_amount
+              << ";withdrawal:" << withdrawal << ";amount:" << _amount
+              << ";nb_withdrawals:" << _nbWithdrawals << std::endl;
+    return (true);
+}`, cap: "if withdrawal exceeds money -> ;withdrawal:refused and return false (a clue from the log)", lang: "cpp" },
+      { h: "static getters + displayAccountsInfos" },
+      { code: String.raw`int  Account::getNbAccounts()  { return (_nbAccounts); }
+int  Account::getTotalAmount() { return (_totalAmount); }
+/* ... */
+void Account::displayAccountsInfos()
+{
+    _displayTimestamp();
+    std::cout << "accounts:" << _nbAccounts << ";total:" << _totalAmount
+              << ";deposits:" << _totalNbDeposits
+              << ";withdrawals:" << _totalNbWithdrawals << std::endl;
+}`, cap: "output: [ts] accounts:8;total:20049;deposits:0;withdrawals:0", lang: "cpp" },
+      { h: "_displayTimestamp() — the heart of every line" },
+      { code: String.raw`void Account::_displayTimestamp( void )
+{
+    std::time_t now = std::time(NULL);
+    std::tm    *lt  = std::localtime(&now);
+    char        buf[32];
+    std::strftime(buf, sizeof(buf), "[%Y%m%d_%H%M%S] ", lt);
+    std::cout << buf;
+}`, cap: "uses <ctime> to format [YYYYMMDD_HHMMSS] before every line — the timestamp may differ from the log (the only thing allowed to)", lang: "cpp" },
+    ],
+    implementation: [
+      { h: "ex00 — Megaphone: common mistakes" },
+      { ul: [
+        "Don't forget the `argc == 1` case (no arg) -> print the exact default message including the `*`",
+        "Don't add spaces between argv (see `DAMN GOOD IDEA` — from 3 argv printed joined, since the shell already split the spaces)",
+        "`std::toupper` returns `int` -> cast to `(char)` before printing, or you may get the ASCII number",
+        "End with one `std::endl` at the very end",
+      ]},
+      { h: "ex01 — PhoneBook: common mistakes" },
+      { ul: [
+        "Table columns are **10** chars wide, right-aligned — use `std::setw(10)` (from `<iomanip>`) separated by `|`",
+        "A field longer than 10 -> truncate to 9 chars + a `.` (e.g. `Christophe` -> `Christoph.`)",
+        "Reading names with spaces needs `std::getline`, not `std::cin >>`",
+        "Guard empty input: no ADD with empty fields / no nonexistent index on SEARCH",
+        "Check `std::cin.eof()` to exit cleanly on Ctrl-D",
+      ]},
+      { code: String.raw`#include <iomanip>
+std::string trunc(std::string s) {
+    if (s.length() > 10)
+        return s.substr(0, 9) + ".";
+    return s;
+}
+std::cout << "|" << std::setw(10) << trunc(c.getFirst());`, cap: "ex01: fit to 10 columns + right-align with setw (reference code per the subject)", lang: "cpp" },
+      { h: "ex02 — Account: how to reverse-engineer from the log" },
+      { ul: [
+        "1. read `tests.cpp` -> know which method is called when",
+        "2. pair each 'call' with a 'log line' -> know what that method must print",
+        "3. look at the fields in the line (`index`, `p_amount`, `amount`, `nb_deposits`) -> infer what to store/compute",
+        "4. note the special case: `withdrawal:refused` -> an if for insufficient funds",
+        "5. write Account.cpp -> build -> diff against the log (minus timestamp)",
+      ]},
+      { h: "Key clues you can read from the log" },
+      { table: { head: ["The log line says", "You can infer"], rows: [
+        ["index starts 0,1,2...", "index = _nbAccounts at creation"],
+        ["total:20049 = sum of initials", "the constructor adds to _totalAmount"],
+        ["p_amount shown before amount", "must remember the old value before changing"],
+        ["withdrawal:refused", "if (withdrawal > _amount) -> refuse"],
+        [";closed at the very end", "the destructor runs when objects die"],
+      ]}},
+      { h: "Building (important: must be c++98)" },
+      { code: String.raw`# Makefile
+CC     = c++
+CFLAGS = -Wall -Wextra -Werror -std=c++98
+# SRCS = Account.cpp tests.cpp
+make && ./account > my.log
+diff <(sed 's/\[[0-9_]*\]//' my.log) \
+     <(sed 's/\[[0-9_]*\]//' 19920104_091532.log)
+# empty diff = exact match (compared with timestamps stripped)`, lang: "bash" },
+      { note: "If you hit 'mem_fun_ref is not a member of std' -> you forgot -std=c++98 (mem_fun_ref was removed in newer C++); the flag fixes it." },
+    ],
+    tricks: [
+      { h: "ex00 — trick: join argv without building a string" },
+      { p: "No need to concatenate argv into one big string first — loop and print char by char through `std::cout`, saving memory and being shorter." },
+      { h: "ex01 — trick: ring buffer with modulo" },
+      { p: "Hold 8 entries then overwrite the oldest -> `_next = (_next + 1) % 8`. The `_count` stops at 8 (to know how many real rows on SEARCH) while `_next` keeps wrapping." },
+      { h: "ex01 — trick: setw + truncate 9+'.'" },
+      { p: "Format the table with `std::setw(10)` (auto right-align) and if a field exceeds 10, `substr(0,9) + \".\"` — exactly 10 wide and signalling truncation." },
+      { h: "ex02 — Account: key tricks" },
+      { h: "Trick 1: index = _nbAccounts before ++" },
+      { p: "Set `_accountIndex = _nbAccounts` **before** `_nbAccounts++` -> the first account gets index 0, then 1, 2... automatically, with no separate index counter." },
+      { h: "Trick 2: save p_amount before changing the value" },
+      { p: "The log shows both old money (p_amount) and new (amount) -> `int p_amount = this->_amount;` **before** changing `_amount`, or the old value is already gone." },
+      { h: "Trick 3: update both static counters together" },
+      { p: "Every deposit/withdrawal updates both the account's own member (`_nbDeposits`) and the bank's static total (`_totalNbDeposits`) -> so the summary in displayAccountsInfos matches." },
+      { h: "Trick 4: diff with timestamps stripped" },
+      { p: "Our output's timestamp will differ from the log (different run time) — use `sed` to remove the `[...]` part before diff -> compare only the content that must match." },
+      { h: "Trick 5: -std=c++98 always" },
+      { p: "tests.cpp uses `std::mem_fun_ref`, removed in newer C++ standards — always compile with `-std=c++98` (and the whole module mandates c++98 anyway)." },
+      { h: "Trick 6: _displayTimestamp is static private" },
+      { p: "It isn't tied to a particular account (just prints the time), so it's `static`, and `private` because it's an internal helper — every method calls it before printing its own line." },
+    ],
+    eval: [
+      { qa: [
+        { q: "ex00: what to do with no arguments?", a: "Check argc == 1 and print the default '* LOUD AND UNBEARABLE FEEDBACK NOISE *' (exactly, including *) — otherwise loop argv uppercasing everything." },
+        { q: "ex00: why cast std::toupper to (char)?", a: "std::toupper returns an int (ASCII code); without casting to char before printing, std::cout may print the number, not the letter." },
+        { q: "ex01: why getline instead of cin >> for names?", a: "cin >> stops at whitespace, reading only the first word; getline reads a whole line including spaces, right for first+last names that may contain spaces." },
+        { q: "ex01: only 8 entries — what beyond that?", a: "Overwrite the oldest via a ring index (_next = (_next+1) % 8) — always keeping the latest 8, no new/delete." },
+        { q: "ex01: how is the table formatted?", a: "Columns 10 wide, right-aligned with std::setw(10), separated by |; a field longer than 10 is substr(0,9) + '.'." },
+        { q: "How do class and object differ?", a: "A class is the blueprint (what data/behaviour it has); an object is a real instance built from it; one class makes many objects, each with its own data." },
+        { q: "What is a static member, why used here?", a: "A member with one copy shared by all objects (class level) — used for bank-wide totals like _nbAccounts, _totalAmount that every account must see the same value of." },
+        { q: "Why must a static member be defined in the .cpp?", a: "The header only declares it (no allocation); you must define it (int Account::_nbAccounts = 0;) once in the .cpp so the linker has the real thing, or undefined reference." },
+        { q: "What is encapsulation, how seen in Account?", a: "Hiding internal data — _amount/_nbAccounts are private, untouchable directly, only via public methods (checkAmount/getNbAccounts); prevents invalid edits and hides the implementation." },
+        { q: "When do constructor/destructor run?", a: "The constructor runs automatically on object creation (prints ;created), the destructor on destruction/end of scope (prints ;closed); names match the class, the destructor prefixed with ~." },
+        { q: "What is a const member function?", a: "A method suffixed const promises not to modify the object, e.g. checkAmount() const, displayStatus() const; callable on const objects, and the compiler catches accidental writes." },
+        { q: "What is the this pointer?", a: "A hidden pointer in non-static methods to the calling object; this->_amount = the working object's money, letting one method work on any object." },
+        { q: "Where does p_amount in the log come from?", a: "The money before the operation (previous amount) — you must store _amount before changing it, then print both old (p_amount) and new (amount)." },
+        { q: "Why does makeWithdrawal return bool?", a: "To say whether the withdrawal succeeded — if insufficient (withdrawal > _amount), print withdrawal:refused and return false without deducting; success returns true." },
+        { q: "Why -std=c++98?", a: "tests.cpp uses std::mem_fun_ref removed in newer C++, and the module mandates c++98; without it you get a compile error." },
+        { q: "How does a static member function differ from a normal method?", a: "A static method has no this, callable without an object (Account::getNbAccounts()), works only on static members; a normal method is tied to an object and has this." },
+        { q: "How do you explain the ;closed order in the log?", a: "At end of main the vector's objects are destroyed -> each destructor prints ;closed in index order, as a block at the very end of the output." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`make
+./account > my.log
+# compare with timestamps ([...]) stripped — should show no difference
+diff <(sed 's/\[[0-9_]*\]//' my.log) \
+     <(sed 's/\[[0-9_]*\]//' 19920104_091532.log)`, lang: "bash" },
+    ],
+  },
 };
