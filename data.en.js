@@ -3151,4 +3151,444 @@ return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth g
 ./fractol invalid    # usage (wrong fractal name)`, lang: "bash" },
     ],
   },
+
+  "minitalk": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Write 2 programs: a **server** and a **client** that talk using only **2 signals**, `SIGUSR1` and `SIGUSR2` — no pipes, sockets, files, or shared memory." },
+      { ul: [
+        "the **server** starts, prints its own PID, then sits and waits",
+        "the **client** takes the server's PID + a message (`./client <PID> \"message\"`) and sends it for the server to print",
+      ]},
+      { note: "The brutal constraint: a signal **carries no data** — it can only say 'a signal arrived' and 'which type (USR1/USR2)'. So you must invent a 'language' from these 2 signals." },
+      { h: "Core idea: send one bit at a time" },
+      { p: "Every character (char) = **1 byte = 8 bits**, and each bit is only 0 or 1. We have exactly 2 signal types -> a direct mapping:" },
+      { table: { head: ["bit", "signal sent"], rows: [
+        ["0", "SIGUSR1"],
+        ["1", "SIGUSR2"],
+      ]}},
+      { p: "The client splits a character into 8 bits and fires signals one at a time -> the server receives each signal and reassembles the byte -> 8 bits = 1 character, printed. After the whole message, the client ends with a `'\\0'` (null) to signal 'done'." },
+      { h: "Why this project matters" },
+      { p: "minitalk teaches **inter-process communication (IPC)** and **asynchronous signal handling**, fundamental to real UNIX (e.g. Ctrl+C sends SIGINT). It forces you to understand that a signal handler 'interrupts' normal flow at any moment, and to design a communication protocol from scratch." },
+      { h: "What is MSB-first, why choose it" },
+      { p: "A byte has 8 bits from the most significant (**MSB** = 128) to the least (**LSB** = 1). This code sends **MSB first** (bit 7 -> 0). The benefit: the server reassembles with `c = c << 1` (left shift) then fills the new bit at the rightmost position — straightforward, and the bits line up correctly on their own." },
+      { code: String.raw`character 'A' = 65 = 0100 0001 (binary)
+
+client sends (MSB->LSB):  0  1  0  0  0  0  0  1
+signal:                  U1 U2 U1 U1 U1 U1 U1 U2
+
+server reassembles (c<<1 each time, +1 if USR2):
+  0 -> 1 -> 10 -> 100 -> 1000 -> 10000 -> 100000 -> 1000001 = 65 = 'A' /`, cap: "left-shift one bit then fill the new bit on the right — 8 times gives back the exact value", lang: "txt" },
+      { h: "What differs between mandatory and bonus" },
+      { table: { head: ["", "mandatory", "bonus"], rows: [
+        ["direction", "client -> server one-way", "server sends an ack back (two-way)"],
+        ["send timing", "client uses a fixed usleep then fires on", "client waits for each bit's ack before the next (lock-step)"],
+        ["reliability", "risks loss if the server is slow", "no loss, synced every bit"],
+        ["does the client know it's done", "no", "yes — server acks the '\\0' with SIGUSR2 -> prints 'Message delivered!'"],
+      ]}},
+    ],
+    theory: [
+      { p: "This section gathers the **foundational theory** you need before reading minitalk's code — signals, binary, and processes." },
+      { h: "1) Process & PID" },
+      { p: "A **process** = one running program. The OS gives it a unique number, the **PID** (Process ID). To send a signal to someone you must know their PID — which is why the server must print its PID for you to give the client." },
+      { ul: [
+        "`getpid()` — ask 'what is my PID' (the server uses it)",
+        "`kill(pid, sig)` — send signal `sig` to process `pid` (the name is misleading, it just 'sends a signal')",
+      ]},
+      { h: "2) What is a signal" },
+      { p: "A **signal** = an asynchronous notification the OS delivers to interrupt a process. When a signal arrives the program 'pauses' what it's doing, jumps to a function you defined (a **handler**), then resumes." },
+      { table: { head: ["signal", "usual meaning", "in this project"], rows: [
+        ["SIGUSR1", "user-defined #1", "represents bit 0"],
+        ["SIGUSR2", "user-defined #2", "represents bit 1"],
+      ]}},
+      { note: "SIGUSR1/SIGUSR2 are designed for 'developers to use as they like' — perfect for minitalk since they don't clash with the system's standard meanings." },
+      { h: "3) signal() vs sigaction()" },
+      { p: "You can set a handler 2 ways. The subject recommends `sigaction` because it **defines behaviour precisely and portably**, unlike `signal()` whose behaviour varies across OSes." },
+      { table: { head: ["", "signal()", "sigaction()"], rows: [
+        ["stability", "behaviour varies by OS", "clearly defined, the same everywhere"],
+        ["know the sender's PID", "no", "yes (via SA_SIGINFO)"],
+        ["good for", "simple tasks", "minitalk (especially the bonus that must ack back)"],
+      ]}},
+      { h: "4) Binary & bitwise operators" },
+      { p: "The heart of minitalk is playing with bits. You must be fluent with these operators:" },
+      { table: { head: ["operator", "what it does", "example"], rows: [
+        ["`c >> n`", "shift bits right by n", "bring bit n down to the rightmost"],
+        ["`c << 1`", "shift bits left by 1 (×2)", "open a slot on the right for a new bit"],
+        ["`x & 1`", "AND with 1 — keep only the rightmost bit", "check if that bit is 0 or 1"],
+        ["`c | 1`", "OR with 1 — set the rightmost bit to 1", "fill in a 1 bit"],
+      ]}},
+      { code: String.raw`extract bit 6 of 'A' (0100 0001):
+  (c >> 6) & 1
+  = (0100 0001 >> 6) & 1
+  = 0000 0001 & 1
+  = 1   -> send SIGUSR2`, cap: "shift the wanted bit to the rightmost then & 1 to read it — the basic bit-reading technique", lang: "txt" },
+      { h: "5) pause() — wait without burning CPU" },
+      { p: "`pause()` makes the process 'sleep' until a signal arrives. The server uses `while(1) pause();` to wait without using CPU (unlike a busy-loop `while(1);` that spins at 100% CPU)." },
+      { h: "6) usleep() — delay in microseconds" },
+      { p: "`usleep(n)` waits n microseconds (1 second = 1,000,000 µs). The mandatory part uses it to delay between firing signals so the server keeps up." },
+      { h: "🔬 Deep Dive: why Linux can drop signals" },
+      { p: "The painful truth: standard signals (like SIGUSR1/2) **are not queued**. If the server is processing one signal while the client fires the same one 2 more times before the server is free — they collapse into 'one pending', = **1 bit lost** = the whole message garbled." },
+      { code: String.raw`client fires too fast (no ack):
+  USR1 -> [server busy] USR1(pending) USR1(dropped!) USR2(pending)
+  result: server got only USR1, USR2 -> a bit missing -> wrong character
+
+mandatory fix:  usleep(400) so the server keeps up
+bonus fix:      wait for an ack on every bit (lock-step) — fix at the root`, cap: "this is why you need usleep (mandatory) or an ack handshake (bonus) — not an extra, a necessity", lang: "txt" },
+      { note: "POSIX has real-time signals (SIGRTMIN..SIGRTMAX) that 'do queue', but minitalk forces SIGUSR1/2 which don't — so we handle this ourselves." },
+
+      { h: "🔬 Deep Dive A: bitwise operations — proving why `(c >> bit) & 1` reads the bit right" },
+      { p: "The heart of minitalk is 'reading one bit at a time' from a byte. Many write the code but don't grasp what `>>` and `& 1` really do — let's prove it with binary." },
+      { code: String.raw`take c = 'A' = 65 = 0100 0001 (binary)
+
+reading the bit at position bit = 6 (counting from 0):
+  (c >> 6) & 1
+
+step 1 — shift right 6:
+  0100 0001 >> 6 = 0000 0001
+  (everything shifts to the right — position 6 of the original lands at position 0)
+
+step 2 — AND with 1 (mask):
+  0000 0001 & 0000 0001 = 0000 0001 = 1
+  (the mask cuts every bit but position 0, keeping the one we shifted down)
+
+result = 1 -> send SIGUSR2
+
+try bit = 0 (LSB):
+  (0100 0001 >> 0) & 1 = 0100 0001 & 1 = 1 -> SIGUSR2 /
+  ('A' really ends in 1)
+
+try bit = 1:
+  (0100 0001 >> 1) & 1 = 0010 0000 & 1 = 0 -> SIGUSR1 /`, cap: ">>(shift right) moves the target bit to position 0, &1 masks just that one — giving exactly 0 or 1", lang: "txt" },
+      { code: String.raw`server side — reassemble with c = c << 1 | bit:
+
+start c = 0000 0000
+
+USR2 (bit=1):  c = (0 << 1) | 1 = 0000 0001
+USR1 (bit=0):  c = (1 << 1) | 0 = 0000 0010
+USR1 (bit=0):  c = (2 << 1) | 0 = 0000 0100
+USR1 (bit=0):  c = (4 << 1) | 0 = 0000 1000
+USR1 (bit=0):  c = (8 << 1) | 0 = 0001 0000
+USR1 (bit=0):  c = (16<< 1) | 0 = 0010 0000
+USR1 (bit=0):  c = (32<< 1) | 0 = 0100 0000
+USR2 (bit=1):  c = (64<< 1) | 1 = 1000 0001
+
+result = 1000 0001 = 129 (0x81) — a full byte`, cap: "left shift = open a slot on the right, |1 fills the new bit — MSB-first makes the order correct automatically", lang: "txt" },
+      { note: "why MSB-first: if you sent LSB-first the server would have to 'know' which bit position it's at to know where to `|` the value — more complex code. MSB-first + `<<1` means 'no counting positions' — each bit lands correctly on its own." },
+
+      { h: "🔬 Deep Dive B: async-signal-safety — why most functions are forbidden in a handler" },
+      { p: "A signal handler has a serious limitation many overlook: it 'interrupts' whatever the program is doing at any moment. If the handler calls an 'unsafe' function the result can break in very hard-to-find ways." },
+      { code: String.raw`the problem scenario:
+
+ main() is doing printf("Hello")    <- printf mid-way, writing "Hello" to a buffer
+         | a signal arrives!
+ handler() calls printf("World")   <- a 2nd printf writes to the same buffer
+         | handler returns to main()
+ main() printf continues...         <- the buffer has "HelloWorld" mixed -> garbled!
+                                         or worse: malloc/free interrupted -> heap corruption`, cap: "the issue isn't 'the handler runs concurrently' (it's serial) but 'the handler interrupts a non-atomic operation'", lang: "txt" },
+      { p: "POSIX defines **async-signal-safe** = functions guaranteed safe to call in a handler — there are **more than 100** in the list (including `write`, `_exit`, `kill`, `sigaction`); the rest (like `printf`, `malloc`) are forbidden." },
+      { table: { head: ["function", "safe in a handler?", "why"], rows: [
+        ["`write()`", "/ safe", "POSIX explicitly defines it async-signal-safe"],
+        ["`write`-based ft_printf", "/ (ours)", "because we build it on write() only — no internal buffer"],
+        ["`printf()` (libc)", "x unsafe", "has an internal buffer + calls malloc internally"],
+        ["`malloc()` / `free()`", "x unsafe", "manages the heap that main might be editing"],
+        ["`exit()`", "x unsafe", "runs multi-step cleanup — not handler-suitable"],
+        ["`_exit()`", "/ safe", "exits immediately without cleanup (for a fatal error)"],
+      ]}},
+      { code: String.raw`// / our code — safe
+static void handle_signal(int sig)
+{
+    static unsigned char c = 0;
+    static int           bits = 0;
+
+    c = c << 1;
+    if (sig == SIGUSR2)
+        c = c | 1;
+    bits++;
+    if (bits == 8)
+    {
+        if (c == '\0')
+            ft_printf("\n");       // ft_printf is write-based -> safe
+        else
+            ft_printf("%c", c);     // <- if this were libc printf = a bug!
+        c = 0;
+        bits = 0;
+    }
+}`, lang: "c" },
+      { note: "In minitalk we're lucky ft_printf is built on write() — if another project must print in a handler, always verify the print function truly builds on write(), not libc printf." },
+
+      { h: "🔬 Deep Dive C: UTF-8 encoding — why sending raw bytes supports Thai/emoji for free" },
+      { p: "Many are surprised minitalk sends Thai/emoji with no special code. The answer is **UTF-8 encoding** — how every language's characters are stored as raw bytes." },
+      { code: String.raw`UTF-8: 1 character = 1 to 4 bytes (not equal)
+
+Unicode range      bytes        bit pattern
+U+0000..U+007F      1 byte       0xxxxxxx          (a-z, A-Z, 0-9)
+U+0080..U+07FF      2 bytes      110xxxxx 10xxxxxx  (á, ñ, Greek, Cyrillic)
+U+0800..U+FFFF      3 bytes      1110xxxx 10xxxxxx 10xxxxxx  (Thai ก-ฮ, CJK)
+U+10000..U+10FFFF   4 bytes      11110xxx 10xxxxxx 10xxxxxx 10xxxxxx  (🎉, 😀)
+
+-> English 1 char = 1 signal × 8 = 8 signals
+-> Thai 1 char    = 3 bytes × 8 = 24 signals
+-> emoji 1 char   = 4 bytes × 8 = 32 signals`, lang: "txt" },
+      { code: String.raw`example: the Thai character 'ก' = U+0E01
+
+step 1 — find the Unicode value:
+  'ก' = U+0E01 = 3585 (decimal) = 0000 1110 0000 0001
+
+step 2 — fit into the UTF-8 form (3 bytes since U+0800..U+FFFF):
+  1110xxxx 10xxxxxx 10xxxxxx
+  fill 16 bits from U+0E01 = 0000 1110 0000 0001
+
+  byte 1: 1110 0000 = 0xE0
+  byte 2: 10 111000 = 0xB8
+  byte 3: 10 000001 = 0x81
+
+client sends 'ก' = 3 rounds of send_byte():
+  round 1: send_byte(pid, 0xE0) -> 8 signals (11100000)
+  round 2: send_byte(pid, 0xB8) -> 8 signals (10111000)
+  round 3: send_byte(pid, 0x81) -> 8 signals (10000001)
+
+server receives 3 bytes in a row -> write(0xE0, 0xB8, 0x81) -> terminal shows 'ก' /`, cap: "minitalk never has to 'know' about UTF-8 — it just sends raw bytes and the receiving terminal reassembles the character", lang: "txt" },
+      { code: String.raw`emoji: '🎉' = U+1F389 = 4 bytes
+
+UTF-8: 11110000 10011111 10001110 10001001
+       = 0xF0    0x9F    0x8E    0x89
+
+client sends 4 × 8 = 32 signals
+server receives 4 bytes -> write -> terminal shows '🎉' /`, lang: "txt" },
+      { note: "Limitation: if the server uses ft_printf('%c', c) per byte it won't show Thai/emoji, because the terminal needs all bytes of a character to display it. Fix: buffer the bytes and write once per character (or write the bytes directly)." },
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Beej's Guide to Unix IPC — Signals", url: "https://beej.us/guide/bgipc/html/#signals", note: "signals / handlers / kill explained, fun and clear" },
+        { label: "man7 — signal(7)", url: "https://man7.org/linux/man-pages/man7/signal.7.html", note: "signal overview + standard signals not queuing" },
+        { label: "man7 — sigaction(2)", url: "https://man7.org/linux/man-pages/man2/sigaction.2.html", note: "official sigaction docs + SA_SIGINFO / si_pid" },
+        { label: "Bitwise operation — Wikipedia", url: "https://en.wikipedia.org/wiki/Bitwise_operation", note: "review the shift / AND / OR used to assemble a byte" },
+        { label: "Async-signal-safe functions — man7", url: "https://man7.org/linux/man-pages/man7/signal-safety.7.html", note: "the list of functions safe in a signal handler (100+) + why others aren't" },
+        { label: "UTF-8 — Wikipedia", url: "https://en.wikipedia.org/wiki/UTF-8", note: "the encoding that makes raw bytes carry Thai/emoji for free" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **variables, state-keeping, and memory** minitalk uses — some special because they live in a signal handler." },
+      { h: "Problem: a handler remembers nothing between calls" },
+      { p: "A signal handler is called fresh every time a signal arrives — normal local variables are wiped each time. But we must 'remember' how many bits of the byte we've assembled and the current value. Two solutions:" },
+      { table: { head: ["way", "scope", "used where"], rows: [
+        ["`static` local", "inside the function, but persists across calls", "server (mandatory + bonus)"],
+        ["global variable", "the whole program sees it", "client bonus (g_ack)"],
+      ]}},
+      { h: "Why the server chooses static local (not global)" },
+      { code: String.raw`static void handle_signal(int sig)
+{
+    static unsigned char c = 0;    // the byte being assembled
+    static int           bits = 0; // how many bits assembled
+    ...
+}`, cap: "static = created once, persists for the program's life, but its 'name' is visible only inside this function", lang: "c" },
+      { p: "**Benefit of static local:** hide the state inside the function that uses it, not leaking to other code — cleaner than a global. The server can do this because no one outside needs to read this state." },
+      { h: "Why the client bonus needs a global" },
+      { p: "The client bonus has a handler (`ack_handler`) separate from the main loop (`send_byte`). The handler must 'tell' the main loop the ack arrived — data must cross functions -> needs a **global**. The subject allows one global, which is exactly this `g_ack`." },
+      { h: "volatile sig_atomic_t — a special global type for handlers" },
+      { code: String.raw`volatile sig_atomic_t g_ack = 0;`, lang: "c" },
+      { table: { head: ["word", "why it's needed"], rows: [
+        ["`volatile`", "tells the compiler 'this value can change outside normal flow' (from the handler) -> don't optimize it into a register, always read from real memory"],
+        ["`sig_atomic_t`", "a type guaranteed to read/write in 'one step' (atomic) — not interrupted mid-way by a signal, so the value stays consistent"],
+      ]}},
+      { note: "Forget volatile and the compiler may see `while (g_ack == 0)` as a loop whose value never changes and optimize it into an infinite loop — the program hangs! A classic hard-to-find bug." },
+      { h: "Why c is unsigned char" },
+      { p: "Use `unsigned char` (0..255) not `char` (maybe −128..127) because shifting (`<<`) on a signed type can be undefined when the top bit is set — `unsigned` is safe and matches the meaning 'these are raw 8 bits'." },
+    ],
+    architecture: [
+      { h: "Project files" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`server.c`", "receive signals, assemble bytes, print (mandatory)"],
+        ["`client.c`", "split the message into bits, fire signals (mandatory)"],
+        ["`server_bonus.c`", "like server + sends an ack back to the client"],
+        ["`client_bonus.c`", "like client + waits for an ack before the next bit"],
+        ["`minitalk.h` / `minitalk_bonus.h`", "includes + prototypes"],
+        ["`libft/`", "ft_printf (usable in a handler because it's write-based)"],
+        ["`Makefile`", "all / clean / fclean / re / bonus"],
+      ]}},
+      { h: "The conversation overview (mandatory)" },
+      { code: String.raw`  CLIENT                          SERVER
+    |                               |
+    |   read argv: PID + message     |  print getpid()
+    |                               |  while(1) pause()  <- wait
+    |  -- SIGUSR1/2 (bit 0) ------>  |  handler: c<<1, bits++
+    |       usleep(400)             |
+    |  -- SIGUSR1/2 (bit 1) ------>  |  handler: ...
+    |       ...x8                   |  8 bits done -> print the char
+    |  -- ... every character ----> |
+    |  -- 8 bits of '\0' --------->  |  see '\0' -> newline
+    |   done (return 0)             |  wait for the next client`, cap: "the client only fires, the server only receives+assembles+prints", lang: "txt" },
+      { h: "The conversation overview (bonus — with ack)" },
+      { code: String.raw`  CLIENT                          SERVER
+    |  g_ack=0; kill(bit) ------->   |  handler: assemble the bit
+    |  while(g_ack==0) usleep(1)     |  <-------- kill(client, ack)
+    |  <-- got ack -> fire next bit  |  (every bit acked with USR1)
+    |       ...                     |  byte done: print the char
+    |  send '\0' all 8 bits ----->   |  see '\0':
+    |  <-- ack with SIGUSR2         |  <-------- kill(client, USR2)
+    |  g_ack==2 -> "Message          |
+    |             delivered!"       |`, cap: "every bit is acknowledged -> no loss, and the client knows when it's done", lang: "txt" },
+      { note: "Note: the server (both versions) loops `while(1)` forever — it never ends on its own, you must Ctrl+C it, because it must stay ready for clients indefinitely." },
+    ],
+    dataflow: [
+      { p: "Trace **every function** one by one, in real execution order." },
+      { h: "server.c — main()" },
+      { code: String.raw`int main(void)
+{
+    struct sigaction sa;
+
+    ft_printf("Server PID: %d\n", getpid());  // <- announce the PID
+    sa.sa_handler = &handle_signal;           // set the handler
+    sigemptyset(&sa.sa_mask);                 // don't block other signals
+    sa.sa_flags = 0;
+    if (sigaction(SIGUSR1, &sa, NULL) == -1) return (1);
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) return (1);
+    while (1)
+        pause();                              // sleep waiting for signals
+    return (0);
+}`, lang: "c" },
+      { ul: [
+        "`getpid()` -> print the PID to give to the client",
+        "`sigemptyset(&sa.sa_mask)` -> clear the set of signals blocked during the handler (leave it empty)",
+        "`sa.sa_flags = 0` -> a plain handler (just the signal number)",
+        "bind both SIGUSR1 and SIGUSR2 to the same handler -> the handler tells bit 0 from 1 itself",
+      ]},
+      { h: "server.c — handle_signal(int sig)" },
+      { code: String.raw`static void handle_signal(int sig)
+{
+    static unsigned char c = 0;
+    static int           bits = 0;
+
+    c = c << 1;                  // open a slot on the right
+    if (sig == SIGUSR2)
+        c = c | 1;               // this bit is 1
+    bits++;
+    if (bits == 8)               // a full byte
+    {
+        if (c == '\0')
+            ft_printf("\n");     // end of message
+        else
+            ft_printf("%c", c);  // print the character
+        c = 0;                   // reset to start a new byte
+        bits = 0;
+    }
+}`, lang: "c" },
+      { p: "Each signal: shift `c` left 1, if USR2 fill 1 on the right, count the bit. At 8 -> a full character -> print, then reset. If the character is `'\\0'`, the message is done, print a newline." },
+      { h: "client.c — send_byte(int pid, unsigned char c)" },
+      { code: String.raw`static void send_byte(int pid, unsigned char c)
+{
+    int bit;
+
+    bit = 8;
+    while (bit > 0)
+    {
+        bit--;                       // 7,6,5,...,0  (MSB-first)
+        if ((c >> bit) & 1)
+            kill(pid, SIGUSR2);      // bit is 1
+        else
+            kill(pid, SIGUSR1);      // bit is 0
+        usleep(400);                 // let the server keep up
+    }
+}`, lang: "c" },
+      { p: "Loop from bit 7 down to 0 (MSB-first): extract each bit with `(c >> bit) & 1` and fire the matching signal. `usleep(400)` is the buffer against dropped signals." },
+      { h: "client.c — main()" },
+      { code: String.raw`int main(int argc, char **argv)
+{
+    int pid;
+    int i;
+
+    if (argc != 3) { ... return (1); }      // need PID + message
+    pid = ft_atoi(argv[1]);
+    if (pid <= 0) { ... return (1); }        // PID must be positive
+    i = 0;
+    while (argv[2][i])
+        send_byte(pid, argv[2][i++]);        // send every character
+    send_byte(pid, '\0');                     // terminate with null
+    return (0);
+}`, lang: "c" },
+      { h: "What the bonus adds" },
+      { ul: [
+        "**server_bonus** uses `sa.sa_sigaction` + `SA_SIGINFO` -> the handler gets `siginfo_t *info`, so it knows `info->si_pid` (the client's PID) and can `kill(client, ...)` to ack back",
+        "**client_bonus** has an `ack_handler` that sets `g_ack`, and `send_byte` has `while (g_ack == 0) usleep(1);` waiting for the ack before the next bit — no more fixed usleep",
+      ]},
+      { code: String.raw`/* server_bonus: know who sent it, then ack back */
+static void handle_signal(int sig, siginfo_t *info, void *ucontext)
+{
+    static unsigned char c = 0;
+    static int           bits = 0;
+
+    (void)ucontext;
+    c = c << 1;
+    if (sig == SIGUSR2)
+        c = c | 1;
+    bits++;
+    if (bits == 8) { print_byte(c, info->si_pid); c = 0; bits = 0; }
+    else
+        kill(info->si_pid, SIGUSR1);   // ack every not-yet-complete bit
+}`, cap: "info->si_pid is the bonus's key — it lets the server reply to the right client", lang: "c" },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. write the server to print its PID + set an empty handler first -> run it and try `kill -USR1 <pid>` from the terminal to see the handler fire",
+        "2. add the bit-assembly logic in the handler -> try sending bits by hand",
+        "3. write the client: ft_atoi(PID) + a bit-sending loop + usleep",
+        "4. test a short message -> long -> special chars/Thai (unicode)",
+        "5. do the bonus: add acks on both sides",
+      ]},
+      { h: "What usleep value to choose (mandatory)" },
+      { table: { head: ["usleep", "effect"], rows: [
+        ["too small (e.g. 50)", "fast but risks dropped signals if the machine is slow/loaded"],
+        ["400 (this code's choice)", "balanced — fast enough and reliable on typical machines"],
+        ["too large (e.g. 5000)", "safest but sends long messages very slowly"],
+      ]}},
+      { note: "The bonus needs no usleep guessing because the ack handshake syncs automatically — as fast as the machine allows, with no loss." },
+      { h: "Why ft_printf is usable in a handler" },
+      { p: "Per async-signal-safety rules most functions are forbidden in a handler — but `write()` is one of the safe ones. Our ft_printf builds on `write()` so it's usable (whereas libc's `printf` with its internal buffer is unsafe)." },
+      { h: "Building" },
+      { code: String.raw`make            # build server + client (mandatory)
+make bonus      # build server_bonus + client_bonus
+make re         # fclean + all`, lang: "bash" },
+    ],
+    tricks: [
+      { h: "Trick 1: one handler for both signals" },
+      { p: "No need for 2 handlers — bind both USR1/USR2 to one handler and use the `sig` parameter to tell which bit. Less code, centralized logic." },
+      { h: "Trick 2: c << 1 | bit — assemble a byte without counting positions" },
+      { p: "Because you send MSB-first, assembly is just 'shift left + fill the bit on the right' 8 times, without knowing which bit position you're at — each bit lands correctly on its own." },
+      { h: "Trick 3: static local instead of a global in the server" },
+      { p: "Keep the byte-assembly state in the handler's static locals -> no global at all on the server side. Clean and aligned with the subject's wish to minimize globals." },
+      { h: "Trick 4: '\\0' as the end signal, no length prefix needed" },
+      { p: "Instead of sending a length prefix (fiddly), rely on C strings already ending in `'\\0'` — send `'\\0'` at the end and the server sees it as exactly the 'done' signal." },
+      { h: "Trick 5 (bonus): lock-step via g_ack with 3 states" },
+      { p: "The client sets `g_ack=0` before firing then waits for it to change. The server acks with USR1 (g_ack becomes 1) for normal bits and USR2 (g_ack becomes 2) at end of message — so the client knows both 'sent ok' and 'done' from one variable." },
+      { h: "Trick 6: unicode/Thai support for free" },
+      { p: "Because we send raw bytes one at a time, a multi-byte UTF-8 character (like Thai) is simply split into several bytes sent in sequence — the server prints the bytes in order and the terminal reassembles the character, with no special handling." },
+    ],
+    eval: [
+      { qa: [
+        { q: "Why only SIGUSR1/SIGUSR2?", a: "They're signals the system reserves for user-defined meaning, not clashing with the OS's standard signals — perfect for inventing your own protocol, and the subject mandates only these 2." },
+        { q: "How many signals per character?", a: "8 (1 byte = 8 bits, 1 signal per bit). An n-character message = (n+1)×8 signals including the terminating '\\0'." },
+        { q: "What is MSB-first, why choose it?", a: "Send the most significant bit (position 7) first. Chosen because the server reassembles with c<<1 each time then fills the rightmost bit exactly, no position counting." },
+        { q: "How does the server keep byte-assembly state without a global?", a: "Use static locals in the handler (static unsigned char c, static int bits) — they persist across handler calls but don't leak outside the function." },
+        { q: "Why can signals be dropped, how to fix it?", a: "Standard signals don't queue — duplicates while the server is busy collapse into one. Mandatory fixes it with a usleep so the server keeps up; bonus fixes it with an ack handshake waiting for each bit." },
+        { q: "How does sigaction differ from signal, why use it?", a: "sigaction has clearly defined, portable behaviour, and supports SA_SIGINFO to know the sender's PID (needed for the bonus); signal()'s behaviour varies by system." },
+        { q: "How does the bonus know which client to ack?", a: "Set SA_SIGINFO and the handler gets siginfo_t *info -> read info->si_pid, the PID of the process that sent the signal, then kill back to that PID." },
+        { q: "What is volatile sig_atomic_t, why use it for g_ack?", a: "volatile stops the compiler from optimizing away a value changed in a handler (else the ack-wait loop hangs); sig_atomic_t guarantees atomic reads/writes not interrupted mid-way by a signal." },
+        { q: "Why is while(1) pause() better than while(1);?", a: "pause() sleeps the process waiting for a signal, using no CPU; while(1); spins at 100% CPU for nothing." },
+        { q: "Is ft_printf safe in a handler?", a: "Safe because ft_printf is built on write(), which is async-signal-safe; libc's printf with an internal buffer would be unsafe." },
+        { q: "Does it support Thai/emoji?", a: "Yes, because it sends raw bytes — a multi-byte UTF-8 character is sent in sequence and the server's terminal reassembles it." },
+        { q: "What if you give a wrong/nonexistent PID?", a: "kill() errors (doesn't reach) — the client checks pid<=0 first, and really should check kill's return to report an error if the target process doesn't exist." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`# terminal 1
+./server
+# -> Server PID: 12345
+
+# terminal 2
+./client 12345 "Hello, 42!"
+./client 12345 "Thai works too 🎉"
+
+# bonus: the client prints "Message delivered!" once the server acks all
+./client_bonus 12345 "with acknowledgement"`, lang: "bash" },
+    ],
+  },
 };
