@@ -3919,4 +3919,409 @@ print("Verdict:", verdict)`, cap: "your first AI app — call the LLM + chain 2 
       ]},
     ],
   },
+
+  "ai_llm": {
+    principle: [
+      { h: "What this page teaches" },
+      { p: "How to call an LLM and get a result you can **actually use in code** (not loose text), and how to **design token/context to fit the task** — because context is limited and every token has a price." },
+      { h: "The core problems of raw LLM calls" },
+      { ul: [
+        "the result is free text -> hard to parse, breaks often (fix: **structured output**)",
+        "a long prompt repeated every call -> pricey+slow (fix: **prompt caching**)",
+        "sending all the raw data -> over budget (fix: **summarize/filter before sending**)",
+        "using a pricey model for an easy task -> wasteful (fix: **pick the model by task**)",
+      ]},
+      { h: "structured output is the hero" },
+      { p: "Instead of hoping the LLM returns JSON then parsing it — you **force a schema** with pydantic. You always get an object with the right fields and types." },
+      { code: String.raw`from pydantic import BaseModel, Field
+from typing import Literal
+
+class Review(BaseModel):
+    sentiment: Literal["positive", "negative", "neutral"]  # restrict the values
+    score: int = Field(ge=0, le=100)                        # bound the number
+    reason: str = Field(default="", description="short, max 60 chars")`, cap: "a schema = the result's contract (every vendor supports this)", lang: "py" },
+    ],
+    theory: [
+      { h: "1) Context window — the model's desk" },
+      { p: "The **context window** is the max tokens a model accepts at once (input + output combined). Think of it as a desk — only what's on the desk does the model see. Over the desk = it gets cut. New models have huge context, but 'can fit' doesn't mean 'should fit' — stuffing more = pricier, slower, and loses focus." },
+      { h: "2) input token vs output token" },
+      { table: { head: ["", "input", "output"], rows: [
+        ["what it is", "the prompt we send", "the answer the model makes"],
+        ["price (per token)", "cheaper", "pricier (often several times)"],
+        ["how to control", "summarize/filter/cache before sending", "`max_tokens` + ask for short results"],
+      ]}},
+      { note: "Because output is pricier — set a fitting `max_tokens`, ask for short results, and drop unused fields from the schema to reduce output tokens." },
+      { h: "3) prompt caching — pay once for the repeated part" },
+      { p: "A long system prompt (rules/format) is the same every round. **prompt caching** lets the provider store that part: pay full the first time, much cheaper after (Anthropic claims up to ~90% cost / ~85% latency cut)." },
+      { code: String.raw`messages = [
+  {"role": "system", "content": [
+    {"type": "text", "text": SYSTEM_PROMPT,
+     "cache_control": {"type": "ephemeral"}}   # <- cache this part (Anthropic)
+  ]},
+  {"role": "user", "content": user_message},     # the part that changes each round
+]`, cap: "put repeated/constant content at the prompt's start for the highest cache hit", lang: "py" },
+      { h: "4) pick the model by task (model routing)" },
+      { p: "Not every task needs the smartest model. Use a **cheap/fast model** (Haiku, GPT-mini, Gemini Flash) for easy/high-volume tasks like summarizing/classifying, and a **smarter model** (Sonnet, GPT, Gemini Pro) for decisions/complex analysis." },
+      { h: "5) temperature & max_tokens" },
+      { p: "`temperature=0` -> steady, consistent answers (good for extraction/decisions). `max_tokens` -> a cap on answer length, preventing runaway. Both are set when creating the client." },
+      { h: "6) Streaming — stream the answer piece by piece (from docs)" },
+      { p: "Set `stream: true` and the answer flows back piece by piece over **SSE** — the user sees characters instantly (low perceived latency), and it's needed at high max_tokens to avoid HTTP timeouts. If you only need a single block to process further, you don't have to stream." },
+      { ul: [
+        "event order: `message_start` -> (`content_block_start` -> `content_block_delta`×N -> `content_block_stop`) per block -> `message_delta` (stop_reason/usage) -> `message_stop`; ping/error may interleave, so your code must skip unknown events",
+        "assemble the answer: listen to `content_block_delta` and append `delta.text` (text_delta) by index",
+        "tool/structured side: the delta is `input_json_delta` = a **partial JSON string**, accumulate it and parse only when the block ends",
+      ]},
+      { h: "7) Multimodal — send images for the model to read (from docs)" },
+      { p: "The model can take **images** alongside text (read charts/screenshots/forms/documents) — it understands images only, it can't create them. Send as an `image` content-block (base64 / URL / file_id); supports JPEG/PNG/GIF/WebP." },
+      { code: String.raw`{ "type": "image",
+  "source": { "type": "base64", "media_type": "image/jpeg", "data": "<BASE64>" } }
+// always put the image block "before" the text block`, cap: "1 image ≈ width×height/750 tokens — large images are resized first (billed by token)", lang: "json" },
+      { ul: [
+        "use cases: read/interpret charts-tables, extract from forms/documents, analyze screenshots",
+        "limits: file ≤10MB/image, dimensions ≤8000px, images should be sharp; naming people/counting objects/exact spatial isn't accurate",
+      ]},
+      { h: "8) Extended thinking — let the model think before answering (from docs)" },
+      { p: "A mode where the model produces a **thinking block** (internal reasoning) before the real answer — enabled with `thinking: {type:'enabled', budget_tokens: N}` (N < max_tokens). **thinking tokens are billed as output.**" },
+      { ul: [
+        "use for multi-step reasoning (maths/hard code/analysis); for easy questions it's overkill",
+        "don't prefill/inject words into thinking; when using a tool you must send the original thinking block back unmodified; changing thinking values breaks the cache",
+      ]},
+      { h: "9) Batch API — bulk work at 50% off (from docs)" },
+      { p: "**Message Batches** = fire many requests (up to ~100k/batch) asynchronously, getting results within ~24h in exchange for a **~50% discount**." },
+      { ul: [
+        "good for offline/bulk: classify a big dataset, run thousands of eval cases, summarize many documents",
+        "not for interactive work (chat/UI waiting for a live answer); each request needs max_tokens ≥ 1",
+      ]},
+      { h: "10) PDF & Files API (from docs)" },
+      { p: "The model reads **PDFs** including text + images/charts on the page (each page is turned into an image + text is extracted). Send as a `document` content block via url / base64 / file_id." },
+      { ul: [
+        "**Files API**: upload once to get a `file_id` then reference it across requests — no resending the file (good for big/frequently-used documents)",
+        "PDF limits: ≤32MB, ≤100 pages (200k-context model); each page costs ~1.5-3k text tokens + image tokens (billed as normal input)",
+        "use cases: analyze reports/read charts, extract from forms/legal docs; use prompt caching to cut cost when re-analyzing",
+      ]},
+
+      { h: "🔬 Deep Dive A: how Structured Output really works — from Schema to valid JSON" },
+      { p: "Structured output isn't just 'ask for JSON back' — it's a **forcing mechanism (constrained decoding)** where the model is restricted to generate only tokens matching the schema." },
+      { code: String.raw`behind the scenes when you use with_structured_output():
+
+step 1 — LangChain converts a Pydantic model -> JSON Schema:
+  class Review(BaseModel):
+      sentiment: Literal["positive", "negative"]
+      confidence: float = Field(ge=0, le=1)
+      summary: str
+
+  -> JSON Schema:
+  {
+    "type": "object",
+    "properties": {
+      "sentiment": {"enum": ["positive", "negative"]},
+      "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+      "summary": {"type": "string"}
+    },
+    "required": ["sentiment", "confidence", "summary"]
+  }
+
+step 2 — send the schema to the API:
+  messages = [
+    {"role": "system", "content": "Analyze this review..."},
+    {"role": "user", "content": text}
+  ]
+  response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    messages=messages,
+    **structured_output(schema)  # <- pass the schema too
+  )
+
+step 3 — Constrained Decoding:
+  the model is about to generate the next token...
+  if the schema says "sentiment" must be "positive" or "negative":
+    -> other tokens' logits are set to -infinity
+    -> the model can only pick these 2
+
+  if the schema says "confidence" must be a float 0-1:
+    -> every non-digit/decimal-point token is blocked`, cap: "Structured output = constrained decoding: the model is forced to generate only schema-matching tokens, not 'hope for JSON'", lang: "txt" },
+      { code: String.raw`comparison: no schema vs schema
+
+no schema (free text):
+  Response: "The review is positive with about 85% confidence. Summary: Great product!"
+  -> you must parse it, maybe wrong format, maybe extra text
+
+with schema (structured):
+  Response: {
+    "sentiment": "positive",
+    "confidence": 0.85,
+    "summary": "Great product!"
+  }
+  -> matches the schema 100%, usable right away
+
+real impact:
+  - accuracy: structured output raises accuracy ~15-30%
+  - speed: faster because the model doesn't 'think' about format
+  - reliability: no hallucination in enum/Literal fields`, lang: "txt" },
+      { note: "Limitation: structured output works with the major providers' APIs (Anthropic/OpenAI/Google) — with a local model you parse it yourself." },
+
+      { h: "🔬 Deep Dive B: Prompt Caching — the mechanism and the real price" },
+      { p: "Prompt caching isn't just 'remember the old prompt' — it's an **API-level optimization** where the provider stores a prefix of the prompt and charges less on repeat." },
+      { code: String.raw`how Prompt Caching works:
+
+Round 1: send the whole new prompt
+  System: "You are a legal expert..." (2000 tokens)
+  User:   "Analyze this contract..." (500 tokens)
+  -> pay: 2500 × $3/M = $0.0075 (normal input)
+  -> Cache: 2000 tokens stored (the constant system message)
+
+Round 2: send the same prompt + a new question
+  System: "You are a legal expert..." (2000 tokens) <- CACHED
+  User:   "What does clause 3.2 mean..." (400 tokens)
+  -> pay: 2000 × $0.30/M + 400 × $3/M = $0.0018
+  -> save: 75%! (the system message billed at the cache rate)`, cap: "a cache hit = pay only 10% of the normal input price — the longer the prompt, the more you save", lang: "txt" },
+      { code: String.raw`how to use it in code (Anthropic):
+# Anthropic uses system as a top-level param, separate from messages
+# (not role:"system" inside messages like OpenAI)
+
+client.messages.create(
+    model="claude-3-5-sonnet-latest",
+    system=[
+        {
+            "type": "text",
+            "text": "You are an expert... (a long 2000-token prompt)",
+            "cache_control": {"type": "ephemeral"}  # <- add this line
+        }
+    ],
+    messages=[
+        {"role": "user", "content": "the user's question"}
+    ]
+)
+
+# cache_control: ephemeral = keep the cache 5 minutes (expires if unused)
+# works with text or image content blocks
+
+real prices (Claude 3.5 Sonnet):
+  Normal input:   $3.00  / 1M tokens
+  Cache write:    $3.75  / 1M tokens (25% more the first time)
+  Cache read:     $0.30  / 1M tokens (90% cheaper!)
+
+-> if you reuse the system prompt every round:
+  Round 1: pay cache write ($3.75)
+  Round 2+: pay cache read ($0.30) = save 92%`, lang: "txt" },
+      { code: String.raw`analysis: is it worth it? (a customer-support example)
+
+assume: system prompt 3000 tokens, average question 200 tokens
+        1000 requests/day
+
+no caching:
+  1000 × (3000+200) × $3/M = $9.60/day
+
+with caching (system prompt cached):
+  round 1:    3000 × $3.75/M = $0.0113 (cache write)
+  round 2-1000: 3000 × $0.30/M + 200 × $3/M
+              = $0.0009 + $0.0006 = $0.0015/round
+  total: $0.0113 + 999 × $0.0015 = $1.51/day
+
+save: $9.60 -> $1.51 = 84%!
+
+-> caching is worth it most when:
+  1. the system prompt is long (>1000 tokens)
+  2. you reuse the same prompt many rounds
+  3. it isn't batch processing (batch is already 50% off)`, cap: "caching is truly worth it only when the prompt is long + reused many rounds — for a single send it isn't", lang: "txt" },
+
+      { h: "🔬 Deep Dive C: Tool / Function Calling — how an LLM 'calls a function'" },
+      { p: "**Picture it:** an LLM can't run code or fetch live data itself — it only produces 'text'. Tool calling is the mechanism for it to **say 'please call function X with these args'**, and you (the code) actually run it and feed the result back. This is the foundation of every agent." },
+      { p: "**Mechanism — a 4-beat cycle:**" },
+      { code: String.raw`1. we describe a tool to the model (name + description + JSON schema of args):
+   tools = [{
+     "name": "get_weather",
+     "description": "get a city's current temperature",
+     "input_schema": {"type":"object",
+       "properties":{"city":{"type":"string"}}, "required":["city"]}
+   }]
+
+2. the model 'decides' it needs the tool -> replies with a tool_use block:
+   { "type":"tool_use", "id":"tu_01", "name":"get_weather",
+     "input": {"city":"Bangkok"} }     <- not an answer, but a 'call request'
+
+3. we run the real function then send the result back as a tool_result:
+   { "type":"tool_result", "tool_use_id":"tu_01",
+     "content": "{\"temp\": 32}" }
+
+4. the model takes the result -> answers in natural language: "Bangkok is 32°C now"`, cap: "the model didn't run get_weather itself — it just 'asked' us to, and we fed the result back, looping until an answer", lang: "txt" },
+      { p: "**Under the hood it's structured output:** when the model generates the tool_use, it's constrained-decoded so the args match input_schema exactly (like Deep Dive A) — giving always-parseable args, not random text." },
+      { code: String.raw`worked trace: "is Bangkok or Chiang Mai hotter?"
+
+  user -> model
+  model -> tool_use get_weather(city="Bangkok")    [tu_01]
+           tool_use get_weather(city="Chiang Mai")  [tu_02]  <- can call in parallel
+  we run 2 times -> tool_result tu_01={temp:32}, tu_02={temp:28}
+  model -> "Bangkok is hotter (32°C vs 28°C)"    <- answers from real results
+
+-> loop: the model can ask for more tools over several rounds before the final answer (= the agent loop)`, cap: "the model can loop requesting tools (and in parallel) before concluding — this is the core of ReAct/agents", lang: "txt" },
+      { note: "Pitfalls: (1) you must send the original tool_use block back in the history unmodified (the model must see what it asked for), (2) if the function errors, send a tool_result with is_error=true so the model knows and retries/tells the user, (3) you need an iteration cap (max iterations) to prevent an endless loop." },
+      { qa: [
+        { q: "Can an LLM run functions/call APIs itself?", a: "No — it only produces text. Tool calling is it 'asking' us to run (tool_use) and us feeding the result back (tool_result) so it can answer." },
+        { q: "How does the model know which tool to call, with what args?", a: "From the name + description + input_schema we provide, the model matches the question to a suitable tool, then constrained-decodes the args to match the schema." },
+        { q: "Why is tool calling the foundation of an agent?", a: "An agent is a loop of 'think -> call a tool -> see the result -> think more' (ReAct). Tool calling is the 'call a tool + get the result' mechanism that makes that loop real." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Anthropic — Messages API", url: "https://docs.anthropic.com/en/api/messages", note: "all parameters" },
+        { label: "Anthropic — Context windows", url: "https://docs.anthropic.com/en/docs/build-with-claude/context-windows", note: "how the context window works" },
+        { label: "LangChain — structured output", url: "https://python.langchain.com/docs/concepts/structured_outputs/", note: "with_structured_output()" },
+        { label: "Anthropic — Prompt caching deep dive", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "caching mechanism + real prices + examples" },
+        { label: "OpenAI — Structured Outputs guide", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "constrained decoding, OpenAI side" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "Anthropic — Prompt caching", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "cache_control + cache prices" },
+        { label: "OpenAI — Structured Outputs", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "force a schema, OpenAI side" },
+        { label: "OpenAI — Prompt caching", url: "https://platform.openai.com/docs/guides/prompt-caching", note: "caching, OpenAI side" },
+        { label: "Google — Gemini context caching", url: "https://ai.google.dev/gemini-api/docs/caching", note: "caching, Gemini side" },
+        { label: "Anthropic — Models & pricing", url: "https://docs.anthropic.com/en/docs/about-claude/models", note: "compare Haiku/Sonnet/Opus, pick by task" },
+      ]},
+      { h: "🎬 Video lessons (deeper)" },
+      { links: [
+        { label: "Understand LLM Context Windows", url: "https://www.youtube.com/watch?v=oOL0WY1b_x4", note: "context window directly" },
+        { label: "Build Hour: Prompt Caching (OpenAI)", url: "https://www.youtube.com/watch?v=tECAkJAI_Vk", note: "a full workshop on caching" },
+        { label: "Caching Strategies to Slash Your LLM Bill + Demo", url: "https://www.youtube.com/watch?v=j9wVKM89XFU", note: "design a token budget to cut cost" },
+        { label: "The Secret to Faster & Cheaper LLM Apps — Prompt Caching", url: "https://www.youtube.com/watch?v=etYgu0Q50vI", note: "caching, made easy" },
+      ]},
+    ],
+    foundations: [
+      { h: "Anatomy of one LLM call (structured)" },
+      { code: String.raw`# pip install langchain-anthropic pydantic
+from langchain_anthropic import ChatAnthropic
+
+llm = ChatAnthropic(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=200,              # output cap
+    temperature=0,              # randomness (0 = steady)
+).with_structured_output(Review)  # force the result format
+
+parsed = llm.invoke(messages)   # get a Review object directly
+parsed.sentiment                 # "positive" — usable right away`, cap: "set up once at module level, reuse every round", lang: "py" },
+      { h: "Why a schema matters more than you think" },
+      { table: { head: ["no schema", "with schema (pydantic)"], rows: [
+        ["get a string, parse it yourself", "get a ready-to-use object"],
+        ["the LLM may answer off-format", "Literal forces accepted values"],
+        ["numbers may be out of range", "Field(ge=0, le=100) bounds the range"],
+        ["fails silently", "a validate error is caught immediately"],
+      ]}},
+      { h: "fields cost — design a lean schema" },
+      { p: "Every field you have the LLM generate = output tokens you pay for. Keep only fields the downstream actually uses, dropping what you'd generate then discard, to reduce output tokens." },
+    ],
+    architecture: [
+      { h: "Separate the prompt from the code" },
+      { p: "Keep the system prompt as a separate file (e.g. `prompts/*.json` or `.txt`) and load it — edit the prompt without touching code, and it makes caching work (constant content)." },
+      { code: String.raw`import json
+from pathlib import Path
+SYSTEM_PROMPT = json.dumps(
+    json.loads(Path("prompts/review.json").read_text(encoding="utf-8")),
+    separators=(",", ":"),   # squeeze out whitespace -> save tokens
+)`, cap: "even the whitespace in JSON is squeezed out to reduce tokens", lang: "py" },
+      { h: "module-level client (created once)" },
+      { p: "Create the client/LLM at module import, not on every call — less overhead and the settings (model, temp, schema) live in one place." },
+      { h: "one prompt's token budget" },
+      { table: { head: ["Part", "Strategy"], rows: [
+        ["system prompt", "a squeezed JSON file + cache (cache_control)"],
+        ["long data", "summarize with a cheap model before sending"],
+        ["relevant data", "select with vector search (top-k)"],
+        ["output", "fitting max_tokens + a lean schema"],
+      ]}},
+    ],
+    dataflow: [
+      { h: "The flow of analyze(text)" },
+      { code: String.raw`text
+   |
+   |- build messages = [system(cached), user(text)]
+   |
+   |- llm.invoke(messages) -> Review (structured)
+   |      \- except -> fallback {neutral, 0}
+   |
+   \- return {sentiment, score, reason}`, cap: "cache the system before the LLM; a fallback after the LLM", lang: "txt" },
+      { h: "fallback when the LLM fails" },
+      { code: String.raw`try:
+    r = llm.invoke(messages)
+    result = r.model_dump()
+except Exception as e:
+    result = {"sentiment": "neutral", "score": 0, "reason": f"fail:{e}"}`, cap: "whether timeout/parse fail — get a neutral value and keep going", lang: "py" },
+    ],
+    implementation: [
+      { h: "🧪 A complete runnable example (copy and try)" },
+      { p: "Structure: schema (pydantic) -> ChatAnthropic + `with_structured_output` -> call with system(cached)+user -> return a ready object + fallback." },
+      { code: String.raw`# pip install langchain-anthropic pydantic
+import os
+from typing import Literal
+from pydantic import BaseModel, Field
+from langchain_anthropic import ChatAnthropic
+
+class Review(BaseModel):                       # the result's contract
+    sentiment: Literal["positive", "negative", "neutral"]
+    score: int = Field(ge=0, le=100)
+    reason: str = Field(default="", description="short, max 60 chars")
+
+llm = ChatAnthropic(model="claude-haiku-4-5-20251001",
+                    api_key=os.environ["ANTHROPIC_API_KEY"],
+                    max_tokens=200, temperature=0).with_structured_output(Review)
+SYSTEM = "You are a product-review analyst. Answer per the schema only."
+
+def analyze(text):
+    try:
+        r: Review = llm.invoke([
+            {"role": "system", "content": [
+                {"type": "text", "text": SYSTEM,
+                 "cache_control": {"type": "ephemeral"}}]},   # cache system -> cheaper
+            {"role": "user", "content": text}])
+        return r.model_dump()
+    except Exception as e:                       # LLM fails -> safe neutral value
+        return {"sentiment": "neutral", "score": 0, "reason": f"fail:{e}"}
+
+print(analyze("Great product, fast shipping, very impressed"))
+# {'sentiment': 'positive', 'score': 92, 'reason': '...'}`, cap: "structured output + prompt caching + max_tokens + fallback, all in one file", lang: "py" },
+      { ul: [
+        "`Review` — forces the result format (Literal/Field bound the values), get an object with no parsing",
+        "`cache_control: ephemeral` — cache the constant system prompt, cut cost",
+        "`max_tokens=200, temperature=0` — control output + steady results",
+        "try/except — a fallback from the start, the system doesn't break when the LLM fails",
+      ]},
+      { h: "production LLM-call checklist" },
+      { ul: [
+        "set `model`, `max_tokens`, `temperature` explicitly",
+        "use structured output whenever the result feeds further code",
+        "cache the constant system prompt",
+        "wrap with try/except + a sensible fallback",
+        "reduce tokens before sending: summarize, filter, squeeze whitespace",
+        "log token usage for the meter to read",
+      ]},
+      { h: "design the context window to fit the task" },
+      { table: { head: ["Task", "how much context", "why"], rows: [
+        ["summarize text", "the raw text (once)", "easy task, a cheap model is enough"],
+        ["answer from documents", "only the relevant chunks (top-k)", "no need to stuff the whole document"],
+        ["make a decision", "the previous step's summary", "feed the conclusion, not the raw"],
+      ]}},
+      { note: "Principle: **include the least that still answers correctly** — every token you cut is money and speed returned, and it helps the model focus." },
+    ],
+    tricks: [
+      { h: "Trick 1: squeeze the JSON system prompt" },
+      { p: "`json.dumps(..., separators=(',',':'))` cuts all whitespace — a long system prompt really saves tokens with no meaning change." },
+      { h: "Trick 2: summarize with a cheap model before the pricey one" },
+      { p: "Use a cheap model (Haiku/mini) to condense data first, then send the summary to the pricey model — 'pre-summarization' cuts the pricey model's cost a lot." },
+      { h: "Trick 3: a lean schema = cheap output" },
+      { p: "Drop unused fields from the output schema. Every field the LLM must generate is paid tokens." },
+      { h: "Trick 4: Literal + Field prevent drift" },
+      { p: "`Literal[...]` forces only the defined values, `Field(ge, le)` bounds numbers — reducing hallucination at the schema level." },
+      { h: "Trick 5: cache only the steady part" },
+      { p: "Cache the system prompt (constant), not the user message (changes every round) — put repeated content at the prompt's start for the highest cache hit." },
+    ],
+    eval: [
+      { qa: [
+        { q: "What is a context window?", a: "The max tokens a model takes per call (input+output combined) — like a desk, only what's on it does the model see, over it gets cut." },
+        { q: "Why are output tokens pricier than input?", a: "Generating new words uses more compute than reading — so control it with max_tokens and short results/lean schemas." },
+        { q: "How is structured output good?", a: "It forces a schema (pydantic) -> get an object with the right fields and types always, no parsing of free text, fewer bugs and hallucinations." },
+        { q: "What does prompt caching help with?", a: "It caches the prompt part repeated every time (e.g. the system prompt), paying full the first time and much less after." },
+        { q: "How do you pick a model by task?", a: "Easy/high-volume tasks use a cheap fast model (Haiku/mini/Flash); hard/decision tasks use a smarter model (Sonnet/GPT/Pro)." },
+        { q: "When do you use temperature=0?", a: "Tasks needing consistent results/decisions/extraction; creative tasks use higher values." },
+        { q: "How do you design a token budget to fit a task?", a: "Include the least context that still answers correctly: summarize with a cheap model, select with vector search, squeeze whitespace, drop unused fields, set max_tokens." },
+        { q: "What if the LLM answers oddly/fails?", a: "Wrap with try/except and return a safe fallback so the whole system keeps going." },
+      ]},
+    ],
+  },
 };

@@ -576,6 +576,43 @@ client.messages.create(
   2. ใช้ prompt เดียวกันซ้ำหลายรอบ
   3. ไม่ใช่ batch processing (batch ลดราคา 50% อยู่แล้ว)`, cap: "Caching คุ้มจริงเฉพาะเมื่อ prompt ยาว + ใช้ซ้ำหลายรอบ — ถ้าส่งครั้งเดียวไม่คุ้ม", lang: "txt" },
 
+      { h: "🔬 เจาะลึก C: Tool / Function Calling — ให้ LLM 'เรียกฟังก์ชัน' ได้ยังไง" },
+      { p: "**ภาพในหัว:** LLM รันโค้ดเองหรือดึงข้อมูลสดเองไม่ได้ — มันสร้างได้แค่ 'ข้อความ'. tool calling คือกลไกให้มัน **บอกว่า 'ช่วยเรียกฟังก์ชัน X ด้วย args นี้ที'** แล้วเรา (โค้ด) เป็นคนรันจริงและป้อนผลกลับ. นี่คือพื้นฐานของ agent ทุกตัว" },
+      { p: "**กลไก — วงจร 4 จังหวะ:**" },
+      { code: String.raw`1. เราอธิบาย tool ให้โมเดล (ชื่อ + คำอธิบาย + JSON schema ของ args):
+   tools = [{
+     "name": "get_weather",
+     "description": "ดูอุณหภูมิปัจจุบันของเมือง",
+     "input_schema": {"type":"object",
+       "properties":{"city":{"type":"string"}}, "required":["city"]}
+   }]
+
+2. โมเดล 'ตัดสินใจ' ว่าต้องใช้ tool → ตอบกลับเป็น tool_use block:
+   { "type":"tool_use", "id":"tu_01", "name":"get_weather",
+     "input": {"city":"Bangkok"} }     ← ไม่ใช่คำตอบ แต่เป็น 'คำขอเรียก'
+
+3. เรารันฟังก์ชันจริง แล้วส่งผลกลับเป็น tool_result:
+   { "type":"tool_result", "tool_use_id":"tu_01",
+     "content": "{\"temp\": 32}" }
+
+4. โมเดลรับผล → ตอบเป็นภาษาคน: "ตอนนี้กรุงเทพ 32°C ครับ"`, cap: "โมเดลไม่ได้รัน get_weather เอง — มันแค่ 'ขอ' ให้เรารัน แล้วเราป้อนผลกลับ วนจนได้คำตอบ", lang: "txt" },
+      { p: "**เบื้องหลังคือ structured output:** ตอนโมเดลสร้าง tool_use มันถูก constrained decoding ให้ args ตรง input_schema เป๊ะ (เหมือนเจาะลึก A) — จึงได้ args ที่ parse ได้เสมอ ไม่ใช่ข้อความมั่ว" },
+      { code: String.raw`worked trace: "อากาศกรุงเทพกับเชียงใหม่ที่ไหนร้อนกว่า?"
+
+  user → model
+  model → tool_use get_weather(city="Bangkok")    [tu_01]
+          tool_use get_weather(city="Chiang Mai")  [tu_02]  ← เรียกขนานได้
+  เรารัน 2 ครั้ง → tool_result tu_01={temp:32}, tu_02={temp:28}
+  model → "กรุงเทพร้อนกว่า (32°C เทียบ 28°C)"    ← ตอบจากผลจริง
+
+→ loop: model ขอ tool เพิ่มได้หลายรอบก่อนตอบสุดท้าย (= agent loop)`, cap: "model วนขอ tool ได้หลายรอบ (และขนานได้) ก่อนสรุป — นี่คือแกนของ ReAct/agent", lang: "txt" },
+      { note: "กับดัก: (1) ต้องส่ง tool_use block 'เดิม' กลับไปใน history ไม่ดัดแปลง (โมเดลต้องเห็นว่ามันขออะไรไป), (2) ถ้าฟังก์ชัน error ให้ส่ง tool_result ที่มี is_error=true ให้โมเดลรู้แล้วลองใหม่/บอก user, (3) ต้องมีเพดานรอบ (max iterations) กัน loop ไม่จบ" },
+      { qa: [
+        { q: "LLM รันฟังก์ชัน/เรียก API เองได้ไหม?", a: "ไม่ได้ — มันสร้างได้แค่ข้อความ. tool calling คือมัน 'ขอ' ให้เรารัน (tool_use) แล้วเราป้อนผลกลับ (tool_result) มันถึงเอาไปตอบต่อได้" },
+        { q: "โมเดลรู้ได้ยังไงว่าจะเรียก tool ไหน ด้วย args อะไร?", a: "จากชื่อ + description + input_schema ที่เราให้ไป โมเดลจับคู่คำถามกับ tool ที่เหมาะ แล้ว constrained decoding เติม args ให้ตรง schema" },
+        { q: "ทำไม tool calling = พื้นฐานของ agent?", a: "agent คือ loop 'คิด→เรียก tool→ดูผล→คิดต่อ' (ReAct). tool calling คือกลไก 'เรียก tool + รับผล' ที่ทำให้ loop นั้นเกิดขึ้นได้จริง" },
+      ]},
+
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Anthropic — Messages API", url: "https://docs.anthropic.com/en/api/messages", note: "พารามิเตอร์ทั้งหมด" },
