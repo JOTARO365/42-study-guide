@@ -2539,4 +2539,334 @@ diff outfile expected
 valgrind --leak-check=full ./pipex infile "ls" "cat" outfile`, lang: "bash" },
     ],
   },
+
+  "so_long": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "A 2D game: the player walks around collecting all collectibles then reaches the exit. Read the map from a `.ber` file (`0`=floor, `1`=wall, `C`=collectible, `E`=exit, `P`=player)." },
+      { h: "What must be validated before playing" },
+      { ul: [
+        "the file must end in .ber and be readable",
+        "the map is rectangular (every row the same width)",
+        "surrounded by walls 1 on every side",
+        "exactly 1 P, exactly 1 E, at least 1 C",
+        "there's a path from P to every C and the E (checked with flood fill)",
+      ]},
+      { note: "MiniLibX = a simple library to draw a window/images/handle events (mlx_init, mlx_new_window, mlx_put_image_to_window, mlx_hook, mlx_loop)" },
+      { h: "Background: why so_long stresses 'map checking' more than the game" },
+      { p: "The game itself (walk/collect/exit) isn't hard to write. What the subject stresses, and evaluators love to try, is **robustness against broken input** — wrong file extension, non-rectangular map, unclosed walls, no exit, dead ends. The program must not crash and must print a clean Error. So the heart is **strict parsing + validation**." },
+      { h: "Why flood fill to check the path (vs alternatives)" },
+      { table: { head: ["Way to check reachability", "pros/cons"], rows: [
+        ["Flood fill (4-direction recursion)", "very short ~5 lines, easy to grasp; fine for school-sized maps (recursion depth stays bounded)"],
+        ["BFS/DFS with your own queue/stack", "memory-controllable but longer code, you manage the queue yourself"],
+        ["A formula check", "impossible — 'reachability' must explore the real graph"],
+      ]}},
+      { p: "**Why flood fill:** it's DFS written as the shortest recursion, matching the project's map scale (not so big it stack-overflows). The idea is to 'flood' the area reachable from the player, and if any C/E is left un-flooded = unreachable = invalid map." },
+      { note: "Why on a 'copy': flood fill overwrites cells with 'V' to avoid revisiting — doing it on the real map would wreck it for playing, so copy it to check, then discard." },
+      { h: "Why store the map as char ** (an array of strings)" },
+      { p: "A `.ber` file is already multi-line text — split with `ft_split('\\n')` gives a `char**` where `grid[y][x]` is exactly cell (x,y), a 1:1 mapping from file to structure so checking/drawing/walking all use the same coordinates." },
+      { h: "Why a camera (not draw the whole map)" },
+      { p: "If the map is bigger than the window, drawing every cell overflows the screen and wastes work. The camera idea is to 'draw only the visible part', shifting the frame with the player — the same principle as any 2D game (viewport/scrolling)." },
+    ],
+    theory: [
+      { p: "so_long combines **graph + graphics + game** theory." },
+      { h: "1) Graph theory & connectivity" },
+      { p: "A graph = a set of **nodes** connected by **edges**. A game map is a kind of graph: each walkable cell = a node, adjacent cells (up/down/left/right) = edges. The question 'can you walk from P to C/E' = a **connectivity** problem in a graph." },
+      { h: "2) Graph traversal: DFS / BFS / Flood fill" },
+      { ul: [
+        "**DFS (Depth-First):** go as deep as possible then backtrack — easiest written with recursion",
+        "**BFS (Breadth-First):** spread out layer by layer — uses a queue, good for shortest paths",
+        "**Flood fill** = DFS/BFS that 'paints' every connected cell (like the paint bucket in Paint) — so_long uses it to check that flooding from P reaches all C/E",
+      ]},
+      { h: "3) Recursion & the call stack" },
+      { p: "Recursion = a function calling itself, with a **base case** to stop. Each call pushes a 'frame' (local vars + return point) onto the **call stack**. flood_fill calls itself in 4 directions — it must have a base case (hit a wall / already visited), or it never ends -> **stack overflow**." },
+      { note: "This is why flood fill suits school-sized maps, but a very large map needs BFS with a queue so the call stack doesn't overflow." },
+      { h: "4) 2D array / matrix" },
+      { p: "The map is stored as a 2D table accessed with `grid[y][x]` (y = row, x = column). In memory it's an array of pointers each pointing to an array of chars (one row)." },
+      { h: "5) Coordinate systems" },
+      { p: "Separate 2 systems: **grid coords** (x,y as cells) and **screen coords** (pixels). The conversion: `pixel = (cell - camera) * tile size`. Note the screen's y axis points **down** (not up like in maths) — a fundamental of computer graphics." },
+      { h: "6) Game loop & Event-driven programming" },
+      { p: "Normal programs run top to bottom then end, but games/GUIs are **event-driven**: enter an endless loop (`mlx_loop`) and 'wait for events' (keypress/window close) to fire callbacks you bound (hooks). This is the basic architecture of every interactive program." },
+      { h: "7) Finite State Machine (FSM)" },
+      { p: "A game has clear 'states' (playing / won / closed) and changes state on events. The FSM idea = a system that's in one state at a time with rules for transitions — useful for keeping game logic clear (and the same idea as LangGraph/pipelines in bigger systems)." },
+      { h: "8) Raster graphics: framebuffer, tile, sprite, double buffering" },
+      { ul: [
+        "**Raster/bitmap:** an image is a grid of pixels, each with a color",
+        "**Tile:** small repeated images (wall/floor) tiled into a scene — cheap and a 2D-game standard",
+        "**Sprite:** a movable object's image (player/coin) drawn over the scene",
+        "**Double buffering:** draw into an in-memory image fully first, then push it to screen once -> reduces flicker (the reason to draw into an image then put it once)",
+      ]},
+
+      { h: "🔬 Deep Dive A: DFS/BFS complexity + step-by-step flood fill" },
+      { p: "A graph traversal visits every node once and every edge a bounded number of times -> complexity **O(V + E)**. For a w×h grid map: V = w·h cells, each cell has ≤ 4 neighbours -> E ≈ 4V -> still O(V) = O(w·h) (linear in the number of cells)." },
+      { code: String.raw`flood_fill from P on a small grid (1=wall):
+  1 1 1 1            1 1 1 1
+  1 P 0 1     ->     1 V V 1     (V = flooded)
+  1 0 C 1            1 V V 1
+  1 1 1 1            1 1 1 1
+
+call order (DFS): fill(1,1)=P
+  -> mark V -> try right(2,1)=0 -> mark V
+      -> try right(3,1)=1 stop ; down(2,2)=C? ...keep going
+  -> ... until every connected cell is marked V
+
+check: any C/E left that isn't V? none -> all reachable /`, cap: "flood fill = DFS leaving a 'V' trail to avoid revisiting (the base case that makes the recursion stop)", lang: "txt" },
+
+      { h: "🔬 Deep Dive B: recursion, the call stack, and stack overflow" },
+      { p: "Every nested flood_fill call pushes a frame onto the call stack. The maximum depth = the length of the longest path through open space." },
+      { code: String.raw`the call stack when filling deep:
+  fill(1,1)
+   \ fill(2,1)
+      \ fill(3,1)
+         \ fill(4,1) ...     <- each level uses stack memory
+
+if the open area is huge (e.g. 5000x5000 straight line)
+the recursion depth may exceed the stack size (usually ~8 MB)
+-> stack overflow -> segfault
+
+-> for very large maps, switch to BFS with a queue (a loop, no recursion)
+  but the project's map size is small enough -> recursion is safe and shorter`, cap: "trade-off: recursion is short/readable but bounded by stack size", lang: "txt" },
+
+      { h: "🔬 Deep Dive C: deriving the camera formula (screen ↔ map coords)" },
+      { p: "We want the player always centred, so we move the camera with the player, then clamp so we don't show outside the map:" },
+      { code: String.raw`want the player centred:
+  cam = player - (number of tiles in half a screen)
+  cam_x = px - (WIN_W / TILE) / 2
+
+clamp so the camera doesn't pass the edge:
+  if cam < 0            -> cam = 0           (flush left/top)
+  if cam > map - screen -> cam = map - screen  (flush right/bottom)
+
+convert a cell (x,y) to a screen pixel:
+  screen_x = (x - cam_x) * TILE
+  screen_y = (y - cam_y) * TILE   (screen y points down!)`, cap: "it's a 'shift of frame of reference' — the same principle as a camera in any game", lang: "txt" },
+
+      { h: "🔬 Deep Dive D: a formal Finite State Machine" },
+      { p: "An FSM is defined by 5 parts (Q, Σ, δ, q₀, F). For so_long:" },
+      { code: String.raw`Q  (states)    = { playing, won, closed }
+S  (input)     = { press a direction, reach E with all coins, ESC/close window }
+q0 (start)     = playing
+F  (end states)= { won, closed }
+d  (transition):
+   playing --reach E with all coins--> won --> exit
+   playing --ESC/close-------------> closed --> exit
+   playing --press a direction (no wall)--> playing (update position)`, cap: "thinking in FSM makes the logic clear and complete — the same idea as state machines in big systems (e.g. LangGraph)", lang: "txt" },
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Graph theory — Wikipedia", url: "https://en.wikipedia.org/wiki/Graph_theory", note: "graph basics + connectivity" },
+        { label: "Flood fill — Wikipedia", url: "https://en.wikipedia.org/wiki/Flood_fill", note: "the area-fill algorithm + recursive/queue versions" },
+        { label: "VisuAlgo — DFS/BFS (animated)", url: "https://visualgo.net/en/dfsbfs", note: "watch graph traversal step by step" },
+        { label: "MiniLibX docs (Harm Smits 42docs)", url: "https://harm-smits.github.io/42docs/libs/minilibx", note: "the most detailed mlx guide for 42 students" },
+        { label: "Game Programming Patterns — Game Loop", url: "https://gameprogrammingpatterns.com/game-loop.html", note: "the theory of a game/GUI event loop" },
+        { label: "Game Programming Patterns — State (FSM)", url: "https://gameprogrammingpatterns.com/state.html", note: "Finite State Machines explained for game devs" },
+      ]},
+    ],
+    foundations: [
+      { h: "0) Groundwork: why keep everything in one struct" },
+      { p: "A game has a lot of 'state' (window, images, map, player position, move count...). Keeping them as separate variables makes passing them around painful, so we put them in **one struct `t_game`** and pass 'its address' (`&game`) to every function." },
+      { h: "1) The struct is built in layers (nested structs)" },
+      { code: String.raw`typedef struct s_map {
+    char  **grid;        // map = array of strings (each string = 1 row)
+    int   width, height; // size (in tiles)
+    int   collectibles, exits, players;  // counted at parse time
+}   t_map;
+
+typedef struct s_game {
+    void  *mlx;          // the mlx handle (opaque pointer)
+    void  *win;          // window
+    void  *img[5];       // 5 images (wall/floor/player/coin/exit)
+    t_map map;           // a struct nested in a struct
+    int   px, py;        // player position
+    int   collected, moves;
+    int   cam_x, cam_y;  // camera corner
+}   t_game;`, cap: "t_map sits 'inside' t_game (not a pointer) -> access via game.map.width", lang: "c" },
+      { note: "`void *` = an untyped pointer. mlx returns void* for us to store and hand back to mlx without knowing its internals (an opaque pointer)." },
+      { h: "2) char **grid = the 2D map" },
+      { code: String.raw`grid -> [ "111111" ]   <- grid[0]  (top row)
+        [ "10C0E1" ]   <- grid[1]
+        [ "111111" ]   <- grid[2]
+        [  NULL    ]
+grid[y][x] = the char at cell (x,y)   e.g. grid[1][2] = 'C'`, cap: "an array of strings; grid[y] = a row, grid[y][x] = one char" },
+      { h: "3) Make the struct clean with ft_bzero" },
+      { code: String.raw`t_game game;
+ft_bzero(&game, sizeof(t_game));   // zero every byte before use`, cap: "trick: zero the whole struct first -> every pointer is NULL, counters 0 -> safe to free even if an error happens early", lang: "c" },
+      { p: "Without it, the struct's values are garbage — accidentally freeing a garbage pointer = crash." },
+      { h: "4) Why pass &game (a pointer), not game" },
+      { p: "Passing `game` plainly makes C **copy the whole struct** (slow + changes don't stick to the real one). Passing `&game` (the address) -> every function edits the same real one, e.g. `try_move` bumps `game->moves` and the whole game sees the new value." },
+      { code: String.raw`void try_move(t_game *game, int dx, int dy) {
+    game->px = nx;        // game-> because game is a pointer
+    game->moves++;        // edits the real one, seen everywhere
+}`, lang: "c" },
+      { h: "5) Memory: what's allocated, how it's freed" },
+      { ul: [
+        "**grid** comes from ft_split -> free every row + the array (in free_game)",
+        "**the grid copy** in validate (for flood fill) -> free right after checking, in the same function",
+        "**textures (img[])** come from mlx -> free with `mlx_destroy_image`, not plain free",
+        "**window/display** -> `mlx_destroy_window` / `mlx_destroy_display`",
+      ]},
+      { code: String.raw`copy = copy_grid(game);          // allocate a copy
+flood_fill(copy, game->px, game->py);
+ok = check_reachable(game, copy);
+i = 0;                            // then free the copy immediately
+while (i < game->map.height)
+    free(copy[i++]);
+free(copy);`, cap: "validate.c: the copy is allocated and freed within one function — it never escapes to leak elsewhere", lang: "c" },
+      { note: "every error_exit calls free_game before exit -> even a mid-parse bad map doesn't leak (check with valgrind)" },
+    ],
+    architecture: [
+      { code: String.raw`src/main.c      argc check -> parse -> validate -> mlx -> hooks -> loop
+src/parse.c     read the .ber file -> ft_split into a grid -> count C/E/P
+src/validate.c  check walls + flood fill for the path (on a copy of the grid)
+src/render.c    load textures (.xpm) + draw tile by tile + camera
+src/player.c    handle_key (WASD/arrows) + try_move + win condition
+src/error.c     error_exit
+src/free.c      free all memory
+*_bonus.c       add: gravity/jump, enemies, multiple levels, animation`, cap: "file map" },
+      { h: "Main struct (so_long.h)" },
+      { code: String.raw`typedef struct s_game {
+    void  *mlx; void *win; void *img[5];
+    t_map map;
+    int   px, py;          // player position (in tiles)
+    int   collected, moves;
+    int   cam_x, cam_y;    // camera corner (for big maps)
+}   t_game;`, lang: "c" },
+    ],
+    dataflow: [
+      { p: "Trace **every function** of so_long — what it gets from whom and passes to whom — focusing on the flow of `&game` and `grid`" },
+      { h: "Call flow overview" },
+      { code: String.raw`main(ac, av)
+ |- ac != 2 ? -> Error
+ |- ft_bzero(&game)                       <- clear the struct so pointers = NULL
+ |- parse_map(&game, av[1])
+ |     |- read_file -> check .ber + read > ft_strdup(buf)
+ |     |- build_grid -> ft_split('\n') > game.map.grid (char**)
+ |     \- count_chars -> scan_tile (every cell) > count C/E/P, store px,py
+ |- validate_map(&game)
+ |     |- check_walls
+ |     \- copy_grid -> flood_fill(copy, px, py) -> check_reachable
+ |- init_mlx(&game) -> mlx_init / mlx_new_window
+ |- load_textures(&game) -> mlx_xpm_file_to_image x5
+ |- render_map(&game) -> update_camera -> render_tile (every visible cell)
+ |- mlx_key_hook(handle_key) ; mlx_hook(17, handle_close)
+ \- mlx_loop ----------> wait for events...
+
+[event] handle_key(key) -> try_move(dx,dy) -> handle_tile (collect/win) -> render_map`, cap: "every function takes one &game (pointer) -> they share the same game state", lang: "txt" },
+      { note: "the main flow: the **grid (char**)** is born in build_grid -> scanned by count_chars -> copied for flood_fill in validate -> read by render -> edited (coin pickup) by try_move" },
+
+      { h: "🔗 Trace the life of the map (av[1] -> the image on screen)" },
+      { code: String.raw`av[1] = "map.ber"
+  \> read_file: check .ber ending -> open -> read -> ft_strdup -> content
+  \> build_grid: ft_split(content,'\n') -> grid = ["111","1P0",...] (char**)
+  \> count_chars -> scan_tile: see 'P' -> game.px,py = coords, then set the cell to '0'
+  \> validate_map: copy_grid -> flood_fill from (px,py) -> check all C/E reached
+  \> render_map: read grid[y][x] -> draw a tile at (x-cam)*TILE
+  \> handle_key: move px,py + if stepping on 'C' -> grid[y][x]='0', collected++`, cap: "P's coords move from the grid into px,py at parse time -> everything else uses px,py", lang: "txt" },
+
+      { h: "main.c / parse.c — bring the map into the system" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns/passes · to whom"], rows: [
+        ["main", "start: parse->validate->draw->loop", "ac,av · from OS", "calls every main function"],
+        ["init_mlx (static)", "open mlx + window (clamp size)", "&game · from main", "set game.mlx, game.win"],
+        ["read_file (static)", "check .ber + read the file into a string", "&game,path · from parse_map", "char* (file content) -> build_grid"],
+        ["build_grid (static)", "split into a grid + check rectangular", "&game,content · from parse_map", "set game.map.grid/width/height"],
+        ["scan_tile (static)", "look at one cell: count C/E/P, capture P's coords", "&game,x,y · from count_chars", "update counters + px,py"],
+        ["count_chars (static)", "loop every cell + check P=1,E=1,C>=1", "&game · from parse_map", "calls scan_tile; error if wrong"],
+        ["parse_map", "drive the whole parse stage", "&game,file · from main", "read_file->build_grid->count_chars"],
+      ]}},
+      { h: "validate.c — check it's actually playable" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns · to whom"], rows: [
+        ["check_walls (static)", "check the border is all wall '1'", "&game · from validate_map", "error if not closed"],
+        ["copy_grid (static)", "copy the grid (to not destroy the real one)", "&game · from validate_map", "char** copy -> flood_fill"],
+        ["flood_fill (static)", "flood the reachable area from (px,py)", "copy,x,y · from validate_map", "mark 'V' (recursive, 4 directions)"],
+        ["check_reachable (static)", "any C/E left un-flooded?", "&game,copy · from validate_map", "1/0"],
+        ["validate_map", "drive the check + free the copy", "&game · from main", "calls the 4 above"],
+      ]}},
+      { h: "render.c / player.c — draw + play" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Result/passes"], rows: [
+        ["load_textures", "load .xpm images into img[]", "&game · from main", "set game.img[0..4]"],
+        ["update_camera (static)", "compute the camera corner per player + clamp", "&game · from render_map", "set cam_x,cam_y"],
+        ["render_tile (static)", "draw one cell (floor + object over it)", "&game,x,y · from render_map", "mlx_put_image"],
+        ["render_map", "draw the whole visible scene + player", "&game · from main/try_move", "update_camera + loop render_tile"],
+        ["handle_key", "take a key -> choose direction/exit", "key,&game · from mlx", "calls try_move / exit"],
+        ["try_move (static)", "check collision/conditions then move", "&game,dx,dy · from handle_key", "edit px,py + handle_tile + render"],
+        ["handle_tile (static)", "step on C=collect, E=win", "&game,nx,ny · from try_move", "collected++ / win->exit"],
+        ["handle_close", "close the window (X button)", "&game · from mlx event 17", "free_game + exit"],
+      ]}},
+      { h: "error.c / free.c" },
+      { table: { head: ["Function", "Why it exists", "Gets · from whom", "Result"], rows: [
+        ["error_exit", "print Error + free memory + exit", "&game,msg · from any error path", "free_game -> exit(1)"],
+        ["free_game", "free grid + textures + window", "&game · from error/close", "free everything"],
+      ]}},
+    ],
+    implementation: [
+      { h: "1) Read and check the file (parse.c)" },
+      { code: String.raw`if (len < 5 || ft_strncmp(file + len - 4, ".ber", 4))
+    error_exit(game, "Invalid file extension (expected .ber).");
+...
+game->map.grid = ft_split(content, '\n');     // split into rows
+game->map.width = ft_strlen(grid[0]);
+// every row must be the same width -> else "not rectangular"`, lang: "c" },
+      { h: "2) Scan each cell + capture P's position (parse.c)" },
+      { code: String.raw`if (c == 'P') {
+    game->px = x; game->py = y;
+    game->map.players++;
+    game->map.grid[y][x] = '0';   // turn P into floor (store position in px/py instead)
+}
+else if (c != '0' && c != '1' && c != 'C' && c != 'E')
+    error_exit(game, "Invalid characters in map.");`, cap: "trick: turn P into 0 immediately, keeping the coords in the struct", lang: "c" },
+      { h: "3) Flood fill to check the path (validate.c)" },
+      { code: String.raw`static void flood_fill(char **grid, int x, int y) {
+    if (grid[y][x] == '1' || grid[y][x] == 'V')
+        return ;
+    grid[y][x] = 'V';                  // mark as visited
+    flood_fill(grid, x + 1, y);
+    flood_fill(grid, x - 1, y);
+    flood_fill(grid, x, y + 1);
+    flood_fill(grid, x, y - 1);
+}`, cap: "flood from P; if any C/E is left unmarked after -> unreachable = invalid map", lang: "c" },
+      { note: "important: flood fill runs on a 'copy' of the grid (copy_grid) so it doesn't destroy the real map used for playing." },
+      { h: "4) Draw with a camera (render.c)" },
+      { code: String.raw`game->cam_x = game->px - WIN_W / (2 * TILE);  // camera follows the player
+// clamp so the camera doesn't pass the map edge ...
+sx = (x - game->cam_x) * TILE;                // screen coord = map coord - camera
+mlx_put_image_to_window(mlx, win, img[IMG_FLOOR], sx, sy);
+if (c == '1') ... img[IMG_WALL] ...`, cap: "draw the floor first on every cell then draw the object over it — supports maps bigger than the screen", lang: "c" },
+      { h: "5) Move the player + win condition (player.c)" },
+      { code: String.raw`if (tile == '1') return ;                                   // hit a wall
+if (tile == 'E' && game->collected < game->map.collectibles)
+    return ;                                                // not all collected, can't enter the exit
+game->px = nx; game->py = ny; game->moves++;
+ft_printf("Moves: %d\n", game->moves);                      // print the move count to stdout`, cap: "step on C -> collected++, reach E with all coins -> \"You win!\" + exit", lang: "c" },
+      { code: String.raw`mlx_key_hook(game.win, handle_key, &game);
+mlx_hook(game.win, 17, 0, handle_close, &game);  // event 17 = close window (X button)
+mlx_loop(game.mlx);`, cap: "main.c: bind events then enter the loop", lang: "c" },
+    ],
+    tricks: [
+      { ul: [
+        "**flood fill on a copy** — don't touch the real grid; check the path without destroying the map",
+        "**replace P with 0 immediately** and keep the coords in px/py -> fewer special cases in render/move",
+        "**camera = player coord - half a screen** then clamp to the edges -> supports maps bigger than the window",
+        "**draw the floor first** always, then draw wall/coin/exit over it -> transparent .xpm works right",
+        "**event 17** (DestroyNotify) for the window's X button — hook it separately from the ESC key",
+        "**free everything before exit** — textures (mlx_destroy_image), window, grid",
+        "**check .ber + rectangular + surrounding walls + count P/E/C** all before opening the window",
+      ]},
+    ],
+    eval: [
+      { qa: [
+        { q: "How do you validate the map?", a: ".ber extension, opens/non-empty, rectangular, surrounded by walls, P=1 E=1 C>=1, and flood fill confirms P can reach every C and the E." },
+        { q: "What is flood fill, why on a copy?", a: "An algorithm that fills from a start point (4-direction recursion) to find reachable area; on a copy because it marks cells as 'V', which would destroy the real map used for playing." },
+        { q: "Why turn P into 0?", a: "The player's position is kept in px/py, so the cell they stand on is normal floor, simplifying the walk/draw logic." },
+        { q: "What if the map is bigger than the window?", a: "Use a camera: compute cam_x/cam_y per the player then clamp to the edges, drawing only the tiles within the screen frame." },
+        { q: "How do you count moves, where shown?", a: "moves++ on each successful move, then ft_printf to stdout (the subject requires displaying the move count)." },
+        { q: "How do you prevent memory leaks?", a: "free_game() frees grid, textures (mlx_destroy_image), window/display on every error path and at game close; check with valgrind." },
+        { q: "How do you handle the window close (X) button?", a: "mlx_hook on event 17 (DestroyNotify) calls handle_close -> free + exit(0)." },
+        { q: "What if you reach the exit before collecting all?", a: "try_move checks collected < collectibles and returns — you can't enter E until everything is collected." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./so_long maps/valid.ber          # playable
+./so_long maps/not_closed.ber     # Error (walls not closed)
+./so_long maps/no_path.ber        # Error (unreachable)
+valgrind --leak-check=full ./so_long maps/valid.ber`, lang: "bash" },
+    ],
+  },
 };
