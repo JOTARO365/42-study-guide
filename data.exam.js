@@ -609,3 +609,630 @@ rm += open;                                            // '(' ที่เหล
     ],
   },
 });
+
+/* ===================== EXAM RANK 04 ===================== */
+window.TEACHING_DATA.push({
+  id: "exam_rank04",
+  name: "Exam Rank 04",
+  tag: { th: "ด่านหิน — process & file descriptor (ft_popen, picoshell, sandbox) และ recursive-descent parser (vbc, argo). ใช้สกิล pipex/minishell + การเขียน parser ตามไวยากรณ์",
+         en: "The tough one — processes & file descriptors (ft_popen, picoshell, sandbox) and recursive-descent parsers (vbc, argo). Pipex/minishell skills + grammar-driven parsing" },
+  accent: "#f472b6",
+  sections: {
+    principle: [
+      { h: "Exam Rank 04 — โหดสุดในสาย C" },
+      { p: "2 level, แต่ละข้อ 'เล็กแต่ลึก'. ต้องผสมหลายสกิลพร้อมกัน: **process control** (fork/pipe/dup2/exec/wait/signal) สำหรับ level 1 และ **การเขียน parser ตามไวยากรณ์** (recursive descent) สำหรับ level 2" },
+      { h: "2 level" },
+      { table: { head: ["Level", "แนว", "โจทย์"], rows: [
+        ["**1**", "Process & fd", "ft_popen, picoshell, sandbox"],
+        ["**2**", "Recursive-descent parser", "vbc (นิพจน์เลข), argo (JSON)"],
+      ]}},
+      { note: "level 1 = ต่อยอดจาก pipex/minishell โดยตรง (ถ้าทำ 2 โปรเจกต์นั้นมาแล้วจะคุ้น). level 2 = grammar เดียวกันทั้ง vbc/argo — เข้าใจ recursive descent ครั้งเดียวทำได้ทั้งคู่" },
+      { h: "ทำไมยาก" },
+      { ul: [
+        "level 1 ต้อง **ปิด fd ครบ** และ **ไม่ leak process** (zombie) — พลาดจุดเดียว = ค้าง/ตก",
+        "level 2 ต้องจัดการ **precedence + วงเล็บ + error token** ให้ตรงเป๊ะ",
+        "หลายข้อให้ **โครงโค้ด + main** มาแล้ว ต้องอ่านให้เข้าใจก่อนเติม",
+      ]},
+    ],
+    theory: [
+      { p: "Pool โจทย์จริง Rank 04" },
+      { h: "Level 1 — Process & File Descriptor" },
+      { table: { head: ["โจทย์", "ทำอะไร", "allowed"], rows: [
+        ["`ft_popen`", "รัน cmd แล้วคืน fd ต่อกับ output ('r') หรือ input ('w')", "pipe, fork, dup2, execvp, close, exit"],
+        ["`picoshell`", "รัน pipeline หลายคำสั่งต่อกันด้วย pipe", "close, fork, wait, exit, execvp, dup2, pipe"],
+        ["`sandbox`", "รัน f() ในลูก เช็คว่า 'ดี/แย่' (signal/exit≠0/timeout)", "fork, waitpid, alarm, sigaction, kill, printf..."],
+      ]}},
+      { h: "Level 2 — Recursive-Descent Parser" },
+      { table: { head: ["โจทย์", "ทำอะไร", "ไวยากรณ์"], rows: [
+        ["`vbc`", "ประเมินนิพจน์ + * และวงเล็บ (เลข 0-9)", "expr/term/factor"],
+        ["`argo`", "parse JSON (number/string/map) เป็น AST แล้วพิมพ์กลับ", "value/number/string/map"],
+      ]}},
+      { note: "vbc กับ argo คือ recursive-descent เหมือนกัน ต่างแค่ 'ไวยากรณ์' — โครง parse_X() เรียกซ้อนกันตาม grammar เดียวกัน" },
+    ],
+    foundations: [
+      { p: "2 เสาหลัก Rank 04: pattern process/fd และโครง recursive-descent parser" },
+      { h: "1) fork + pipe + dup2 (คืน fd ของ cmd)" },
+      { code: String.raw`int p[2];
+pipe(p);                         // p[0]=read, p[1]=write
+if (fork() == 0) {               // child = ตัวรันคำสั่ง
+    dup2(p[1], 1);               // 'r': cmd เขียน stdout → เข้าท่อ
+    close(p[0]); close(p[1]);
+    execvp(file, argv);
+    exit(1);                     // exec fail
+}
+close(p[1]);                     // พ่อปิดปลายเขียน
+return (p[0]);                   // คืนปลายอ่าน = ดึง output ของ cmd ได้`, cap: "'r' = อ่าน output ของ cmd (dup stdout→pipe, คืน read end). 'w' = ป้อน input (dup stdin←pipe, คืน write end)", lang: "c" },
+      { h: "2) waitpid + ถอดรหัสสถานะลูก (sandbox)" },
+      { code: String.raw`int status;
+waitpid(pid, &status, 0);
+if (WIFEXITED(status)) {
+    int code = WEXITSTATUS(status);      // จบปกติ → exit code
+}
+if (WIFSIGNALED(status)) {
+    int sig = WTERMSIG(status);          // ถูก signal ฆ่า (segfault=11..)
+}
+// timeout: ตั้ง alarm(timeout) ก่อน + จับ SIGALRM → kill(pid) ลูก`, cap: "WIFEXITED/WEXITSTATUS = จบเอง; WIFSIGNALED/WTERMSIG = ถูกฆ่า; alarm = ตัวจับ timeout", lang: "c" },
+      { h: "3) โครง Recursive-Descent Parser (หัวใจ level 2)" },
+      { code: String.raw`// grammar (vbc): จาก precedence ต่ำ → สูง
+//   expr   = term   ('+' term)*
+//   term   = factor ('*' factor)*
+//   factor = digit | '(' expr ')'
+
+int parse_expr(void) {
+    int v = parse_term();
+    while (peek() == '+') { next(); v = v + parse_term(); }
+    return (v);
+}
+int parse_term(void) {
+    int v = parse_factor();
+    while (peek() == '*') { next(); v = v * parse_factor(); }
+    return (v);
+}
+int parse_factor(void) {
+    if (isdigit(peek())) return (next() - '0');
+    if (peek() == '(') {
+        next();
+        int v = parse_expr();
+        if (peek() != ')') error_token(peek());
+        next();                                  // กิน ')'
+        return (v);
+    }
+    error_token(peek());                          // token ไม่คาดคิด
+    return (0);
+}`, cap: "ฟังก์ชัน 1 ตัวต่อ 1 กฎไวยากรณ์; precedence ออกมาเองจาก 'ใครเรียกใคร' (expr เรียก term เรียก factor)", lang: "c" },
+      { note: "ทำไม * ผูกแน่นกว่า +: เพราะ parse_term (ชั้น *) ถูกเรียก 'ข้างใน' parse_expr (ชั้น +) → * ถูกจับกลุ่มก่อนเสมอ. วงเล็บรีเซ็ตกลับไป parse_expr" },
+    ],
+    architecture: [
+      { h: "examshell — Rank 04" },
+      { ul: [
+        "หลายข้อให้ **main + โครง** มา (picoshell มี main, vbc/argo ให้ node struct + helper) → อ่านก่อนเขียน",
+        "level 1 เทสต์ leak fd/process จริง — ปิดให้ครบ, waitpid ทุกลูก",
+        "level 2 เทสต์ว่า output = input เป๊ะ (argo) หรือผลเลขถูก (vbc) + error message ตรง",
+      ]},
+      { code: String.raw`# ft_popen / picoshell — เทสต์ pipeline:
+./picoshell echo squalala "|" cat "|" sed 's/a/b/g'   # → squblblb
+# sandbox — เทสต์กับ f() ที่ segfault/loop/exit(0):
+# vbc — เทสต์ precedence + paren + error:
+./vbc '3+4*5' | cat -e        # 23
+./vbc '(3+4)*5' | cat -e       # 35
+./vbc '1+' | cat -e            # Unexpected end of input
+./vbc '1+2)' | cat -e          # Unexpected token ')'`, cap: "vbc: ไล่เทสต์ precedence, วงเล็บ, และ error 2 แบบ (token / end of input)", lang: "bash" },
+    ],
+    dataflow: [
+      { p: "เจาะลึกข้อหลัก Rank 04" },
+
+      { h: "🔬 ft_popen — รัน cmd แล้วคืน fd ต่อ output/input" },
+      { code: String.raw`int ft_popen(const char *file, char *const argv[], char type) {
+    int p[2];
+    if (!file || !argv || (type != 'r' && type != 'w')) return (-1);
+    if (pipe(p) == -1) return (-1);
+    pid_t pid = fork();
+    if (pid == -1) { close(p[0]); close(p[1]); return (-1); }
+    if (pid == 0) {
+        if (type == 'r') dup2(p[1], 1);    // อ่าน output → ลูกเขียน stdout เข้าท่อ
+        else             dup2(p[0], 0);    // ป้อน input  → ลูกอ่าน stdin จากท่อ
+        close(p[0]); close(p[1]);
+        execvp(file, argv);
+        exit(1);
+    }
+    if (type == 'r') { close(p[1]); return (p[0]); }   // พ่อคืน read end
+    close(p[0]); return (p[1]);                         // พ่อคืน write end
+}`, cap: "'r' พ่อคืน read end (อ่าน output cmd); 'w' คืน write end (ป้อน input cmd). ปิดปลายตรงข้ามเสมอ", lang: "c" },
+
+      { h: "🔬 picoshell — ต่อ pipeline หลายคำสั่ง (rolling pipe)" },
+      { p: "วน fork ทีละคำสั่ง เก็บ 'read end ของท่อก่อนหน้า' เป็น stdin คำสั่งถัดไป — pattern เดียวกับ exec_pipeline ใน minishell" },
+      { code: String.raw`int picoshell(char **cmds[]) {
+    int in = 0, p[2], i = 0;
+    pid_t pid;
+    while (cmds[i]) {
+        if (cmds[i + 1]) pipe(p);                // มีคำสั่งถัดไป → สร้างท่อ
+        pid = fork();
+        if (pid == 0) {
+            if (in) { dup2(in, 0); close(in); }   // อ่านจากท่อก่อนหน้า
+            if (cmds[i + 1]) { dup2(p[1], 1); close(p[0]); close(p[1]); }
+            execvp(cmds[i][0], cmds[i]);
+            exit(1);
+        }
+        if (in) close(in);
+        if (cmds[i + 1]) { close(p[1]); in = p[0]; } // ★ ปิด write ทันที
+        i++;
+    }
+    while (wait(NULL) > 0);                        // เก็บลูกทุกตัว
+    return (0);
+}`, cap: "พ่อปิด write end ทันทีทุกรอบ → EOF ส่งต่อถูก ไม่ค้าง (เหมือน minishell deep dive)", lang: "c" },
+
+      { h: "🔬 sandbox — ตัดสินว่า f() 'ดี' หรือ 'แย่'" },
+      { p: "fork → ลูกรัน f() แล้ว exit(0); พ่อ alarm(timeout) + waitpid. ถอดสถานะ: signal=แย่, exit≠0=แย่, timeout=แย่, exit(0)=ดี" },
+      { code: String.raw`int sandbox(void (*f)(void), unsigned int timeout, bool verbose) {
+    pid_t pid = fork();
+    if (pid == -1) return (-1);
+    if (pid == 0) { f(); exit(0); }               // ลูก: รัน f → ถ้ารอด exit 0
+    // พ่อ: ตั้ง SIGALRM handler + alarm(timeout) เพื่อจับ timeout
+    int status;
+    alarm(timeout);                                // (ผ่าน sigaction กัน timeout)
+    if (waitpid(pid, &status, 0) == -1) { kill(pid, SIGKILL); return (-1); }
+    alarm(0);
+    if (WIFSIGNALED(status)) { /* "Bad: <signal>" */ return (0); }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) { /* Nice! */ return (1); }
+    return (0);                                     // exit code อื่น = แย่
+}`, cap: "ดี = WIFEXITED && code==0 เท่านั้น; ที่เหลือ (signal/exit≠0/timeout) = แย่; ห้ามทิ้ง zombie", lang: "c" },
+
+      { h: "🔬 vbc — recursive descent ประเมินนิพจน์ + * ()" },
+      { p: "3 ชั้นตาม precedence: expr (+) → term (*) → factor (digit/วงเล็บ). ดู foundations สำหรับโครงเต็ม. error: token ผิด → \"Unexpected token '%c'\", หมด input กลางคัน → \"Unexpected end of input\"" },
+      { code: String.raw`// ตัวอย่างการไหล: '3+4*5'
+parse_expr:  v = parse_term()        → 3
+             peek '+' → v = 3 + parse_term()
+                                       parse_term: parse_factor()=4
+                                       peek '*' → 4 * parse_factor()=5 → 20
+             v = 3 + 20 = 23  ✓ (* ผูกก่อน + เพราะ term อยู่ชั้นใน)
+
+// '(3+4)*5':
+parse_factor เจอ '(' → parse_expr=7 → กิน ')' → term: 7 * 5 = 35 ✓`, cap: "precedence โผล่จากโครงสร้างการเรียก ไม่ต้องเขียนกฎ precedence แยก", lang: "txt" },
+
+      { h: "🔬 argo — recursive descent parse JSON" },
+      { p: "ไวยากรณ์ง่ายกว่า JSON จริง: เฉพาะ number / string / map. โครง parse_value แตกตามตัวอักษรแรก แล้วพิมพ์กลับให้ตรง input เป๊ะ" },
+      { code: String.raw`int parse_value(json *dst, FILE *f) {
+    int c = peek(f);
+    if (isdigit(c) || c == '-')  return parse_number(dst, f);  // 42
+    if (c == '"')                return parse_string(dst, f);  // "abc"
+    if (c == '{')                return parse_map(dst, f);     // {"k":v,...}
+    return unexpected(c);                                       // error
+}
+// parse_map: กิน '{' → วน (string ':' value) คั่นด้วย ',' → กิน '}'
+// string: กิน '"' → อ่านจนเจอ '"' (จัดการ \\ และ \" เท่านั้น)`, cap: "parse_value = dispatcher ตามตัวแรก; map เรียก value ซ้ำ (recursion) → รองรับ nested {} ลึกเท่าไรก็ได้", lang: "c" },
+    ],
+    implementation: [
+      { h: "กลยุทธ์ Rank 04" },
+      { ul: [
+        "ถ้าถนัด pipex/minishell → ลุย **level 1** (ft_popen ง่ายสุดในกลุ่ม) ก่อน",
+        "ถ้าถนัด parser → **level 2** vbc ตรงไปตรงมากว่า argo (argo จัดการ string escaping + map)",
+        "เขียนโครง recursive descent ให้ขึ้นใจ — vbc/argo ใช้โครงเดียวกัน",
+        "ปิด fd/wait ทุกลูกให้ครบ (level 1 ตก leak ง่ายมาก)",
+      ]},
+      { h: "ฝึกก่อนสอบ" },
+      { ul: [
+        "เขียน ft_popen + picoshell จากศูนย์ (ทบ fork/pipe/dup2/wait)",
+        "เขียน vbc evaluator จาก grammar expr/term/factor ให้คล่อง",
+        "ทบ WIFEXITED/WIFSIGNALED/WTERMSIG + alarm สำหรับ sandbox",
+      ]},
+    ],
+    tricks: [
+      { h: "กับดัก 1: ลืมปิด fd → pipeline ค้าง" },
+      { p: "ft_popen/picoshell: พ่อต้องปิดปลายที่ไม่ใช้ทันที, ลูกต้องปิดทั้งสองปลายหลัง dup2 — ลืม = read รอ EOF ไม่มา = ค้าง (เหมือน pipex/minishell)" },
+      { h: "กับดัก 2: zombie process (sandbox/picoshell)" },
+      { p: "ต้อง waitpid/wait ลูก 'ทุกตัว' — sandbox เช็ค leak process ด้วย wait; picoshell ต้อง `while(wait(NULL)>0)` เก็บให้หมด" },
+      { h: "กับดัก 3: precedence ผิด (vbc)" },
+      { p: "`3+4*5` ต้อง = 23 ไม่ใช่ 35 — ต้องให้ parse_term (ชั้น *) อยู่ 'ข้างใน' parse_expr (ชั้น +). สลับชั้น = precedence พัง" },
+      { h: "กับดัก 4: error message ไม่ตรง (vbc/argo)" },
+      { p: "token ผิด → \"Unexpected token '%c'\\n\" exit 1; หมด input กลางคัน → \"Unexpected end of input\\n\". ต้องแยก 2 เคสและข้อความเป๊ะ" },
+      { h: "กับดัก 5: argo — string escaping + พิมพ์กลับเป๊ะ" },
+      { p: "จัดการแค่ \\\\ และ \\\" (ไม่ต้องทำ \\n \\u); output ต้อง = input เป๊ะรวม escape — พิมพ์ string ต้องใส่ \\ คืนให้ถูก" },
+      { h: "กับดัก 6: ไม่อ่าน main/struct ที่ให้มา" },
+      { p: "vbc/argo ให้ node struct + helper (เช่น accept/expect/unexpected) มาแล้ว — ใช้ของที่ให้ อย่าเขียนใหม่หมด เสียเวลาและผิด interface" },
+    ],
+    eval: [
+      { qa: [
+        { q: "ft_popen 'r' กับ 'w' ต่างกันยังไง?", a: "'r' = อ่าน output ของ cmd: ลูก dup2(pipe_w, stdout), พ่อคืน read end. 'w' = ป้อน input: ลูก dup2(pipe_r, stdin), พ่อคืน write end. ปิดปลายตรงข้ามเสมอ" },
+        { q: "picoshell ต่อ pipeline ยังไงไม่ให้ค้าง?", a: "rolling pipe: เก็บ read end ท่อก่อนหน้าเป็น stdin คำสั่งถัดไป; พ่อปิด write end ทันทีหลัง fork ทุกรอบ → EOF ส่งต่อถูก; ปิด in เก่าด้วย; wait ทุกลูกท้ายสุด" },
+        { q: "sandbox ตัดสิน 'ดี' ยังไง?", a: "ดี = WIFEXITED(status) && WEXITSTATUS==0 เท่านั้น. แย่ = ถูก signal (WIFSIGNALED), exit code ≠ 0, หรือ timeout (alarm). ต้องไม่ทิ้ง zombie (wait ให้ครบ)" },
+        { q: "recursive descent ทำให้ * ผูกแน่นกว่า + ยังไง?", a: "จัดชั้น: expr (จัดการ +) เรียก term (จัดการ *) เรียก factor. เพราะ term อยู่ 'ข้างใน' expr มันถูกประเมินจับกลุ่มก่อน → * ผูกแน่นกว่า + เอง" },
+        { q: "วงเล็บใน vbc จัดการยังไง?", a: "ใน parse_factor เจอ '(' → กิน แล้วเรียก parse_expr (กลับไปชั้นบนสุด) → ได้ค่าในวงเล็บ → ต้องเจอ ')' ปิด ไม่งั้น error" },
+        { q: "vbc มี error กี่แบบ?", a: "2 แบบ: token ที่ไม่คาดคิด → \"Unexpected token '%c'\" ; input หมดกลางคัน (เช่น '1+') → \"Unexpected end of input\". ทั้งคู่ exit 1" },
+        { q: "argo parse map (nested) ยังไง?", a: "parse_value dispatch ตามตัวแรก; '{' → parse_map วน (string ':' value); value อาจเป็น map อีก → recursion รองรับ {} ซ้อนลึกเท่าไรก็ได้" },
+        { q: "argo จัดการ escape อะไรบ้าง?", a: "เฉพาะ \\\\ (backslash) และ \\\" (quote) — ไม่ต้องทำ \\n \\u; ตอนพิมพ์กลับต้องใส่ \\ คืนให้ output ตรง input เป๊ะ" },
+        { q: "Rank 04 level 1 ตกเพราะอะไรบ่อยสุด?", a: "leak fd (ลืมปิดปลายท่อ → ค้าง) และ leak/zombie process (ไม่ wait ลูกครบ). ปิด fd + wait ให้ครบคือหัวใจ" },
+      ]},
+      { h: "ซ้อมจริง", },
+      { code: String.raw`bash exam.sh   # เลือก Rank 04
+# level 1: ft_popen → picoshell → sandbox (ทบ fork/pipe/dup2/wait/signal)
+# level 2: vbc (expr/term/factor) → argo (value/string/map) จากโครงเดียวกัน`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EXAM RANK 05 ===================== */
+window.TEACHING_DATA.push({
+  id: "exam_rank05",
+  name: "Exam Rank 05",
+  tag: { th: "สาย C++ — operator overloading, Orthodox Canonical Form, inheritance/abstract (vect2, bigint, polyset) และอัลกอริทึม C (bsq แบบ DP, game of life)",
+         en: "The C++ rank — operator overloading, Orthodox Canonical Form, inheritance/abstract classes (vect2, bigint, polyset), plus C algorithms (bsq via DP, game of life)" },
+  accent: "#818cf8",
+  sections: {
+    principle: [
+      { h: "Exam Rank 05 — C++ เป็นหลัก" },
+      { p: "ต่อยอดจาก CPP Modules. level 1 เป็น **C++ class** ที่เน้น operator overloading + OCF + inheritance; level 2 กลับมาเป็น **อัลกอริทึม C** (bsq, life). คอมไพล์ด้วย `c++ -Wall -Wextra -Werror -std=c++98`" },
+      { h: "2 level" },
+      { table: { head: ["Level", "แนว", "โจทย์"], rows: [
+        ["**1**", "C++ class & operators", "vect2, bigint, polyset"],
+        ["**2**", "อัลกอริทึม C", "bsq (biggest square / DP), life (game of life)"],
+      ]}},
+      { note: "level 1 ต้องแม่น **Orthodox Canonical Form** (ctor, copy ctor, copy assign, dtor) + operator overloading + const correctness. vect2 ง่ายสุด, polyset ยากสุด (inheritance + abstract)" },
+    ],
+    theory: [
+      { p: "Pool โจทย์จริง Rank 05" },
+      { h: "Level 1 — C++ class" },
+      { table: { head: ["โจทย์", "ทำอะไร", "เน้น"], rows: [
+        ["`vect2`", "เวกเตอร์ 2 มิติ + - * [] << ++ --", "operator overloading พื้นฐาน"],
+        ["`bigint`", "จำนวนเต็มความแม่นยำไม่จำกัด (+, เทียบ, digit shift <<>>)", "operators + เก็บเป็น string/array"],
+        ["`polyset`", "inheritance: searchable bag + set wrapper", "abstract class, virtual, OCF, const"],
+      ]}},
+      { h: "Level 2 — อัลกอริทึม C" },
+      { table: { head: ["โจทย์", "ทำอะไร", "เทคนิค"], rows: [
+        ["`bsq`", "หาสี่เหลี่ยมจัตุรัสใหญ่สุดบนแผนที่เลี่ยงสิ่งกีดขวาง", "dynamic programming"],
+        ["`life`", "Conway's Game of Life (input เป็นคำสั่งวาดด้วยปากกา)", "grid + parsing + simulation"],
+      ]}},
+    ],
+    foundations: [
+      { p: "เสาหลัก Rank 05: Orthodox Canonical Form, operator overloading, และ DP grid" },
+      { h: "1) Orthodox Canonical Form (OCF) — 4 ฟังก์ชันบังคับ" },
+      { code: String.raw`class Foo {
+public:
+    Foo();                              // default constructor
+    Foo(const Foo &other);              // copy constructor
+    Foo &operator=(const Foo &other);   // copy assignment
+    ~Foo();                             // destructor
+};`, cap: "ทุก class ใน Rank 05 (โดยเฉพาะ polyset) ต้องครบ OCF — ลืมตัวใดตัวหนึ่ง = ตก", lang: "cpp" },
+      { h: "2) Operator overloading — member vs free function" },
+      { code: String.raw`// arithmetic/compound: เป็น member (มี this เป็นตัวซ้าย)
+vect2  operator+(const vect2 &r) const { return vect2(x+r.x, y+r.y); }
+vect2 &operator+=(const vect2 &r) { x+=r.x; y+=r.y; return *this; }
+
+// pre/post increment
+vect2 &operator++()    { ++x; ++y; return *this; }      // ++v (pre)
+vect2  operator++(int) { vect2 t=*this; ++*this; return t; } // v++ (post, มี int หลอก)
+
+// << ต้องเป็น "free function" เพราะตัวซ้ายคือ ostream ไม่ใช่ vect2
+std::ostream &operator<<(std::ostream &o, const vect2 &v) {
+    return o << "{" << v[0] << ", " << v[1] << "}";
+}
+// scalar*vect (เช่น 3 * v) ต้องเป็น free function ด้วย (ตัวซ้ายเป็น int)`, cap: "ตัวซ้ายเป็น object เรา → member; ตัวซ้ายเป็น ostream/int → free function", lang: "cpp" },
+      { note: "เคล็ด: pre-increment คืน reference (*this), post-increment คืน copy ค่าเก่า (รับ int หลอกเพื่อแยกจาก pre). const ต่อท้าย method ที่แค่อ่าน" },
+      { h: "3) Dynamic Programming บน grid (bsq)" },
+      { code: String.raw`// dp[i][j] = ขนาดสี่เหลี่ยมจัตุรัสใหญ่สุดที่ "มุมขวาล่าง" อยู่ที่ (i,j)
+if (map[i][j] == obstacle) dp[i][j] = 0;
+else if (i==0 || j==0)     dp[i][j] = 1;          // ขอบ
+else dp[i][j] = min3(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]) + 1;
+// ติดตาม max + ตำแหน่ง (บนสุด ก่อน ซ้ายสุด)`, cap: "สี่เหลี่ยมที่มุมล่างขวา (i,j) ขยายได้เท่ากับ 'เพื่อนบ้าน 3 ทิศที่เล็กสุด + 1'", lang: "c" },
+    ],
+    architecture: [
+      { h: "examshell — Rank 05" },
+      { ul: [
+        "level 1 ให้ `main` มาเสมอ (vect2/bigint) — class เราต้องทำให้ main นั้นคอมไพล์+รันถูก",
+        "polyset ให้ abstract classes (bag, searchable_bag, array_bag, tree_bag) มา → เราเขียน searchable_* + set",
+        "คอมไพล์ `-std=c++98` เสมอ",
+        "level 2 (bsq/life) เป็น C ปกติ — เทสต์ output เป๊ะด้วย cat -e",
+      ]},
+      { code: String.raw`# C++ (level 1):
+c++ -Wall -Wextra -Werror -std=c++98 *.cpp && ./a.out
+# bsq (level 2):
+./bsq map.txt | cat -e        # เทียบสี่เหลี่ยมที่ถูก (บนสุด-ซ้ายสุด)
+# life:
+echo 'sdxddssaaww' | ./life 5 5 0 | cat -e`, cap: "level 1 ต้องผ่าน main ที่ให้; level 2 เทียบ output เป๊ะ", lang: "bash" },
+    ],
+    dataflow: [
+      { p: "เจาะลึกข้อหลัก Rank 05" },
+
+      { h: "🔬 vect2 — operator overloading ครบชุด" },
+      { p: "โจทย์ฝึก operator ครบ: + - * (scalar) [] << ++ -- += -= *=. กุญแจคือรู้ว่าตัวไหนเป็น member ตัวไหนเป็น free function (ดู foundations)" },
+      { code: String.raw`class vect2 {
+    int e[2];
+public:
+    vect2(int a=0, int b=0) { e[0]=a; e[1]=b; }
+    int &operator[](int i) { return e[i]; }
+    int  operator[](int i) const { return e[i]; }   // const overload
+    vect2 operator+(const vect2 &r) const { return vect2(e[0]+r[0], e[1]+r[1]); }
+    vect2 operator*(int s) const { return vect2(e[0]*s, e[1]*s); }
+    vect2 &operator+=(const vect2 &r) { e[0]+=r[0]; e[1]+=r[1]; return *this; }
+};
+vect2 operator*(int s, const vect2 &v) { return v * s; }    // 3 * v
+std::ostream &operator<<(std::ostream &o, const vect2 &v) {
+    return o << "{" << v[0] << ", " << v[1] << "}";
+}`, cap: "operator[] ต้องมี 2 เวอร์ชัน (const + non-const); scalar*vect และ << เป็น free function", lang: "cpp" },
+
+      { h: "🔬 bigint — จำนวนเต็มความแม่นยำไม่จำกัด" },
+      { p: "เก็บเลขเป็น **string ของหลัก** (จัดการเกิน SIZE_MAX ได้). บวกแบบมีตัวทด, เทียบด้วยความยาวก่อนแล้วค่อยเทียบหลัก, digit shift = เติม/ตัด '0'" },
+      { code: String.raw`// บวก: ไล่จากหลักหน่วย เก็บตัวทด (carry)
+// เทียบ a < b: ถ้าความยาวต่างกัน → ตัวสั้นกว่าน้อยกว่า
+//             ความยาวเท่ากัน → เทียบ string จากซ้าย (lexicographic)
+// digit shift:  42 << 3  →  "42" + "000" = "42000"
+//               1337 >> 2 →  ตัด 2 หลักท้าย = "13"
+bigint operator<<(unsigned n) const {           // เลื่อนหลักซ้าย = คูณ 10^n
+    return bigint(digits + std::string(n, '0'));
+}
+// << สำหรับพิมพ์: ตัด leading zero ก่อนพิมพ์`, cap: "เก็บเป็น string → ทำเลขใหญ่ไม่จำกัด; ระวังแยก operator<< (digit shift) กับ operator<< (พิมพ์ ostream)", lang: "cpp" },
+
+      { h: "🔬 polyset — inheritance + abstract + OCF (ยากสุดของ rank)" },
+      { p: "ให้ abstract: `bag`, `searchable_bag`, และ implement `array_bag`/`tree_bag` มาแล้ว. เราเขียน `searchable_array_bag`/`searchable_tree_bag` (สืบทอด + implement search) และ `set` (ห่อ searchable_bag กันสมาชิกซ้ำ)" },
+      { code: String.raw`// สืบทอด 2 ทาง: เอา implementation จาก array_bag + interface search
+class searchable_array_bag : public array_bag, public searchable_bag {
+public:
+    searchable_array_bag();
+    searchable_array_bag(const searchable_array_bag &o);     // OCF ครบ!
+    searchable_array_bag &operator=(const searchable_array_bag &o);
+    ~searchable_array_bag();
+    bool has(int e) const {                                  // virtual จาก searchable_bag
+        for (size_t i = 0; i < size(); ++i)
+            if ((*this)[i] == e) return true;
+        return false;
+    }
+};
+// set: ก่อน insert เช็ค has() ก่อน → ไม่ใส่ซ้ำ`, cap: "OCF ครบทุก class + const ทุก method ที่อ่านอย่างเดียว; set ใช้ has() กันซ้ำ", lang: "cpp" },
+
+      { h: "🔬 bsq — สี่เหลี่ยมจัตุรัสใหญ่สุด (DP)" },
+      { p: "อ่าน map (บรรทัดแรกบอก: จำนวนแถว, อักษร empty/obstacle/full). DP: ขนาดสี่เหลี่ยมที่มุมล่างขวา (i,j) = min(บน, ซ้าย, บนซ้าย) + 1 ถ้าช่องว่าง; ติดตาม max + ตำแหน่งบนสุด-ซ้ายสุด" },
+      { code: String.raw`for i in rows:
+  for j in cols:
+    if (map[i][j] == obstacle) dp[i][j] = 0;
+    else if (i==0 || j==0)     dp[i][j] = 1;
+    else dp[i][j] = min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]) + 1;
+    if (dp[i][j] > best) { best = dp[i][j]; bi = i; bj = j; }  // มุมล่างขวา
+// วาด 'full' ในกรอบ best×best ที่มุมล่างขวา = (bi,bj)`, cap: "เลือก max ตัวแรกที่เจอ (สแกน บน→ล่าง, ซ้าย→ขวา) → ได้สี่เหลี่ยมบนสุด-ซ้ายสุดอัตโนมัติ", lang: "txt" },
+
+      { h: "🔬 life — Game of Life + parsing ปากกา" },
+      { p: "2 เฟส: (1) แปลงคำสั่ง wasd (เลื่อน) + x (ยก/วางปากกา) เป็น grid เริ่มต้น (2) รัน Conway n รอบ แล้วพิมพ์ 'O'/space" },
+      { code: String.raw`// เฟส 1: ปากกาเดินตามคำสั่ง, ถ้า "วาง" → mark cell เป็น alive
+//   w/a/s/d = เลื่อน x,y ; x = toggle pen (วาง/ยก)
+// เฟส 2: Conway rule ต่อ cell:
+//   นับเพื่อนบ้านที่ alive (8 ทิศ; นอก grid = dead)
+//   alive: รอด ถ้าเพื่อน 2 หรือ 3 ; dead: เกิด ถ้าเพื่อน 3 พอดี
+//   (ต้องคำนวณ grid ใหม่จากของเก่าทั้งใบ ห้ามแก้ในที่)`, cap: "สำคัญ: คำนวณรอบใหม่จาก snapshot เก่าทั้งใบ (double buffer) ไม่งั้น cell ที่เพิ่งเปลี่ยนจะรบกวนเพื่อนบ้าน", lang: "txt" },
+    ],
+    implementation: [
+      { h: "กลยุทธ์ Rank 05" },
+      { ul: [
+        "ถนัด C++ → level 1: **vect2** ก่อน (operator ตรงไปตรงมา), เลี่ยง polyset ถ้าเวลาน้อย",
+        "ถนัด algorithm → level 2: **bsq** (DP คลาสสิก) หรือ life",
+        "ทบ OCF ให้ขึ้นใจ (4 ฟังก์ชัน) + รู้ member vs free function ของ operator",
+        "อ่าน main ที่ให้มาก่อน — class ต้อง 'ทำให้ main นั้นทำงาน' พอดี",
+      ]},
+      { h: "ฝึกก่อนสอบ" },
+      { ul: [
+        "เขียน vect2 ครบ operator จากศูนย์ (+, -, *, [], <<, ++, --)",
+        "ทบ OCF + เมื่อไรใช้ member vs free function (<<, scalar*obj)",
+        "เขียน bsq (DP) + life (Conway double-buffer) ให้คล่อง",
+      ]},
+    ],
+    tricks: [
+      { h: "กับดัก 1: ลืม OCF / ลืม const" },
+      { p: "polyset เน้น OCF ครบ + const ทุก method ที่อ่านอย่างเดียว (เช่น has() const). ลืม = ตก. subject บอกชัด 'Don't forget the const'" },
+      { h: "กับดัก 2: << เขียนเป็น member" },
+      { p: "`operator<<` สำหรับพิมพ์ต้องเป็น free function (ตัวซ้ายคือ ostream ไม่ใช่ object เรา); เขียนเป็น member จะใช้ `cout << v` ไม่ได้" },
+      { h: "กับดัก 3: post-increment คืนผิด" },
+      { p: "`v++` (post) ต้องคืน 'ค่าเก่า' (copy) และรับ `int` หลอกเพื่อแยกจาก pre `++v` ที่คืน reference. สลับ = ผลของ `v++` ผิด" },
+      { h: "กับดัก 4: operator[] ไม่มี const overload" },
+      { p: "ต้องมี 2 เวอร์ชัน: non-const (คืน reference แก้ได้) + const (คืน value). ขาด const version → ใช้กับ const object/ใน << ไม่ได้" },
+      { h: "กับดัก 5: bsq เลือกสี่เหลี่ยมผิดตำแหน่ง" },
+      { p: "มีหลายคำตอบ → ต้องเลือก 'บนสุด ก่อน ซ้ายสุด'. สแกน บน→ล่าง ซ้าย→ขวา แล้วเก็บ max 'ตัวแรก' (ใช้ > ไม่ใช่ >=) → ได้ตำแหน่งถูก" },
+      { h: "กับดัก 6: life แก้ grid ในที่" },
+      { p: "Conway ต้องคำนวณรอบใหม่จาก snapshot เก่าทั้งใบ (double buffer) — ถ้าแก้ทับ grid เดิมระหว่างคำนวณ cell ที่เปลี่ยนแล้วจะทำให้เพื่อนบ้านคิดผิด" },
+    ],
+    eval: [
+      { qa: [
+        { q: "Orthodox Canonical Form มีอะไรบ้าง?", a: "4 ฟังก์ชัน: default constructor, copy constructor, copy assignment operator (operator=), destructor. ทุก class ใน Rank 05 ต้องครบ (โดยเฉพาะ polyset)" },
+        { q: "operator<< (พิมพ์) ทำไมต้องเป็น free function?", a: "เพราะตัวดำเนินการซ้ายคือ std::ostream (cout) ไม่ใช่ object เรา — member function จะมี object เราเป็นตัวซ้าย ใช้ `cout << v` ไม่ได้" },
+        { q: "pre vs post increment เขียนต่างกันยังไง?", a: "pre `++v`: `T &operator++()` คืน reference หลังเพิ่ม. post `v++`: `T operator++(int)` รับ int หลอก, เก็บค่าเก่าไว้, เพิ่ม, คืนค่าเก่า (copy)" },
+        { q: "ทำไม operator[] ต้องมี const overload?", a: "version non-const คืน reference (แก้ได้); version const คืน value (อ่านอย่างเดียว) เพื่อให้เรียกกับ const object ได้ เช่นใน operator<< ที่รับ const vect2&" },
+        { q: "bigint เก็บเลขยังไงให้ใหญ่เกิน SIZE_MAX?", a: "เก็บเป็น string/array ของหลัก (base 10); บวกแบบไล่หลักมีตัวทด; เทียบด้วยความยาวก่อนแล้วเทียบ string; digit shift = เติม/ตัด '0' ท้าย" },
+        { q: "polyset ใช้ inheritance ยังไง?", a: "searchable_array_bag สืบทอดจาก array_bag (เอา implementation) + searchable_bag (เอา interface search) แล้ว implement has(); set ห่อ searchable_bag เช็ค has() ก่อน insert กันซ้ำ" },
+        { q: "bsq ใช้ DP ยังไง?", a: "dp[i][j] (ขนาดสี่เหลี่ยมที่มุมล่างขวา i,j) = ถ้าว่าง: min(บน, ซ้าย, บนซ้าย)+1, ถ้าสิ่งกีดขวาง: 0; ติดตาม max ตัวแรกที่เจอ (สแกนบน-ซ้าย) → บนสุด-ซ้ายสุด" },
+        { q: "Game of Life ทำไมต้อง double buffer?", a: "ทุก cell ต้องคำนวณจากสถานะ 'รอบก่อน' พร้อมกัน — ถ้าแก้ grid ในที่ระหว่างคำนวณ cell ที่เปลี่ยนแล้วจะทำให้เพื่อนบ้านนับผิด ต้องเขียนลง buffer ใหม่" },
+        { q: "Conway rule คืออะไร?", a: "alive รอดถ้ามีเพื่อนบ้าน alive 2 หรือ 3 ตัว; dead เกิดถ้ามีเพื่อนบ้าน alive 3 ตัวพอดี; นอกกระดานนับเป็น dead" },
+      ]},
+      { h: "ซ้อมจริง", },
+      { code: String.raw`bash exam.sh   # เลือก Rank 05
+# level 1: vect2 (operators) → bigint → polyset (OCF+inheritance)
+# level 2: bsq (DP) → life (Conway + double buffer)`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EXAM RANK 06 ===================== */
+window.TEACHING_DATA.push({
+  id: "exam_rank06",
+  name: "Exam Rank 06",
+  tag: { th: "ด่านสุดท้าย — network programming ด้วย select(): เซิร์ฟเวอร์ non-blocking หลาย client. mini_serv (แชทรวม, C) และ mini_db (key-value store, C++)",
+         en: "The final boss — network programming with select(): non-blocking multi-client servers. mini_serv (group chat, C) and mini_db (key-value store, C++)" },
+  accent: "#fb7185",
+  sections: {
+    principle: [
+      { h: "Exam Rank 06 — เซิร์ฟเวอร์ select()" },
+      { p: "rank สุดท้ายของ Common Core (สาย C/C++). มี 2 โปรแกรมใหญ่ ทั้งคู่เป็น **TCP server non-blocking** ที่จัดการหลาย client พร้อมกันด้วย `select()` บน 127.0.0.1. เวลาสอบนานกว่าปกติ" },
+      { table: { head: ["โปรแกรม", "ภาษา", "ทำอะไร"], rows: [
+        ["`mini_serv`", "C", "แชทรวม: client ส่งข้อความ → broadcast ให้ทุกคน"],
+        ["`mini_db`", "C++", "key-value store: POST/GET/DELETE ผ่าน TCP"],
+      ]}},
+      { note: "หัวใจเดียวที่ครอบทั้ง 2 ข้อ: **select() event loop** — เฝ้า fd หลายตัวพร้อมกัน, ไม่บล็อก, จัดการ accept/recv/ส่ง โดยไม่มี thread. เข้าใจ pattern นี้ = ทำได้ทั้งคู่" },
+      { h: "กฎเหล็กที่ทำให้ตก" },
+      { ul: [
+        "**ห้ามบล็อก** — ใช้ select ก่อนทุก recv/send; **ห้ามเช็ค EAGAIN** (subject สั่งห้าม)",
+        "**ห้าม leak** fd / memory (ตรวจจริง)",
+        "error → `\"Fatal error\\n\"` ที่ stderr exit 1; argument ผิด → `\"Wrong number of arguments\\n\"`",
+        "ส่งข้อความ 'ให้เร็วที่สุด' อย่า buffer เกินจำเป็น (tester จับเวลา)",
+      ]},
+    ],
+    theory: [
+      { p: "2 โปรแกรมของ Rank 06 — สเปคย่อ" },
+      { h: "mini_serv (C) — แชทรวม" },
+      { ul: [
+        "รับ argument = port; bind 127.0.0.1 เท่านั้น",
+        "client ใหม่ → id = id ล่าสุด + 1 (เริ่ม 0); broadcast `\"server: client %d just arrived\\n\"`",
+        "รับข้อความ → ส่งต่อทุก client อื่น นำหน้า **ทุกบรรทัด** ด้วย `\"client %d: \"`",
+        "client ออก → broadcast `\"server: client %d just left\\n\"`",
+        "ข้อความอาจมีหลาย `\\n`; client อาจ 'ขี้เกียจอ่าน' → ห้ามตัดการเชื่อมต่อ",
+        "ห้ามใช้ `#define`",
+      ]},
+      { h: "mini_db (C++) — key-value store" },
+      { ul: [
+        "argument = port + path; พร้อมรับ connection → พิมพ์ `\"ready\\n\"` ที่ stdout",
+        "connection แบบ persistent (1 session ส่งได้หลายคำสั่ง)",
+        "`POST <key> <value>` → เพิ่ม entry, ตอบ `\"0\"`",
+        "`GET <key>` → `\"0 <value>\"` หรือ `\"1\"` ถ้าไม่มี key",
+        "`DELETE <key>` → ลบ entry",
+      ]},
+    ],
+    foundations: [
+      { p: "เสาหลักเดียว: select() event loop — ใช้ทั้ง mini_serv และ mini_db" },
+      { h: "1) โครง select() loop" },
+      { code: String.raw`fd_set readfds;
+int maxfd = listen_fd;
+// (เก็บ client fd ทั้งหมดไว้ใน array/set ของเรา)
+while (1) {
+    FD_ZERO(&readfds);
+    FD_SET(listen_fd, &readfds);
+    for each client c: FD_SET(c.fd, &readfds);     // เฝ้าทุก client
+    select(maxfd + 1, &readfds, NULL, NULL, NULL); // บล็อกจนมี fd พร้อม
+    if (FD_ISSET(listen_fd, &readfds))
+        accept_new_client();                        // มีคนต่อใหม่
+    for each client c:
+        if (FD_ISSET(c.fd, &readfds))
+            handle_recv(c);                          // มีข้อมูลเข้า/หรือ disconnect
+}`, cap: "select บอกว่า fd ไหน 'พร้อมอ่าน' → จัดการเฉพาะตัวนั้น, ตัวอื่นไม่บล็อก = 1 thread เสิร์ฟทุกคน", lang: "c" },
+      { h: "2) accept + แจกเลข id" },
+      { code: String.raw`int cfd = accept(listen_fd, ...);
+clients[cfd].id = next_id++;          // id ล่าสุด+1 (เริ่ม 0)
+if (cfd > maxfd) maxfd = cfd;
+// broadcast "server: client %d just arrived\n" ให้คนอื่น`, cap: "ต้องอัปเดต maxfd ทุกครั้งที่ได้ fd ใหม่ (select ต้องรู้ขอบบน)", lang: "c" },
+      { h: "3) recv + buffer จนครบบรรทัด" },
+      { code: String.raw`int n = recv(cfd, buf, sizeof(buf), 0);
+if (n <= 0) { /* disconnect: broadcast "just left", close, ลบ client */ }
+else {
+    // ต่อ buf เข้า client[cfd].msg (buffer สะสม)
+    // ตัดทีละบรรทัดที่เจอ '\n' → broadcast (ใส่ prefix "client %d: ")
+    // ส่วนที่ยังไม่ครบบรรทัด เก็บไว้รอ recv รอบหน้า
+}`, cap: "recv คืน 0 = client ปิด; 1 ข้อความอาจมีหลายบรรทัด/ไม่ครบบรรทัด → ต้อง buffer ต่อ fd", lang: "c" },
+    ],
+    architecture: [
+      { h: "examshell — Rank 06" },
+      { ul: [
+        "ให้ `main.c` (mini_serv) / โครง (mini_db) มาช่วย — แต่ subject เตือนว่า main นั้น **มีฟังก์ชันต้องห้าม/โค้ดที่ต้องเอาออก** ในเวอร์ชันส่งจริง",
+        "ทดสอบด้วย `nc` (netcat): เปิดหลาย terminal ต่อเข้า server แล้วพิมพ์",
+        "เวลาสอบนานกว่าปกติ — โจทย์ใหญ่ ใจเย็น ๆ",
+      ]},
+      { code: String.raw`# รัน + ทดสอบด้วย nc:
+./mini_serv 8080
+# อีก terminal:
+nc 127.0.0.1 8080        # ต่อเป็น client, พิมพ์ข้อความ → คนอื่นเห็น
+
+# mini_db:
+./mini_db 8080 ./data
+nc 127.0.0.1 8080
+POST foo bar             # → 0
+GET foo                  # → 0 bar
+GET nope                 # → 1`, cap: "nc คือเครื่องมือเทสต์หลัก — เปิดหลายตัวจำลองหลาย client", lang: "bash" },
+    ],
+    dataflow: [
+      { p: "เจาะลึก 2 โปรแกรม Rank 06 — ทั้งคู่หมุนรอบ select() loop" },
+
+      { h: "🔬 mini_serv — แชทรวมหลาย client" },
+      { p: "select loop เฝ้า listen_fd + ทุก client. 3 เหตุการณ์: ต่อใหม่ (accept+arrived), ข้อความเข้า (buffer+broadcast), ตัดการเชื่อมต่อ (left+close)" },
+      { code: String.raw`while (1) {
+    readfds = active;                          // copy set (select แก้ set)
+    select(maxfd + 1, &readfds, NULL, NULL, NULL);
+    for (fd = 0; fd <= maxfd; fd++) {
+        if (!FD_ISSET(fd, &readfds)) continue;
+        if (fd == listen_fd) {                 // (1) client ใหม่
+            cfd = accept(...);
+            ids[cfd] = next_id++;
+            FD_SET(cfd, &active); maxfd = max(maxfd, cfd);
+            broadcast(cfd, "server: client %d just arrived\n", ids[cfd]);
+        } else {                               // (2)/(3) ข้อมูล/ตัดสาย
+            n = recv(fd, buf, BUF, 0);
+            if (n <= 0) {                      // ตัดสาย
+                broadcast(fd, "server: client %d just left\n", ids[fd]);
+                FD_CLR(fd, &active); close(fd); free(stash[fd]);
+            } else
+                buffer_and_broadcast(fd, buf, n); // เก็บจนครบบรรทัด → ส่ง
+        }
+    }
+}`, cap: "broadcast = วนส่งทุก fd ที่เป็น client ยกเว้นตัวส่งเอง; ใส่ \"client %d: \" นำหน้าทุกบรรทัด", lang: "c" },
+      { note: "จุดตาย mini_serv: (1) ไม่ใส่ prefix ทุกบรรทัด (ข้อความหลาย \\n), (2) ไม่ buffer ต่อ client (ข้อความไม่ครบบรรทัด), (3) ลืม free stash ตอน disconnect = leak, (4) ไม่อัปเดต maxfd" },
+
+      { h: "🔬 buffer ต่อ client + ตัดบรรทัด" },
+      { code: String.raw`// แต่ละ client มี stash (string สะสม)
+stash[fd] = strjoin(stash[fd], buf);           // ต่อข้อมูลใหม่
+while ((nl = strchr(stash[fd], '\n'))) {        // มีบรรทัดครบ
+    *nl = '\0';
+    send_to_others(fd, "client %d: %s\n", ids[fd], stash[fd]);
+    memmove(stash[fd], nl + 1, len(nl + 1) + 1); // เลื่อนที่เหลือมาต้น
+}`, cap: "สะสมจน '\\n' → ส่ง 1 บรรทัด (มี prefix) → เก็บส่วนเกินไว้; รองรับข้อความที่มาไม่ครบ/หลายบรรทัด", lang: "c" },
+
+      { h: "🔬 mini_db — key-value store ผ่าน TCP" },
+      { p: "select loop เหมือน mini_serv แต่แทน broadcast เป็น 'parse command → ตอบกลับเฉพาะผู้ส่ง'. เก็บ db เป็น map (C++)" },
+      { code: String.raw`std::map<std::string, std::string> db;
+// พร้อมรับ → printf("ready\n"); fflush
+// ต่อ recv ของแต่ละ client จนครบบรรทัด แล้ว parse:
+//   POST <key> <value>  → db[key] = value;       reply "0"
+//   GET  <key>          → db.count(key) ? "0 "+db[key] : "1"
+//   DELETE <key>        → db.erase(key);
+// persistent: 1 client ส่งได้หลายคำสั่งใน session เดียว`, cap: "db = std::map; parse คำสั่งจากบรรทัด → ตอบเฉพาะ client ที่ส่ง (ไม่ broadcast)", lang: "cpp" },
+    ],
+    implementation: [
+      { h: "กลยุทธ์ Rank 06" },
+      { ul: [
+        "เริ่มจาก **select loop ให้รันได้** ก่อน (accept + echo) แล้วค่อยเติม logic",
+        "mini_serv: ทำ accept/arrived/left ให้ครบก่อน แล้วค่อยทำ buffer+broadcast บรรทัด",
+        "mini_db: select loop เดียวกัน + std::map + parse 3 คำสั่ง",
+        "เทสต์ด้วย nc หลายตัวบ่อย ๆ ระหว่างเขียน",
+      ]},
+      { h: "ฝึกก่อนสอบ" },
+      { ul: [
+        "เขียน TCP echo server ด้วย select จากศูนย์ (socket/bind/listen/accept/select/recv)",
+        "เพิ่ม multi-client + broadcast (= mini_serv ย่อ)",
+        "ทบ buffer ต่อ fd + ตัดบรรทัดด้วย strchr/memmove",
+        "ทบ fd_set: FD_ZERO/SET/CLR/ISSET + maxfd",
+      ]},
+    ],
+    tricks: [
+      { h: "กับดัก 1: บล็อกเพราะไม่ใช้ select / เช็ค EAGAIN" },
+      { p: "ต้อง select ก่อนทุก recv/send และ **ห้ามเช็ค EAGAIN** (subject สั่งห้าม). recv/send จะไม่บล็อกถ้า select บอกว่าพร้อมแล้ว" },
+      { h: "กับดัก 2: ลืม copy fd_set ก่อน select" },
+      { p: "select **แก้ fd_set ในที่** (เหลือเฉพาะตัวที่พร้อม) — ต้อง copy set หลัก (`readfds = active`) ก่อนทุกรอบ ไม่งั้น set จะค่อย ๆ หาย" },
+      { h: "กับดัก 3: ข้อความหลายบรรทัด — ลืม prefix ทุกบรรทัด" },
+      { p: "mini_serv: 1 ข้อความอาจมีหลาย `\\n` → ต้องใส่ `\"client %d: \"` นำหน้า **ทุก** บรรทัด ไม่ใช่แค่บรรทัดแรก" },
+      { h: "กับดัก 4: ข้อความมาไม่ครบบรรทัด" },
+      { p: "recv อาจได้แค่ครึ่งบรรทัด → ต้อง buffer ต่อ client จนเจอ `\\n` ค่อยส่ง; ส่วนเกินเก็บไว้รอบหน้า. ส่งทันทีทุก recv = บรรทัดแตก" },
+      { h: "กับดัก 5: leak fd / memory ตอน disconnect" },
+      { p: "client ออก → ต้อง close(fd) + FD_CLR + free buffer ของมัน; ลืม = leak (ตรวจจริง). อัปเดต maxfd ด้วยถ้าจำเป็น" },
+      { h: "กับดัก 6: error/argument message ไม่ตรง" },
+      { p: "argument ผิด → `\"Wrong number of arguments\\n\"`; syscall fail ก่อนเริ่ม → `\"Fatal error\\n\"` ที่ **stderr** exit 1. ข้อความ/ปลายทางผิด = ตก" },
+    ],
+    eval: [
+      { qa: [
+        { q: "select() ทำงานยังไง ทำไมไม่บล็อก?", a: "select เฝ้า fd หลายตัวพร้อมกัน คืนมาเมื่อมีอย่างน้อยตัวหนึ่ง 'พร้อม' (อ่าน/เขียนได้) → เราจัดการเฉพาะตัวที่พร้อม ตัวอื่นไม่ค้าง = 1 thread เสิร์ฟทุก client" },
+        { q: "ทำไมต้อง copy fd_set ก่อน select ทุกรอบ?", a: "select แก้ set ในที่ (เหลือเฉพาะ fd ที่พร้อม) — ถ้าไม่ copy set หลักไว้ รอบถัดไป fd ที่ไม่พร้อมจะหายจาก set ทำให้หยุดเฝ้า" },
+        { q: "mini_serv broadcast ข้อความหลายบรรทัดยังไง?", a: "ใส่ \"client %d: \" นำหน้า 'ทุก' บรรทัด (แยกที่ \\n) ไม่ใช่แค่บรรทัดแรก; ส่งให้ทุก client ยกเว้นผู้ส่ง" },
+        { q: "ทำไมต้อง buffer ต่อ client?", a: "recv อาจได้ข้อความไม่ครบบรรทัด หรือหลายบรรทัดรวด — ต้องสะสมใน buffer ต่อ fd จนเจอ \\n ค่อยส่ง 1 บรรทัด; ส่วนเกินเก็บรอ recv รอบหน้า" },
+        { q: "client id แจกยังไง?", a: "id ล่าสุด + 1 เริ่มจาก 0 (client แรก = 0); เก็บ id ต่อ fd ไว้ใช้ตอน broadcast arrived/left/ข้อความ" },
+        { q: "ทำไมห้ามเช็ค EAGAIN?", a: "subject สั่งห้าม — เพราะถ้าใช้ select ถูกต้อง (เฝ้าก่อน recv/send) fd จะพร้อมเสมอตอนเรียก จึงไม่ควรเจอ EAGAIN; การเช็คมันบ่งว่าออกแบบ flow ผิด" },
+        { q: "recv คืน 0 หมายความว่าอะไร?", a: "client ปิดการเชื่อมต่อ (EOF) → ต้อง broadcast \"just left\", close(fd), FD_CLR, free buffer ของ client นั้น" },
+        { q: "mini_db ต่างจาก mini_serv ตรงไหน?", a: "โครง select เหมือนกัน แต่แทน broadcast เป็น parse คำสั่ง (POST/GET/DELETE) → ตอบเฉพาะผู้ส่ง; เก็บ db เป็น std::map; พิมพ์ \"ready\\n\" ตอนพร้อม" },
+        { q: "error message ของ mini_serv 2 แบบคืออะไร?", a: "argument ผิด → \"Wrong number of arguments\\n\"; syscall fail ก่อนรับ connection → \"Fatal error\\n\" ทั้งคู่ที่ stderr exit 1" },
+      ]},
+      { h: "ซ้อมจริง", },
+      { code: String.raw`bash exam.sh   # เลือก Rank 06
+# 1) เขียน echo server ด้วย select ให้รันได้ก่อน
+# 2) เติม multi-client + broadcast = mini_serv
+# เทสต์: ./mini_serv 8080  แล้วเปิด nc 127.0.0.1 8080 หลายตัว`, lang: "bash" },
+    ],
+  },
+});
