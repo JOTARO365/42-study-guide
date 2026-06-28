@@ -28,6 +28,7 @@
 | **CPP Module 00** | [cpp_module_00.html](cpp_module_00.html) | C→C++ transition, class/object, encapsulation, static members, this pointer |
 | **minishell** | [minishell.html](minishell.html) | Shell architecture, lexer/parser pipeline, pipe EOF, signal handling |
 | **miniRT** | [minirt.html](minirt.html) | Ray tracer: ray-sphere quadratic, Phong lighting, shadows (acne), camera basis, .rt parsing |
+| **cub3D** | [cub3d.html](cub3d.html) | Raycasting FPS: camera plane, DDA grid traversal, fisheye correction, texture mapping, .cub parsing + closed-map validation |
 
 ## AI Engineer Track
 
@@ -80,6 +81,7 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | cpp_module_00 | **4** | Static members & lifecycle, constructor/destructor order, const-correctness, this pointer |
 | minishell | **4** | Lexer as a state machine + quotes, fd inheritance + dup2/close pipeline, pipe EOF reference counting, signals (interactive/heredoc) + $? propagation |
 | miniRT | **4** | Ray-sphere intersection (quadratic + discriminant), Phong lighting + normal flip, shadows & shadow acne (epsilon), camera & ray generation (basis + FOV/aspect) |
+| cub3D | **4** | Camera plane & ray direction (FOV), DDA grid traversal, fisheye correction (perpendicular distance), texture mapping (side select + wall_x + flip) |
 
 ## AI Engineer Deep Dives
 

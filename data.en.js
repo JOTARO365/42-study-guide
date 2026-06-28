@@ -6270,4 +6270,384 @@ norminette src include           # 0 errors (mandatory + bonus)
 valgrind --leak-check=full ./miniRT scenes/sphere.rt   # no leak (headless path)`, lang: "bash" },
     ],
   },
+
+  "cub3d": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Write a first-person FPS game from a **2D map** using **raycasting** (Wolfenstein 3D / early Doom style): cast one ray **per screen column** out from the player → how far until it hits a wall → draw a vertical wall stripe scaled by distance (near=tall, far=short) with a texture. Read the scene from a `.cub` file." },
+      { code: String.raw`NO ./assets/north.xpm     # 4 directional textures
+SO ./assets/south.xpm
+WE ./assets/west.xpm
+EA ./assets/east.xpm
+F 220,100,0               # floor color
+C 30,60,120               # ceiling color
+
+1111111                   # map: 1=wall, 0=floor
+10N0001                   #      N/S/E/W=player + facing
+1111111                   # must be 'closed' on every side`, cap: ".cub = 6 elements (4 textures + 2 colors) + a grid map", lang: "txt" },
+      { h: "The core: what is raycasting (why it's not real 3D)" },
+      { p: "It doesn't build a real 3D world — it's an 'illusion technique': the world is a **2D grid** (of walls/empty cells). Per screen column, cast a ray on the 2D grid to find which wall cell it hits and how far → convert the distance into a 'wall stripe height' on screen. Cast every column (1280 wide) = a pseudo-3D image, very fast (ran on 1992 hardware)." },
+      { h: "3 steps (per frame)" },
+      { table: { head: ["Step", "Does what"], rows: [
+        ["1. cast a ray per column", "compute column x's ray direction (from camera+plane)"],
+        ["2. DDA to find the wall", "step cell-by-cell through the grid until a '1' → get the distance"],
+        ["3. draw stripe + texture", "height = WIN_H/distance; texture by the side hit"],
+      ]}},
+      { note: "Unlike fdf (wireframe lines) and fract-ol (per-pixel coloring): cub3D = an actually playable game with a player walking/turning/colliding + real-time frames." },
+      { h: "Compared to miniRT" },
+      { p: "Both 'cast rays' but differently: **miniRT** casts 1 ray/**pixel** in real 3D (spheres/planes), focused on realistic lighting, slow. **cub3D** casts 1 ray/**column** on a 2D grid, focused on speed + playability, walls always upright." },
+      { h: "Why this project is hard" },
+      { p: "3 hurdles: (1) the **DDA math + fisheye fix** (perpendicular distance) (2) **parsing .cub** which mixes the player (N/S/E/W) with texture ids (NO/SO...) + validating a 'fully closed map' on a ragged-width map (3) passing **norminette** + bonus (no `#ifdef` inside a function) + no leaks on any error path." },
+    ],
+    theory: [
+      { p: "This section gathers the **2D camera + DDA + projection + texture** maths of raycasting (based on Lode Vandevenne's algorithm)." },
+      { h: "1) Camera = position + dir + plane" },
+      { p: "The player has `pos` (x,y on the grid), `dir` (facing vector), and `plane` (a vector perpendicular to dir = the 'camera plane'). **The plane's length sets the FOV**: plane = 0.66 → FOV ≈ 66°. Each column's ray = `dir + plane × camera_x`." },
+      { code: String.raw`camera_x = 2·x / WIN_W − 1        # −1 (screen left) .. +1 (screen right)
+ray_dir  = dir + plane · camera_x  # center column = dir straight ahead`, cap: "sweeping camera_x from −1→+1 = sweeping the ray from the left→right edge of the view", lang: "txt" },
+      { h: "2) DDA — step cell-by-cell to the wall" },
+      { p: "**DDA (Digital Differential Analyzer)** steps the ray one 'grid line' at a time (not tiny steps) until it enters a wall cell — accurate and fast because it jumps across empty space in one go." },
+      { h: "3) Perpendicular distance — fixing fisheye" },
+      { p: "Using the raw Euclidean distance makes walls 'bulge' at screen center (fisheye). You must use the **distance perpendicular to the camera plane** → straight walls look straight." },
+      { h: "4) Wall stripe height" },
+      { p: "`line_height = WIN_H / perpDist` — near (small dist) = tall stripe, far = short. Draw from screen center equally up/down." },
+      { h: "5) Pick the texture by the side hit" },
+      { p: "`side` tells whether the wall hit is a vertical face (x-side) or horizontal (y-side) + ray direction → pick 1 of 4 textures (NO/SO/WE/EA). `wall_x` (where on the wall it hit, 0..1) → the texture's column." },
+      { h: "6) Parse .cub + separate player from texture id" },
+      { p: "The hard part: a map row may start with N/S/E/W (the player) = the same letters as NO/SO. Rule: an **element line** is an id followed by **whitespace** (`NO `/`SO `/`F `...), and parse ids **only before** the map block begins; once the first map row appears, everything after is map." },
+      { h: "7) Validate a 'closed map' on a ragged-width map" },
+      { p: "The map is **not** rectangular and may contain spaces. Every walkable cell (`0`/player) must not touch the outer edge/a space (else it 'leaks'). Check the 4 neighbours: if a neighbour is off-grid **or** a space = the map is open = error." },
+
+      { h: "🔬 Deep Dive A: Camera Plane & Ray Direction — raycasting's 2D camera model" },
+      { p: "**Picture it:** the player stands on a 2D grid looking 'ahead' (dir). To see a wide angle you need a 'virtual screen' standing perpendicular in front of the player = the **plane** vector. Each screen column = one point on the plane → cast a ray through it." },
+      { code: String.raw`dir ┃ plane (⊥ dir)
+         │
+    ╲    │    ╱   each column's ray
+     ╲   │   ╱    = dir + plane·camera_x
+      ╲  │  ╱
+       ╲ │ ╱
+        ╲│╱
+     [player pos]
+
+camera_x = 2·x/WIN_W − 1     x=0 → −1 (far left)
+                             x=WIN_W/2 → 0 (center = dir)
+                             x=WIN_W → +1 (far right)
+ray_dir_x = dir_x + plane_x · camera_x
+ray_dir_y = dir_y + plane_y · camera_x`, cap: "the plane = the virtual screen's horizontal axis; camera_x shifts position on screen → shifts the ray direction", lang: "txt" },
+      { code: String.raw`FOV comes from |plane| / |dir| :
+  |dir| = 1 (normalized), |plane| = 0.66
+  → FOV = 2·atan(0.66/1) ≈ 66°    (standard FPS)
+
+initial direction from the player letter (boolean arithmetic, avoid ?: per norm):
+  'N': dir=(0,−1) plane=(0.66, 0)
+  'S': dir=(0, 1) plane=(−0.66,0)
+  'E': dir=(1, 0) plane=(0, 0.66)
+  'W': dir=(−1,0) plane=(0,−0.66)
+  → plane is always ⊥ dir (dir rotated 90°)`, cap: "longer plane = wider FOV (too much = fisheye); plane is always ⊥ dir", lang: "txt" },
+      { note: "Prove it yourself: set |plane| = 1.0 (FOV 90°) then 0.3 (FOV ~33°) — watch the view widen/narrow. When you turn, rotate **both dir and plane** with the same rotation matrix or the camera distorts." },
+      { qa: [
+        { q: "What is the plane vector, why is it needed?", a: "The plane = the 'virtual screen's' horizontal axis, perpendicular to dir; it spreads the rays into a wide angle (FOV). column x's ray = dir + plane·camera_x." },
+        { q: "How is FOV set?", a: "From the ratio |plane|/|dir|: FOV = 2·atan(|plane|). |plane|=0.66 → ~66°. Longer = wider (too much = fisheye)." },
+        { q: "How does camera_x work?", a: "= 2·x/WIN_W − 1, mapping a column number (0..WIN_W) to −1..+1; center=0 (ray=dir straight), edges=±1 (most tilted)." },
+      ]},
+
+      { h: "🔬 Deep Dive B: DDA — stepping the grid cell-by-cell to the wall" },
+      { p: "**Picture it:** instead of inching the ray forward (slow/can miss), DDA jumps straight to the **next grid line** (whichever of vertical/horizontal is nearer) then checks if that cell is a wall — guaranteed not to skip a wall." },
+      { code: String.raw`prep: delta_dist = the ray distance to cross 1 full cell
+  delta_x = |1 / ray_dir_x|     (guard /0 with a big number 1e30)
+  delta_y = |1 / ray_dir_y|
+
+step (+1/−1) = the direction the ray goes on that axis
+side_x/side_y = distance from pos to the first grid line on each axis
+
+DDA loop:
+  while (current cell is not a wall):
+    if (side_x < side_y):        # the vertical line is nearer
+        side_x += delta_x; map_x += step_x; side = 0   # hit an x-side
+    else:                        # the horizontal line is nearer
+        side_y += delta_y; map_y += step_y; side = 1   # hit a y-side
+    if (map is '1' / space / off-grid): break   # found a wall`, cap: "pick the nearer grid line, step one cell → fast and can never pass through a wall", lang: "txt" },
+      { p: "**Why it's fast:** DDA skips a whole empty cell in one step — no matter how big an open room, it reaches a wall in few steps (unlike ray marching's tiny fixed steps). The step count ≈ the number of grid cells the ray passes." },
+      { note: "Prove it yourself: you must treat **a space and off-grid = a wall** too, or a ray escaping the map makes DDA loop forever (segfault/hang). Guard delta with 1e30 when ray_dir = 0 (ray parallel to an axis)." },
+      { qa: [
+        { q: "How does DDA differ from inching the ray?", a: "DDA jumps to the next grid line immediately (picking the nearer vertical/horizontal) then checks cell by cell — far faster and can never skip a wall, unlike ray marching's fixed tiny steps (slow/can miss)." },
+        { q: "What is delta_dist?", a: "The distance the ray travels crossing 1 full grid cell on that axis = |1/ray_dir|; accumulated to find the next grid line (guard /0 with a big 1e30)." },
+        { q: "Why must space/off-grid be a wall?", a: "If not, a ray escaping the map makes DDA loop forever → hang/segfault; the closed-map validation also stops the player escaping there." },
+      ]},
+
+      { h: "🔬 Deep Dive C: Fisheye Correction — why you use the perpendicular distance" },
+      { p: "**Picture it:** measuring the player-to-wall distance as Euclidean (the true straight distance) makes a flat wall look **bulged at center** because edge rays travel farther diagonally than center rays → the same wall looks near at center, far at the edges = distorted." },
+      { code: String.raw`a single flat wall, top view:
+
+   edge ╲          ╱ edge
+         ╲  wall  ╱
+   ━━━━━━━╳━━━━━━╳━━━━━━━━  wall (flat)
+           ╲    ╱
+            ╲  ╱
+             ╲╱
+          [player]
+
+Euclidean: edge rays longer than center → wall bulges (fisheye) ✗
+Perpendicular: project the distance onto 'dir' → every point on a flat wall gets the same distance ✓
+
+instead of √(dx²+dy²) use what DDA already has:
+  if side == 0:  perp = (map_x − pos_x + (1−step_x)/2) / ray_dir_x
+  else:          perp = (map_y − pos_y + (1−step_y)/2) / ray_dir_y
+  line_h = WIN_H / perp`, cap: "perp = the distance perpendicular to the camera plane → a flat wall looks flat (removes fisheye)", lang: "txt" },
+      { p: "**Why this formula is the perpendicular distance:** it's the distance along the ray axis divided by the ray's component on that axis, which equals projecting the distance onto dir — dropping the diagonal part, leaving the real 'depth into the screen'." },
+      { note: "Prove it yourself: try the Euclidean distance (√) instead of perp and render — walls curve and bulge at center like a fisheye lens. Switch back to perp and walls are instantly straight." },
+      { qa: [
+        { q: "What causes fisheye?", a: "Using the Euclidean distance (true straight distance to the wall): edge rays travel farther diagonally than center rays → a single flat wall looks near at center, far at the edges = bulged." },
+        { q: "How do you fix fisheye?", a: "Use the 'perpendicular to the camera plane' distance instead of Euclidean — project the distance onto dir → every point on a flat wall gets the same distance." },
+        { q: "How is line_height computed?", a: "= WIN_H / perpDist; near walls (small perp) = tall stripe, far = short; drawn from screen center equally up-down." },
+      ]},
+
+      { h: "🔬 Deep Dive D: Texture Mapping — pick the texture + map it to the right side" },
+      { p: "**Picture it:** knowing you hit a wall, you still answer 2 things: (1) **which side** of the wall (north/south/east/west → which texture) (2) **where** on the wall it hit → which texture column." },
+      { code: String.raw`pick the texture from side + ray direction (write with if, not ?:):
+  side == 0 (vertical wall):  ray_dir_x > 0 → EA   else → WE
+  side == 1 (horizontal wall):  ray_dir_y > 0 → SO   else → NO
+
+find wall_x = where it hit on the wall (fraction 0..1):
+  if side == 0:  wall_x = pos_y + perp · ray_dir_y
+  else:          wall_x = pos_x + perp · ray_dir_x
+  wall_x −= floor(wall_x)            # keep only the fraction 0..1
+  tex_x = wall_x · TEX_W             # → texture column
+
+flip tex_x in 2 of 4 cases (else the texture is mirrored):
+  if (side == 0 && ray_dir_x > 0): tex_x = TEX_W − tex_x − 1
+  if (side == 1 && ray_dir_y < 0): tex_x = TEX_W − tex_x − 1`, cap: "side+direction → which texture; wall_x → which column; flip some cases to avoid mirroring", lang: "txt" },
+      { code: String.raw`draw the vertical stripe + step the texture by height:
+  step    = TEX_H / line_h          # texture pixels per screen pixel
+  tex_pos = (start − WIN_H/2 + line_h/2) · step
+  for y in [start..end]:
+    tex_y = (int)tex_pos & (TEX_H−1) # clamp to avoid reading out of the texture
+    tex_pos += step
+    put_pixel(x, y, sample(tex, tex_x, tex_y))
+  // above start = ceiling color, below end = floor color`, cap: "near wall (tall line_h) → small step = texture stretched; far → big step = compressed", lang: "txt" },
+      { note: "Prove it yourself: skip the tex_x flip — walking around a room some sides show the texture 'left-right reversed' (e.g. text on a wall mirrored). And you must `& (TEX−1)` clamp, or a wall right against you (line_h > screen) reads past the texture edge → segfault." },
+      { qa: [
+        { q: "How do you pick 1 of 4 textures?", a: "From side (vertical wall=0 / horizontal=1) + ray direction: side0 → ray_dir_x>0?EA:WE; side1 → ray_dir_y>0?SO:NO (written with if per norm)." },
+        { q: "What are wall_x and tex_x?", a: "wall_x = where the ray hit on the wall (fraction 0..1 of the cell); tex_x = wall_x·TEX_W = the texture column to draw for that stripe." },
+        { q: "Why flip tex_x in some cases?", a: "In 2 of 4 directions (side0&ray_x>0, side1&ray_y<0) the texture sweep direction reverses → use tex_x = TEX_W−tex_x−1 or the texture is left-right mirrored." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Lode's Computer Graphics — Raycasting", url: "https://lodev.org/cgtutor/raycasting.html", note: "the canonical DDA + texture + sprite (read this one)" },
+        { label: "Lode — Raycasting II (texture)", url: "https://lodev.org/cgtutor/raycasting2.html", note: "full texture mapping + floor/ceiling" },
+        { label: "Lode — Raycasting III (sprites)", url: "https://lodev.org/cgtutor/raycasting3.html", note: "sprite casting + z-buffer (bonus)" },
+        { label: "Wolfenstein 3D (Wikipedia)", url: "https://en.wikipedia.org/wiki/Wolfenstein_3D", note: "the game that originated raycasting FPS" },
+        { label: "DDA line algorithm (Wikipedia)", url: "https://en.wikipedia.org/wiki/Digital_differential_analyzer_(graphics_algorithm)", note: "where DDA comes from" },
+        { label: "MiniLibX docs (Harm Smits 42docs)", url: "https://harm-smits.github.io/42docs/libs/minilibx", note: "the mlx guide (image, hook, event)" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **struct, image buffer, and non-rectangular map** of cub3D." },
+      { h: "Main structs" },
+      { code: String.raw`typedef struct s_player {
+    double pos_x, pos_y;       // position on the grid (floating point)
+    double dir_x, dir_y;       // facing direction (normalized)
+    double plane_x, plane_y;   // camera plane (⊥ dir, length 0.66 = FOV 66°)
+} t_player;
+
+typedef struct s_ray {         // per-column state
+    double dir_x, dir_y;
+    int    map_x, map_y;       // current grid cell
+    double delta_x, delta_y;   // distance to cross 1 cell
+    double side_x, side_y;     // distance to the next grid line
+    int    step_x, step_y;     // +1/−1
+    int    side;               // 0=hit vertical 1=hit horizontal
+    double wall_dist, wall_x;  // (perp) distance + hit point on the wall
+    int    tex;                // which texture (NO/SO/WE/EA)
+} t_ray;
+
+typedef struct s_img {         // image buffer (draw the whole frame then put)
+    void *ptr; char *addr;
+    int bpp, line_len, endian, w, h;
+} t_img;
+
+typedef struct s_map {
+    char **grid;               // the grid (rows can be different lengths!)
+    int    height, width;
+} t_map;`, cap: "player holds dir+plane; ray is per-column scratch; map is char** with unequal row lengths", lang: "c" },
+      { h: "image buffer — draw the whole frame then put once" },
+      { p: "Don't use `mlx_pixel_put` per pixel (very slow — an X-server round-trip per dot). Write into your own image buffer via a pointer then `mlx_put_image_to_window` once per frame:" },
+      { code: String.raw`void put_pixel(t_img *img, int x, int y, int color) {
+    if (x < 0 || x >= WIN_W || y < 0 || y >= WIN_H) return;  // guard out-of-bounds
+    char *dst = img->addr + y * img->line_len + x * (img->bpp / 8);
+    *(unsigned int *)dst = color;
+}`, cap: "compute the memory offset yourself = hundreds of times faster than mlx_pixel_put", lang: "c" },
+      { h: "map is not rectangular + has spaces" },
+      { p: "Map rows have unequal lengths and can have spaces mid-row → **never assume a fixed width**. Store as `char**` (each row is its own string). When checking neighbours, compare against that row's `strlen`, not a combined width." },
+      { h: "Set the player pose while scanning the map" },
+      { code: String.raw`// found N/S/E/W while scanning → set pos at cell center + dir/plane (boolean arithmetic)
+p->pos_x = j + 0.5;  p->pos_y = i + 0.5;        // tile center
+p->dir_x   = (c == 'E') - (c == 'W');
+p->dir_y   = (c == 'S') - (c == 'N');
+p->plane_x = 0.66 * (c == 'N') - 0.66 * (c == 'S');
+p->plane_y = 0.66 * (c == 'E') - 0.66 * (c == 'W');`, cap: "boolean arithmetic avoids ?: and the comma operator that norm dislikes", lang: "c" },
+    ],
+    architecture: [
+      { h: "Project files (split by norm: ≤5 funcs/file)" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`main.c`", "check args → load_scene → init → mlx_loop"],
+        ["`parse.c` + `parse_*.c`", "read .cub: element/color/map"],
+        ["`validate.c`", "closed map + 1 player + valid chars"],
+        ["`raycast.c`", "loop 1280 columns: setup ray → DDA → draw"],
+        ["`dda.c`", "step the grid to the wall + perp distance"],
+        ["`draw.c`", "draw stripe + texture + floor/ceiling"],
+        ["`player.c`", "move (per-axis collision) + rotate (matrix)"],
+        ["`hooks.c`", "keypress/release + loop_hook + close"],
+        ["`free.c` / `error.c`", "free memory on every path / Error\\n"],
+      ]}},
+      { h: "The flow (.cub → frame)" },
+      { code: String.raw`.cub → parse (element+color+map) → validate (closed? player?)
+   │
+   ▼
+init mlx + load 4 textures (xpm) as images
+   │
+   ▼  loop_hook (every frame):
+   ├─ move/rotate by held keys
+   ├─ for x in [0..WIN_W): setup ray → DDA → draw column
+   └─ mlx_put_image_to_window (the whole frame at once)`, cap: "parse→validate (headless) happens before mlx → error paths don't leak X11", lang: "txt" },
+      { note: "Important: validate **before** mlx_init always → every error path is headless (valgrind clean, no X11 still-reachable)." },
+      { h: "The error-return contract — the trap that wastes the most time" },
+      { p: "Make the helper `error_msg()` return **0** (= failure) to match all predicates checked like `if (!parse(...))`. If it returns 1 you get 'print Error then the program thinks it succeeded' → parsing continues (you see stacked Error lines) then falls through to mlx_loop and hangs forever." },
+    ],
+    dataflow: [
+      { p: "Walk through the main raycasting functions one by one." },
+      { h: "raycast() — loop every column" },
+      { code: String.raw`void raycast(t_game *g) {
+    int x = 0;
+    while (x < WIN_W) {
+        t_ray r;
+        double cam = 2.0 * x / WIN_W - 1.0;          // −1..+1
+        r.dir_x = g->p.dir_x + g->p.plane_x * cam;
+        r.dir_y = g->p.dir_y + g->p.plane_y * cam;
+        setup_dda(&r, &g->p);                        // delta/step/first side
+        run_dda(g, &r);                              // step to the wall → perp
+        draw_column(g, &r, x);                       // stripe + texture
+        x++;
+    }
+    mlx_put_image_to_window(g->mlx, g->win, g->img.ptr, 0, 0);
+}`, cap: "1 column = 1 ray; draw all 1280 into the buffer then put once", lang: "c" },
+      { h: "run_dda() — step the grid to the wall" },
+      { code: String.raw`void run_dda(t_game *g, t_ray *r) {
+    int hit = 0;
+    while (!hit) {
+        if (r->side_x < r->side_y) {                 // vertical line nearer
+            r->side_x += r->delta_x; r->map_x += r->step_x; r->side = 0;
+        } else {                                     // horizontal line nearer
+            r->side_y += r->delta_y; r->map_y += r->step_y; r->side = 1;
+        }
+        if (is_wall(g, r->map_x, r->map_y))          // '1'/space/off-grid
+            hit = 1;
+    }
+    if (r->side == 0)                                // perp distance (removes fisheye)
+        r->wall_dist = (r->map_x - g->p.pos_x + (1 - r->step_x) / 2.0) / r->dir_x;
+    else
+        r->wall_dist = (r->map_y - g->p.pos_y + (1 - r->step_y) / 2.0) / r->dir_y;
+}`, cap: "pick the nearer grid line, step cell by cell until a wall → compute perp distance", lang: "c" },
+      { h: "draw_column() — stripe + texture" },
+      { code: String.raw`void draw_column(t_game *g, t_ray *r, int x) {
+    t_draw d;
+    d.line_h = (int)(WIN_H / r->wall_dist);
+    d.start  = -d.line_h / 2 + WIN_H / 2;
+    d.end    =  d.line_h / 2 + WIN_H / 2;
+    if (d.start < 0) d.start = 0;
+    if (d.end >= WIN_H) d.end = WIN_H - 1;
+    select_tex(r);                                   // NO/SO/WE/EA + wall_x
+    int tex_x = tex_column(g, r);                    // wall_x·TEX_W (+flip)
+    d.step = (double)TEX_H / d.line_h;
+    d.tex_pos = (d.start - WIN_H / 2 + d.line_h / 2) * d.step;
+    draw_ceiling(g, x, d.start);                     // above = ceiling color
+    draw_wall(g, r, x, &d, tex_x);                   // middle = texture
+    draw_floor(g, x, d.end);                         // below = floor color
+}`, cap: "line_h from distance → tall/short stripe; ceiling-wall-floor for one column", lang: "c" },
+      { h: "move_player() — move + per-axis wall collision" },
+      { code: String.raw`void move_player(t_game *g) {
+    double mx = (g->keys.w - g->keys.s);             // boolean arithmetic
+    double nx = g->p.pos_x + g->p.dir_x * mx * MOVE_SPEED;
+    double ny = g->p.pos_y + g->p.dir_y * mx * MOVE_SPEED;
+    if (!is_wall(g, (int)nx, (int)g->p.pos_y))       // check X axis separately
+        g->p.pos_x = nx;
+    if (!is_wall(g, (int)g->p.pos_x, (int)ny))       // check Y axis separately
+        g->p.pos_y = ny;
+    // ↑ separate axes = 'wall slide' along a wall, not sticking
+}`, cap: "check X and Y separately → slide along a wall (not a dead stop on a diagonal hit)", lang: "c" },
+      { note: "Turning: apply a 2×2 rotation matrix to **both dir and plane**; do the actual movement in loop_hook (smooth + diagonal), not in keypress." },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. parse .cub: elements (NO/SO/WE/EA/F/C) + the map as char** first",
+        "2. validate: 6 elements present, no duplicates, 1 player, valid chars, **closed map** (4-neighbour)",
+        "3. open the mlx window + put_pixel test + draw solid floor/ceiling",
+        "4. **cast rays + DDA** drawing solid-color walls (perp distance — check fisheye)",
+        "5. load textures (xpm) + map by side (side/wall_x/tex_x + flip)",
+        "6. move (WASD, per-axis collision) + turn (←→, matrix) in loop_hook",
+        "7. hook ESC + window close → free everything + exit",
+        "8. bonus: minimap, enemy sprites (z-buffer+sort), doors, mouse-look (separate build via Makefile stub)",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["Prints Error then hangs (exit 124)", "error_msg returns 1 (predicate treats 0=fail)", "make error_msg return 0 — one convention project-wide"],
+        ["Walls bulge at center (fisheye)", "used Euclidean distance", "use perpendicular distance"],
+        ["DDA hangs/segfaults", "space/off-grid not treated as wall / map not closed", "is_wall treats space+OOB=wall + validate closed"],
+        ["Texture left-right reversed", "no tex_x flip", "flip in 2 of 4 cases"],
+        ["Sticks on a diagonal wall hit", "collision checked combined", "check X/Y separately (wall slide)"],
+        ["norm reports 0 OK though code is fine", "CRLF (\\r) / an 81-col header", "sed -i to strip \\r + copy a header from a passing file"],
+      ]}},
+      { h: "build / run / check" },
+      { code: String.raw`make            # mandatory
+make bonus      # minimap + sprites + doors + mouse-look
+./cub3D maps/good.cub
+norminette src/ include/        # 0 errors (bonus is graded too)
+# mlx_loop blocks → use timeout and treat 124 as success
+timeout 3 ./cub3D maps/good.cub; echo "exit=$?"   # 124 = ran the loop = OK
+valgrind --leak-check=full ./cub3D maps/err_dup.cub   # error path = 0 leaks`, lang: "bash" },
+      { note: "On Windows: run through WSL + WSLg (DISPLAY=:0, needs /tmp/.X11-unix/X0). Often no screenshot tool → use timeout (124=pass) + norm + valgrind as an automated pass, then confirm visually by a human run — see the build-42-projects-on-windows skill." },
+    ],
+    tricks: [
+      { h: "Trick 1: error_msg returns 0 — one convention project-wide" },
+      { p: "Every predicate uses '0=fail, 1=ok'; make error_msg return 0 so `return (error_msg(...))` correctly signals failure, stopping the chain at the first error. Wrap main's exits in a helper `if (!check(...)) return (1)` instead of the comma operator norm dislikes." },
+      { h: "Trick 2: perpendicular distance always" },
+      { p: "Use what DDA already has (no √ needed): `(map − pos + (1−step)/2)/ray_dir` = the perpendicular distance → fisheye removed for free." },
+      { h: "Trick 3: space + off-grid = a wall" },
+      { p: "`is_wall` returns true for '1', a space, or off-grid/past the row's strlen → DDA can never escape the map (no hang) and it helps validation too." },
+      { h: "Trick 4: per-axis collision = wall slide" },
+      { p: "Check target X and target Y separately — hitting a wall diagonally you still slide along it, no sticking (much better game feel)." },
+      { h: "Trick 5: write to the image buffer, not mlx_pixel_put" },
+      { p: "put_pixel writes addr+y·line_len+x·bpp/8 yourself then put_image once/frame — hundreds of times faster than mlx_pixel_put (an X round-trip per pixel)." },
+      { h: "Trick 6: bonus via a Makefile stub, not #ifdef" },
+      { p: "norm bans `#ifdef` inside a function (PREPOC_ONLY_GLOBAL). Have mandatory `.c` call hooks (`record_enemy`/`init_bonus`/`render_bonus`) unconditionally; `bonus.c` = the real hooks (bonus build), `stub.c` = no-op hooks (mandatory build); the only `#ifdef` lives in the header as one macro (ENEMY_CH '2' vs '0')." },
+      { h: "Trick 7: sprites need a z-buffer + sort (bonus)" },
+      { p: "Store each column's wall_dist in zbuf[WIN_W]; draw sprites afterward checking `ty < zbuf[x]` (walls occlude enemies) + sort enemies far→near before drawing + skip the transparent key color (0xFF00FF)." },
+      { h: "Trick 8: strip CRLF + copy the header before norm" },
+      { p: "Windows files carry \\r → `sed -i 's/\\r$//'` first; the 42 header must be exactly 80 cols → copy from a passing file (e.g. libft) changing only the filename, don't count by hand." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How does raycasting work in one sentence?", a: "Cast one ray per screen column from the player on a 2D grid, DDA to find the wall hit + distance, then draw a vertical wall stripe scaled by distance (near tall, far short) with a texture." },
+        { q: "How do dir and plane differ?", a: "dir = the facing direction; plane = the camera plane perpendicular to dir (length 0.66 = FOV 66°); column x's ray = dir + plane·camera_x." },
+        { q: "What is DDA, why use it?", a: "Digital Differential Analyzer — step the ray one grid line at a time (picking the nearer vertical/horizontal) until a wall; fast and can never pass through a wall, unlike inching forward." },
+        { q: "What causes fisheye, how do you fix it?", a: "Using Euclidean distance → edge rays travel farther diagonally than center → walls bulge; fix with perpendicular distance (project the distance onto dir)." },
+        { q: "How is line_height computed?", a: "= WIN_H / perpDist; near walls=tall, far=short; drawn from screen center equally up-down, above=ceiling, below=floor." },
+        { q: "How do you pick 1 of 4 textures?", a: "From side (vertical wall0/horizontal1) + ray direction: side0→ray_x>0?EA:WE; side1→ray_y>0?SO:NO; wall_x→the texture column (flip some cases)." },
+        { q: "How do you separate the player (N/S/E/W) from a texture id (NO/SO)?", a: "An element line is an id followed by whitespace, and parse ids only before the map block begins; the first map row means everything after is map." },
+        { q: "How do you validate a 'closed map' when it isn't rectangular?", a: "Every walkable cell checks 4 neighbours: off-grid/past the row's strlen/a space = open = error; compare against each row's strlen (not a combined width) → handles ragged rows." },
+        { q: "Why must error_msg return 0?", a: "All predicates check if(!parse(...)) where 0 means fail; if error_msg returns 1 it's treated as success → parsing continues, stacked Error prints, then falls through to mlx_loop and hangs." },
+        { q: "Why check collision per X/Y axis?", a: "To 'wall slide' on a diagonal hit — checking combined dead-stops the instant you touch a wall." },
+        { q: "What to watch for with bonus sprites?", a: "A z-buffer (store wall_dist per column) so walls occlude enemies, sort far→near, skip the transparent color (0xFF00FF), transform coords into camera space and check depth>0." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`make && norminette src/ include/                  # 0 errors
+timeout 3 ./cub3D maps/good.cub; echo "exit=$?"   # 124 = render loop = OK
+./cub3D                          # Error (no argument)
+./cub3D maps/err_dup.cub         # Error (duplicate element)
+./cub3D maps/err_no_player.cub   # Error (no player)
+./cub3D notmap.txt               # Error (extension isn't .cub)
+valgrind --leak-check=full ./cub3D maps/err_color.cub   # 0 leaks (headless)`, lang: "bash" },
+    ],
+  },
 };

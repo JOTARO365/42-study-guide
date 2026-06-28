@@ -4162,4 +4162,391 @@ valgrind --leak-check=full ./miniRT scenes/sphere.rt   # ไม่ leak (path he
     ],
   },
 },
+/* ===================== cub3D ===================== */
+{
+  id: "cub3d",
+  name: "cub3D",
+  tag: { th: "raycasting FPS แบบ Wolfenstein ใน C — ยิง ray 1 เส้นต่อ 1 คอลัมน์จอ, DDA หาผนัง, แก้ fisheye, แปะ texture ตามด้าน, parse .cub + ตรวจ map ปิด",
+         en: "A Wolfenstein-style raycasting FPS in C — one ray per screen column, DDA to find the wall, fisheye correction, per-side textures, .cub parsing + closed-map validation" },
+  accent: "#fb923c",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร" },
+      { p: "เขียนเกม FPS มุมมองบุคคลที่ 1 จาก **แผนที่ 2 มิติ** ด้วยเทคนิค **raycasting** (แบบ Wolfenstein 3D / Doom ยุคแรก): ยิง ray 1 เส้น **ต่อ 1 คอลัมน์ของจอ** ออกจากผู้เล่น → ชนผนังที่ระยะเท่าไร → วาดแถบผนังแนวตั้งสูงตามระยะ (ใกล้=สูง, ไกล=เตี้ย) พร้อม texture. อ่านฉากจากไฟล์ `.cub`" },
+      { code: String.raw`NO ./assets/north.xpm     # texture 4 ทิศ
+SO ./assets/south.xpm
+WE ./assets/west.xpm
+EA ./assets/east.xpm
+F 220,100,0               # สีพื้น (floor)
+C 30,60,120               # สีเพดาน (ceiling)
+
+1111111                   # แผนที่: 1=ผนัง, 0=ทางเดิน
+10N0001                   #         N/S/E/W=ผู้เล่น+ทิศหันหน้า
+1111111                   # ต้อง 'ปิด' รอบทุกด้าน`, cap: ".cub = 6 element (texture×4 + 2 สี) + แผนที่ตาราง", lang: "txt" },
+      { h: "หัวใจ: raycasting คืออะไร (ทำไมไม่ใช่ 3D จริง)" },
+      { p: "ไม่ได้สร้างโลก 3D จริง — แต่ใช้ 'เทคนิคลวงตา': โลกเป็น **ตาราง 2 มิติ** (grid ของผนัง/ที่ว่าง). ต่อ 1 คอลัมน์จอ ยิง ray ออกไปบน grid 2D หาว่าชนผนังช่องไหน ระยะเท่าไร → แปลงระยะเป็น 'ความสูงแถบผนัง' บนจอ. ยิงครบทุกคอลัมน์ (กว้าง 1280) = ได้ภาพ 3 มิติเสมือน เร็วมาก (วิ่งบนเครื่องปี 1992 ได้)" },
+      { h: "3 ขั้น (ต่อ 1 เฟรม)" },
+      { table: { head: ["ขั้น", "ทำอะไร"], rows: [
+        ["1. ยิง ray ต่อคอลัมน์", "คำนวณทิศ ray ของคอลัมน์ x (จากกล้อง+plane)"],
+        ["2. DDA หาผนัง", "เดินทีละช่อง grid จนชน '1' → ได้ระยะ"],
+        ["3. วาดแถบ + texture", "ความสูง = WIN_H/ระยะ; แปะ texture ตามด้านที่ชน"],
+      ]}},
+      { note: "ต่างจาก fdf (ลากเส้น wireframe) และ fract-ol (ระบายสีต่อ pixel): cub3D = เกมเล่นได้จริง มีผู้เล่นเดิน/หมุน/ชนผนัง + เฟรมเรียลไทม์" },
+      { h: "เทียบกับ miniRT" },
+      { p: "ทั้งคู่ 'ยิง ray' แต่คนละแบบ: **miniRT** ยิง 1 ray/**pixel** ใน 3D จริง (sphere/plane) เน้นแสงเงาสมจริง ช้า. **cub3D** ยิง 1 ray/**คอลัมน์** บน grid 2D เน้นเร็ว+เล่นได้ ผนังตั้งฉากเสมอ" },
+      { h: "ทำไมโจทย์นี้ยาก" },
+      { p: "3 ด่าน: (1) **คณิต DDA + แก้ fisheye** (perpendicular distance) (2) **parse .cub** ที่ปนผู้เล่น (N/S/E/W) กับ texture id (NO/SO...) + ตรวจ 'แผนที่ปิดสนิท' บน map ขอบไม่เท่ากัน (3) ผ่าน **norminette** + bonus (ห้าม `#ifdef` ในฟังก์ชัน) + ไม่ leak ทุก error path" },
+    ],
+    theory: [
+      { p: "หมวดนี้รวมคณิต **กล้อง 2D + DDA + projection + texture** ของ raycasting (อิงอัลกอริทึม Lode Vandevenne)" },
+      { h: "1) กล้อง = ตำแหน่ง + dir + plane" },
+      { p: "ผู้เล่นมี `pos` (x,y บน grid), `dir` (เวกเตอร์ทิศหันหน้า), และ `plane` (เวกเตอร์ตั้งฉากกับ dir = 'ระนาบกล้อง'). **ความยาว plane กำหนด FOV**: plane = 0.66 → FOV ≈ 66°. ray ของแต่ละคอลัมน์ = `dir + plane × camera_x`" },
+      { code: String.raw`camera_x = 2·x / WIN_W − 1        # −1 (ซ้ายจอ) .. +1 (ขวาจอ)
+ray_dir  = dir + plane · camera_x  # คอลัมน์กลาง = dir ตรง ๆ`, cap: "กวาด camera_x จาก −1→+1 = กวาด ray จากขอบซ้าย→ขวาของมุมมอง", lang: "txt" },
+      { h: "2) DDA — เดินทีละช่องหาผนัง" },
+      { p: "**DDA (Digital Differential Analyzer)** เดิน ray ทีละ 'เส้น grid' (ไม่ใช่ทีละ step เล็ก ๆ) จนเข้าช่องที่เป็นผนัง — แม่นและเร็วเพราะกระโดดข้ามช่องว่างทีเดียว" },
+      { h: "3) Perpendicular distance — แก้ fisheye" },
+      { p: "ถ้าใช้ระยะ Euclidean ตรง ๆ ผนังจะ 'โป่ง' กลางจอ (fisheye). ต้องใช้ **ระยะตั้งฉากกับระนาบกล้อง** → ผนังตรงดูตรง" },
+      { h: "4) ความสูงแถบผนัง" },
+      { p: "`line_height = WIN_H / perpDist` — ใกล้ (dist น้อย) = แถบสูง, ไกล = แถบเตี้ย. วาดจากกลางจอขึ้น/ลงเท่า ๆ กัน" },
+      { h: "5) เลือก texture ตามด้านที่ชน" },
+      { p: "`side` บอกว่าชนผนังด้านแนวตั้ง (x-side) หรือแนวนอน (y-side) + ทิศ ray → เลือก 1 ใน 4 texture (NO/SO/WE/EA). `wall_x` (จุดที่ชนบนผนัง 0..1) → คอลัมน์ของ texture" },
+      { h: "6) parse .cub + แยกผู้เล่นจาก texture id" },
+      { p: "ด่านยาก: แถวแผนที่อาจขึ้นต้นด้วย N/S/E/W (ผู้เล่น) = ตัวอักษรเดียวกับ NO/SO. กฎ: **element line** = id ตามด้วย **ช่องว่าง** (`NO `/`SO `/`F `...) และ parse id **ก่อน** บล็อกแผนที่เริ่มเท่านั้น; พอเจอบรรทัดแผนที่บรรทัดแรก = ที่เหลือเป็นแผนที่ทั้งหมด" },
+      { h: "7) ตรวจ 'แผนที่ปิด' บน map ขอบไม่เท่ากัน" },
+      { p: "แผนที่ **ไม่ใช่สี่เหลี่ยม** และมีช่องว่างได้. ทุกช่องเดินได้ (`0`/ผู้เล่น) ต้องไม่ติดขอบนอก/ช่องว่าง (ไม่งั้น 'รั่ว'). เช็ค 4 เพื่อนบ้าน: ถ้าเพื่อนบ้านหลุดขอบ **หรือ** เป็น space = แผนที่เปิด = error" },
+
+      { h: "🔬 เจาะลึก A: Camera Plane & Ray Direction — โมเดลกล้อง 2D ของ raycasting" },
+      { p: "**ภาพในหัว:** ผู้เล่นยืนบน grid 2D มอง 'ไปข้างหน้า' (dir). จะเห็นมุมกว้างได้ต้องมี 'จอเสมือน' วางตั้งฉากหน้าผู้เล่น = เวกเตอร์ **plane**. ทุกคอลัมน์จอ = 1 จุดบน plane → ยิง ray ผ่านจุดนั้น" },
+      { code: String.raw`dir ┃ plane (ตั้งฉาก dir)
+         │
+    ╲    │    ╱   ray ของแต่ละคอลัมน์
+     ╲   │   ╱    = dir + plane·camera_x
+      ╲  │  ╱
+       ╲ │ ╱
+        ╲│╱
+     [ผู้เล่น pos]
+
+camera_x = 2·x/WIN_W − 1     x=0 → −1 (ซ้ายสุด)
+                             x=WIN_W/2 → 0 (กลาง = dir)
+                             x=WIN_W → +1 (ขวาสุด)
+ray_dir_x = dir_x + plane_x · camera_x
+ray_dir_y = dir_y + plane_y · camera_x`, cap: "plane = แกนนอนของจอเสมือน; camera_x เลื่อนตำแหน่งบนจอ → เลื่อนทิศ ray", lang: "txt" },
+      { code: String.raw`FOV มาจาก |plane| / |dir| :
+  |dir| = 1 (normalize), |plane| = 0.66
+  → FOV = 2·atan(0.66/1) ≈ 66°    (มาตรฐาน FPS)
+
+ทิศเริ่มต้นจากตัวอักษรผู้เล่น (boolean arithmetic, เลี่ยง ?: ตาม norm):
+  'N': dir=(0,−1) plane=(0.66, 0)
+  'S': dir=(0, 1) plane=(−0.66,0)
+  'E': dir=(1, 0) plane=(0, 0.66)
+  'W': dir=(−1,0) plane=(0,−0.66)
+  → plane ตั้งฉาก dir เสมอ (หมุน dir 90°)`, cap: "plane ยาวขึ้น = FOV กว้างขึ้น (มากไปจะ fisheye); plane ⊥ dir เสมอ", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ตั้ง |plane| = 1.0 (FOV 90°) แล้ว 0.3 (FOV ~33°) — ดูภาพกว้าง/แคบเปลี่ยน. ตอนหมุนตัว ต้องหมุน **ทั้ง dir และ plane** ด้วย rotation matrix เดียวกัน ไม่งั้นกล้องเพี้ยน" },
+      { qa: [
+        { q: "เวกเตอร์ plane คืออะไร ทำไมต้องมี?", a: "plane = แกนนอนของ 'จอเสมือน' ตั้งฉากกับ dir; ใช้กระจาย ray ออกเป็นมุมกว้าง (FOV). ray คอลัมน์ x = dir + plane·camera_x" },
+        { q: "FOV กำหนดยังไง?", a: "จากอัตราส่วน |plane|/|dir|: FOV = 2·atan(|plane|). |plane|=0.66 → ~66°. ยาวขึ้น=กว้างขึ้น (มากไปจะ fisheye)" },
+        { q: "camera_x ทำงานยังไง?", a: "= 2·x/WIN_W − 1 แปลงเลขคอลัมน์ (0..WIN_W) เป็น −1..+1; กลางจอ=0 (ray=dir ตรง), ขอบ=±1 (เอียงสุด)" },
+      ]},
+
+      { h: "🔬 เจาะลึก B: DDA — เดินทีละช่อง grid หาผนัง" },
+      { p: "**ภาพในหัว:** แทนที่จะคืบ ray ทีละนิด (ช้า/พลาด) DDA กระโดดไปที่ **เส้น grid ถัดไป** ทันที (แนวตั้งหรือแนวนอนอันไหนใกล้กว่า) แล้วเช็คช่องนั้นเป็นผนังไหม — รับประกันไม่ข้ามผนัง" },
+      { code: String.raw`เตรียม: delta_dist = ระยะ ray ที่เดินข้าม 1 ช่องเต็ม
+  delta_x = |1 / ray_dir_x|     (กัน /0 ด้วยค่าใหญ่ 1e30)
+  delta_y = |1 / ray_dir_y|
+
+step (+1/−1) = ทิศที่ ray ไปบนแกนนั้น
+side_x/side_y = ระยะจาก pos ถึงเส้น grid แรกบนแต่ละแกน
+
+วน DDA:
+  while (ช่องปัจจุบันไม่ใช่ผนัง):
+    if (side_x < side_y):        # เส้นแนวตั้งใกล้กว่า
+        side_x += delta_x; map_x += step_x; side = 0   # ชนด้าน x
+    else:                        # เส้นแนวนอนใกล้กว่า
+        side_y += delta_y; map_y += step_y; side = 1   # ชนด้าน y
+    if (map เป็น '1' / space / นอกขอบ): break   # เจอผนัง`, cap: "เลือกเส้น grid ที่ใกล้กว่าเดินไปทีละช่อง → เร็วและไม่มีทางทะลุผนัง", lang: "txt" },
+      { p: "**ทำไมเร็ว:** DDA ข้ามทั้งช่องว่างในก้าวเดียว — ห้องโล่งใหญ่แค่ไหนก็เดินไม่กี่ก้าวถึงผนัง (ต่างจาก ray marching ที่ก้าวเล็ก ๆ คงที่). จำนวนก้าว ≈ จำนวนช่อง grid ที่ ray ผ่าน" },
+      { note: "ลองพิสูจน์เอง: ต้อง treat **space และนอกขอบ = ผนัง** ด้วย ไม่งั้นผู้เล่นยิง ray ทะลุออกนอกแผนที่แล้ว DDA วนไม่จบ (segfault/ค้าง). guard delta ด้วย 1e30 เมื่อ ray_dir = 0 (ray ขนานแกน)" },
+      { qa: [
+        { q: "DDA ต่างจากการคืบ ray ทีละนิดยังไง?", a: "DDA กระโดดไปเส้น grid ถัดไปทันที (เลือกแนวตั้ง/นอนอันใกล้กว่า) แล้วเช็คทีละช่อง — เร็วกว่ามากและไม่มีทางข้ามผนัง ต่างจาก ray marching ที่ก้าวเล็กคงที่ (ช้า/อาจพลาด)" },
+        { q: "delta_dist คืออะไร?", a: "ระยะที่ ray เดินเมื่อข้าม 1 ช่อง grid เต็มบนแกนนั้น = |1/ray_dir|; ใช้บวกสะสมหาเส้น grid ถัดไป (กัน /0 ด้วยค่าใหญ่ 1e30)" },
+        { q: "ทำไม space/นอกขอบต้องเป็นผนัง?", a: "ถ้าไม่ treat เป็นผนัง ray ที่หลุดออกนอกแผนที่จะทำ DDA วนไม่จบ → ค้าง/segfault; การ validate map ปิดก็กันผู้เล่นออกไปตรงนั้น" },
+      ]},
+
+      { h: "🔬 เจาะลึก C: Fisheye Correction — ทำไมต้องใช้ระยะตั้งฉาก" },
+      { p: "**ภาพในหัว:** ถ้าวัดระยะจากผู้เล่นถึงผนังแบบ Euclidean (ระยะตรงจริง) ผนังเรียบจะดู **โป่งกลางจอ** เพราะ ray ที่ขอบจอวิ่งเฉียงไกลกว่า ray กลางจอ → ผนังเดียวกันดูใกล้ตรงกลาง ไกลที่ขอบ = บิดเบี้ยว" },
+      { code: String.raw`ผนังเรียบเส้นเดียว มองจากบน:
+
+   ขอบจอ ╲          ╱ ขอบจอ
+          ╲  ผนัง  ╱
+   ━━━━━━━━╳━━━━━━╳━━━━━━━━  ผนัง (เรียบ)
+            ╲    ╱
+             ╲  ╱
+              ╲╱
+          [ผู้เล่น]
+
+Euclidean: ray ขอบยาวกว่า ray กลาง → ผนังโป่ง (fisheye) ✗
+Perpendicular: ฉายระยะลงบน 'dir' → ทุกจุดบนผนังเรียบได้ระยะเท่ากัน ✓
+
+แทนที่จะ √(dx²+dy²) ใช้ค่าที่ DDA มีอยู่แล้ว:
+  if side == 0:  perp = (map_x − pos_x + (1−step_x)/2) / ray_dir_x
+  else:          perp = (map_y − pos_y + (1−step_y)/2) / ray_dir_y
+  line_h = WIN_H / perp`, cap: "perp = ระยะตั้งฉากกับระนาบกล้อง → ผนังเรียบดูเรียบ (ลบ fisheye)", lang: "txt" },
+      { p: "**ทำไมสูตรนี้คือระยะตั้งฉาก:** มันคือระยะตามแกน ray หารด้วยองค์ประกอบ ray บนแกนนั้น ซึ่งเท่ากับการ project ระยะลงบนทิศ dir พอดี — ตัดส่วนเฉียงทิ้ง เหลือ 'ความลึกเข้าจอ' จริง" },
+      { note: "ลองพิสูจน์เอง: ลองใช้ระยะ Euclidean (√) แทน perp แล้ว render — ผนังจะโค้งโป่งกลางจอเหมือนมองผ่านเลนส์ตาปลา. เปลี่ยนกลับเป็น perp แล้วผนังตรงทันที" },
+      { qa: [
+        { q: "fisheye เกิดจากอะไร?", a: "ใช้ระยะ Euclidean (ระยะตรงจริงถึงผนัง): ray ที่ขอบจอวิ่งเฉียงไกลกว่า ray กลางจอ → ผนังเรียบเส้นเดียวดูใกล้ตรงกลาง ไกลที่ขอบ = โป่ง" },
+        { q: "แก้ fisheye ยังไง?", a: "ใช้ระยะ 'ตั้งฉากกับระนาบกล้อง' (perpendicular distance) แทน Euclidean — project ระยะลงบนทิศ dir → ทุกจุดบนผนังเรียบได้ระยะเท่ากัน" },
+        { q: "line_height คำนวณยังไง?", a: "= WIN_H / perpDist; ผนังใกล้ (perp น้อย) = แถบสูง, ไกล = แถบเตี้ย; วาดจากกลางจอขึ้น-ลงเท่ากัน" },
+      ]},
+
+      { h: "🔬 เจาะลึก D: Texture Mapping — เลือก texture + แปะให้ตรงด้าน" },
+      { p: "**ภาพในหัว:** รู้ว่าชนผนังแล้ว ยังต้องตอบ 2 ข้อ: (1) ผนัง **ด้านไหน** (เหนือ/ใต้/ออก/ตก → texture ไหน) (2) ชน **ตรงไหน** บนผนัง → คอลัมน์ไหนของ texture" },
+      { code: String.raw`เลือก texture จาก side + ทิศ ray (เขียนด้วย if ไม่ใช่ ?:):
+  side == 0 (ผนังแนวตั้ง):  ray_dir_x > 0 → EA   else → WE
+  side == 1 (ผนังแนวนอน):  ray_dir_y > 0 → SO   else → NO
+
+หา wall_x = จุดที่ชนบนผนัง (เศษ 0..1):
+  if side == 0:  wall_x = pos_y + perp · ray_dir_y
+  else:          wall_x = pos_x + perp · ray_dir_x
+  wall_x −= floor(wall_x)            # เก็บแต่เศษ 0..1
+  tex_x = wall_x · TEX_W             # → คอลัมน์ texture
+
+พลิก tex_x 2 ใน 4 กรณี (ไม่งั้น texture กลับด้าน):
+  if (side == 0 && ray_dir_x > 0): tex_x = TEX_W − tex_x − 1
+  if (side == 1 && ray_dir_y < 0): tex_x = TEX_W − tex_x − 1`, cap: "side+ทิศ → texture ไหน; wall_x → คอลัมน์ไหน; พลิกบางกรณีกัน texture กลับ", lang: "txt" },
+      { code: String.raw`วาดแถบแนวตั้ง + เดิน texture ตามความสูง:
+  step    = TEX_H / line_h          # texture เดินกี่ pixel ต่อ 1 pixel จอ
+  tex_pos = (start − WIN_H/2 + line_h/2) · step
+  for y in [start..end]:
+    tex_y = (int)tex_pos & (TEX_H−1) # clamp กันอ่านนอก texture
+    tex_pos += step
+    put_pixel(x, y, sample(tex, tex_x, tex_y))
+  // เหนือ start = สีเพดาน, ใต้ end = สีพื้น`, cap: "ผนังใกล้ (line_h สูง) → step เล็ก = texture ยืด; ไกล → step ใหญ่ = บีบ", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ข้ามขั้นพลิก tex_x — เดินรอบห้องจะเห็น texture บางด้าน 'กลับซ้ายขวา' (เช่นตัวหนังสือบนผนังกลับด้าน). และต้อง `& (TEX−1)` clamp ไม่งั้นผนังที่ชิดตัวมาก (line_h > จอ) อ่าน texture เกินขอบ → segfault" },
+      { qa: [
+        { q: "เลือก texture 1 ใน 4 ยังไง?", a: "จาก side (ชนผนังแนวตั้ง=0 / แนวนอน=1) + ทิศ ray: side0 → ray_dir_x>0?EA:WE; side1 → ray_dir_y>0?SO:NO (เขียนด้วย if ตาม norm)" },
+        { q: "wall_x และ tex_x คืออะไร?", a: "wall_x = ตำแหน่งที่ ray ชนบนผนัง (เศษ 0..1 ของช่อง); tex_x = wall_x·TEX_W = คอลัมน์ของ texture ที่จะหยิบมาวาดแถบนั้น" },
+        { q: "ทำไมต้องพลิก tex_x บางกรณี?", a: "2 ใน 4 ทิศ (side0&ray_x>0, side1&ray_y<0) ทิศการกวาด texture กลับด้าน → ต้อง tex_x = TEX_W−tex_x−1 ไม่งั้น texture กลับซ้ายขวา" },
+      ]},
+      { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
+      { links: [
+        { label: "Lode's Computer Graphics — Raycasting", url: "https://lodev.org/cgtutor/raycasting.html", note: "ต้นตำรับ DDA + texture + sprite (อ่านอันนี้พอ)" },
+        { label: "Lode — Raycasting II (texture)", url: "https://lodev.org/cgtutor/raycasting2.html", note: "texture mapping เต็ม + floor/ceiling" },
+        { label: "Lode — Raycasting III (sprites)", url: "https://lodev.org/cgtutor/raycasting3.html", note: "sprite casting + z-buffer (bonus)" },
+        { label: "Wolfenstein 3D (Wikipedia)", url: "https://en.wikipedia.org/wiki/Wolfenstein_3D", note: "เกมต้นกำเนิด raycasting FPS" },
+        { label: "DDA line algorithm (Wikipedia)", url: "https://en.wikipedia.org/wiki/Digital_differential_analyzer_(graphics_algorithm)", note: "ที่มาของ DDA" },
+        { label: "MiniLibX docs (Harm Smits 42docs)", url: "https://harm-smits.github.io/42docs/libs/minilibx", note: "คู่มือ mlx (image, hook, event)" },
+      ]},
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **struct, image buffer, และ map ที่ไม่ใช่สี่เหลี่ยม** ของ cub3D" },
+      { h: "struct หลัก" },
+      { code: String.raw`typedef struct s_player {
+    double pos_x, pos_y;       // ตำแหน่งบน grid (จุดทศนิยม)
+    double dir_x, dir_y;       // ทิศหันหน้า (normalize)
+    double plane_x, plane_y;   // ระนาบกล้อง (⊥ dir, ยาว 0.66 = FOV 66°)
+} t_player;
+
+typedef struct s_ray {         // state ต่อ 1 คอลัมน์
+    double dir_x, dir_y;
+    int    map_x, map_y;       // ช่อง grid ปัจจุบัน
+    double delta_x, delta_y;   // ระยะข้าม 1 ช่อง
+    double side_x, side_y;     // ระยะถึงเส้น grid ถัดไป
+    int    step_x, step_y;     // +1/−1
+    int    side;               // 0=ชนแนวตั้ง 1=ชนแนวนอน
+    double wall_dist, wall_x;  // ระยะ(perp) + จุดชนบนผนัง
+    int    tex;                // texture ไหน (NO/SO/WE/EA)
+} t_ray;
+
+typedef struct s_img {         // image buffer (วาดทั้งเฟรมก่อน put)
+    void *ptr; char *addr;
+    int bpp, line_len, endian, w, h;
+} t_img;
+
+typedef struct s_map {
+    char **grid;               // ตาราง (แต่ละแถวยาวไม่เท่ากันได้!)
+    int    height, width;
+} t_map;`, cap: "player ถือ dir+plane; ray คือ scratch ต่อคอลัมน์; map เป็น char** แถวยาวไม่เท่ากัน", lang: "c" },
+      { h: "image buffer — วาดทั้งเฟรมแล้ว put ครั้งเดียว" },
+      { p: "อย่าใช้ `mlx_pixel_put` ต่อ pixel (ช้ามาก — round-trip ไป X server ทุกจุด). เขียนลง buffer ของ image เองด้วย pointer แล้ว `mlx_put_image_to_window` ครั้งเดียวต่อเฟรม:" },
+      { code: String.raw`void put_pixel(t_img *img, int x, int y, int color) {
+    if (x < 0 || x >= WIN_W || y < 0 || y >= WIN_H) return;  // กันนอกขอบ
+    char *dst = img->addr + y * img->line_len + x * (img->bpp / 8);
+    *(unsigned int *)dst = color;
+}`, cap: "คำนวณ offset ในหน่วยความจำเอง = เร็วกว่า mlx_pixel_put หลายร้อยเท่า", lang: "c" },
+      { h: "map ไม่ใช่สี่เหลี่ยม + มี space" },
+      { p: "แถวแผนที่ยาวไม่เท่ากัน และมีช่องว่างกลางแถวได้ → **ห้ามสมมติความกว้างคงที่**. เก็บเป็น `char**` (แต่ละแถวคือ string ของมัน). เวลาเช็คเพื่อนบ้านต้องเทียบกับ `strlen(แถวนั้น)` ไม่ใช่ width รวม" },
+      { h: "ตั้งท่าผู้เล่นตอน scan map" },
+      { code: String.raw`// เจอ N/S/E/W ตอน scan → ตั้ง pos กลางช่อง + dir/plane (boolean arithmetic)
+p->pos_x = j + 0.5;  p->pos_y = i + 0.5;        // กลาง tile
+p->dir_x   = (c == 'E') - (c == 'W');
+p->dir_y   = (c == 'S') - (c == 'N');
+p->plane_x = 0.66 * (c == 'N') - 0.66 * (c == 'S');
+p->plane_y = 0.66 * (c == 'E') - 0.66 * (c == 'W');`, cap: "boolean arithmetic เลี่ยง ?: และ comma operator ที่ norm ไม่ชอบ", lang: "c" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์ (แบ่งตาม norm: ≤5 ฟังก์ชัน/ไฟล์)" },
+      { table: { head: ["ไฟล์", "หน้าที่"], rows: [
+        ["`main.c`", "check args → load_scene → init → mlx_loop"],
+        ["`parse.c` + `parse_*.c`", "อ่าน .cub: element/color/map"],
+        ["`validate.c`", "map ปิดสนิท + 1 ผู้เล่น + char ถูกต้อง"],
+        ["`raycast.c`", "วน 1280 คอลัมน์: setup ray → DDA → draw"],
+        ["`dda.c`", "เดิน grid หาผนัง + perp distance"],
+        ["`draw.c`", "วาดแถบ + แปะ texture + พื้น/เพดาน"],
+        ["`player.c`", "เดิน (collision per-axis) + หมุน (matrix)"],
+        ["`hooks.c`", "keypress/release + loop_hook + close"],
+        ["`free.c` / `error.c`", "คืน memory ทุก path / Error\\n"],
+      ]}},
+      { h: "การไหล (.cub → เฟรม)" },
+      { code: String.raw`.cub → parse (element+color+map) → validate (ปิด? ผู้เล่น?)
+   │
+   ▼
+init mlx + โหลด 4 texture (xpm) เป็น image
+   │
+   ▼  loop_hook (ทุกเฟรม):
+   ├─ move/rotate ตาม key ที่กดค้าง
+   ├─ for x in [0..WIN_W): setup ray → DDA → draw column
+   └─ mlx_put_image_to_window (ทั้งเฟรมทีเดียว)`, cap: "parse→validate (headless) เกิดก่อน mlx → error path ไม่ leak X11", lang: "txt" },
+      { note: "สำคัญ: validate **ก่อน** mlx_init เสมอ → ทุก error path เป็น headless (valgrind สะอาด ไม่มี X11 still-reachable)" },
+      { h: "error-return contract — กับดักที่กินเวลาที่สุด" },
+      { p: "ให้ helper `error_msg()` คืน **0** (= ล้มเหลว) ให้ตรงกับ predicate ทั้งหมดที่เช็คแบบ `if (!parse(...))`. ถ้าทำคืน 1 จะกลายเป็น 'พิมพ์ Error แล้วโปรแกรมคิดว่าสำเร็จ' → parse ต่อ (เห็น Error ซ้อนหลายบรรทัด) แล้วตกไป mlx_loop ค้างตลอด" },
+    ],
+    dataflow: [
+      { p: "ไล่ฟังก์ชันหลักของ raycasting ทีละตัว" },
+      { h: "raycast() — วนทุกคอลัมน์" },
+      { code: String.raw`void raycast(t_game *g) {
+    int x = 0;
+    while (x < WIN_W) {
+        t_ray r;
+        double cam = 2.0 * x / WIN_W - 1.0;          // −1..+1
+        r.dir_x = g->p.dir_x + g->p.plane_x * cam;
+        r.dir_y = g->p.dir_y + g->p.plane_y * cam;
+        setup_dda(&r, &g->p);                        // delta/step/side แรก
+        run_dda(g, &r);                              // เดินจนชนผนัง → perp
+        draw_column(g, &r, x);                       // แถบ + texture
+        x++;
+    }
+    mlx_put_image_to_window(g->mlx, g->win, g->img.ptr, 0, 0);
+}`, cap: "1 คอลัมน์ = 1 ray; วาดลง buffer ครบ 1280 แล้ว put ทีเดียว", lang: "c" },
+      { h: "run_dda() — เดิน grid หาผนัง" },
+      { code: String.raw`void run_dda(t_game *g, t_ray *r) {
+    int hit = 0;
+    while (!hit) {
+        if (r->side_x < r->side_y) {                 // เส้นตั้งใกล้กว่า
+            r->side_x += r->delta_x; r->map_x += r->step_x; r->side = 0;
+        } else {                                     // เส้นนอนใกล้กว่า
+            r->side_y += r->delta_y; r->map_y += r->step_y; r->side = 1;
+        }
+        if (is_wall(g, r->map_x, r->map_y))          // '1'/space/นอกขอบ
+            hit = 1;
+    }
+    if (r->side == 0)                                // perp distance (ลบ fisheye)
+        r->wall_dist = (r->map_x - g->p.pos_x + (1 - r->step_x) / 2.0) / r->dir_x;
+    else
+        r->wall_dist = (r->map_y - g->p.pos_y + (1 - r->step_y) / 2.0) / r->dir_y;
+}`, cap: "เลือกเส้น grid ใกล้กว่าเดินทีละช่อง จนชนผนัง → คำนวณ perp distance", lang: "c" },
+      { h: "draw_column() — แถบ + texture" },
+      { code: String.raw`void draw_column(t_game *g, t_ray *r, int x) {
+    t_draw d;
+    d.line_h = (int)(WIN_H / r->wall_dist);
+    d.start  = -d.line_h / 2 + WIN_H / 2;
+    d.end    =  d.line_h / 2 + WIN_H / 2;
+    if (d.start < 0) d.start = 0;
+    if (d.end >= WIN_H) d.end = WIN_H - 1;
+    select_tex(r);                                   // NO/SO/WE/EA + wall_x
+    int tex_x = tex_column(g, r);                    // wall_x·TEX_W (+พลิก)
+    d.step = (double)TEX_H / d.line_h;
+    d.tex_pos = (d.start - WIN_H / 2 + d.line_h / 2) * d.step;
+    draw_ceiling(g, x, d.start);                     // เหนือ = สีเพดาน
+    draw_wall(g, r, x, &d, tex_x);                   // กลาง = texture
+    draw_floor(g, x, d.end);                         // ใต้ = สีพื้น
+}`, cap: "line_h จากระยะ → แถบสูง/เตี้ย; เพดาน-ผนัง-พื้น ครบ 1 คอลัมน์", lang: "c" },
+      { h: "move_player() — เดิน + ชนผนังแยกแกน" },
+      { code: String.raw`void move_player(t_game *g) {
+    double mx = (g->keys.w - g->keys.s);             // boolean arithmetic
+    double nx = g->p.pos_x + g->p.dir_x * mx * MOVE_SPEED;
+    double ny = g->p.pos_y + g->p.dir_y * mx * MOVE_SPEED;
+    if (!is_wall(g, (int)nx, (int)g->p.pos_y))       // เช็คแกน X แยก
+        g->p.pos_x = nx;
+    if (!is_wall(g, (int)g->p.pos_x, (int)ny))       // เช็คแกน Y แยก
+        g->p.pos_y = ny;
+    // ↑ แยกแกน = 'wall slide' ไถลตามผนังได้ ไม่ติดหนึบ
+}`, cap: "เช็ค X กับ Y แยกกัน → ไถลตามผนังได้ (ไม่ใช่หยุดสนิทเมื่อชนเฉียง)", lang: "c" },
+      { note: "หมุนตัว: ใช้ rotation matrix 2×2 กับ **ทั้ง dir และ plane**; เดินจริงทำใน loop_hook (ลื่น+ทแยงได้) ไม่ใช่ใน keypress" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. parse .cub: element (NO/SO/WE/EA/F/C) + แผนที่เป็น char** ก่อน",
+        "2. validate: 6 element ครบ ไม่ซ้ำ, 1 ผู้เล่น, char ถูก, **แผนที่ปิด** (4-neighbour)",
+        "3. เปิด mlx window + put_pixel ทดสอบ + วาดพื้น/เพดานสีล้วน",
+        "4. **ยิง ray + DDA** วาดผนังสีล้วน (perp distance — เช็ค fisheye)",
+        "5. โหลด texture (xpm) + แปะตามด้าน (side/wall_x/tex_x + พลิก)",
+        "6. เดิน (WASD, collision แยกแกน) + หมุน (←→, matrix) ใน loop_hook",
+        "7. hook ESC + ปิดหน้าต่าง → free ครบ + exit",
+        "8. bonus: minimap, sprite ศัตรู (z-buffer+sort), ประตู, mouse-look (แยก build ด้วย Makefile stub)",
+      ]},
+      { h: "บั๊กยอดฮิตและวิธีกัน" },
+      { table: { head: ["อาการ", "สาเหตุ", "แก้"], rows: [
+        ["พิมพ์ Error แล้วค้าง (exit 124)", "error_msg คืน 1 (predicate มอง 0=fail)", "ให้ error_msg คืน 0 — ใช้ convention เดียวทั้งโปรเจกต์"],
+        ["ผนังโป่งกลางจอ (fisheye)", "ใช้ระยะ Euclidean", "ใช้ perpendicular distance"],
+        ["DDA ค้าง/segfault", "space/นอกขอบไม่ถือเป็นผนัง / map ไม่ปิด", "is_wall treat space+OOB=ผนัง + validate ปิด"],
+        ["texture กลับซ้ายขวา", "ไม่พลิก tex_x", "พลิก 2 ใน 4 กรณี"],
+        ["ชนผนังเฉียงแล้วติดหนึบ", "เช็ค collision รวมแกน", "เช็ค X/Y แยกแกน (wall slide)"],
+        ["norm 0 OK ทั้งที่โค้ดดี", "CRLF (\\r) / header 81 คอลัมน์", "sed ลบ \\r + ก๊อป header จากไฟล์ที่ผ่าน"],
+      ]}},
+      { h: "การ build / รัน / ตรวจ" },
+      { code: String.raw`make            # mandatory
+make bonus      # minimap + sprite + door + mouse-look
+./cub3D maps/good.cub
+norminette src/ include/        # 0 error (bonus ก็ตรวจ)
+# mlx_loop บล็อก → ใช้ timeout แล้วถือ 124 = ผ่าน
+timeout 3 ./cub3D maps/good.cub; echo "exit=$?"   # 124 = รัน loop = OK
+valgrind --leak-check=full ./cub3D maps/err_dup.cub   # error path = 0 leak`, lang: "bash" },
+      { note: "บน Windows: รันผ่าน WSL + WSLg (DISPLAY=:0, ต้องมี /tmp/.X11-unix/X0). มักไม่มีเครื่องมือ screenshot → ใช้ timeout (124=ผ่าน) + norm + valgrind เป็น automated pass แล้วยืนยันภาพด้วยตาคนตอนท้าย — ดู skill build-42-projects-on-windows" },
+    ],
+    tricks: [
+      { h: "ทริค 1: error_msg คืน 0 — convention เดียวทั้งโปรเจกต์" },
+      { p: "ทุก predicate ใช้ '0=fail, 1=ok'; ให้ error_msg คืน 0 แล้ว `return (error_msg(...))` = ส่งสัญญาณล้มเหลวถูกต้อง หยุด chain ที่ error แรก. main ห่อด้วย helper `if (!check(...)) return (1)` แทน comma operator ที่ norm ไม่ชอบ" },
+      { h: "ทริค 2: perpendicular distance เสมอ" },
+      { p: "ใช้ค่าที่ DDA มีอยู่แล้ว (ไม่ต้อง √): `(map − pos + (1−step)/2)/ray_dir` = ระยะตั้งฉาก → ลบ fisheye ฟรี" },
+      { h: "ทริค 3: space + นอกขอบ = ผนัง" },
+      { p: "`is_wall` คืน true เมื่อ '1', space, หรือนอกขอบ/เกิน strlen แถว → DDA ไม่มีทางหลุดแผนที่ (กันค้าง) และช่วย validate ไปในตัว" },
+      { h: "ทริค 4: collision แยกแกน = wall slide" },
+      { p: "เช็ค target X กับ target Y แยกกัน — ชนผนังเฉียงแล้วยังไถลตามผนังได้ ไม่หยุดหนึบ (ความรู้สึกเกมดีขึ้นมาก)" },
+      { h: "ทริค 5: เขียนลง image buffer ไม่ใช่ mlx_pixel_put" },
+      { p: "put_pixel เขียน addr+y·line_len+x·bpp/8 เองแล้ว put_image ครั้งเดียว/เฟรม — เร็วกว่า mlx_pixel_put (X round-trip ต่อ pixel) หลายร้อยเท่า" },
+      { h: "ทริค 6: bonus ใช้ Makefile stub ไม่ใช่ #ifdef" },
+      { p: "norm แบน `#ifdef` ในฟังก์ชัน (PREPOC_ONLY_GLOBAL). ให้ mandatory `.c` เรียก hook (`record_enemy`/`init_bonus`/`render_bonus`) เปล่า ๆ; `bonus.c` = hook จริง (build bonus), `stub.c` = hook ว่าง (build mandatory); `#ifdef` มีได้แค่ใน header เป็น macro ตัวเดียว (ENEMY_CH '2' vs '0')" },
+      { h: "ทริค 7: sprite ต้องมี z-buffer + sort (bonus)" },
+      { p: "เก็บ wall_dist ทุกคอลัมน์ลง zbuf[WIN_W]; วาด sprite ทีหลังโดยเช็ค `ty < zbuf[x]` (ผนังบังศัตรู) + เรียงศัตรูไกล→ใกล้ก่อนวาด + ข้ามสี key โปร่งใส (0xFF00FF)" },
+      { h: "ทริค 8: ลบ CRLF + ก๊อป header ก่อน norm" },
+      { p: "ไฟล์จาก Windows มี \\r → `sed -i 's/\\r$//'` ก่อน; header 42 ต้อง 80 คอลัมน์เป๊ะ → ก๊อปจากไฟล์ที่ผ่านแล้ว (เช่น libft) เปลี่ยนแค่ชื่อไฟล์ อย่านับเอง" },
+    ],
+    eval: [
+      { qa: [
+        { q: "raycasting ทำงานยังไงในหนึ่งประโยค?", a: "ยิง ray 1 เส้นต่อ 1 คอลัมน์จอจากผู้เล่นบน grid 2D, DDA หาผนังที่ชน+ระยะ, แล้ววาดแถบผนังแนวตั้งสูงตามระยะ (ใกล้สูง ไกลเตี้ย) พร้อม texture" },
+        { q: "dir กับ plane ต่างกันยังไง?", a: "dir = ทิศหันหน้า; plane = ระนาบกล้องตั้งฉาก dir (ยาว 0.66 = FOV 66°); ray คอลัมน์ x = dir + plane·camera_x" },
+        { q: "DDA คืออะไร ทำไมใช้?", a: "Digital Differential Analyzer — เดิน ray ทีละเส้น grid (เลือกแนวตั้ง/นอนอันใกล้กว่า) จนชนผนัง; เร็วและไม่มีทางทะลุผนัง ต่างจากการคืบทีละนิด" },
+        { q: "fisheye เกิดจากอะไร แก้ยังไง?", a: "ใช้ระยะ Euclidean → ray ขอบจอเฉียงไกลกว่ากลาง → ผนังโป่ง; แก้ด้วย perpendicular distance (project ระยะลงบน dir)" },
+        { q: "line_height คำนวณยังไง?", a: "= WIN_H / perpDist; ผนังใกล้=แถบสูง ไกล=เตี้ย; วาดจากกลางจอขึ้น-ลงเท่ากัน เหนือ=เพดาน ใต้=พื้น" },
+        { q: "เลือก texture 1 ใน 4 ยังไง?", a: "จาก side (ผนังแนวตั้ง0/แนวนอน1)+ทิศ ray: side0→ray_x>0?EA:WE; side1→ray_y>0?SO:NO; wall_x→คอลัมน์ texture (พลิกบางกรณี)" },
+        { q: "parse แยกผู้เล่น (N/S/E/W) จาก texture id (NO/SO) ยังไง?", a: "element line = id ตามด้วยช่องว่าง และ parse id ก่อนบล็อกแผนที่เริ่มเท่านั้น; บรรทัดแผนที่บรรทัดแรก = ที่เหลือเป็นแผนที่ทั้งหมด" },
+        { q: "ตรวจ 'แผนที่ปิด' ยังไง ในเมื่อ map ไม่ใช่สี่เหลี่ยม?", a: "ทุกช่องเดินได้เช็ค 4 เพื่อนบ้าน: หลุดขอบ/เกิน strlen แถว/เป็น space = เปิด=error; เทียบกับ strlen แต่ละแถว (ไม่ใช่ width รวม) → รองรับแถวยาวไม่เท่ากัน" },
+        { q: "ทำไม error_msg ต้องคืน 0?", a: "predicate ทั้งหมดเช็ค if(!parse(...)) = 0 คือ fail; ถ้า error_msg คืน 1 จะถูกมองว่าสำเร็จ → parse ต่อ พิมพ์ Error ซ้อน แล้วตกไป mlx_loop ค้าง" },
+        { q: "ทำไมเช็ค collision แยกแกน X/Y?", a: "เพื่อให้ 'ไถลตามผนัง' (wall slide) เมื่อชนเฉียง — ถ้าเช็ครวมจะหยุดหนึบทันทีที่แตะผนัง" },
+        { q: "bonus sprite ต้องระวังอะไร?", a: "z-buffer (เก็บ wall_dist ต่อคอลัมน์) ให้ผนังบังศัตรู, sort ไกล→ใกล้, ข้ามสีโปร่งใส (0xFF00FF), แปลงพิกัดเข้า camera space แล้วเช็ค depth>0" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`make && norminette src/ include/                  # 0 error
+timeout 3 ./cub3D maps/good.cub; echo "exit=$?"   # 124 = render loop = OK
+./cub3D                          # Error (ไม่มี argument)
+./cub3D maps/err_dup.cub         # Error (element ซ้ำ)
+./cub3D maps/err_no_player.cub   # Error (ไม่มีผู้เล่น)
+./cub3D notmap.txt               # Error (นามสกุลไม่ใช่ .cub)
+valgrind --leak-check=full ./cub3D maps/err_color.cub   # 0 leak (headless)`, lang: "bash" },
+    ],
+  },
+},
 ];
