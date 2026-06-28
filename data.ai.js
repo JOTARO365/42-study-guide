@@ -2590,10 +2590,39 @@ window.TEACHING_DATA.push({
         { q: "ReAct เกี่ยวกับ loop engineering ยังไง?", a: "ReAct (reason→act→observe) คือสิ่งที่เกิด 'ข้างใน' 1 action step; loop engineering คือเลเยอร์ข้างนอกที่ครอบด้วย goal/feedback gate/cap/verify" },
       ]},
 
-      { h: "📖 อ่าน/ดูเพิ่มเติม" },
+      { h: "🔬 เจาะลึก D: no-progress detector — รู้ได้ยังไงว่า loop 'ติด' ก่อนชน cap" },
+      { p: "cap กันหายนะระยะยาว แต่ไม่ได้บอกว่า loop 'กำลังวนเปล่า' หรือ 'กำลังคืบหน้า'. ตัว **no-progress detector** ดูว่าแต่ละรอบลดปัญหาลงจริงไหม ถ้าไม่ลดให้ตัดจบก่อน ประหยัด cap" },
+      { code: String.raw`เก็บ 'ลายนิ้วมือ' ของแต่ละรอบ แล้วเทียบ:
+
+  failset = ชุด test/error ที่ยัง fail (เช่น {test_a, test_b})
+  diffhash = hash ของ patch ที่ agent เสนอ
+
+สัญญาณว่า 'ติด' → abort ก่อน cap:
+  ① failset เท่าเดิม ≥ 2 รอบติด        → ไม่คืบหน้า
+  ② failset โตขึ้น (แก้แล้วพังเพิ่ม)     → ถอยหลัง
+  ③ diffhash ซ้ำกับรอบก่อน              → เสนอ patch เดิมวน
+  ④ ปัญหาเด้งกลับ A→B→A→B               → oscillation
+
+  → ทำ ① หรือ ③ ครบ → EXHAUSTED(stuck) → escalate พร้อม log`, cap: "convergence = failset หดลงเรื่อย ๆ; ถ้าไม่หด/โต/ซ้ำ/แกว่ง แปลว่าวนเปล่า ตัดจบเร็วดีกว่ารอจนชน cap", lang: "txt" },
+      { note: "ผลพลอยได้: log ของ detector คือสรุปชั้นดีตอน escalate — บอกคนได้ทันทีว่า 'ลองอะไรไป N รอบ ติดที่ test ไหน เสนอ patch ซ้ำแบบไหน'" },
+
+      { h: "📖 อ่านเพิ่มเติม (อยากเจาะแนวคิดต่อ)" },
       { links: [
         { label: "รู้จักกับ Loop Engineering (ทอล์กต้นทาง, ไทย)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "นิยาม loop engineering + use case จริง/ปลอม" },
-        { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns จากค่ายโมเดล" },
+        { label: "ReAct: Synergizing Reasoning and Acting in LLMs", url: "https://react-lm.github.io/", note: "ที่มาของ reason→act→observe ที่อยู่ข้างใน 1 รอบ" },
+        { label: "Andrej Karpathy — agents & autonomy (สไลด์/ทอล์ก)", url: "https://karpathy.ai/", note: "มุมมอง autonomy slider: คนคุมแค่ไหน" },
+      ]},
+      { h: "📚 เอกสารผู้ให้บริการ (อ่านของจริงจากค่าย)" },
+      { links: [
+        { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns + เมื่อไหร่ควร/ไม่ควรใช้ agent" },
+        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://docs.anthropic.com/en/docs/claude-code/overview", note: "เครื่องมือ loop/verify ใน Claude Code จริง" },
+        { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "guardrail, stopping condition, human-in-the-loop" },
+      ]},
+      { h: "🎬 วิดีโอสอน (เจาะลึก)" },
+      { links: [
+        { label: "รู้จักกับ Loop Engineering (ไทย)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "ต้นทางของหน้านี้" },
+        { label: "Andrej Karpathy — Intro to LLMs / agents", url: "https://www.youtube.com/watch?v=zjkBMFhNj_g", note: "ภาพรวม LLM + ทิศทาง agent autonomy" },
+        { label: "Building long-running agents (conference talk)", url: "https://www.youtube.com/results?search_query=building+autonomous+agent+loops", note: "ค้นทอล์กล่าสุดเรื่อง autonomous loop / agent harness" },
       ]},
     ],
     foundations: [

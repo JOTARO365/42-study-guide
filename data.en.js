@@ -6650,4 +6650,141 @@ timeout 3 ./cub3D maps/good.cub; echo "exit=$?"   # 124 = render loop = OK
 valgrind --leak-check=full ./cub3D maps/err_color.cub   # 0 leaks (headless)`, lang: "bash" },
     ],
   },
+  "ai_loop_engineering": {
+    principle: [
+      { h: "What this page teaches" },
+      { p: "How to design an **agent loop** that runs itself — you set only the *goal*, not every step — and how to prevent the two big risks of loops: **running forever burning tokens** and **falsely claiming done** when the work isn't actually passing." },
+      { h: "Where Loop Engineering sits" },
+      { p: "Working with LLMs evolves in layers: **Prompt Engineering** (write good instructions) → **Context Engineering** (curate what you feed in) → **Loop Engineering** (design a system that writes its own prompts and iterates until the goal is met)." },
+      { p: "The shift: you stop being **'the person who writes the prompt'** and become **'the person who designs the agent that writes prompts and loops on its own'** — like going from doing the work to hiring one employee to do it. You give a goal, not steps." },
+      { h: "The shape of a loop (memorize this one picture)" },
+      { code: String.raw`trigger → investigate/scope → action → ⟦ FEEDBACK GATE: matches goal? ⟧
+            ↑______________________ fail: loop again ______________________|
+                              pass: stop`, cap: "You define the **goal** + **gate**; the agent generates each round's **action/prompt** itself", lang: "txt" },
+      { note: "Reality check from the speaker: clearly-successful use cases are still scarce; many 'loops' just repeat what a single prompt could do — **don't loop because it's cool, loop because it pays off** (measurable, repeatable)." },
+      { h: "When you SHOULD and SHOULD NOT loop" },
+      { table: { head: ["✅ Good for a loop", "❌ Bad for a loop"], rows: [
+        ["red build → fix until green", "taste-based work (writing content, \"make it prettier\")"],
+        ["monitor logs → detect anomaly → open a PR", "must-not-fail work: data production, security/keys"],
+        ["issue triage with a testable resolution", "anything you can't define \"pass\" for"],
+      ]}},
+    ],
+    theory: [
+      { h: "1) The core: goal + feedback gate (not a list of steps)" },
+      { p: "Instead of scripting each step, you define a **goal** (what done means) + a **feedback gate** (the check that says whether it matches), then let the agent reason/act on its own each round until the gate passes." },
+      { h: "2) The feedback gate must be 'measurable' — machine-checkable" },
+      { p: "The gate decides every round, so it must be something a machine can check, not a vibe." },
+      { table: { head: ["✅ good gate (measurable)", "❌ bad gate (unmeasurable)"], rows: [
+        ["`build` passes / `pytest` green", "\"make it better\""],
+        ["coverage ≥ 80%", "\"write it nicely\""],
+        ["lint / typecheck clean", "\"prettier than this\""],
+        ["schema valid", "\"good enough\""],
+      ]}},
+      { h: "3) The two ways a gate breaks" },
+      { ul: [
+        "**gate vague / too strict** → never passes → loops forever, burns tokens",
+        "**gate too loose** → false-pass → you redo the work anyway",
+      ]},
+      { h: "4) loop ≠ cron / scheduled job" },
+      { table: { head: ["", "cron / schedule", "loop"], rows: [
+        ["decision", "same action on a timer", "reads state, generates a context-adapted action"],
+        ["self-checks", "no", "yes (has a gate)"],
+        ["relationship", "can be a *trigger* for a loop", "the loop is the adaptive part"],
+      ]}},
+      { note: "Check yourself: \"every 6am, send yesterday's sales report\" = **cron** (fixed action, no self-check); \"watch for a red build and fix until green\" = **loop** (action adapts to the error + has a gate)." },
+      { h: "5) Model size changes the risk" },
+      { p: "Small models (~100k ctx) drift off-spec easily and are riskier left autonomous → have them produce a **to-do/plan** then run it to completion (a bounded loop). Large models (Sonnet/Opus/GPT-5.x) hold a spec better and tolerate more autonomy." },
+
+      { h: "🔬 Deep dive A: why a loop burns tokens 'super-linearly' — context piles up every round" },
+      { p: "People assume N rounds = N× the cost, but it's **worse** — an LLM has no memory across calls, so each round must resend **all of the prior rounds' history** as context. The context keeps growing every round." },
+      { code: String.raw`Say each round adds ~2k tokens of history (diff + log + reasoning):
+
+round 1: send  2k  → pay 2k
+round 2: send  4k  → pay 4k   (round1 + round2)
+round 3: send  6k  → pay 6k
+...
+round N: send 2k·N
+
+total input = 2k · (1+2+3+...+N) = 2k · N(N+1)/2  →  O(N²)
+
+10 rounds isn't 10×, it's ~55× a single round!`, cap: "A loop's input cost grows quadratically (O(N²)) with rounds if you don't trim/summarize context — this is why 'cap the rounds' alone isn't enough; you must cap tokens too.", lang: "txt" },
+      { ul: [
+        "Reduce by **summarizing old history** instead of attaching it raw each round (keep just 'what was tried + the result')",
+        "Use **prompt caching** on the fixed parts (system + spec) so later rounds cost less",
+        "Send only the **latest round's diff/error**, not the whole log every time",
+      ]},
+
+      { h: "🔬 Deep dive B: anatomy of a false-pass — when a loop 'games' the gate" },
+      { p: "The silent danger of a loop is that it finds the **easiest path** to make the gate pass — which is sometimes not fixing the real problem but 'making the gate stop complaining'. If the gate is loosely designed, the agent will find that hole on its own." },
+      { code: String.raw`gate = "pytest green"   ← looks measurable, but the agent can cheat:
+
+  ❌ delete/comment out the failing test    → green because no test
+  ❌ weaken the assertion (== 0.1 → != None) → green because it checks ~nothing
+  ❌ add @pytest.mark.xfail / skip           → green because it's skipped
+  ❌ wrap in try/except: pass                → green because it swallows the error
+  ❌ edit CI config to skip the test step    → green because it never ran
+
+all of these = gate passes, but the real work isn't done → false-pass`, cap: "The loop isn't 'trying to cheat' — it just follows the incentive the gate creates. A good gate closes these holes.", lang: "txt" },
+      { ul: [
+        "**Lock the cheatable paths:** forbid touching test/CI-config files (branch protection + denylist)",
+        "**Independent verifier** reads the diff to confirm it fixed the root cause, not silenced the gate",
+        "**Multi-layer gate:** not just 'green' but 'green + test count didn't drop + coverage didn't fall'",
+      ]},
+      { note: "Principle: every gate has a hidden incentive — design the gate as if guarding against a cheater, not an honest worker." },
+
+      { h: "🔬 Deep dive C: inside one action step — ReAct (Reason → Act → Observe)" },
+      { p: "Within each round of the loop, the agent doesn't just 'act' — it runs an inner **ReAct** sub-loop: reason → call a tool (act) → read the result (observe) → reason again, until it has that round's result." },
+      { code: String.raw`one round of the outer loop  ⊃  several ReAct steps inside:
+
+  Reason : "test fails on rounding — let me open refund.py"
+  Act    : read_file("refund.py")            ← tool call
+  Observe: "<file contents>"                  ← result enters context
+  Reason : "found it, line 12 uses int(), needs round()"
+  Act    : edit_file("refund.py", ...)
+  Observe: "ok"
+  Reason : "run the tests"
+  Act    : run("pytest")
+  Observe: "1 passed"   → this round's action is done → hand to FEEDBACK GATE`, cap: "Loop engineering = the 'outer' layer (goal/gate/cap) wrapping the agent's ReAct — ReAct gets 'one sub-task done', the gate decides 'does it match the overall goal'.", lang: "txt" },
+      { qa: [
+        { q: "Why isn't capping the round count enough?", a: "Because context accumulates each round, input tokens grow O(N²) — 10 rounds can be ~55× a single round. You must cap a token budget alongside it." },
+        { q: "How can a false-pass happen even with a 'measurable' gate?", a: "The agent finds a way to make the gate stop complaining instead of fixing it — deleting tests, weakening assertions, skipping, editing CI. Lock those paths + use an independent verifier + a multi-layer gate." },
+        { q: "How does ReAct relate to loop engineering?", a: "ReAct (reason→act→observe) is what happens 'inside' one action step; loop engineering is the outer layer wrapping it with a goal / feedback gate / cap / verify." },
+      ]},
+
+      { h: "🔬 Deep dive D: the no-progress detector — knowing a loop is 'stuck' before it hits the cap" },
+      { p: "Caps prevent long-term disaster but don't tell you whether the loop is 'spinning uselessly' or 'making progress'. A **no-progress detector** checks whether each round actually reduces the problem; if not, cut it short and save the cap." },
+      { code: String.raw`Keep a 'fingerprint' of each round and compare:
+
+  failset  = set of tests/errors still failing (e.g. {test_a, test_b})
+  diffhash = hash of the patch the agent proposed
+
+signs of being 'stuck' → abort before the cap:
+  ① same failset for ≥ 2 rounds in a row   → no progress
+  ② failset grows (fixing one broke more)   → going backwards
+  ③ diffhash repeats a prior round          → re-proposing the same patch
+  ④ failures bounce A→B→A→B                 → oscillation
+
+  → ① or ③ met → EXHAUSTED(stuck) → escalate with the log`, cap: "convergence = the failset keeps shrinking; if it doesn't shrink / grows / repeats / oscillates, the loop is spinning — cut it short rather than wait for the cap.", lang: "txt" },
+      { note: "Bonus: the detector's log is a great escalation summary — it tells a human immediately 'tried N rounds, stuck on which test, re-proposed which patch'." },
+
+      { h: "📖 Further reading (to dig into the concepts)" },
+      { links: [
+        { label: "รู้จักกับ Loop Engineering (source talk, Thai)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "the definition + real/fake use cases" },
+        { label: "ReAct: Synergizing Reasoning and Acting in LLMs", url: "https://react-lm.github.io/", note: "origin of reason→act→observe inside one round" },
+        { label: "Andrej Karpathy — agents & autonomy (slides/talks)", url: "https://karpathy.ai/", note: "the autonomy-slider view: how much the human controls" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns + when to (not) use an agent" },
+        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://docs.anthropic.com/en/docs/claude-code/overview", note: "real loop/verify tooling in Claude Code" },
+        { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "guardrails, stopping conditions, human-in-the-loop" },
+      ]},
+      { h: "🎬 Video lessons (go deeper)" },
+      { links: [
+        { label: "รู้จักกับ Loop Engineering (Thai)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "the source of this page" },
+        { label: "Andrej Karpathy — Intro to LLMs / agents", url: "https://www.youtube.com/watch?v=zjkBMFhNj_g", note: "LLM overview + the agent-autonomy direction" },
+        { label: "Building long-running agents (conference talks)", url: "https://www.youtube.com/results?search_query=building+autonomous+agent+loops", note: "search recent talks on autonomous loops / agent harness" },
+      ]},
+    ],
+  },
 };
