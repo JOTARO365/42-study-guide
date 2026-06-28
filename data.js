@@ -3805,4 +3805,361 @@ valgrind --leak-check=full ./minishell`, lang: "bash" },
     ],
   },
 },
+/* ===================== miniRT ===================== */
+{
+  id: "minirt",
+  name: "miniRT",
+  tag: { th: "ray tracer ใน C — ยิงแสง 1 เส้นต่อ 1 pixel หาวัตถุที่ชนใกล้สุด แล้วลงสีจากแสง: ray-sphere/plane/cylinder, Phong lighting, เงา, parse .rt",
+         en: "A ray tracer in C — cast one ray per pixel, find the nearest hit, color it from lighting: ray-sphere/plane/cylinder, Phong lighting, shadows, .rt parsing" },
+  accent: "#a78bfa",
+  sections: {
+    principle: [
+      { h: "โจทย์คืออะไร" },
+      { p: "เขียน **ray tracer**: ยิง 'แสง' (ray) จากกล้องผ่านทุก pixel ของจอ → หาว่าชนวัตถุไหนใกล้สุด → คำนวณสีของจุดนั้นจากแสง แล้ววาดลงจอด้วย MiniLibX. อ่านฉากจากไฟล์ `.rt`" },
+      { code: String.raw`A   0.2     255,255,255          # ambient: ratio + สี
+C   0,0,-30   0,0,1   70          # camera: ตำแหน่ง + ทิศ + FOV
+L   -20,30,-20   0.8  255,255,255 # light: ตำแหน่ง + ratio + สี
+sp  0,0,12   14   255,40,40       # sphere: center + เส้นผ่าศูนย์กลาง + สี`, cap: "ไฟล์ .rt = รายการ object/light/camera (ลำดับใดก็ได้)", lang: "txt" },
+      { h: "หัวใจ 3 ขั้น (ต่อ 1 pixel)" },
+      { table: { head: ["ขั้น", "ทำอะไร"], rows: [
+        ["1. gen_ray", "สร้าง ray จากกล้องผ่าน pixel (x,y)"],
+        ["2. trace", "หา object ที่ ray ชนใกล้สุด (t น้อยสุด > 0)"],
+        ["3. shade", "คำนวณสีจุดที่ชน: ambient + diffuse + เงา"],
+      ]}},
+      { note: "วัตถุ mandatory 3 ชนิด: **sphere (sp), plane (pl), cylinder (cy)**. แต่ละชนิดมีสูตร 'ray ชนไหม ที่ t เท่าไร' ต่างกัน — นี่คือคณิตหลักของโปรเจกต์" },
+      { h: "ที่มาที่ไป: ray tracing คืออะไร" },
+      { p: "ในโลกจริงแสงออกจากหลอดไฟ สะท้อนวัตถุ เข้าตา. ray tracing ทำ **ย้อนกลับ** เพื่อประหยัด: ยิง ray จาก 'ตา (กล้อง)' ออกไปทีละ pixel ดูว่าชนอะไร แล้วถามว่า 'จุดนั้นโดนแสงไหม สีอะไร'. ยิง 1 ray/pixel → ได้ภาพ 3 มิติที่มีเงา/แสงเงาจริง (ต่างจาก fdf ที่แค่ลากเส้น)" },
+      { h: "ทำไมเก็บสีเป็น [0,1] ไม่ใช่ 0-255" },
+      { p: "การคำนวณแสงคือการ **คูณ/บวกสี** (obj_color × light_color × ความสว่าง). ถ้าเก็บเป็น 0-255 จะล้นและคูณยาก. เก็บเป็น `t_vec3` ช่วง **[0,1]** (parse 0-255 แล้วหาร 255) → คณิตแสงกลายเป็นบวก/คูณ vector ธรรมดา แล้ว clamp + แปลงเป็น `(r<<16)|(g<<8)|b` ตอนท้าย" },
+      { h: "ทำไมโจทย์นี้ยาก" },
+      { p: "มันคือ 'แปลงสูตรคณิตเป็นโค้ดโดยไม่แตกตื่น': quadratic ของ ray-sphere/cylinder, การสร้าง basis ของกล้อง, เงาที่ต้องกัน 'shadow acne', และผ่าน **norminette** พร้อม build bonus (ตัว `#ifdef` ในฟังก์ชันโดน norm แบน)" },
+    ],
+    theory: [
+      { p: "หมวดนี้รวมคณิต **เวกเตอร์ + เรขาคณิต + แสง** ที่ miniRT ใช้ — เข้าใจสูตรแล้วโค้ดจะตรงไปตรงมา" },
+      { h: "1) Ray = จุดเริ่ม + t·ทิศทาง" },
+      { p: "ray หนึ่งเส้นเขียนเป็น `P(t) = O + t·D` โดย O = origin (กล้อง), D = direction (ทิศ, normalize แล้ว), t = ระยะ. หา 'ชนวัตถุ' = หาค่า t > 0 ที่ P(t) อยู่บนผิววัตถุ" },
+      { code: String.raw`P(t) = O + t·D     เช่น t=5 → จุดที่อยู่ห่างกล้อง 5 หน่วยตามทิศ D`, cap: "ทุกการ 'ชน' คือการแก้สมการหา t ที่เล็กสุดและ > 0", lang: "txt" },
+      { h: "2) เวกเตอร์ 3 มิติ — เครื่องมือพื้นฐาน" },
+      { table: { head: ["operation", "สูตร", "ใช้ทำ"], rows: [
+        ["dot(a,b)", "ax·bx + ay·by + az·bz", "มุม/projection/ความสว่าง"],
+        ["cross(a,b)", "เวกเตอร์ตั้งฉากกับทั้งคู่", "สร้าง basis กล้อง"],
+        ["length(a)", "√(dot(a,a))", "ระยะ"],
+        ["normalize(a)", "a / length(a)", "ทำให้ยาว = 1"],
+        ["reflect(v,n)", "v − 2·dot(v,n)·n", "สะท้อน (specular)"],
+      ]}},
+      { note: "เขียน vec3 ops ให้ครบก่อน (add/sub/scale/dot/cross/len/norm/reflect) — ที่เหลือของโปรเจกต์คือเอามาประกอบ" },
+      { h: "3) Surface normal — เวกเตอร์ตั้งฉากผิว" },
+      { p: "**normal (N)** = ทิศตั้งฉากกับผิววัตถุที่จุดชน — หัวใจของการคำนวณแสง. sphere: `N = norm(P − center)`; plane: `N = ทิศของระนาบ`; cylinder body: `N = norm(P − จุดบนแกนที่ใกล้สุด)`" },
+      { h: "4) แบบจำลองแสง Phong" },
+      { p: "สีของจุด = ผลรวม 3 ส่วน: **ambient** (แสงรอบทิศ คงที่), **diffuse** (แสงกระจายตามมุมตกกระทบ — Lambert), **specular** (จุดไฮไลต์มันวาว — bonus)" },
+      { code: String.raw`color = ambient + Σ(diffuse ของแต่ละ light ที่ไม่โดนเงาบัง)
+diffuse ∝ max(dot(N, L), 0)        # N=normal, L=ทิศไปหาแสง`, cap: "มุมตกตรง (dot สูง) = สว่าง; มุมเฉียง (dot ต่ำ) = มืด; ด้านหลังแสง (dot<0) = 0", lang: "txt" },
+      { h: "5) เงา (shadow ray)" },
+      { p: "จุดหนึ่งโดนแสงไหม → ยิง ray จากจุดนั้นไปหาแสง ถ้ามีวัตถุขวางก่อนถึงแสง = อยู่ในเงา (ไม่บวก diffuse ของแสงนั้น). **ต้องเลื่อนจุดเริ่มออกนิดนึง (epsilon)** ไม่งั้นจุดจะบังเงาตัวเอง → จุดดำ ('shadow acne')" },
+      { h: "6) Color [0,1] → 0xRRGGBB" },
+      { p: "คำนวณแสงด้วยสี [0,1] (parse 0-255 ÷255). ตอนท้าย: clamp ให้อยู่ [0,1] แล้ว `int = (r*255 << 16) | (g*255 << 8) | (b*255)` เขียนลง image buffer" },
+      { h: "7) กล้อง & การสร้าง ray" },
+      { p: "กล้องมีตำแหน่ง + ทิศมอง + FOV. ต้องสร้าง **orthonormal basis** (forward/right/up) จากทิศมอง แล้วแมพ pixel (x,y) → ทิศของ ray. FOV เป็นแนว **นอน**" },
+
+      { h: "🔬 เจาะลึก A: Ray–Sphere Intersection — แก้ quadratic หาจุดชน" },
+      { p: "**ภาพในหัว:** ray คือเส้นตรง, sphere คือ 'จุดทั้งหมดที่ห่าง center = รัศมี r'. หา 'ชน' = หา t ที่ระยะจาก P(t) ถึง center = r พอดี — แทน P(t) ลงสมการ sphere ได้ **สมการกำลังสอง**" },
+      { code: String.raw`sphere: |P − center|² = r²
+ray:    P = O + t·D
+
+แทน:  |O + t·D − center|² = r²
+ให้ oc = O − center :
+  |oc + t·D|² = r²
+  (D·D)t² + 2(oc·D)t + (oc·oc − r²) = 0     ← a·t² + b·t + c
+
+  a = dot(D, D)          (= 1 ถ้า D normalize แล้ว)
+  b = 2·dot(oc, D)
+  c = dot(oc, oc) − r²`, cap: "ray-sphere = quadratic — มาจากการแทน 'จุดบน ray' ลงในนิยาม 'ผิว sphere'", lang: "txt" },
+      { code: String.raw`discriminant = b² − 4ac  บอกจำนวนจุดชน:
+  < 0  → ไม่ชน (ray พลาด sphere)
+  = 0  → แตะขอบพอดี (1 จุด)
+  > 0  → ทะลุผ่าน (2 จุด: เข้า–ออก)
+
+t = (−b ± √disc) / (2a)
+→ เลือกรากที่ 'เล็กสุดที่ยัง > EPSILON' (จุดเข้าที่อยู่หน้ากล้อง)
+  normal ที่จุดชน = norm(P − center)`, cap: "disc < 0 = ไม่ชน; เลือก t เล็กสุดที่ >EPSILON = ผิวด้านที่กล้องเห็นก่อน", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ไฟล์ subject ให้ 'เส้นผ่าศูนย์กลาง' (diameter) ไม่ใช่รัศมี — ต้อง **หาร 2** ก่อนใช้เป็น r. นี่คือบั๊กอันดับ 1: ลืม /2 แล้ว sphere ใหญ่เกิน 2 เท่า" },
+      { qa: [
+        { q: "ทำไม ray-sphere เป็นสมการกำลังสอง?", a: "เพราะแทน P(t)=O+tD (เชิงเส้นใน t) ลงในนิยาม sphere |P−center|²=r² ที่มีการยกกำลังสอง → ได้พจน์ t² ออกมา = quadratic" },
+        { q: "discriminant บอกอะไร?", a: "<0 ไม่ชน, =0 แตะขอบ 1 จุด, >0 ชน 2 จุด (เข้า-ออก). ถ้า ≥0 เลือก t เล็กสุดที่ >EPSILON = จุดผิวที่กล้องเห็นก่อน" },
+        { q: "บั๊ก /2 ของ diameter คืออะไร?", a: ".rt ให้ diameter ต้องหาร 2 เป็น radius ก่อนใส่สูตร (c = oc·oc − r²); ลืมหารแล้ว sphere ใหญ่เป็น 2 เท่า" },
+      ]},
+
+      { h: "🔬 เจาะลึก B: Phong Lighting — ทำไมมุมแสงทำให้สว่าง/มืด + การพลิก normal" },
+      { p: "**ภาพในหัว:** ผิวที่หันเข้าหาแสงตรง ๆ สว่างสุด, หันเฉียงมืดลง, หันหนีแสงมืดสนิท. วัดด้วย **dot(N, L)** — มุมระหว่าง normal กับทิศไปหาแสง (Lambert's cosine law)" },
+      { code: String.raw`shade(P, N, obj):
+  color = obj.color ⊙ (ambient.ratio · ambient.color)   # พื้นฐานคงที่
+  for each light:
+    if in_shadow(P, light): continue                     # โดนเงาบัง → ข้าม
+    L = norm(light.pos − P)                               # ทิศไปหาแสง
+    diff = max(dot(N, L), 0) · light.ratio                # มุมตก
+    color += obj.color ⊙ light.color · diff
+  return clamp(color, 0, 1)`, cap: "⊙ = คูณทีละช่อง (R×R,G×G,B×B); dot(N,L) = cos(มุม) = ความสว่างตามมุมตกกระทบ", lang: "txt" },
+      { p: "**ทำไม max(dot,0):** ถ้า dot(N,L) < 0 แปลว่าแสงอยู่ 'ด้านหลัง' ผิว → ไม่ควรสว่าง → clamp เป็น 0. **specular (bonus):** `pow(max(dot(reflect(−L,N), view),0), shininess)` = จุดมันวาวเมื่อมุมสะท้อนตรงกับสายตา" },
+      { note: "ลองพิสูจน์เอง — กับดักครึ่งหนึ่งของ 'จุดดำ': หลังคำนวณ N ต้อง **พลิก normal เข้าหากล้อง** ก่อนใช้: `if dot(N, D) > 0: N = −N`. ไม่งั้นผิวด้านในวัตถุ/cylinder จะคำนวณแสงกลับด้าน มืดผิด" },
+      { qa: [
+        { q: "ทำไม diffuse ใช้ dot(N, L)?", a: "Lambert's law: ความสว่าง ∝ cos(มุมระหว่าง normal กับทิศแสง) = dot(N,L) เมื่อทั้งคู่ normalize. มุมตรง=สว่างสุด, เฉียง=มืดลง" },
+        { q: "ทำไมต้อง max(dot(N,L), 0)?", a: "ถ้า dot<0 แสงอยู่ด้านหลังผิว ไม่ควรเพิ่มความสว่าง → clamp เป็น 0 กันสีติดลบ" },
+        { q: "ทำไมต้องพลิก normal เข้าหากล้อง?", a: "ถ้า dot(N, ray_dir) > 0 แปลว่า normal ชี้หนีกล้อง → พลิก N=−N ให้ชี้เข้าหา ไม่งั้นด้านในวัตถุ/ผนัง cylinder จะ shade กลับด้าน (มืดผิด/ดำ)" },
+      ]},
+
+      { h: "🔬 เจาะลึก C: Shadows & Shadow Acne — ทำไมต้องเลื่อน epsilon" },
+      { p: "**ภาพในหัว:** จุดบนผิวโดนแสงไหม → ยิง 'shadow ray' จากจุดนั้นไปหาแสง ถ้าชนวัตถุอื่นก่อนถึงแสง = อยู่ในเงา. แต่มีปัญหาคลาสสิก: จุดนั้น **บังเงาตัวเอง**" },
+      { code: String.raw`in_shadow(P, light):
+  L = light.pos − P ; dist = length(L)
+  shadow_ray = { origin: P + N·EPSILON, dir: norm(L) }   # ★ เลื่อนออก!
+  hit = trace(shadow_ray)
+  return (hit เกิดขึ้น และ hit.t < dist)                 # มีของขวางก่อนถึงแสง
+
+ปัญหาถ้าไม่เลื่อน (origin = P เป๊ะ):
+  shadow ray เริ่มที่ผิว → ชนผิวตัวเอง t≈0 → คิดว่า 'มีเงาบัง'
+  → ทุกจุดดำหมด = "shadow acne" (จุดดำกระจายเป็นเม็ด)`, cap: "เลื่อน origin ออกตาม normal นิดนึง (EPSILON ~1e-3) → ไม่ชนตัวเอง", lang: "txt" },
+      { note: "ลองพิสูจน์เอง: ตั้ง EPSILON = 0 แล้ว render — จะเห็นจุดดำกระจายทั่วผิว (acne). เพิ่ม EPSILON เป็น 1e-4..1e-3 แล้วจุดดำหายทันที. และต้องเช็ค `hit.t < dist` ไม่งั้นวัตถุ 'หลังแสง' จะถูกนับเป็นตัวบังผิด" },
+      { qa: [
+        { q: "shadow acne คืออะไร เกิดจากอะไร?", a: "จุดดำกระจายทั่วผิว เกิดเพราะ shadow ray เริ่มที่ผิวพอดี (t=0) แล้ว 'ชนตัวเอง' → ทุกจุดคิดว่าโดนเงาบัง" },
+        { q: "แก้ shadow acne ยังไง?", a: "เลื่อนจุดเริ่ม shadow ray ออกตาม normal นิดนึง (P + N·EPSILON, ~1e-3) หรือยอมรับเฉพาะ hit ที่ t > EPSILON" },
+        { q: "ทำไมต้องเช็ค hit.t < dist_to_light?", a: "เพื่อให้นับเฉพาะวัตถุที่อยู่ 'ระหว่างจุดกับแสง'; วัตถุที่อยู่ไกลกว่าแสง (t > dist) ไม่ได้บังแสง ต้องไม่นับเป็นเงา" },
+      ]},
+
+      { h: "🔬 เจาะลึก D: Camera & Ray Generation — แมพ pixel เป็นทิศของ ray" },
+      { p: "**ภาพในหัว:** กล้องมีตำแหน่ง + ทิศมอง + FOV (มุมมองแนวนอน). ต้องสร้าง 'จอเสมือน' หน้ากล้อง แล้วยิง ray จากกล้องผ่านแต่ละ pixel. ขั้นแรก: สร้าง **orthonormal basis** (3 แกนตั้งฉากกัน)" },
+      { code: String.raw`สร้าง basis จากทิศมอง:
+  forward = norm(C.dir)
+  world_up = (0,1,0)   (ถ้าขนานกับ forward ใช้ (0,0,1) แทน)
+  right = norm(cross(world_up, forward))
+  up    = cross(forward, right)
+  scale = tan(fov/2 · π/180)     # FOV แนวนอน
+
+ต่อ pixel (x,y) — มี +0.5 (กลาง pixel), พลิก y (จอ y ลง แต่ภาพ y ขึ้น):
+  aspect = W / H
+  px = (2·(x+0.5)/W − 1) · scale
+  py = (1 − 2·(y+0.5)/H) · scale / aspect
+  dir = norm(forward + px·right + py·up)`, cap: "basis = 3 แกนตั้งฉาก; pixel แมพเป็นออฟเซ็ตบน right/up แล้วบวก forward = ทิศ ray", lang: "txt" },
+      { p: "**ทำไม FOV หารด้วย aspect ที่แกนตั้ง:** FOV เป็นแนวนอน → แกนนอน (px) ใช้ scale ตรง ๆ, แกนตั้ง (py) ต้องหาร aspect (W/H) เพื่อไม่ให้ภาพยืด. ถ้าภาพ **กลับหัว** = ลืม `(1 − …)` ที่ py; ถ้า **ยืด** = ใส่ aspect ผิดแกน" },
+      { note: "ลองพิสูจน์เอง: ตั้งกล้อง C ที่ (0,0,−30) มอง +z, วาง sphere ที่ (0,0,12) — ต้องเห็นวงกลมกลางจอ. ถ้าจอดำสนิท = กล้องมองผิดทาง (วัตถุอยู่นอกเฟรม) — จัดฉากให้วัตถุอยู่หน้ากล้องก่อน" },
+      { qa: [
+        { q: "ทำไมต้องสร้าง orthonormal basis ของกล้อง?", a: "เพื่อแมพ pixel 2D → ทิศ ray 3D: right/up เป็นแกนของ 'จอเสมือน', forward คือทิศตรงหน้า; ทิศ ray = forward + px·right + py·up" },
+        { q: "ทำไม px ใช้ +0.5 และ py พลิก (1−…)?", a: "+0.5 = ยิงผ่าน 'กลาง' pixel ไม่ใช่มุม; พลิก y เพราะพิกัดจอ y เพิ่มลงล่าง แต่ในภาพ +y คือขึ้นบน" },
+        { q: "FOV เป็นแนวไหน aspect ใส่ตรงไหน?", a: "FOV แนวนอน → px ใช้ scale ตรง ๆ, py หารด้วย aspect (W/H) กันภาพยืด. ใส่ aspect ผิดแกน = ภาพยืด/fisheye" },
+      ]},
+      { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
+      { links: [
+        { label: "Ray tracing (graphics) — Wikipedia", url: "https://en.wikipedia.org/wiki/Ray_tracing_(graphics)", note: "ภาพรวม ray tracing + ประวัติ" },
+        { label: "Scratchapixel — Ray-Sphere Intersection", url: "https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection.html", note: "ที่มาสูตร quadratic เต็ม ๆ" },
+        { label: "Ray Tracing in One Weekend", url: "https://raytracing.github.io/books/RayTracingInOneWeekend.html", note: "เขียน ray tracer จากศูนย์ทีละขั้น (อ่านสนุก)" },
+        { label: "Phong reflection model — Wikipedia", url: "https://en.wikipedia.org/wiki/Phong_reflection_model", note: "ambient + diffuse + specular เต็มสูตร" },
+        { label: "Lambert's cosine law — Wikipedia", url: "https://en.wikipedia.org/wiki/Lambert%27s_cosine_law", note: "ที่มาของ diffuse = dot(N,L)" },
+        { label: "MiniLibX docs (Harm Smits 42docs)", url: "https://harm-smits.github.io/42docs/libs/minilibx", note: "คู่มือ mlx สำหรับชาว 42" },
+      ]},
+    ],
+    foundations: [
+      { p: "หมวดนี้เจาะ **struct, color เป็นเวกเตอร์, และ object list** ที่ miniRT ใช้" },
+      { h: "struct หลัก" },
+      { code: String.raw`typedef struct s_vec3 { double x, y, z; } t_vec3;
+typedef t_vec3 t_color;            // สีก็คือ vec3 [0,1]
+
+typedef struct s_object {          // sphere/plane/cylinder ใน struct เดียว
+    t_type   type;                 // SPHERE / PLANE / CYLINDER
+    t_vec3   pos;                  // center / จุดบนระนาบ
+    t_vec3   axis;                 // ทิศ (plane normal / cylinder axis)
+    double   radius, height;       // sphere/cylinder
+    t_color  color;                // [0,1]
+    struct s_object *next;         // linked list
+} t_object;
+
+typedef struct s_camera {
+    t_vec3 pos, dir, right, up;    // basis คำนวณตอน setup
+    double fov;
+} t_camera;
+
+typedef struct s_scene {
+    t_color   ambient; double a_ratio;
+    t_camera  cam;
+    t_object  *lights;             // 1 ตัว (mandatory) / หลายตัว (bonus)
+    t_object  *objects;
+} t_scene;`, cap: "object ทุกชนิดใน struct เดียว (แยกด้วย type) → loop เดียววนทุกวัตถุได้", lang: "c" },
+      { h: "color เป็น t_vec3 [0,1] (ไม่ใช่ int)" },
+      { p: "เก็บสีเป็น vec3 ช่วง [0,1] ทำให้คณิตแสง (คูณ/บวกสี) ง่าย. แปลงเป็น int 0xRRGGBB เฉพาะตอนเขียนลง buffer:" },
+      { code: String.raw`int color_to_int(t_color c) {
+    int r = (int)(fmin(c.x, 1.0) * 255);   // clamp + ขยายเป็น 0-255
+    int g = (int)(fmin(c.y, 1.0) * 255);
+    int b = (int)(fmin(c.z, 1.0) * 255);
+    return ((r << 16) | (g << 8) | b);
+}`, cap: "clamp [0,1] แล้ว pack 3 ช่อง 8 bit เป็นเลขสีเดียว", lang: "c" },
+      { h: "diameter → radius (หาร 2)" },
+      { p: ".rt ให้ **เส้นผ่าศูนย์กลาง** ของ sphere/cylinder — ต้อง `radius = diameter / 2` ตอน parse. ลืมหารคือบั๊กที่ทำให้วัตถุใหญ่เป็น 2 เท่า" },
+      { h: "object list = linked list" },
+      { p: "จำนวนวัตถุไม่รู้ล่วงหน้า → เก็บเป็น linked list. `trace()` วนทุก node หา t เล็กสุด; ต้อง free ทั้ง list ตอนจบ (objects + lights)" },
+    ],
+    architecture: [
+      { h: "ไฟล์ในโปรเจกต์ (แบ่งตาม norm: ≤5 ฟังก์ชัน/ไฟล์)" },
+      { table: { head: ["ไฟล์", "หน้าที่"], rows: [
+        ["`main.c`", "argc check → parse → render → mlx_loop"],
+        ["`vec3*.c`", "add/sub/scale/dot/cross/len/norm/reflect"],
+        ["`parse*.c`", "อ่าน .rt → dispatch ตาม id (A/C/L/sp/pl/cy)"],
+        ["`render.c`", "วน pixel → gen_ray → trace → shade → put_pixel"],
+        ["`camera.c`", "setup_camera (basis) + gen_ray"],
+        ["`intersect.c` + `inter_*.c`", "ray ชน sphere/plane/cylinder"],
+        ["`lighting.c`", "shade (ambient+diffuse) + get_normal"],
+        ["`shadow.c`", "in_shadow (shadow ray)"],
+        ["`free.c` / `error.c`", "คืน memory / พิมพ์ Error"],
+      ]}},
+      { h: "การไหลของข้อมูล (.rt → ภาพ)" },
+      { code: String.raw`ไฟล์ .rt
+   │ parse: gnl + ft_split + dispatch
+   ▼
+t_scene { ambient, camera, lights, objects }
+   │ render: วนทุก pixel
+   ▼
+gen_ray(x,y) → ray → trace(ray) → hit(object, t, point, normal)
+   │ shade(hit): ambient + Σ diffuse (เช็ค in_shadow)
+   ▼
+color [0,1] → color_to_int → image buffer → mlx_put_image`, cap: "ไฟล์ฉาก → struct → ray ต่อ pixel → สี → ภาพ", lang: "txt" },
+      { note: "render ทำงานหนัก: WIDTH×HEIGHT pixel × (ทุก object × intersection) — วาดลง image buffer แล้ว put ทีเดียว (เหมือน fdf/fractol)" },
+    ],
+    dataflow: [
+      { p: "ไล่ฟังก์ชันสำคัญทีละตัว" },
+      { h: "main() → render()" },
+      { code: String.raw`int main(int ac, char **av) {
+    if (ac != 2) return (error("usage: ./miniRT scene.rt"));
+    if (parse_scene(&scene, av[1])) return (1);   // อ่าน .rt
+    init_mlx(&scene);
+    setup_camera(&scene.cam);                     // สร้าง basis
+    render(&scene);                               // วาดทุก pixel
+    mlx_loop(scene.mlx);                          // รอ event (ESC/ปิด)
+    return (0);
+}`, cap: "ลำดับ: parse → mlx → camera basis → render → loop", lang: "c" },
+      { h: "render() — วน pixel" },
+      { code: String.raw`void render(t_scene *s) {
+    int x, y;
+    for (y = 0; y < HEIGHT; y++)
+      for (x = 0; x < WIDTH; x++) {
+        t_ray ray = gen_ray(&s->cam, x, y);       // pixel → ray
+        t_hit hit;
+        if (trace(s, ray, &hit))                  // ชนอะไรไหม
+            put_pixel(s, x, y, color_to_int(shade(s, &hit)));
+        else
+            put_pixel(s, x, y, 0);                // ไม่ชน = ดำ
+      }
+    mlx_put_image_to_window(s->mlx, s->win, s->img, 0, 0);
+}`, cap: "1 pixel = 1 ray; ชน→shade, ไม่ชน→ดำ", lang: "c" },
+      { h: "trace() — หา object ใกล้สุด" },
+      { code: String.raw`int trace(t_scene *s, t_ray ray, t_hit *hit) {
+    double t, closest = INFINITY;
+    t_object *o = s->objects;
+    int found = 0;
+    while (o) {
+        if (hit_object(o, ray, &t) && t < closest && t > EPSILON) {
+            closest = t; hit->obj = o; hit->t = t;  // จำตัวที่ใกล้สุด
+            found = 1;
+        }
+        o = o->next;
+    }
+    if (found) {
+        hit->point = ray_at(ray, closest);          // P = O + t·D
+        hit->normal = get_normal(hit->obj, hit->point, ray.dir);
+    }
+    return (found);
+}`, cap: "วนทุก object เก็บ t เล็กสุดที่ >EPSILON = ผิวที่กล้องเห็นก่อน", lang: "c" },
+      { h: "shade() — คำนวณสี" },
+      { code: String.raw`t_color shade(t_scene *s, t_hit *hit) {
+    t_color col = mul(hit->obj->color, scale(s->ambient, s->a_ratio));
+    t_object *lt = s->lights;
+    while (lt) {
+        if (!in_shadow(s, hit, lt)) {
+            t_vec3 L = norm(sub(lt->pos, hit->point));
+            double d = fmax(dot(hit->normal, L), 0) * lt->ratio;
+            col = add(col, scale(mul(hit->obj->color, lt->color), d));
+        }
+        lt = lt->next;
+    }
+    return (col);   // clamp ตอนแปลงเป็น int
+}`, cap: "ambient เป็นฐาน + บวก diffuse ของแต่ละ light ที่ไม่โดนเงาบัง", lang: "c" },
+      { h: "in_shadow() — ยิง shadow ray" },
+      { code: String.raw`int in_shadow(t_scene *s, t_hit *hit, t_object *light) {
+    t_vec3 to_l = sub(light->pos, hit->point);
+    double dist = length(to_l);
+    t_ray sray;
+    sray.origin = add(hit->point, scale(hit->normal, EPSILON)); // เลื่อนออก!
+    sray.dir = norm(to_l);
+    t_hit tmp;
+    if (trace(s, sray, &tmp) && tmp.t < dist)   // มีของขวางก่อนถึงแสง
+        return (1);
+    return (0);
+}`, cap: "เลื่อน origin ตาม normal (EPSILON) กัน shadow acne; เช็ค t < dist", lang: "c" },
+    ],
+    implementation: [
+      { h: "ลำดับการลงมือเขียน (แนะนำ)" },
+      { ul: [
+        "1. **vec3 ops** ให้ครบก่อน (add/sub/scale/dot/cross/len/norm/reflect) — ฐานทั้งหมด",
+        "2. เปิดหน้าต่าง mlx + put_pixel ทดสอบ 1 จุด",
+        "3. **gen_ray** + camera basis → วาดสีพื้นหลังตามทิศ ray (เช็คว่ากล้องถูก)",
+        "4. **ray-sphere** + render sphere ลูกเดียว (ยังไม่มีแสง = สีทึบ)",
+        "5. **shade** ambient + diffuse 1 light → เห็นแสงเงาบนลูกกลม",
+        "6. **shadow ray** (+ epsilon กัน acne)",
+        "7. **plane + cylinder** (cylinder ยากสุด: body + 2 caps)",
+        "8. parse .rt ครบทุก id + ตรวจ error ทุก field",
+        "9. bonus: specular, checkerboard, หลาย light, cone (แยก build ด้วย Makefile)",
+      ]},
+      { h: "บั๊กยอดฮิตและวิธีกัน" },
+      { table: { head: ["อาการ", "สาเหตุ", "แก้"], rows: [
+        ["จอดำสนิท", "กล้องมองผิดทาง (วัตถุนอกเฟรม) / normal ไม่พลิก / ambient 0", "จัดฉากให้วัตถุหน้ากล้อง, พลิก normal เข้าหากล้อง"],
+        ["sphere ใหญ่ 2 เท่า", "ใช้ diameter เป็น radius", "radius = diameter / 2"],
+        ["จุดดำกระจาย (acne)", "shadow ray ไม่เลื่อน epsilon", "origin = P + N·EPSILON"],
+        ["ภาพกลับหัว", "ลืม (1 − …) ที่ py", "พลิกแกน y ตอนแมพ pixel"],
+        ["ภาพยืด/fisheye", "ใส่ aspect ผิดแกน", "FOV แนวนอน → หาร aspect ที่แกนตั้ง"],
+        ["cylinder ไม่มีฝา/มืดด้านใน", "ไม่ทดสอบ caps / normal ไม่พลิก", "เพิ่ม disk test 2 ฝา + พลิก normal"],
+      ]}},
+      { h: "การ build / รัน" },
+      { code: String.raw`make            # mandatory
+make bonus      # specular/checkerboard/หลาย light/cone
+./miniRT scenes/sphere.rt
+./miniRT scenes/cylinder.rt
+norminette src include   # ต้อง 0 error (bonus ก็ตรวจ)`, lang: "bash" },
+      { note: "บน Windows ต้องรันผ่าน WSL + WSLg (DISPLAY=:0) ไม่งั้นหน้าต่าง mlx ไม่ขึ้น — ดู skill build-42-projects-on-windows. เคล็ดทดสอบไม่ง้อจอ: เขียน harness เล็ก ๆ วน gen_ray→trace→shade เขียน PPM แทนการเปิด window" },
+    ],
+    tricks: [
+      { h: "ทริค 1: เก็บสีเป็น [0,1] ตลอด" },
+      { p: "parse 0-255 แล้วหาร 255 ทันที — คณิตแสงทั้งหมดเป็นบวก/คูณ vector ธรรมดา. clamp + แปลงเป็น int เฉพาะตอนเขียน buffer (ที่เดียว)" },
+      { h: "ทริค 2: พลิก normal เข้าหากล้องเสมอ" },
+      { p: "หลังหา N: `if (dot(N, ray.dir) > 0) N = neg(N)` → ฆ่าบั๊ก 'จุดดำ' ครึ่งหนึ่ง (ผิวด้านใน/ผนัง cylinder shade ถูกด้าน)" },
+      { h: "ทริค 3: EPSILON กัน shadow acne + self-hit" },
+      { p: "ใช้ EPSILON (~1e-3) ทั้งตอนรับ t ของ intersection (t > EPSILON) และเลื่อน origin ของ shadow ray — กันชนตัวเอง" },
+      { h: "ทริค 4: FOV แนวนอน → aspect ที่แกนตั้ง" },
+      { p: "px ใช้ scale=tan(fov/2) ตรง ๆ, py หารด้วย aspect (W/H). ผิดแกน = ยืด/fisheye" },
+      { h: "ทริค 5: drain get_next_line จนหมดตอน parse error" },
+      { p: "ถ้า break ออกจาก loop อ่านทันทีที่เจอ error → static stash ของ gnl ไม่ถูก free (leak). ต้องวนอ่าน+free จนได้ NULL (parse เฉพาะจนเจอ error แรก)" },
+      { h: "ทริค 6: bonus ใช้ Makefile stub ไม่ใช่ #ifdef" },
+      { p: "norminette แบน `#ifdef` ในฟังก์ชัน (PREPOC_ONLY_GLOBAL). ดันความต่าง mandatory/bonus ไปไว้หลัง 'compat function' (`specular_term()`, `base_color()`...) แล้วเลือก stub/bonus ด้วย Makefile (`-D BONUS`) — เหมือน cub3d COMMON+.bonus.o" },
+      { h: "ทริค 7: แปลง \\r ด้วย (ไฟล์ .rt จาก Windows)" },
+      { p: "ไฟล์แก้บน Windows มี `\\r` — แปลง `\\t \\n \\r` เป็น space ใน tokenize ก่อน ft_split ไม่งั้น token สุดท้ายทุกบรรทัด parse พลาด" },
+    ],
+    eval: [
+      { qa: [
+        { q: "ray tracing ทำงานยังไงในหนึ่งประโยค?", a: "ยิง ray 1 เส้นจากกล้องผ่านแต่ละ pixel หาวัตถุที่ชนใกล้สุด แล้วคำนวณสีจุดนั้นจากแสง (ambient+diffuse) + เงา" },
+        { q: "ray เขียนเป็นสมการยังไง?", a: "P(t) = O + t·D (O=กล้อง, D=ทิศ normalize, t=ระยะ); หา 'ชน' = หา t เล็กสุดที่ >EPSILON ที่ P(t) อยู่บนผิววัตถุ" },
+        { q: "ray-sphere ได้สมการอะไร แก้ยังไง?", a: "quadratic a·t²+b·t+c (a=D·D, b=2·oc·D, c=oc·oc−r², oc=O−center); ดู discriminant, เลือก t เล็กสุดที่ >EPSILON" },
+        { q: "diffuse lighting คำนวณยังไง?", a: "max(dot(N,L),0)·ratio (N=normal, L=ทิศไปแสง) ตาม Lambert's law — มุมตกตรงสว่างสุด; คูณ obj_color⊙light_color" },
+        { q: "ทำไมต้องพลิก normal เข้าหากล้อง?", a: "ถ้า dot(N, ray.dir)>0 normal ชี้หนีกล้อง → พลิก N=−N ไม่งั้นผิวด้านใน/ผนัง cylinder shade กลับด้าน มืดผิด" },
+        { q: "shadow acne คืออะไร แก้ยังไง?", a: "จุดดำกระจายจาก shadow ray ชนผิวตัวเอง (t≈0); แก้ด้วยเลื่อน origin ออกตาม normal นิดนึง (P+N·EPSILON)" },
+        { q: "สร้าง ray ของกล้องยังไง?", a: "สร้าง orthonormal basis (forward/right/up) จากทิศมอง; ต่อ pixel: px,py = แมพ (x,y) ด้วย tan(fov/2)+aspect; dir = norm(forward+px·right+py·up)" },
+        { q: "ทำไม FOV หาร aspect ที่แกนตั้ง?", a: "FOV เป็นแนวนอน → แกนนอนใช้ scale ตรง ๆ, แกนตั้งหารด้วย aspect (W/H) กันภาพยืด" },
+        { q: "ทำไมเก็บสีเป็น [0,1] ไม่ใช่ 0-255?", a: "คณิตแสงคือคูณ/บวกสี — [0,1] ทำให้เป็น vector op ธรรมดา ไม่ล้น; clamp+แปลง int ตอนเขียน buffer เท่านั้น" },
+        { q: "cylinder ยากตรงไหน?", a: "ต้องเช็ค 2 ส่วน: body (quadratic + เช็คว่าจุดชนอยู่ในช่วง ±height/2 ตามแกน) และ caps (2 disk ที่ปลาย); normal body=norm(P−จุดบนแกน), cap=±axis" },
+        { q: "จัดการ error ของไฟล์ .rt ยังไง?", a: "ทุก field ผิด (ratio/สี/FOV นอกช่วง, vector ศูนย์, id ไม่รู้จัก) → พิมพ์ Error\\n+ข้อความ แล้ว exit ไม่ใช่ segfault; drain gnl จนหมดกัน leak" },
+      ]},
+      { h: "ทดสอบ" },
+      { code: String.raw`./miniRT scenes/sphere.rt        # วงกลมแดงกลางจอ + แสงเงา
+./miniRT scenes/cylinder.rt      # cylinder + plane + เงา
+./miniRT                         # usage (ไม่มี argument)
+./miniRT bad.rt                  # Error (ไฟล์ผิดรูปแบบ)
+norminette src include           # 0 error (mandatory + bonus)
+valgrind --leak-check=full ./miniRT scenes/sphere.rt   # ไม่ leak (path headless)`, lang: "bash" },
+    ],
+  },
+},
 ];

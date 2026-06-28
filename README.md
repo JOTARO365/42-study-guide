@@ -27,6 +27,7 @@
 | **philosophers** | [philosophers.html](philosophers.html) | Dining philosophers, deadlock (Coffman conditions), mutex, precise_sleep |
 | **CPP Module 00** | [cpp_module_00.html](cpp_module_00.html) | C→C++ transition, class/object, encapsulation, static members, this pointer |
 | **minishell** | [minishell.html](minishell.html) | Shell architecture, lexer/parser pipeline, pipe EOF, signal handling |
+| **miniRT** | [minirt.html](minirt.html) | Ray tracer: ray-sphere quadratic, Phong lighting, shadows (acne), camera basis, .rt parsing |
 
 ## AI Engineer Track
 
@@ -78,6 +79,7 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | philosophers | **4** | Deadlock & Coffman + RAG-graph proof, data race & atomicity, mutex vs semaphore (mandatory/bonus), usleep precision & detection latency |
 | cpp_module_00 | **4** | Static members & lifecycle, constructor/destructor order, const-correctness, this pointer |
 | minishell | **4** | Lexer as a state machine + quotes, fd inheritance + dup2/close pipeline, pipe EOF reference counting, signals (interactive/heredoc) + $? propagation |
+| miniRT | **4** | Ray-sphere intersection (quadratic + discriminant), Phong lighting + normal flip, shadows & shadow acne (epsilon), camera & ray generation (basis + FOV/aspect) |
 
 ## AI Engineer Deep Dives
 

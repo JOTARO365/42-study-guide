@@ -919,15 +919,10 @@
             style: { borderLeftColor: p.accent }
           },
             h("h3", null, p.name),
-            h("p", null, t(p.tag)),
-            h("span", { className: "done" }, t({ th: "✅ ทำเสร็จแล้ว", en: "✅ Done" }))
+            h("p", null, t(p.tag))
           );
         })
       ),
-      h("div", { className: "home-note" }, inline(t({
-        th: "แต่ละโปรเจกต์แยกเป็นคนละหน้า — เมื่อทำโปรเจกต์ใหม่เสร็จ เพิ่มข้อมูลใน `data.js` แล้วสร้างไฟล์ `<id>.html` การ์ดจะโผล่หน้านี้อัตโนมัติ",
-        en: "Each project is its own page — when a new project is done, add it to `data.js` and create `<id>.html`, and a card appears here automatically."
-      }))),
       h("footer", null, t({
         th: "สื่อการสอน 42 · อิงจากโค้ดจริงของ wiaon-in",
         en: "42 Study Guide · based on real code by wiaon-in"

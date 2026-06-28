@@ -5920,4 +5920,354 @@ print(handle({"order_id": "A2", "amount": 300, "days_since_buy": 30}))   # -> sk
       ]},
     ],
   },
+
+  "minirt": {
+    principle: [
+      { h: "What's the problem" },
+      { p: "Write a **ray tracer**: cast a 'ray' from the camera through every pixel of the screen → find which object it hits first → compute that point's color from the lighting, then draw it with MiniLibX. Read the scene from a `.rt` file." },
+      { code: String.raw`A   0.2     255,255,255          # ambient: ratio + color
+C   0,0,-30   0,0,1   70          # camera: position + direction + FOV
+L   -20,30,-20   0.8  255,255,255 # light: position + ratio + color
+sp  0,0,12   14   255,40,40       # sphere: center + diameter + color`, cap: "the .rt file = a list of objects/lights/camera (any order)", lang: "txt" },
+      { h: "The 3 core steps (per pixel)" },
+      { table: { head: ["Step", "Does what"], rows: [
+        ["1. gen_ray", "make a ray from the camera through pixel (x,y)"],
+        ["2. trace", "find the nearest object the ray hits (smallest t > 0)"],
+        ["3. shade", "compute the hit point's color: ambient + diffuse + shadow"],
+      ]}},
+      { note: "3 mandatory object types: **sphere (sp), plane (pl), cylinder (cy)**. Each has a different 'does the ray hit it, at what t' formula — this is the project's core maths." },
+      { h: "Background: what is ray tracing" },
+      { p: "In the real world light leaves a bulb, bounces off objects, into the eye. Ray tracing does it **in reverse** to save work: cast a ray from the 'eye (camera)' out per pixel, see what it hits, then ask 'is that point lit, what color'. One ray/pixel → a 3D image with real shadows/shading (unlike fdf which only draws lines)." },
+      { h: "Why store colors as [0,1] not 0-255" },
+      { p: "Lighting math is **multiplying/adding colors** (obj_color × light_color × brightness). Stored as 0-255 it overflows and is awkward to multiply. Store as a `t_vec3` in **[0,1]** (parse 0-255 then divide by 255) → lighting math becomes plain vector add/multiply, then clamp + pack to `(r<<16)|(g<<8)|b` at the end." },
+      { h: "Why this project is hard" },
+      { p: "It's 'turn math formulas into code without panicking': the ray-sphere/cylinder quadratics, building the camera basis, shadows that must avoid 'shadow acne', and passing **norminette** with a bonus build (the `#ifdef` inside a function is banned by norm)." },
+    ],
+    theory: [
+      { p: "This section gathers the **vector + geometry + lighting** maths miniRT uses — get the formulas and the code is straightforward." },
+      { h: "1) A Ray = origin + t·direction" },
+      { p: "A ray is written `P(t) = O + t·D` where O = origin (camera), D = direction (normalized), t = distance. Finding a 'hit' = finding t > 0 where P(t) is on an object's surface." },
+      { code: String.raw`P(t) = O + t·D     e.g. t=5 → the point 5 units from the camera along D`, cap: "every 'hit' is solving an equation for the smallest t that's > 0", lang: "txt" },
+      { h: "2) 3D vectors — the basic toolkit" },
+      { table: { head: ["operation", "formula", "used for"], rows: [
+        ["dot(a,b)", "ax·bx + ay·by + az·bz", "angle/projection/brightness"],
+        ["cross(a,b)", "a vector perpendicular to both", "build the camera basis"],
+        ["length(a)", "√(dot(a,a))", "distance"],
+        ["normalize(a)", "a / length(a)", "make length = 1"],
+        ["reflect(v,n)", "v − 2·dot(v,n)·n", "reflection (specular)"],
+      ]}},
+      { note: "Write the vec3 ops fully first (add/sub/scale/dot/cross/len/norm/reflect) — the rest of the project is composing them." },
+      { h: "3) Surface normal — the vector perpendicular to the surface" },
+      { p: "The **normal (N)** = the direction perpendicular to the surface at the hit point — the heart of lighting. sphere: `N = norm(P − center)`; plane: `N = the plane's direction`; cylinder body: `N = norm(P − the nearest point on the axis)`." },
+      { h: "4) The Phong lighting model" },
+      { p: "A point's color = the sum of 3 parts: **ambient** (omnidirectional, constant), **diffuse** (scattered light by the incidence angle — Lambert), **specular** (the shiny highlight — bonus)." },
+      { code: String.raw`color = ambient + Σ(diffuse of each light not in shadow)
+diffuse ∝ max(dot(N, L), 0)        # N=normal, L=direction toward the light`, cap: "head-on angle (high dot) = bright; glancing (low dot) = dim; facing away (dot<0) = 0", lang: "txt" },
+      { h: "5) Shadows (shadow ray)" },
+      { p: "Is a point lit → cast a ray from it toward the light; if an object blocks before reaching the light = in shadow (don't add that light's diffuse). **You must offset the origin slightly (epsilon)** or the point shadows itself → black speckling ('shadow acne')." },
+      { h: "6) Color [0,1] → 0xRRGGBB" },
+      { p: "Compute lighting with [0,1] colors (parse 0-255 ÷255). At the end: clamp to [0,1] then `int = (r*255 << 16) | (g*255 << 8) | (b*255)` into the image buffer." },
+      { h: "7) Camera & ray generation" },
+      { p: "The camera has a position + view direction + FOV. You build an **orthonormal basis** (forward/right/up) from the view direction, then map pixel (x,y) → the ray's direction. FOV is **horizontal**." },
+
+      { h: "🔬 Deep Dive A: Ray–Sphere Intersection — solving the quadratic for the hit" },
+      { p: "**Picture it:** a ray is a line, a sphere is 'all points at distance = radius r from the center'. Finding a 'hit' = finding t where the distance from P(t) to the center equals r exactly — substituting P(t) into the sphere equation gives a **quadratic**." },
+      { code: String.raw`sphere: |P − center|² = r²
+ray:    P = O + t·D
+
+substitute:  |O + t·D − center|² = r²
+let oc = O − center :
+  |oc + t·D|² = r²
+  (D·D)t² + 2(oc·D)t + (oc·oc − r²) = 0     ← a·t² + b·t + c
+
+  a = dot(D, D)          (= 1 if D is normalized)
+  b = 2·dot(oc, D)
+  c = dot(oc, oc) − r²`, cap: "ray-sphere = a quadratic — from substituting 'a point on the ray' into the 'sphere surface' definition", lang: "txt" },
+      { code: String.raw`discriminant = b² − 4ac  tells the number of hits:
+  < 0  → no hit (the ray misses the sphere)
+  = 0  → grazes the edge (1 point)
+  > 0  → passes through (2 points: entry-exit)
+
+t = (−b ± √disc) / (2a)
+→ pick the root that's 'smallest but still > EPSILON' (the entry point in front of the camera)
+  normal at the hit = norm(P − center)`, cap: "disc < 0 = no hit; pick the smallest t > EPSILON = the surface the camera sees first", lang: "txt" },
+      { note: "Prove it yourself: the subject gives a 'diameter', not a radius — you must **divide by 2** before using it as r. This is bug #1: forget the /2 and the sphere is 2× too big." },
+      { qa: [
+        { q: "Why is ray-sphere a quadratic equation?", a: "Substituting P(t)=O+tD (linear in t) into the sphere definition |P−center|²=r² (which squares) gives a t² term = a quadratic." },
+        { q: "What does the discriminant tell you?", a: "<0 no hit, =0 grazes 1 point, >0 hits 2 points (entry-exit). If ≥0 pick the smallest t > EPSILON = the surface point the camera sees first." },
+        { q: "What's the /2 diameter bug?", a: ".rt gives the diameter; you must divide by 2 to get the radius before the formula (c = oc·oc − r²); forget it and the sphere is 2× too big." },
+      ]},
+
+      { h: "🔬 Deep Dive B: Phong Lighting — why the light angle brightens/darkens + flipping the normal" },
+      { p: "**Picture it:** a surface facing the light head-on is brightest, facing at an angle is dimmer, facing away is fully dark. Measured by **dot(N, L)** — the angle between the normal and the direction toward the light (Lambert's cosine law)." },
+      { code: String.raw`shade(P, N, obj):
+  color = obj.color ⊙ (ambient.ratio · ambient.color)   # constant base
+  for each light:
+    if in_shadow(P, light): continue                     # blocked by shadow → skip
+    L = norm(light.pos − P)                               # direction to the light
+    diff = max(dot(N, L), 0) · light.ratio                # the incidence angle
+    color += obj.color ⊙ light.color · diff
+  return clamp(color, 0, 1)`, cap: "⊙ = per-channel multiply (R×R,G×G,B×B); dot(N,L) = cos(angle) = brightness by incidence angle", lang: "txt" },
+      { p: "**Why max(dot,0):** if dot(N,L) < 0 the light is 'behind' the surface → shouldn't be lit → clamp to 0. **specular (bonus):** `pow(max(dot(reflect(−L,N), view),0), shininess)` = the shiny spot when the reflection angle aligns with the eye." },
+      { note: "Prove it yourself — half of the 'black' bugs: after computing N you must **flip the normal toward the camera** before using it: `if dot(N, D) > 0: N = −N`. Otherwise the inside of objects/cylinders shades backwards, wrongly dark." },
+      { qa: [
+        { q: "Why does diffuse use dot(N, L)?", a: "Lambert's law: brightness ∝ cos(angle between normal and light direction) = dot(N,L) when both are normalized. Head-on = brightest, glancing = dimmer." },
+        { q: "Why max(dot(N,L), 0)?", a: "If dot<0 the light is behind the surface, shouldn't add brightness → clamp to 0 to avoid negative colors." },
+        { q: "Why flip the normal toward the camera?", a: "If dot(N, ray_dir) > 0 the normal points away from the camera → flip N=−N to point toward it, or the inside of objects / cylinder walls shade backwards (wrongly dark/black)." },
+      ]},
+
+      { h: "🔬 Deep Dive C: Shadows & Shadow Acne — why you must offset by epsilon" },
+      { p: "**Picture it:** is a surface point lit → cast a 'shadow ray' from it toward the light; if it hits another object before reaching the light = in shadow. But there's a classic problem: the point **shadows itself**." },
+      { code: String.raw`in_shadow(P, light):
+  L = light.pos − P ; dist = length(L)
+  shadow_ray = { origin: P + N·EPSILON, dir: norm(L) }   # ★ offset!
+  hit = trace(shadow_ray)
+  return (a hit occurred AND hit.t < dist)               # a blocker before the light
+
+problem without the offset (origin = exactly P):
+  the shadow ray starts on the surface → hits itself at t≈0 → thinks 'in shadow'
+  → every point goes black = "shadow acne" (scattered black speckles)`, cap: "offset the origin slightly along the normal (EPSILON ~1e-3) → doesn't hit itself", lang: "txt" },
+      { note: "Prove it yourself: set EPSILON = 0 and render — you'll see black speckles all over the surface (acne). Raise EPSILON to 1e-4..1e-3 and they vanish. And you must check `hit.t < dist`, or an object 'behind the light' would wrongly count as a blocker." },
+      { qa: [
+        { q: "What is shadow acne, what causes it?", a: "Black speckles all over a surface, caused by the shadow ray starting exactly on the surface (t=0) and 'hitting itself' → every point thinks it's shadowed." },
+        { q: "How do you fix shadow acne?", a: "Offset the shadow ray's origin slightly along the normal (P + N·EPSILON, ~1e-3), or only accept hits with t > EPSILON." },
+        { q: "Why check hit.t < dist_to_light?", a: "To count only objects 'between the point and the light'; objects farther than the light (t > dist) don't block it and must not count as a shadow." },
+      ]},
+
+      { h: "🔬 Deep Dive D: Camera & Ray Generation — mapping a pixel to a ray direction" },
+      { p: "**Picture it:** the camera has a position + view direction + FOV (horizontal angle). You build a 'virtual screen' in front of the camera then cast a ray from the camera through each pixel. First step: build an **orthonormal basis** (3 mutually perpendicular axes)." },
+      { code: String.raw`build a basis from the view direction:
+  forward = norm(C.dir)
+  world_up = (0,1,0)   (if parallel to forward, use (0,0,1) instead)
+  right = norm(cross(world_up, forward))
+  up    = cross(forward, right)
+  scale = tan(fov/2 · π/180)     # horizontal FOV
+
+per pixel (x,y) — with +0.5 (pixel center), flip y (screen y down, image y up):
+  aspect = W / H
+  px = (2·(x+0.5)/W − 1) · scale
+  py = (1 − 2·(y+0.5)/H) · scale / aspect
+  dir = norm(forward + px·right + py·up)`, cap: "the basis = 3 perpendicular axes; a pixel maps to offsets on right/up plus forward = the ray direction", lang: "txt" },
+      { p: "**Why FOV is divided by aspect on the vertical axis:** FOV is horizontal → the horizontal axis (px) uses scale directly, the vertical axis (py) must divide by aspect (W/H) so the image isn't stretched. If the image is **upside-down** = you forgot the `(1 − …)` on py; if it's **stretched** = you applied aspect to the wrong axis." },
+      { note: "Prove it yourself: put camera C at (0,0,−30) looking +z, place a sphere at (0,0,12) — you should see a circle centered. If the screen is all black = the camera looks the wrong way (the object is off-frame) — frame the object in front of the camera first." },
+      { qa: [
+        { q: "Why build an orthonormal basis for the camera?", a: "To map a 2D pixel → a 3D ray direction: right/up are the axes of the 'virtual screen', forward is straight ahead; the ray dir = forward + px·right + py·up." },
+        { q: "Why does px use +0.5 and py flip with (1−…)?", a: "+0.5 = cast through the 'center' of the pixel, not the corner; flip y because screen coords increase downward but in the image +y is up." },
+        { q: "Which way is FOV, where does aspect go?", a: "FOV is horizontal → px uses scale directly, py divides by aspect (W/H) to avoid stretching. Aspect on the wrong axis = stretched/fisheye image." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Ray tracing (graphics) — Wikipedia", url: "https://en.wikipedia.org/wiki/Ray_tracing_(graphics)", note: "ray tracing overview + history" },
+        { label: "Scratchapixel — Ray-Sphere Intersection", url: "https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection.html", note: "the full quadratic derivation" },
+        { label: "Ray Tracing in One Weekend", url: "https://raytracing.github.io/books/RayTracingInOneWeekend.html", note: "write a ray tracer from scratch, step by step (a fun read)" },
+        { label: "Phong reflection model — Wikipedia", url: "https://en.wikipedia.org/wiki/Phong_reflection_model", note: "ambient + diffuse + specular in full" },
+        { label: "Lambert's cosine law — Wikipedia", url: "https://en.wikipedia.org/wiki/Lambert%27s_cosine_law", note: "where diffuse = dot(N,L) comes from" },
+        { label: "MiniLibX docs (Harm Smits 42docs)", url: "https://harm-smits.github.io/42docs/libs/minilibx", note: "the mlx guide for 42 students" },
+      ]},
+    ],
+    foundations: [
+      { p: "This section digs into the **struct, color-as-vector, and object list** miniRT uses." },
+      { h: "Main structs" },
+      { code: String.raw`typedef struct s_vec3 { double x, y, z; } t_vec3;
+typedef t_vec3 t_color;            // a color is just a vec3 [0,1]
+
+typedef struct s_object {          // sphere/plane/cylinder in one struct
+    t_type   type;                 // SPHERE / PLANE / CYLINDER
+    t_vec3   pos;                  // center / a point on the plane
+    t_vec3   axis;                 // direction (plane normal / cylinder axis)
+    double   radius, height;       // sphere/cylinder
+    t_color  color;                // [0,1]
+    struct s_object *next;         // linked list
+} t_object;
+
+typedef struct s_camera {
+    t_vec3 pos, dir, right, up;    // basis computed at setup
+    double fov;
+} t_camera;
+
+typedef struct s_scene {
+    t_color   ambient; double a_ratio;
+    t_camera  cam;
+    t_object  *lights;             // 1 (mandatory) / many (bonus)
+    t_object  *objects;
+} t_scene;`, cap: "every object type in one struct (split by type) → one loop over all objects", lang: "c" },
+      { h: "color as t_vec3 [0,1] (not int)" },
+      { p: "Store colors as a vec3 in [0,1] so lighting math (multiply/add colors) is easy. Convert to int 0xRRGGBB only when writing to the buffer:" },
+      { code: String.raw`int color_to_int(t_color c) {
+    int r = (int)(fmin(c.x, 1.0) * 255);   // clamp + scale to 0-255
+    int g = (int)(fmin(c.y, 1.0) * 255);
+    int b = (int)(fmin(c.z, 1.0) * 255);
+    return ((r << 16) | (g << 8) | b);
+}`, cap: "clamp to [0,1] then pack 3 8-bit channels into one color number", lang: "c" },
+      { h: "diameter → radius (divide by 2)" },
+      { p: ".rt gives the **diameter** of a sphere/cylinder — you must `radius = diameter / 2` at parse time. Forgetting the divide is the bug that makes objects 2× too big." },
+      { h: "object list = linked list" },
+      { p: "The number of objects is unknown ahead of time → store as a linked list. `trace()` loops every node for the smallest t; free the whole list at the end (objects + lights)." },
+    ],
+    architecture: [
+      { h: "Project files (split by norm: ≤5 funcs/file)" },
+      { table: { head: ["File", "Role"], rows: [
+        ["`main.c`", "argc check → parse → render → mlx_loop"],
+        ["`vec3*.c`", "add/sub/scale/dot/cross/len/norm/reflect"],
+        ["`parse*.c`", "read .rt → dispatch by id (A/C/L/sp/pl/cy)"],
+        ["`render.c`", "loop pixels → gen_ray → trace → shade → put_pixel"],
+        ["`camera.c`", "setup_camera (basis) + gen_ray"],
+        ["`intersect.c` + `inter_*.c`", "ray hits sphere/plane/cylinder"],
+        ["`lighting.c`", "shade (ambient+diffuse) + get_normal"],
+        ["`shadow.c`", "in_shadow (shadow ray)"],
+        ["`free.c` / `error.c`", "free memory / print Error"],
+      ]}},
+      { h: "Data flow (.rt → image)" },
+      { code: String.raw`.rt file
+   │ parse: gnl + ft_split + dispatch
+   ▼
+t_scene { ambient, camera, lights, objects }
+   │ render: loop every pixel
+   ▼
+gen_ray(x,y) → ray → trace(ray) → hit(object, t, point, normal)
+   │ shade(hit): ambient + Σ diffuse (check in_shadow)
+   ▼
+color [0,1] → color_to_int → image buffer → mlx_put_image`, cap: "scene file → struct → a ray per pixel → color → image", lang: "txt" },
+      { note: "render does heavy work: WIDTH×HEIGHT pixels × (every object × intersection) — draw into the image buffer then put once (like fdf/fractol)." },
+    ],
+    dataflow: [
+      { p: "Walk through the key functions one by one." },
+      { h: "main() → render()" },
+      { code: String.raw`int main(int ac, char **av) {
+    if (ac != 2) return (error("usage: ./miniRT scene.rt"));
+    if (parse_scene(&scene, av[1])) return (1);   // read .rt
+    init_mlx(&scene);
+    setup_camera(&scene.cam);                     // build the basis
+    render(&scene);                               // draw every pixel
+    mlx_loop(scene.mlx);                          // wait for events (ESC/close)
+    return (0);
+}`, cap: "order: parse → mlx → camera basis → render → loop", lang: "c" },
+      { h: "render() — loop pixels" },
+      { code: String.raw`void render(t_scene *s) {
+    int x, y;
+    for (y = 0; y < HEIGHT; y++)
+      for (x = 0; x < WIDTH; x++) {
+        t_ray ray = gen_ray(&s->cam, x, y);       // pixel → ray
+        t_hit hit;
+        if (trace(s, ray, &hit))                  // did it hit anything
+            put_pixel(s, x, y, color_to_int(shade(s, &hit)));
+        else
+            put_pixel(s, x, y, 0);                // no hit = black
+      }
+    mlx_put_image_to_window(s->mlx, s->win, s->img, 0, 0);
+}`, cap: "1 pixel = 1 ray; hit→shade, miss→black", lang: "c" },
+      { h: "trace() — find the nearest object" },
+      { code: String.raw`int trace(t_scene *s, t_ray ray, t_hit *hit) {
+    double t, closest = INFINITY;
+    t_object *o = s->objects;
+    int found = 0;
+    while (o) {
+        if (hit_object(o, ray, &t) && t < closest && t > EPSILON) {
+            closest = t; hit->obj = o; hit->t = t;  // remember the nearest
+            found = 1;
+        }
+        o = o->next;
+    }
+    if (found) {
+        hit->point = ray_at(ray, closest);          // P = O + t·D
+        hit->normal = get_normal(hit->obj, hit->point, ray.dir);
+    }
+    return (found);
+}`, cap: "loop every object keeping the smallest t > EPSILON = the surface the camera sees first", lang: "c" },
+      { h: "shade() — compute the color" },
+      { code: String.raw`t_color shade(t_scene *s, t_hit *hit) {
+    t_color col = mul(hit->obj->color, scale(s->ambient, s->a_ratio));
+    t_object *lt = s->lights;
+    while (lt) {
+        if (!in_shadow(s, hit, lt)) {
+            t_vec3 L = norm(sub(lt->pos, hit->point));
+            double d = fmax(dot(hit->normal, L), 0) * lt->ratio;
+            col = add(col, scale(mul(hit->obj->color, lt->color), d));
+        }
+        lt = lt->next;
+    }
+    return (col);   // clamp when converting to int
+}`, cap: "ambient as the base + add each non-shadowed light's diffuse", lang: "c" },
+      { h: "in_shadow() — cast a shadow ray" },
+      { code: String.raw`int in_shadow(t_scene *s, t_hit *hit, t_object *light) {
+    t_vec3 to_l = sub(light->pos, hit->point);
+    double dist = length(to_l);
+    t_ray sray;
+    sray.origin = add(hit->point, scale(hit->normal, EPSILON)); // offset!
+    sray.dir = norm(to_l);
+    t_hit tmp;
+    if (trace(s, sray, &tmp) && tmp.t < dist)   // a blocker before the light
+        return (1);
+    return (0);
+}`, cap: "offset the origin along the normal (EPSILON) to avoid shadow acne; check t < dist", lang: "c" },
+    ],
+    implementation: [
+      { h: "Suggested build order" },
+      { ul: [
+        "1. **vec3 ops** fully first (add/sub/scale/dot/cross/len/norm/reflect) — the whole foundation",
+        "2. open an mlx window + put_pixel to test one dot",
+        "3. **gen_ray** + camera basis → draw a background color by ray direction (verify the camera is right)",
+        "4. **ray-sphere** + render a single sphere (no light yet = solid color)",
+        "5. **shade** ambient + diffuse with 1 light → see shading on the sphere",
+        "6. **shadow ray** (+ epsilon to avoid acne)",
+        "7. **plane + cylinder** (cylinder is hardest: body + 2 caps)",
+        "8. parse the .rt fully for every id + validate every field's errors",
+        "9. bonus: specular, checkerboard, multiple lights, cone (separate build via the Makefile)",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["All black", "camera looks the wrong way (object off-frame) / normal not flipped / ambient 0", "frame the object in front, flip the normal toward the camera"],
+        ["Sphere 2× too big", "used diameter as radius", "radius = diameter / 2"],
+        ["Black speckles (acne)", "shadow ray not offset by epsilon", "origin = P + N·EPSILON"],
+        ["Image upside-down", "forgot (1 − …) on py", "flip the y axis when mapping pixels"],
+        ["Stretched/fisheye image", "aspect on the wrong axis", "FOV is horizontal → divide aspect on the vertical axis"],
+        ["Cylinder has no caps / dark inside", "no cap test / normal not flipped", "add the 2 disk cap tests + flip the normal"],
+      ]}},
+      { h: "build / run" },
+      { code: String.raw`make            # mandatory
+make bonus      # specular/checkerboard/multiple lights/cone
+./miniRT scenes/sphere.rt
+./miniRT scenes/cylinder.rt
+norminette src include   # must be 0 errors (bonus is graded too)`, lang: "bash" },
+      { note: "On Windows run through WSL + WSLg (DISPLAY=:0) or the mlx window won't open — see the build-42-projects-on-windows skill. Test without a display: write a tiny harness looping gen_ray→trace→shade writing a PPM instead of opening a window." },
+    ],
+    tricks: [
+      { h: "Trick 1: keep colors in [0,1] throughout" },
+      { p: "parse 0-255 then divide by 255 immediately — all lighting math becomes plain vector add/multiply. clamp + convert to int only when writing the buffer (one place)." },
+      { h: "Trick 2: always flip the normal toward the camera" },
+      { p: "After computing N: `if (dot(N, ray.dir) > 0) N = neg(N)` → kills half the 'black' bugs (insides/cylinder walls shade the right way)." },
+      { h: "Trick 3: EPSILON against shadow acne + self-hit" },
+      { p: "Use EPSILON (~1e-3) both when accepting an intersection's t (t > EPSILON) and offsetting the shadow ray's origin — to avoid self-hits." },
+      { h: "Trick 4: FOV is horizontal → aspect on the vertical axis" },
+      { p: "px uses scale=tan(fov/2) directly, py divides by aspect (W/H). The wrong axis = stretched/fisheye." },
+      { h: "Trick 5: drain get_next_line on parse error" },
+      { p: "If you break out of the read loop the moment you hit an error → gnl's static stash is never freed (a leak). Keep reading+freeing until NULL (parse only until the first error)." },
+      { h: "Trick 6: bonus via a Makefile stub, not #ifdef" },
+      { p: "norminette bans `#ifdef` inside a function (PREPOC_ONLY_GLOBAL). Push the mandatory/bonus difference behind a 'compat function' (`specular_term()`, `base_color()`...) and select stub/bonus via the Makefile (`-D BONUS`) — like cub3d's COMMON+.bonus.o." },
+      { h: "Trick 7: convert \\r too (Windows .rt files)" },
+      { p: "Files edited on Windows carry `\\r` — convert `\\t \\n \\r` to spaces in tokenize before ft_split, or the last token on every line fails to parse." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How does ray tracing work in one sentence?", a: "Cast one ray from the camera through each pixel, find the nearest object it hits, then compute that point's color from the lighting (ambient+diffuse) + shadows." },
+        { q: "How is a ray written as an equation?", a: "P(t) = O + t·D (O=camera, D=normalized direction, t=distance); a 'hit' = the smallest t > EPSILON where P(t) is on a surface." },
+        { q: "What equation does ray-sphere give, how do you solve it?", a: "A quadratic a·t²+b·t+c (a=D·D, b=2·oc·D, c=oc·oc−r², oc=O−center); look at the discriminant, pick the smallest t > EPSILON." },
+        { q: "How is diffuse lighting computed?", a: "max(dot(N,L),0)·ratio (N=normal, L=direction to the light) per Lambert's law — head-on is brightest; multiply obj_color⊙light_color." },
+        { q: "Why flip the normal toward the camera?", a: "If dot(N, ray.dir)>0 the normal points away → flip N=−N, or the inside of objects / cylinder walls shade backwards, wrongly dark." },
+        { q: "What is shadow acne, how do you fix it?", a: "Black speckles from the shadow ray hitting its own surface (t≈0); fix by offsetting the origin along the normal slightly (P+N·EPSILON)." },
+        { q: "How do you generate the camera's rays?", a: "Build an orthonormal basis (forward/right/up) from the view direction; per pixel: px,py map (x,y) via tan(fov/2)+aspect; dir = norm(forward+px·right+py·up)." },
+        { q: "Why divide FOV by aspect on the vertical axis?", a: "FOV is horizontal → the horizontal axis uses scale directly, the vertical divides by aspect (W/H) to avoid stretching." },
+        { q: "Why store colors as [0,1] not 0-255?", a: "Lighting math is multiply/add colors — [0,1] keeps it plain vector ops with no overflow; clamp+convert to int only when writing the buffer." },
+        { q: "What's hard about the cylinder?", a: "You check 2 parts: the body (quadratic + verify the hit is within ±height/2 along the axis) and the caps (2 disks at the ends); body normal=norm(P−axis point), cap=±axis." },
+        { q: "How do you handle .rt file errors?", a: "Any bad field (ratio/color/FOV out of range, zero vector, unknown id) → print Error\\n+a message then exit, never segfault; drain gnl fully to avoid a leak." },
+      ]},
+      { h: "Tests" },
+      { code: String.raw`./miniRT scenes/sphere.rt        # a red circle centered + shading
+./miniRT scenes/cylinder.rt      # cylinder + plane + shadow
+./miniRT                         # usage (no argument)
+./miniRT bad.rt                  # Error (malformed file)
+norminette src include           # 0 errors (mandatory + bonus)
+valgrind --leak-check=full ./miniRT scenes/sphere.rt   # no leak (headless path)`, lang: "bash" },
+    ],
+  },
 };
