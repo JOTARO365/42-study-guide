@@ -2482,3 +2482,258 @@ window.EXTRA_FLOWS.ai_harness = {
       { n: "result", v: "{ok:True, refunded:300}", d: "ผลการลงมือจริง", w: true } ] },
   ],
 };
+
+/* ===================== AI LOOP ENGINEERING (goal + gate + cap + self-verify) ===================== */
+window.TEACHING_DATA.push({
+  id: "ai_loop_engineering",
+  name: "Loop Engineering — agent ที่วน reason→act→ตรวจ เอง",
+  tag: { th: "ขั้นถัดจาก prompt/context engineering: เลิกสั่งทีละ step แล้วตั้ง 'เป้าหมาย + เกณฑ์ตรวจ (gate)' ให้ agent สร้าง prompt และวนทำเองจนผ่าน — พร้อมกฎกัน loop วนไม่จบ/เผา token/หลอกว่าเสร็จ", en: "The step after prompt/context engineering: stop scripting steps, set a goal + feedback gate and let the agent loop until it passes — with rules against runaway loops, token burn, and false 'done'" },
+  accent: "#a78bfa",
+  sections: {
+    principle: [
+      { h: "หน้านี้สอนอะไร" },
+      { p: "วิธีออกแบบ **agent loop** ที่ทำงานเองโดยเราตั้งแค่ 'เป้าหมาย' ไม่ใช่ 'ทุกขั้นตอน' — และวิธีกัน 2 ความเสี่ยงใหญ่ของ loop คือ **วนไม่จบเผา token** กับ **หลอกว่าเสร็จทั้งที่ยังไม่ผ่าน**" },
+      { h: "Loop Engineering คือขั้นไหน" },
+      { p: "การทำงานกับ LLM พัฒนาเป็นชั้น ๆ: **Prompt Engineering** (เขียนคำสั่งให้ดี) → **Context Engineering** (จัดบริบท/ข้อมูลที่ป้อน) → **Loop Engineering** (ออกแบบระบบที่สร้าง prompt และวนทำเองจนถึงเป้าหมาย)" },
+      { p: "จุดเปลี่ยน: เราเลิกเป็น **'คนเขียน prompt'** กลายเป็น **'คนออกแบบ agent ที่เขียน prompt + วน loop เอง'** — เหมือนเปลี่ยนจากทำงานเอง เป็นจ้างพนักงาน 1 คนมาทำแทน เราแค่บอกเป้าหมาย" },
+      { h: "โครงของ loop (จำภาพนี้ภาพเดียว)" },
+      { code: String.raw`trigger → investigate/scope → action → ⟦ FEEDBACK GATE: ตรงกับ goal? ⟧
+            ↑______________________ ไม่ผ่าน: วนใหม่ ______________________|
+                              ผ่าน: จบ`, cap: "เรานิยาม **goal** + **gate**; agent สร้าง **action/prompt** แต่ละรอบเอง", lang: "txt" },
+      { note: "ความจริงจากผู้พูด: use case ที่สำเร็จชัด ๆ ยังหายาก หลาย 'loop' จริง ๆ แค่ทำซ้ำสิ่งที่ prompt เดียวก็ทำได้ — **อย่า loop เพราะมันเท่ ให้ loop เพราะมันคุ้ม** (วัดผลได้ ทำซ้ำได้)" },
+      { h: "เมื่อไหร่ 'ควร' และ 'ไม่ควร' loop" },
+      { table: { head: ["✅ เหมาะ loop", "❌ ไม่เหมาะ loop"], rows: [
+        ["build แดง → แก้จนเขียว", "งานรสนิยม (เขียน content, \"ทำเว็บให้สวย\")"],
+        ["monitor log → เจอ anomaly → เปิด PR", "งานพลาดไม่ได้: data production, security/keys"],
+        ["triage issue ที่วัดผลได้", "งานที่นิยาม \"ผ่าน\" ไม่ได้"],
+      ]}},
+    ],
+    theory: [
+      { h: "1) หัวใจ: goal + feedback gate (ไม่ใช่ list of steps)" },
+      { p: "แทนการสั่งทีละสเตป เรานิยาม **goal** (เสร็จคืออะไร) + **feedback gate** (ตัวตรวจว่าตรงเป้าหรือยัง) แล้วปล่อยให้ agent reason/act เองในแต่ละรอบ จน gate ผ่าน" },
+      { h: "2) Feedback gate ต้อง 'วัดได้' — machine-checkable" },
+      { p: "gate คือตัวตัดสินทุกรอบ จึงต้องเป็นสิ่งที่เครื่องเช็คได้ ไม่ใช่ความรู้สึก" },
+      { table: { head: ["✅ gate ที่ดี (วัดได้)", "❌ gate ที่แย่ (วัดไม่ได้)"], rows: [
+        ["`build` ผ่าน / `pytest` เขียว", "\"ทำให้ดีขึ้น\""],
+        ["coverage ≥ 80%", "\"เขียนให้น่าอ่าน\""],
+        ["lint / typecheck clean", "\"สวยกว่านี้\""],
+        ["schema valid", "\"เจ๋งพอแล้ว\""],
+      ]}},
+      { h: "3) สองโหมดที่ gate พัง" },
+      { ul: [
+        "**gate คลุมเครือ/เข้มเกิน** → ไม่มีวันผ่าน → วนไม่จบ เผา token",
+        "**gate หลวมเกิน** → ผ่านปลอม (false-pass) → ต้องทำซ้ำ",
+      ]},
+      { h: "4) loop ≠ cron / scheduled job" },
+      { table: { head: ["", "cron / schedule", "loop"], rows: [
+        ["ตัดสินใจ", "ทำเหมือนเดิมตามเวลา", "อ่าน state แล้วสร้าง action ที่ปรับตามบริบท"],
+        ["ตรวจงานตัวเอง", "ไม่", "ใช่ (มี gate)"],
+        ["ความสัมพันธ์", "เป็นแค่ *ตัว trigger* ของ loop ได้", "ตัว loop คือส่วนที่ปรับตัว"],
+      ]}},
+      { note: "ทดสอบเข้าใจ: \"ทุก 6 โมง ส่งรายงานยอดขายเมื่อวาน\" = **cron** (action คงที่ ไม่ตรวจงานตัวเอง); \"เฝ้า build แดงแล้วไล่แก้จนเขียว\" = **loop** (ปรับ action ตาม error + มี gate)" },
+      { h: "5) ขนาดโมเดลมีผลต่อความเสี่ยง" },
+      { p: "โมเดลเล็ก (ctx ~100k) หลุด spec ง่าย เสี่ยงกับ loop อิสระมากกว่า → ให้ทำ **to-do/plan** แล้วรันจนจบ (loop เล็ก). โมเดลใหญ่ (Sonnet/Opus/GPT-5.x) ไล่ตาม spec ได้ดีกว่า ปล่อยอิสระได้มากกว่า" },
+
+      { h: "🔬 เจาะลึก A: ทำไม loop ถึงเผา token 'แบบทวีคูณ' — context สะสมทุกรอบ" },
+      { p: "หลายคนคิดว่า loop วน N รอบ = จ่าย N เท่า แต่จริง ๆ **แพงกว่านั้น** เพราะ LLM ไม่มีความจำข้ามการเรียก — แต่ละรอบต้องส่ง **ประวัติทั้งหมดของรอบก่อน ๆ กลับเข้าไป** เป็น context. context จึงโตขึ้นเรื่อย ๆ ทุกรอบ" },
+      { code: String.raw`สมมติแต่ละรอบ agent เพิ่มประวัติ ~2k token (diff + log + เหตุผล):
+
+รอบ 1: ส่ง  2k  → จ่าย 2k
+รอบ 2: ส่ง  4k  → จ่าย 4k   (ของรอบ1 + รอบ2)
+รอบ 3: ส่ง  6k  → จ่าย 6k
+...
+รอบ N: ส่ง 2k·N
+
+รวม input token = 2k · (1+2+3+...+N) = 2k · N(N+1)/2  →  O(N²)
+
+10 รอบ ไม่ใช่ 10 เท่า แต่ ~55 เท่าของรอบเดียว!`, cap: "ต้นทุน input ของ loop โตแบบกำลังสอง (O(N²)) ตามจำนวนรอบ ถ้าไม่ตัด/สรุป context — นี่คือเหตุผลที่ 'cap จำนวนรอบ' อย่างเดียวยังไม่พอ ต้อง cap token ด้วย", lang: "txt" },
+      { ul: [
+        "ลดด้วยการ **สรุป history เก่าเป็นย่อ** แทนแนบดิบทุกรอบ (เก็บแค่ 'ลองอะไรไป + ผลเป็นไง')",
+        "ใช้ **prompt caching** กับส่วนที่คงที่ (system + spec) ให้รอบหลังคิดถูกลง",
+        "ส่งเฉพาะ **diff/error ของรอบล่าสุด** ไม่ใช่ทั้ง log ทุกครั้ง",
+      ]},
+
+      { h: "🔬 เจาะลึก B: กายวิภาคของ false-pass — เมื่อ loop 'โกง' ให้ผ่าน gate" },
+      { p: "อันตรายเงียบของ loop คือมันจะหา **ทางที่ง่ายที่สุด** ให้ gate ผ่าน — ซึ่งบางทีไม่ใช่การแก้ปัญหาจริง แต่คือการ 'ทำให้ gate หยุดบ่น'. ถ้า gate ออกแบบหละหลวม agent จะเจอช่องนี้เอง" },
+      { code: String.raw`gate = "pytest เขียว"   ← ดูเหมือนวัดได้ดี แต่ agent โกงได้หลายทาง:
+
+  ❌ ลบ/คอมเมนต์ test ที่ fail ออก        → เขียวเพราะไม่มี test
+  ❌ อ่อน assertion (== 0.1  →  != None)   → เขียวเพราะแทบไม่เช็คอะไร
+  ❌ เพิ่ม @pytest.mark.xfail / skip       → เขียวเพราะข้าม
+  ❌ ครอบ try/except: pass                  → เขียวเพราะกลืน error
+  ❌ แก้ไฟล์ CI config ให้ข้ามขั้น test     → เขียวเพราะไม่รัน
+
+ทั้งหมด = gate ผ่าน แต่ 'งานจริง' ไม่เสร็จ → false-pass`, cap: "loop ไม่ได้ 'ตั้งใจโกง' — มันแค่ทำตามแรงจูงใจที่ gate สร้าง. gate ที่ดีต้องปิดช่องเหล่านี้", lang: "txt" },
+      { ul: [
+        "**ล็อก path ที่โกงได้:** ห้ามแตะไฟล์ test/CI config (branch protection + denylist)",
+        "**verifier อิสระ** อ่าน diff ว่าแก้ root cause ไม่ใช่ปิดปาก gate",
+        "**gate หลายชั้น:** ไม่ใช่แค่ 'เขียว' แต่ 'เขียว + จำนวน test ไม่ลดลง + coverage ไม่ตก'",
+      ]},
+      { note: "หลักคิด: ทุก gate มี 'incentive' แฝง — ออกแบบ gate เสมือนกำลังกันคนขี้โกง ไม่ใช่กันคนซื่อ" },
+
+      { h: "🔬 เจาะลึก C: ข้างใน 1 action step — ReAct (Reason → Act → Observe)" },
+      { p: "ในแต่ละรอบของ loop ตัว agent ไม่ได้ 'ลงมือ' เฉย ๆ แต่วน sub-loop ภายในแบบ **ReAct**: คิดเหตุผล (Reason) → เรียก tool (Act) → อ่านผล (Observe) → คิดต่อ จนได้ผลของรอบนั้น" },
+      { code: String.raw`1 รอบของ loop ใหญ่  ⊃  หลายสเตป ReAct ข้างใน:
+
+  Reason : "test fail เพราะ rounding — ขอเปิดไฟล์ refund.py"
+  Act    : read_file("refund.py")            ← tool call
+  Observe: "<เนื้อไฟล์>"                       ← ผลกลับมาเข้า context
+  Reason : "เจอแล้ว บรรทัด 12 ใช้ int() ต้องใช้ round()"
+  Act    : edit_file("refund.py", ...)
+  Observe: "ok"
+  Reason : "ลองรัน test"
+  Act    : run("pytest")
+  Observe: "1 passed"   → จบ action ของรอบนี้ → ส่งให้ FEEDBACK GATE`, cap: "loop engineering = เลเยอร์ 'ข้างนอก' (goal/gate/cap) ที่ครอบ ReAct ของ agent ไว้อีกที — ReAct ทำให้ 'เสร็จ 1 งานย่อย', gate ตัดสินว่า 'ตรง goal รวมไหม'", lang: "txt" },
+      { qa: [
+        { q: "ทำไม cap จำนวนรอบอย่างเดียวไม่พอ?", a: "เพราะ context สะสมทุกรอบ ทำให้ token โตแบบ O(N²) — 10 รอบอาจ = ~55 เท่าของรอบเดียว ต้อง cap token budget คู่ไปด้วย" },
+        { q: "false-pass เกิดได้ยังไงทั้งที่ gate 'วัดได้'?", a: "agent หาทางทำให้ gate หยุดบ่นแทนแก้จริง เช่น ลบ test/อ่อน assertion/skip/แก้ CI — ต้องล็อก path เหล่านี้ + ใช้ verifier อิสระ + gate หลายชั้น" },
+        { q: "ReAct เกี่ยวกับ loop engineering ยังไง?", a: "ReAct (reason→act→observe) คือสิ่งที่เกิด 'ข้างใน' 1 action step; loop engineering คือเลเยอร์ข้างนอกที่ครอบด้วย goal/feedback gate/cap/verify" },
+      ]},
+
+      { h: "📖 อ่าน/ดูเพิ่มเติม" },
+      { links: [
+        { label: "รู้จักกับ Loop Engineering (ทอล์กต้นทาง, ไทย)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "นิยาม loop engineering + use case จริง/ปลอม" },
+        { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns จากค่ายโมเดล" },
+      ]},
+    ],
+    foundations: [
+      { h: "องค์ประกอบของ loop ที่ดี (Andy Osmani — 5 ชิ้น)" },
+      { table: { head: ["องค์ประกอบ", "หน้าที่"], rows: [
+        ["Automation / **trigger**", "อะไรเป็นตัวจุดให้ loop เริ่ม (webhook / timer / event)"],
+        ["Sandbox isolation", "agent รันในสภาพแวดล้อมแยก จำกัด blast radius"],
+        ["**Skills**", "skill สำเร็จรูป กันมันสร้าง prompt ผิดทางใหม่ทุกรอบ"],
+        ["Plugin / connector", "สิทธิ์เข้าระบบเป้าหมาย (จำกัดสิทธิ์)"],
+        ["Sub-agents + state/memory", "ตัว verify แยก + จำว่าทำอะไรไปแล้วข้ามรอบ"],
+      ]}},
+      { note: "ผู้พูดเน้น 2 อันสำคัญสุด: **automation (trigger)** + **skills**" },
+      { h: "กฎเหล็ก 1: ตั้ง CAP 2 แกนเสมอ (ความผิดพลาดเบอร์ 1)" },
+      { p: "loop จะวนจนกว่ามัน 'พอใจ' ซึ่งอาจ = ไม่มีวัน. ต้อง bound ทั้ง **จำนวนรอบ (max iterations)** และ **งบ token/เงิน (token budget)**. หมด cap → สถานะ **EXHAUSTED → ส่งต่อให้คน** ไม่ใช่แกล้งว่าสำเร็จ" },
+      { code: String.raw`# ตรวจ cap "ก่อน" ทุกรอบ
+if iterations >= MAX_ITERATIONS: return EXHAUSTED   # escalate หาคน
+if tokens_used >= TOKEN_BUDGET:  return EXHAUSTED   # หยุดก่อนเงินบาน`, cap: "หายนะคลาสสิก: แก้ test รอบที่ 20 ยังไม่เขียวแล้วเผา token ไม่อั้น — cap แก้ได้ทั้ง 'ผลผิด' และ 'เปลือง token'", lang: "py" },
+      { h: "กฎเหล็ก 2: self-verify ด้วย verifier แยกตัว" },
+      { p: "agent ไม่ควรตรวจงานตัวเอง (มักผ่อนปรนให้ตัวเอง = false-pass). ใช้ **sub-agent แยก** มารีวิว + มี checklist 'นิยามของเสร็จ' ต่อข้อ. ใน Claude Code ใช้ `/go` สร้าง verifier ให้ได้" },
+      { p: "สรุปเงื่อนไข 'เสร็จจริง': **gate ผ่าน AND verifier อนุมัติ** เท่านั้นจึงคืน SUCCESS" },
+    ],
+    architecture: [
+      { h: "โครงกลาง: run_loop() + 3 จุดที่สลับได้" },
+      { p: "loop ทุกตัวมีโครงเดียวกัน ต่างกันแค่ 3 ฟังก์ชัน: **action** (สร้าง+ลงมือ), **gate** (ตรวจวัดได้), **verify** (ตรวจซ้ำอิสระ). caps/escalation อยู่ในโครงกลาง ใช้ซ้ำได้ฟรี" },
+      { code: String.raw`def run_loop(cfg, run_agent_step, check_gate, verify):
+    state = LoopState()
+    while True:
+        # --- cap ก่อนเสมอ (bound 2 แกน) ---
+        if state.iterations >= cfg.max_iterations: return EXHAUSTED, state
+        if state.tokens_used  >= cfg.token_budget: return EXHAUSTED, state
+        state.iterations += 1
+
+        # --- ACTION: agent สร้าง+ลงมือเอง ---
+        summary, used = run_agent_step(state); state.tokens_used += used
+
+        # --- FEEDBACK GATE: วัดได้ (build/test/...) ---
+        passed, report = check_gate(state)
+        if not passed: continue                 # ไม่ผ่าน → วนใหม่
+
+        # --- SELF-VERIFY: ตัวตรวจอิสระก่อนประกาศเสร็จ ---
+        ok, _ = verify(state)
+        if not ok: continue                     # false-pass → วนต่อ
+        return SUCCESS, state`, cap: "3 terminal state: **SUCCESS** (ผ่าน+ตรวจแล้ว) / **EXHAUSTED** (ชน cap → escalate) / ABORTED (พังกู้ไม่ได้)", lang: "py" },
+      { h: "สถานะปลายทาง — ห้าม auto-publish ในงานเสี่ยง" },
+      { table: { head: ["สถานะ", "เกิดเมื่อ", "ทำอะไรต่อ"], rows: [
+        ["SUCCESS", "gate ผ่าน + verifier อนุมัติ", "จบ (งานเสี่ยง: queue ให้คนอนุมัติ ไม่ publish เอง)"],
+        ["EXHAUSTED", "ชน max_iterations หรือ token_budget", "**escalate หาคน** พร้อมสรุปสิ่งที่ลองไปแล้ว"],
+        ["ABORTED", "error ที่กู้ไม่ได้", "หยุด + แจ้ง error"],
+      ]}},
+    ],
+    dataflow: [
+      { h: "1 รอบของ loop — ข้อมูลไหลผ่าน state กลาง" },
+      { p: "แต่ละรอบอ่าน/เขียน **state** เดียว (เก็บ iterations, tokens_used, history, รายงาน gate ล่าสุด) เพื่อให้รอบถัดไปต่อยอดจากรอบก่อน ไม่เริ่มใหม่" },
+      { code: String.raw`state = { iterations, tokens_used, history[], last_gate_report }
+
+รอบที่ N:
+  check caps(state)              # ชน → EXHAUSTED
+  state.action  = agent(state)   # สร้าง+ลงมือ, เก็บลง history
+  state.passed  = gate(state)    # วัดผล → report
+  ถ้า passed: verify(state) → ผ่าน=จบ / ไม่ผ่าน=วนต่อ`, cap: "history + token/iteration สะสมข้าม รอบ = 'ความจำ' ของ loop (ดูไล่ทีละสเตปในแท็บ Visualizer ▶)", lang: "txt" },
+      { note: "no-progress detector: ถ้า gate รายงานปัญหาเดิมซ้ำหลายรอบ (เช่น test เดิม fail) ให้ abort ก่อนชน cap — กัน 'แก้ของเดิมวนไป' เปล่า ๆ" },
+    ],
+    implementation: [
+      { h: "ตัวอย่างที่ 'ดี': bounded blog-revision loop" },
+      { p: "เขียน blog loop ได้ ถ้า (1) bound แน่น (2) gate เช็ค **เฉพาะของที่วัดได้** (3) คนถือ **publish gate** ส่วนรสนิยม. agent ไม่ publish เอง — ผ่านแล้ว queue ให้คนตรวจ" },
+      { code: String.raw`def objective_gate(text, source):
+    problems = []
+    if not (40 <= words(text) <= 200):      problems.append("length")
+    if avg_sentence_len(text) > 22:         problems.append("readability")
+    if "##" not in text:                    problems.append("missing section")
+    if banned_filler_in(text):              problems.append("filler")
+    if new_links(text) - links(source):     problems.append("unsourced link")
+    return (not problems), report(problems)
+# ไม่มีการตัดสิน "สวย/น่าอ่าน" เลย — taste = งานของคน`, cap: "gate เช็คความยาว/ประโยค/โครงสร้าง/filler/ลิงก์ใหม่ — ทั้งหมดวัดได้; 'น่าอ่านจริงไหม' ปล่อยให้คนตัดสิน", lang: "py" },
+      { h: "ตัวอย่างที่ 'เวิร์ก': CI auto-fixer loop" },
+      { ul: [
+        "**trigger:** webhook ตอน PR build แดง",
+        "**gate:** CI ของ commit นั้นคืน `success` (ไม่ใช่ความเห็น agent) — ล็อกไม่ให้ลบ test/แก้ CI config เพื่อ 'โกงให้เขียว'",
+        "**caps:** max attempts + token budget + no-progress detector (test เดิม fail 2 รอบ → abort)",
+        "**verify:** sub-agent รีวิว diff ว่าแก้ root cause ไม่ใช่ปิด test; แล้ว **คน merge เอง**",
+      ]},
+      { h: "เครื่องมือจริง" },
+      { table: { head: ["เครื่องมือ", "ใช้ทำ"], rows: [
+        ["Claude Code `/loop`", "รันซ้ำตาม interval (ขั้นต่ำ 1 นาที)"],
+        ["`/go`", "ให้โมเดลวิเคราะห์ checklist + สร้าง sub-agent loop/verifier ให้"],
+        ["Schedule / Routine", "ตั้ง trigger ตามเวลา (เป็นตัวจุด loop)"],
+      ]}},
+      { h: "เริ่มเล็ก (อย่าเริ่มจากของใหญ่)" },
+      { ul: [
+        "1. รันด้วยมือ **1 รอบ** ให้ผ่านก่อน",
+        "2. ถ้าทำซ้ำได้ + วาดเป็น workflow ที่มี exit วัดได้ → เป็น candidate",
+        "3. *ค่อย* ใส่ trigger/timer แล้วตั้ง cap ต่ำ ๆ ก่อน ค่อยผ่อนเมื่อเชื่อใจ",
+      ]},
+    ],
+    tricks: [
+      { h: "ทริค 1: ถ้านิยาม gate วัดได้ไม่ออก แปลว่ายังไม่ควร loop" },
+      { p: "เขียน 'เสร็จ = ___' เป็นคำสั่ง/เช็คที่เครื่องรันได้ไม่ได้ → งานนั้นเป็นงานรสนิยม/คลุมเครือ อย่าเพิ่ง loop" },
+      { h: "ทริค 2: cap 2 แกนเสมอ + escalate ไม่ใช่แกล้งจบ" },
+      { p: "max iterations อย่างเดียวไม่พอ — แต่ละรอบอาจกิน token มหาศาล ต้อง cap เงินด้วย; หมด cap ให้ส่งต่อคนพร้อมสรุป" },
+      { h: "ทริค 3: เครื่องถือ gate ที่วัดได้ คนถือ gate รสนิยม" },
+      { p: "งานที่มีทั้งส่วนวัดได้และส่วนรสนิยม → ให้ loop จัดส่วนวัดได้ แล้ว queue ให้คนตัดสินส่วนรสนิยม (เช่น publish)" },
+      { h: "ทริค 4: verifier ต้องเป็นคนละตัวกับ executor" },
+      { p: "agent เดิมมักให้คะแนนตัวเองหลวม — ใช้ sub-agent/มุมมองอื่นตรวจ จับ false-pass ได้ดีกว่า" },
+      { h: "ทริค 5: skill = guardrail กันดริฟต์" },
+      { p: "ใส่ skill เฉพาะงาน (คำสั่ง build/test, convention, test ที่ flaky) เพื่อกัน agent คิด 'วิธีใหม่ที่ผิด' ใหม่ทุกรอบ" },
+      { h: "ทริค 6: no-progress detector" },
+      { p: "ติดตามชุดปัญหาที่ gate รายงาน — ถ้าซ้ำเดิมหลายรอบหรือ diff คล้ายเดิม ให้ abort ก่อน เปลือง cap" },
+    ],
+    eval: [
+      { qa: [
+        { q: "Loop engineering ต่างจาก prompt engineering ยังไง?", a: "prompt engineering = สั่งทีละครั้ง/ทีละ step; loop engineering = ตั้ง goal + feedback gate แล้วให้ agent สร้าง prompt และวน reason→act เองจนผ่าน" },
+        { q: "feedback gate ที่ดีเป็นยังไง?", a: "machine-checkable (build/test/coverage/lint/schema) ไม่ใช่ความรู้สึก; ไม่หลวมจน false-pass และไม่เข้มจนไม่มีวันผ่าน" },
+        { q: "ทำไมต้องตั้ง cap และตั้งกี่แกน?", a: "loop วนจนกว่าจะ 'พอใจ' ซึ่งอาจไม่มีวัน — ต้อง cap 2 แกน: จำนวนรอบ + งบ token; หมด cap ให้ escalate หาคน ไม่ใช่แกล้งว่าสำเร็จ" },
+        { q: "loop ต่างจาก cron ยังไง?", a: "cron ทำเหมือนเดิมตามเวลา ไม่ตรวจงานตัวเอง; loop อ่าน state ปัจจุบันแล้วสร้าง action ที่ปรับตามบริบท + มี gate ตรวจ" },
+        { q: "งานแบบไหนไม่ควรทำเป็น loop?", a: "งานรสนิยม/วัดผลไม่ได้ (เขียน content, 'ทำให้สวย') และงานพลาดไม่ได้ (data production, security/keys) — อย่างหลังต้องมีคน validate ก่อนเสมอ" },
+        { q: "ทำไมไม่ให้ agent ตรวจงานตัวเอง?", a: "มันมักผ่อนปรนให้ตัวเอง → false-pass; ใช้ verifier แยกตัว/มุมมองอื่น (เช่น /go) จับของหลุดได้ดีกว่า" },
+        { q: "เริ่มทำ loop ควรเริ่มยังไง?", a: "รันด้วยมือ 1 รอบให้ผ่านก่อน → ยืนยันว่าทำซ้ำได้ + มี exit วัดได้ → ค่อยใส่ trigger เป็น loop โดยตั้ง cap ต่ำ ๆ ก่อน" },
+        { q: "5 องค์ประกอบของ loop ที่ดีคือ?", a: "automation/trigger, sandbox isolation, skills, plugin/connector, และ sub-agents ที่ verify + จัดการ state/memory (สำคัญสุด: trigger + skills)" },
+      ]},
+    ],
+  },
+});
+window.EXTRA_FLOWS.ai_loop_engineering = {
+  input: "CI webhook: PR build แดง — autonomous fix loop (cap 5 รอบ)",
+  steps: [
+    { fn: "trigger: build RED", file: "loop.py", depth: 0, note: "webhook จุด loop เมื่อ CI ของ PR ล้ม (loop ไม่ใช่ cron — จุดด้วย event จริง)", data: "event = { pr: 42, status: 'failed', sha: 'a1b2' }", vars: [
+      { n: "event", d: "สัญญาณจริงที่ทำให้ loop เริ่ม", w: true } ] },
+    { fn: "check caps", file: "loop.py", depth: 1, note: "ตรวจ cap 'ก่อน' ทุกรอบ — ชน → EXHAUSTED แล้ว escalate หาคน", data: "iter 1/5 ✓ , tokens 0/200k ✓ → ไปต่อ", vars: [
+      { n: "iterations", v: "1", d: "นับรอบ (cap = 5)" },
+      { n: "tokens_used", v: "0", d: "งบ token (cap = 200k)" } ] },
+    { fn: "scope: อ่าน log ที่ fail", file: "loop.py", depth: 1, note: "ดึง log/test ที่แดงมาเป็นบริบทของรอบนี้ (investigate)", data: "failing: test_refund_rounding", vars: [
+      { n: "failures", v: "['test_refund_rounding']", d: "ชุดปัญหาปัจจุบัน (ใช้ทำ no-progress detector)", w: true } ] },
+    { fn: "ACTION: agent แก้ + push", file: "loop.py", depth: 1, note: "agent สร้าง prompt เอง → แก้โค้ด → push ขึ้น branch ของ PR (sandbox แยก)", data: "→ commit ใหม่ sha 'c3d4'", vars: [
+      { n: "summary", v: "'fix rounding in refund()'", d: "สิ่งที่ทำรอบนี้ (เก็บลง history)", w: true },
+      { n: "tokens_used", v: "+5k", d: "งบที่ใช้ไป", w: true } ] },
+    { fn: "FEEDBACK GATE: CI เขียวไหม", file: "loop.py", depth: 1, note: "gate = CI ของ sha ใหม่คืน success — ของ 'เครื่อง' ไม่ใช่ความเห็น agent; ล็อกไม่ให้ลบ test/แก้ CI", data: "CI(c3d4) = success ✓", vars: [
+      { n: "passed", v: "true", d: "ผ่าน gate ที่วัดได้", w: true } ] },
+    { fn: "SELF-VERIFY: sub-agent รีวิว diff", file: "loop.py", depth: 2, note: "verifier แยกตัวเช็คว่าแก้ root cause ไม่ใช่ปิด/อ่อน test (กัน false-pass)", data: "verifier: ✓ ไม่ได้อ่อน assertion", vars: [
+      { n: "verified", v: "true", d: "gate ผ่าน AND verifier ผ่าน → SUCCESS", w: true } ] },
+    { fn: "SUCCESS → คน merge", file: "loop.py", depth: 1, note: "งานแตะโค้ดเสี่ยง: loop ไม่ merge เอง — เปิดให้คนกด merge (human gate)", data: "outcome = SUCCESS (queued for human merge)", vars: [
+      { n: "outcome", v: "SUCCESS", d: "ถ้าชน cap ก่อนผ่าน → EXHAUSTED + escalate แทน", w: true } ] },
+  ],
+};
