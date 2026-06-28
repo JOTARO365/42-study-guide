@@ -4324,4 +4324,328 @@ print(analyze("Great product, fast shipping, very impressed"))
       ]},
     ],
   },
+
+  "ai_vector": {
+    principle: [
+      { h: "The problem embeddings solve" },
+      { p: "Literal keyword search can't find 'similar meaning' — searching \"return an item\" won't find \"get a refund\" though they mean nearly the same. **Embeddings** fix this: turn text into a **number vector** so texts with close meaning -> their vectors sit close in space." },
+      { h: "What an embedding is (picture)" },
+      { code: String.raw`"can I get a refund"      -> [0.12, -0.84, 0.33, ...]  (384 / 768 / 3072 numbers)
+"the return policy"       -> [0.10, -0.81, 0.35, ...]  <- very close
+"nice weather today"      -> [0.77,  0.20, -0.6, ...]  <- far away`, cap: "text -> vector; close meaning = close distance", lang: "txt" },
+      { h: "What it's used for" },
+      { p: "Store each document as a vector first. When a question comes, turn it into a vector too, then find the **top-k documents whose meaning is closest** — this is the first half of RAG (retrieval)." },
+      { note: "The RAG page takes this search result to augment the prompt before the LLM answers." },
+      { h: "Why a separate Vector DB" },
+      { ul: [
+        "vectors have hundreds-thousands of dimensions × millions of rows -> comparing every pair is too slow",
+        "a Vector DB (e.g. **pgvector**, FAISS, Pinecone) has a special index (ANN) to find nearest neighbours fast",
+        "store the embedding + metadata (source, time) together to pre-filter before searching",
+      ]},
+    ],
+    theory: [
+      { h: "1) A vector's dimension" },
+      { p: "Each embedding model gives different-sized vectors (e.g. 384, 768, 1536, 3072). **More dimensions = finer but more storage/slower**. Some models can reduce dimensions via a parameter (e.g. `output_dimensionality` / `dimensions`)." },
+      { h: "2) cosine similarity — measuring closeness" },
+      { p: "Measure how alike 2 vectors are by the **angle between them** (ignoring length). 1 = same direction (very alike), 0 = perpendicular (unrelated), -1 = opposite. If you normalize the vectors, cosine = dot product." },
+      { h: "3) task_type — embed differently for store vs query" },
+      { p: "Good embedding models let you say whether you're embedding 'a document to store' or 'a query' — making search more accurate (e.g. Gemini uses `RETRIEVAL_DOCUMENT` when storing, `RETRIEVAL_QUERY` when searching)." },
+      { h: "4) ANN — find nearest neighbours fast" },
+      { p: "Finding 'the k nearest' by comparing every row (exact kNN) is slow at scale. **ANN (Approximate Nearest Neighbor)** accepts a tiny miss for a massive speedup — the heart of a vector DB's index (e.g. HNSW/IVFFlat)." },
+      { h: "5) pgvector — vectors inside Postgres" },
+      { p: "You don't need a separate DB: **pgvector** adds a vector type to Postgres — store in a normal table and search with SQL, getting filter/join + vector search in one place." },
+
+      { h: "🔬 Deep Dive A: Cosine Similarity — the mathematical proof" },
+      { p: "Cosine similarity isn't just 'compute a number' — it has a clear geometric meaning: **measure the angle between 2 vectors** (ignoring length)." },
+      { code: String.raw`Cosine Similarity formula:
+
+cos(A, B) = (A · B) / (||A|| × ||B||)
+
+A · B = Σ(Ai × Bi)        (dot product = sum of products)
+||A|| = √(ΣAi²)          (length = the square root of the sum of squares)
+
+3-dimension example (real ones have 384-3072 dimensions):
+  A = [1, 0, 1]    "cat"
+  B = [1, 0, 0]    "dog"
+  C = [0, 1, 0]    "car"
+
+cos(A,B) = (1×1 + 0×0 + 1×0) / (√2 × √1) = 1/1.414 = 0.707
+cos(A,C) = (1×0 + 0×1 + 1×0) / (√2 × √1) = 0/1.414 = 0.0
+
+-> "cat" is closer to "dog" (0.707) than to "car" (0.0) /`, cap: "cosine = measure the angle, ignore length = cat and big-cat have high cosine despite different lengths", lang: "txt" },
+      { code: String.raw`why does normalizing make cosine = dot product?
+
+if normalized: ||A|| = ||B|| = 1
+
+cos(A, B) = (A · B) / (1 × 1) = A · B
+
+-> no division needed, just a dot product = much faster!
+
+how to normalize:
+  A_normalized = A / ||A||
+
+example:
+  A = [3, 4]      ||A|| = 5
+  A_norm = [0.6, 0.8]    ||A_norm|| = 1.0
+
+-> when storing: normalize every vector
+-> when searching: pure dot product = O(n) per query (no division)
+
+real impact: 2-3x faster by dropping the division/root`, cap: "normalized vectors make cosine = dot product = much faster", lang: "txt" },
+      { code: String.raw`comparison of 3 closeness measures:
+
+Cosine Similarity (recommended):
+  + ignores length (short/long text measured equally)
+  + fast (normalized = dot product)
+  + the most widely used in RAG/search
+
+Euclidean Distance (L2):
+  d(A,B) = √(Σ(Ai-Bi)²)
+  + use when "length" matters (e.g. sentiment intensity)
+  - sensitive to the dimensionality curse
+
+Dot Product:
+  A · B = Σ(Ai × Bi)
+  + fastest (no division)
+  - cares about length -> must normalize first
+
+-> for RAG: use cosine similarity (or dot product after normalizing)`, lang: "txt" },
+
+      { h: "🔬 Deep Dive B: HNSW — why vector search is fast even with millions of rows" },
+      { p: "Exact kNN (comparing every row) is slow at scale: 1M vectors × 1536 dims = 1.5 billion values to compute. **HNSW (Hierarchical Navigable Small World)** solves it with a graph structure that 'hops' quickly toward nearby points." },
+      { code: String.raw`HNSW: a multi-level layered graph
+
+Level 2 (sparse):     A -------- F -------- K
+                       |          |          |
+Level 1 (medium):     A --- C --- F --- H --- K
+                       |    |     |     |     |
+Level 0 (dense):      A-B-C-D-E-F-G-H-I-J-K-L-M  (connects all nearby points)
+
+how it searches:
+  1. start at the top level (the most "far apart" entry point)
+  2. each level: find the nearest neighbour then "descend" a level
+  3. Level 0: find the truly nearest k points
+
+speed:
+  Exact kNN: O(n × d)         — 1M × 1536 = 1.5B operations
+  HNSW:      O(log(n) × d)   — 20 × 1536 = 30K operations
+  -> 50,000x faster!`, cap: "HNSW is like GPS: start on the highways (high levels) then descend into the side streets (low levels) to the destination", lang: "txt" },
+      { code: String.raw`HNSW parameters you should know:
+
+M = edges per node (default 16):
+  high M = more accurate but more memory
+  low M = faster but more misses
+
+ef_construction = candidate-list size when building the graph (default 200):
+  high = a better graph but slower to build
+
+ef_search = candidate-list size when searching (default 50):
+  high = more accurate but slower
+
+tradeoff:
+  ef_search=10  -> very fast  but precision ~90%
+  ef_search=50  -> fast enough precision ~98%
+  ef_search=200 -> slower     precision ~99.5%
+
+-> for RAG: ef_search=50 is enough (no need for 100% precision)`, lang: "txt" },
+      { code: String.raw`pgvector + HNSW example:
+
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    content TEXT,
+    embedding vector(384)    -- 384 dims (from all-MiniLM-L6-v2)
+);
+
+-- create an HNSW index
+CREATE INDEX ON documents
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 200);
+
+-- search
+SELECT content,
+       1 - (embedding <=> $1) AS similarity  -- cosine similarity
+FROM documents
+ORDER BY embedding <=> $1    -- order by nearest
+LIMIT 5;
+
+-- tune precision at search time
+SET hnsw.ef_search = 100;    -- higher than default = more accurate
+
+real impact:
+  1M rows, 384 dims:
+  - Sequential scan: ~2000ms
+  - HNSW index:     ~5ms (400x faster)`, cap: "pgvector + HNSW makes vector search fast enough for production without a separate DB", lang: "txt" },
+
+      { h: "🔬 Deep Dive C: Dimensions & Quantization — why vectors eat storage and how to shrink them 4-32×" },
+      { p: "**Picture it:** a 1536-dim float32 vector = 6 KB each. 1 million rows = ~6 GB just for the vectors (excluding the index). Two ways to shrink: reduce dimensions, and reduce precision per number (quantization)." },
+      { code: String.raw`storage = rows × dimensions × bytes per number
+
+float32 (4 bytes): 1M × 1536 × 4  = 6.1 GB
+int8    (1 byte):  1M × 1536 × 1  = 1.5 GB   (4x smaller)
+binary  (1 bit):   1M × 1536 / 8  = 192 MB   (32x smaller!)`, cap: "the numbers in a vector don't always need full 32 bits — fewer bits each = directly shrinks storage", lang: "txt" },
+      { p: "**Path 1 — reduce dimensions (Matryoshka):** newer embedding models (e.g. OpenAI text-embedding-3, Gemini) are trained Matryoshka-style so 'the early dimensions hold most of the meaning' -> you can truncate the tail (1536->256) with only a tiny accuracy drop. Set via `dimensions` / `output_dimensionality`." },
+      { p: "**Path 2 — Quantization (fewer bits per number):** store each dimension with fewer bits:" },
+      { code: String.raw`float32 -> int8 (scalar quantization):
+  map the float range to an integer 0-255 per dimension -> 4x smaller, recall ~99%
+
+float32 -> binary (1 bit per dimension): store only the 'positive/negative' of each dim
+  -> 32x smaller, very fast search (Hamming distance) but recall drops
+
+-> recover recall with "rescoring": search coarsely with binary, take many candidates (e.g. 100)
+  then re-rank those 100 with the full float vectors -> both fast and accurate`, cap: "binary quant + rescoring = 32x smaller storage with nearly the same accuracy — a popular billion-scale technique", lang: "txt" },
+      { note: "Compute it yourself: 10M documents, 1536-dim float32 = 61 GB (won't fit in RAM on a small machine). int8 = 15 GB, binary = 1.9 GB -> choose quantization by whether the vectors must live in RAM." },
+      { qa: [
+        { q: "Why not just use lots of dimensions for max accuracy?", a: "More dimensions = wasted storage/RAM + slower search + sometimes pricier embedding. Newer models can truncate (Matryoshka) -> choose an accuracy/cost balance, not always the max." },
+        { q: "Does quantization make search miss a lot?", a: "int8 barely drops (~99% recall); binary drops more clearly but is recoverable with rescoring (search coarsely for many candidates, then re-rank with full floats)." },
+        { q: "What is a Matryoshka embedding?", a: "A training method making 'the early dimensions most important' -> truncate the vector shorter (e.g. 1536->256) and it still works well, no re-embedding — less storage and faster search." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Cosine similarity (Wikipedia)", url: "https://en.wikipedia.org/wiki/Cosine_similarity", note: "the maths of measuring closeness" },
+        { label: "What are embeddings? (Cloudflare)", url: "https://developers.cloudflare.com/workers-ai/features/embeddings/", note: "embeddings explained simply" },
+        { label: "pgvector (GitHub)", url: "https://github.com/pgvector/pgvector", note: "vector type + index on Postgres" },
+        { label: "HNSW algorithm (Wikipedia)", url: "https://en.wikipedia.org/wiki/Hierarchical_navigable_small_world", note: "the theory behind the HNSW graph" },
+        { label: "ANN benchmarks (ann-benchmarks.com)", url: "http://ann-benchmarks.com/", note: "compare speed/accuracy of every ANN algorithm" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "OpenAI — Embeddings guide", url: "https://platform.openai.com/docs/guides/embeddings", note: "create embeddings, OpenAI side" },
+        { label: "Google — Gemini Embeddings", url: "https://ai.google.dev/gemini-api/docs/embeddings", note: "embed_content + task_type" },
+        { label: "OpenAI Cookbook — RAG Q&A with Pinecone", url: "https://cookbook.openai.com/examples/vector_databases/pinecone/gen_qa", note: "embed -> store -> search end-to-end" },
+        { label: "Pinecone — Learn (vector DB)", url: "https://www.pinecone.io/learn/", note: "a vector DB learning hub" },
+        { label: "Supabase — Vector columns (pgvector)", url: "https://supabase.com/docs/guides/ai/vector-columns", note: "use pgvector on Supabase" },
+      ]},
+      { h: "🎬 Video lessons (deeper)" },
+      { links: [
+        { label: "Embeddings & Vector Databases Explained", url: "https://www.youtube.com/watch?v=rw1YfQQttfo", note: "meaning -> maths -> search, all of it" },
+        { label: "Postgres As A Vector Database (pgvector, billion-scale)", url: "https://www.youtube.com/watch?v=Xfv4hCWvkp0", note: "pgvector at production scale" },
+        { label: "Vector Search with Embeddings and Cosine Similarity", url: "https://www.youtube.com/watch?v=5VH3qJYKK34", note: "cosine + similarity search" },
+        { label: "Vector DB + Hugging Face + FAISS (Cosine)", url: "https://www.youtube.com/watch?v=FacFdclxXzg", note: "hands-on FAISS" },
+      ]},
+    ],
+    foundations: [
+      { h: "Create an embedding (example, runs locally, free)" },
+      { code: String.raw`# pip install sentence-transformers
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")     # 384-dim, no key needed
+
+def embed(texts):
+    return model.encode(texts, normalize_embeddings=True)  # normalize -> cosine=dot`, cap: "swap to OpenAI/Gemini embeddings when going to production", lang: "py" },
+      { h: "Storage schema (pgvector example)" },
+      { code: String.raw`CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE docs (
+    id        bigserial PRIMARY KEY,
+    content   text,
+    source    text,            -- metadata for pre-filtering
+    embedding vector(384)       -- dims must match the embedding model
+);
+-- an ANN index for fast search
+CREATE INDEX ON docs USING hnsw (embedding vector_cosine_ops);`, cap: "store the embedding + metadata in one table", lang: "sql" },
+      { h: "Search with SQL (the DB computes cosine)" },
+      { code: String.raw`-- <=> is cosine distance in pgvector (smaller = closer)
+SELECT content, 1 - (embedding <=> :query_vec) AS similarity
+FROM docs
+ORDER BY embedding <=> :query_vec
+LIMIT 3;`, cap: "the heavy work (comparing millions of rows) runs in the DB with the index", lang: "sql" },
+      { note: "Beware: you must use the **same** embedding model for both store and query, or the vectors live in different spaces and search is garbage." },
+    ],
+    architecture: [
+      { h: "The 2 directions of a vector" },
+      { code: String.raw`STORE (when data comes in):
+  raw document -> embed(DOCUMENT) -> insert (store vector + metadata)
+
+SEARCH (when a question comes):
+  question -> embed(QUERY) -> find the top-N with highest cosine`, cap: "store uses DOCUMENT, search uses QUERY", lang: "txt" },
+      { h: "Let the DB do the heavy work, not Python" },
+      { p: "Don't pull every vector into Python to compare — send the query vector to the DB (or FAISS), which has an index, and get the top-N back." },
+      { h: "Choose a store by scale" },
+      { table: { head: ["store", "good for"], rows: [
+        ["list/numpy in memory", "prototype/small data"],
+        ["FAISS", "fast locally, medium-large data"],
+        ["pgvector (Postgres)", "already have SQL/filter"],
+        ["Pinecone/Weaviate", "managed, large scale"],
+      ]}},
+    ],
+    dataflow: [
+      { h: "From text to search results" },
+      { code: String.raw`query = "can I get a refund"
+   |
+   |- embed(query)  -> [0.11, -0.83, ...] (the query vector)
+   |
+   |- find the top-3 with highest cosine (DB/FAISS does it with the index)
+   |
+   \- ["return policy within 14 days...", "how to request a refund...", ...]`, cap: "input is text -> output is the top-3 documents with 'closest meaning'", lang: "txt" },
+      { note: "See it interactively in the Visualizer ▶ tab — step from text -> vector -> search -> result." },
+    ],
+    implementation: [
+      { h: "🧪 A complete runnable example (copy and try)" },
+      { p: "Structure: `embed()` (a free local model) -> `TinyVectorStore` holds the vectors -> `search()` finds by cosine (normalized = dot) returning top-k." },
+      { code: String.raw`# pip install sentence-transformers numpy
+import numpy as np
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")   # 384-dim, runs locally, no key
+
+def embed(texts):
+    return model.encode(texts, normalize_embeddings=True)   # normalize -> cosine=dot
+
+class TinyVectorStore:
+    def __init__(self):
+        self.vecs = None
+        self.docs = []
+    def add(self, docs):
+        self.docs += docs
+        v = embed(docs)
+        self.vecs = v if self.vecs is None else np.vstack([self.vecs, v])
+    def search(self, query, k=3):
+        q = embed([query])[0]
+        sims = self.vecs @ q                       # cosine similarity for every row
+        idx = sims.argsort()[::-1][:k]             # sort high->low, take the first k
+        return [(self.docs[i], float(sims[i])) for i in idx]
+
+vs = TinyVectorStore()
+vs.add(["Return policy within 14 days", "Free shipping over 500 baht",
+        "Open Monday-Friday", "How to request a refund in the app"])
+for doc, score in vs.search("can I get a refund", k=2):
+    print(f"{score:.3f}  {doc}")
+# 0.6x  How to request a refund in the app
+# 0.5x  Return policy within 14 days`, cap: "a tiny end-to-end vector store: embed -> store -> cosine search (swap embed for any vendor's API)", lang: "py" },
+      { ul: [
+        "`normalize_embeddings=True` — makes cosine = dot product (multiply vectors directly)",
+        "`self.vecs @ q` — compute the query's closeness to every document at once",
+        "`argsort()[::-1][:k]` — take the k nearest indices",
+        "for production -> move to pgvector/FAISS/Pinecone instead of an in-memory list",
+      ]},
+      { h: "vector-search checklist" },
+      { ul: [
+        "pick a fitting embedding model + dimensions (more data/finer = more dims)",
+        "use the same model for both store and query",
+        "trim input length before embedding to avoid runaway",
+        "store embedding + metadata (source/time) for filtering",
+        "let the DB/FAISS compute similarity, don't pull every row into Python",
+        "have a fallback when embedding fails/has no key",
+      ]},
+    ],
+    tricks: [
+      { h: "Trick 1: normalize then cosine = dot" },
+      { p: "`normalize_embeddings=True` makes the vector length = 1 -> cosine becomes a dot product (multiply directly with numpy `@`), fast and simple." },
+      { h: "Trick 2: pre-filter before the vector search" },
+      { p: "If you have metadata (e.g. category/language), filter with SQL first, then do cosine — fewer rows to compare, faster and more precise." },
+      { h: "Trick 3: always trim input before embedding" },
+      { p: "Embedding short, tight text is often better than long bloated text and controls cost — chunk long documents first (see the RAG page)." },
+      { h: "Trick 4: use task_type if the model supports it" },
+      { p: "Tell the model whether you're embedding a document (DOCUMENT) or a query (QUERY) to make search more accurate with no extra work." },
+    ],
+    eval: [
+      { qa: [
+        { q: "What is an embedding?", a: "Turning text into a number vector so close-meaning texts get close vectors -> you can search by meaning." },
+        { q: "What does cosine similarity measure?", a: "The angle between 2 vectors (1=very alike, 0=unrelated, -1=opposite), ignoring length; normalized = dot product." },
+        { q: "Why use the same model for store/query?", a: "Vectors from different models live in different spaces and aren't comparable, so search would be garbage." },
+        { q: "How do vector dimensions matter?", a: "More dims = finer but more storage/slower; some models can reduce dims (output_dimensionality/dimensions)." },
+        { q: "What is ANN, how does it differ from kNN?", a: "ANN finds nearest neighbours approximately (a tiny miss for a big speedup); exact kNN compares every row, slow at scale." },
+        { q: "What is pgvector?", a: "A Postgres extension adding a vector type + ANN index — store and search vectors in SQL." },
+        { q: "Why let the DB compute similarity instead of Python?", a: "Data may be millions of rows — the DB/FAISS has an index for fast search; Python just sends the query vector and gets top-N back." },
+        { q: "How does vector search relate to RAG?", a: "It's RAG's 'retrieval' step — find relevant data first, then RAG uses it to augment the prompt during generation." },
+      ]},
+    ],
+  },
 };
