@@ -6745,10 +6745,29 @@ all of these = gate passes, but the real work isn't done → false-pass`, cap: "
   Reason : "run the tests"
   Act    : run("pytest")
   Observe: "1 passed"   → this round's action is done → hand to FEEDBACK GATE`, cap: "Loop engineering = the 'outer' layer (goal/gate/cap) wrapping the agent's ReAct — ReAct gets 'one sub-task done', the gate decides 'does it match the overall goal'.", lang: "txt" },
+      { p: "**Why interleave reason and act instead of reasoning in one long shot?** If the model guesses the whole chain without seeing reality, it **hallucinates on assumptions**. Inserting act+observe at every step forces the next reasoning step to be **grounded in a real observation** — that's the mechanism that makes ReAct more accurate than pure reasoning, and why loops that touch real systems depend on it." },
+      { code: String.raw`pure reasoning (CoT only)  vs  ReAct (grounded in observation)
+
+CoT only — guess the whole chain without opening anything:
+  "refund.py probably has a bug in calc() around line 20,
+   switching to round() should fix it"  → ships the patch
+   ❌ there is no calc() / the bug is in another file → hallucinated
+
+ReAct — each step grounds on real results before continuing:
+  Reason → Act: read_file → Observe: "no calc() in this file!"
+         → Reason re-plans: "ah, it's in refund() line 12"
+         → Act: edit → Observe: "1 passed"
+   ✅ the observation pulls the model back on track + re-plans mid-way`, cap: "The difference isn't 'more steps' — it's that every step reasons on a fact it just saw, not on an assumption.", lang: "txt" },
+      { ul: [
+        "**Grounding:** the real tool result enters context before the next reasoning step → decisions stand on facts, not guesses",
+        "**Error recovery:** seeing a broken observe (red test / missing file) lets it re-plan immediately — pure CoT can't, because it never stops to look mid-way",
+        "**Effect on the loop:** the more accurate the observations, the more trustworthy the gate, and the no-progress detector (deep dive D) reads 'stuck' signals from repeated observes",
+      ]},
       { qa: [
         { q: "Why isn't capping the round count enough?", a: "Because context accumulates each round, input tokens grow O(N²) — 10 rounds can be ~55× a single round. You must cap a token budget alongside it." },
         { q: "How can a false-pass happen even with a 'measurable' gate?", a: "The agent finds a way to make the gate stop complaining instead of fixing it — deleting tests, weakening assertions, skipping, editing CI. Lock those paths + use an independent verifier + a multi-layer gate." },
         { q: "How does ReAct relate to loop engineering?", a: "ReAct (reason→act→observe) is what happens 'inside' one action step; loop engineering is the outer layer wrapping it with a goal / feedback gate / cap / verify." },
+        { q: "How does ReAct differ from chain-of-thought, and why is it better in a loop?", a: "CoT guesses the whole chain without seeing reality → risk of hallucination; ReAct interleaves act/observe so each step reasons on a real observation, cutting hallucination and recovering from errors mid-way — ideal for loops that touch real systems and need a trustworthy gate." },
       ]},
 
       { h: "🔬 Deep dive D: the no-progress detector — knowing a loop is 'stuck' before it hits the cap" },

@@ -2584,10 +2584,29 @@ window.TEACHING_DATA.push({
   Reason : "ลองรัน test"
   Act    : run("pytest")
   Observe: "1 passed"   → จบ action ของรอบนี้ → ส่งให้ FEEDBACK GATE`, cap: "loop engineering = เลเยอร์ 'ข้างนอก' (goal/gate/cap) ที่ครอบ ReAct ของ agent ไว้อีกที — ReAct ทำให้ 'เสร็จ 1 งานย่อย', gate ตัดสินว่า 'ตรง goal รวมไหม'", lang: "txt" },
+      { p: "**ทำไมต้อง 'สลับ' reason กับ act — ไม่คิดยาว ๆ ทีเดียว?** เพราะถ้าโมเดลเดาทั้งสายโดยไม่เห็นของจริง มันจะ **มั่วบนสมมติฐาน** (hallucinate). การแทรก act+observe ทุกขั้นบังคับให้ขั้นคิดถัดไป **ยึดกับ observation จริง** — นี่คือกลไกที่ทำให้ ReAct แม่นกว่าการคิดล้วน และเป็นเหตุผลที่ loop ที่แตะระบบจริงต้องพึ่งมัน" },
+      { code: String.raw`คิดอย่างเดียว (CoT ล้วน)  vs  ReAct (ยึด observation)
+
+CoT ล้วน — เดาทั้งสายโดยไม่เปิดดูของจริง:
+  "refund.py น่าจะ bug ที่ฟังก์ชัน calc() ราวบรรทัด 20,
+   เปลี่ยนเป็น round() น่าจะหาย"  → ส่ง patch เลย
+   ❌ จริง ๆ ไม่มีฟังก์ชัน calc() / bug อยู่คนละไฟล์ → มั่ว
+
+ReAct — แต่ละขั้นยึดผลจริงก่อนคิดต่อ:
+  Reason → Act: read_file → Observe: "ไม่มี calc() ในไฟล์!"
+         → Reason ปรับใหม่: "อ๋อ อยู่ refund() บรรทัด 12"
+         → Act: edit → Observe: "1 passed"
+   ✅ observation ดึงโมเดลกลับเข้าทาง + แก้แผนกลางคันได้`, cap: "ความต่างไม่ใช่ 'มีขั้นตอนเยอะกว่า' แต่คือ 'ทุกขั้นคิดบนข้อเท็จจริงที่เพิ่งเห็น' ไม่ใช่บนสมมติฐาน", lang: "txt" },
+      { ul: [
+        "**Grounding (ยึดของจริง):** ผล tool จริงเข้า context ก่อนคิดขั้นถัดไป → ตัดสินบนข้อเท็จจริง ไม่ใช่เดา",
+        "**Error recovery (กู้คืนกลางคัน):** เห็น observe ที่พัง (test แดง/ไฟล์ไม่มี) แล้วปรับแผนทันที — CoT ล้วนทำไม่ได้เพราะไม่หยุดดูของจริงระหว่างทาง",
+        "**ผลต่อ loop:** ยิ่ง observation แม่น gate ยิ่งเชื่อถือได้ และ no-progress detector (เจาะลึก D) ก็อ่านสัญญาณ 'ติด' ได้จาก observe ที่ซ้ำ",
+      ]},
       { qa: [
         { q: "ทำไม cap จำนวนรอบอย่างเดียวไม่พอ?", a: "เพราะ context สะสมทุกรอบ ทำให้ token โตแบบ O(N²) — 10 รอบอาจ = ~55 เท่าของรอบเดียว ต้อง cap token budget คู่ไปด้วย" },
         { q: "false-pass เกิดได้ยังไงทั้งที่ gate 'วัดได้'?", a: "agent หาทางทำให้ gate หยุดบ่นแทนแก้จริง เช่น ลบ test/อ่อน assertion/skip/แก้ CI — ต้องล็อก path เหล่านี้ + ใช้ verifier อิสระ + gate หลายชั้น" },
         { q: "ReAct เกี่ยวกับ loop engineering ยังไง?", a: "ReAct (reason→act→observe) คือสิ่งที่เกิด 'ข้างใน' 1 action step; loop engineering คือเลเยอร์ข้างนอกที่ครอบด้วย goal/feedback gate/cap/verify" },
+        { q: "ReAct ต่างจาก chain-of-thought (คิดอย่างเดียว) ยังไง ทำไมดีกว่าใน loop?", a: "CoT เดาทั้งสายโดยไม่เห็นของจริง → เสี่ยง hallucinate; ReAct สลับ act/observe ทุกขั้นให้คิดบน observation จริง ลดมั่ว และกู้คืนจาก error กลางทางได้ — เหมาะ loop ที่ต้องแตะระบบจริงและต้องการ gate ที่เชื่อถือได้" },
       ]},
 
       { h: "🔬 เจาะลึก D: no-progress detector — รู้ได้ยังไงว่า loop 'ติด' ก่อนชน cap" },
