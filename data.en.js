@@ -5023,4 +5023,387 @@ print(rag_answer("how many days to return?"))
       ]},
     ],
   },
+
+  "ai_agents": {
+    principle: [
+      { h: "What an agent is (beyond a single LLM call)" },
+      { p: "An **agent** is an LLM with a clear role that receives context from the system, and whose output is acted on (call a function / pass to another step) — not just a one-off Q&A. **LangGraph** is the runtime that controls the flow of these steps." },
+      { h: "Why a state graph instead of nested if/else" },
+      { p: "Multi-step AI systems get tangled fast. Modeling them as a **graph** (nodes = steps, edges = paths) makes the flow readable, editable, and able to branch/skip/loop cleanly." },
+      { h: "The 3 pieces of LangGraph" },
+      { table: { head: ["Piece", "Role"], rows: [
+        ["State", "the central dict every node reads/writes"],
+        ["Node", "one step (a function/agent that does work)"],
+        ["Edge", "the path between nodes (plain or conditional)"],
+      ]}},
+    ],
+    theory: [
+      { h: "1) State — the graph's shared notebook" },
+      { p: "Nodes don't pass values directly — they **write results into the state** and the next node **reads from the state**. Declare the schema with `TypedDict`." },
+      { code: String.raw`from typing import TypedDict
+class State(TypedDict):
+    question: str
+    category: str
+    answer: str`, cap: "the state's schema — knowing which fields exist", lang: "py" },
+      { h: "2) A node returns only what it updates (partial update)" },
+      { p: "A node needn't return the whole state — just a dict of the changed fields, and LangGraph merges it. This makes each node independent and easy to test." },
+      { code: String.raw`def classify(state):
+    cat = "tech" if "error" in state["question"] else "general"
+    return {"category": cat}   # return only the changed field`, cap: "a partial dict -> merged into the existing state", lang: "py" },
+      { h: "3) Plain edge vs Conditional edge" },
+      { p: "**Plain edge**: after A always go to B. **Conditional edge**: call a 'routing function' that reads the state and returns which path to take — for if/skip/branch." },
+      { code: String.raw`def route(state) -> str:
+    return "tech" if state["category"] == "tech" else "general"
+
+g.add_conditional_edges("classify", route,
+    {"tech": "answer_tech", "general": "answer_general"})`, cap: "the routing fn returns a key, mapped to a destination node", lang: "py" },
+      { h: "4) Graceful degradation — the system doesn't collapse" },
+      { p: "Put an escape hatch as an edge: if a key step fails, have routing shortcut to a summary/fallback node rather than forcing on until the whole graph breaks. Each node also has try/except returning its own default." },
+      { h: "5) Stateless per round" },
+      { p: "Compile the graph once but invoke with fresh state each time — so the previous round's data doesn't leak into this one (important in real-time/multi-user systems)." },
+      { h: "6) From the real world: LangChain v1 + LangGraph (summarized from video lessons)" },
+      { p: "In practice LangChain v1 shortens building an agent a lot, while LangGraph is the runtime controlling the flow:" },
+      { code: String.raw`from langchain.chat_models import init_chat_model
+from langchain.agents import create_agent
+from langchain.tools import tool
+
+@tool
+def search_docs(q: str) -> str:
+    "Search internal docs — the docstring is required! it tells the LLM what the tool does"
+    return run_search(q)
+
+model = init_chat_model("claude-haiku-4-5-20251001")   # swap provider by changing the name
+agent = create_agent(model, tools=[search_docs], system_prompt="...")
+out   = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
+print(out["messages"][-1].content)`, cap: "create_agent + @tool — the agent loop: think -> call a tool -> read the result -> answer", lang: "py" },
+      { ul: [
+        "`@tool` must always have a **docstring** — it's the description the model uses to decide whether to call this tool",
+        "if the agent stops after a tool call and answers empty -> the system prompt must instruct it to 'compose an answer from the tool result'",
+        "LangGraph adds: `Annotated[list, operator.add]` = a reducer that auto-appends to a list, `checkpointer`+`thread_id` = remember across rounds, `interrupt()/Command(resume=)` = human-in-the-loop, `Command(goto=)` = routing inside a node",
+        "**LangSmith** = a debug/trace/eval tool for the flow — see which tools the agent called and where it went wrong",
+      ]},
+      { h: "7) Computer use — the agent controls the screen (from docs, beta)" },
+      { p: "A (beta) tool letting the model **see the screen via screenshots and command the mouse/keyboard** to control any GUI — strong for multi-step web tasks." },
+      { ul: [
+        "loop: screenshot -> the model picks an action -> code executes it -> a new screenshot -> repeat until the model stops calling the tool",
+        "use built-in tools together: `computer` (see screen + control mouse/keys) · `bash` (run commands) · `text-editor` (edit files)",
+        "still beta + risks prompt injection (following commands embedded in a web page) -> **run it in a sandbox/VM** with low privileges, limited network, and human confirmation of key actions",
+      ]},
+
+      { h: "🔬 Deep Dive A: the ReAct Loop — why Reasoning + Action beats Reasoning alone" },
+      { p: "**ReAct (Reason + Act)** = have the LLM think (reason), act, observe the result, then think again — unlike Chain-of-Thought which only thinks. Let's see why it's better." },
+      { code: String.raw`Chain-of-Thought (thinking only):
+  Q: "what's AAPL's closing price today?"
+  A: "I think AAPL is around $195..." (a guess!)
+  -> didn't call an API -> wrong/unknown
+
+ReAct (think + act + observe):
+  Q: "what's AAPL's closing price today?"
+  Thought: I must call the stock API for the latest price
+  Action:  call stock_price(symbol="AAPL")
+  Observation: {"price": 197.57, "change": "+2.3%"}
+  Thought: got the price, now phrase the answer
+  Answer:  "AAPL closed at $197.57 today (+2.3%)"
+
+-> ReAct gets real data from the real world, not a guess`, cap: "ReAct = the LLM knows it 'doesn't know' and goes to find the real answer instead of guessing", lang: "txt" },
+      { code: String.raw`comparison of 4 approaches:
+
+1. Direct prompting (straight Q&A):
+   + fastest, cheapest
+   - answers only from training knowledge (not current)
+
+2. Chain-of-Thought (think before answering):
+   + more accurate than direct (step by step)
+   - still answers from old knowledge (can hallucinate)
+
+3. Tool-use (call tools):
+   + gets real data from an API/DB
+   - doesn't think before calling (may call blindly)
+
+4. ReAct (think + call + observe + think more):
+   + thinks first about what to do -> calls the right tool -> observes -> thinks more
+   + can recover if the first tool didn't work
+   - slowest (many LLM calls)
+   - priciest
+
+-> ReAct = best quality but pricey/slow
+-> for production: start with tool-use, add reasoning when needed`, lang: "txt" },
+      { code: String.raw`LangGraph ReAct loop (a real example):
+
+from langgraph.prebuilt import create_react_agent
+
+# make an agent with tools
+agent = create_react_agent(
+    model=ChatAnthropic(model="claude-sonnet-4-20250514"),
+    tools=[search_docs, get_stock_price, send_email],
+    prompt="You are an assistant that thinks before acting; when unsure, call a tool"
+)
+
+# invoke = an automatic ReAct loop
+result = agent.invoke({"messages": [
+    {"role": "user", "content": "Email the team an AAPL price summary"}
+]})
+
+# the loop that actually happens inside:
+# 1. Thought: must get AAPL's price first
+# 2. Action: get_stock_price("AAPL")
+# 3. Observation: {"price": 197.57}
+# 4. Thought: got the price, must summarize
+# 5. Action: search_docs("AAPL price summary")
+# 6. Observation: "AAPL is up 2.3% from..."
+# 7. Thought: data complete, send the email
+# 8. Action: send_email(to="team", subject="AAPL summary", body="...")
+# 9. Observation: "Email sent!"
+# 10. Answer: "Emailed the team the AAPL summary /"`, cap: "create_react_agent = a ready-made ReAct loop — no writing the loop yourself", lang: "py" },
+
+      { h: "🔬 Deep Dive B: Graph Topology — DAG vs Cyclic vs Network" },
+      { p: "LangGraph can build several graph shapes — each suits a different problem. Let's see which to use when." },
+      { code: String.raw`1. DAG (Directed Acyclic Graph) — no cycle:
+   A -> B -> C -> END
+   A -> D -> C -> END
+
+   + simplest, easy to debug, no infinite loop
+   - can't "go back"
+   good for: fixed pipelines, ETL, report generation
+
+2. Cyclic Graph — has a cycle (loops):
+   A -> B -> A (if B needs more data)
+   A -> B -> C -> B (if C gives feedback to B)
+
+   + can do iterative refinement (think-act-check-rethink)
+   - risk of an infinite loop (needs a stop condition)
+   good for: ReAct agents, evaluator-optimizer, self-check
+
+3. Network Graph — multi-agent:
+   Agent_A <-> Agent_B
+   Agent_A <-> Agent_C
+   Agent_B <-> Agent_C
+
+   + agents can talk to each other
+   - very complex, hard to debug, risk of an infinite loop
+   good for: multi-agent debate, swarm intelligence`, lang: "txt" },
+      { code: String.raw`Cyclic Graph example (a ReAct agent in LangGraph):
+
+from langgraph.graph import StateGraph, END
+
+def agent_node(state):
+    # think + call a tool
+    response = llm.invoke(state["messages"])
+    return {"messages": [response]}
+
+def should_continue(state):
+    # check whether the last message has a tool_call
+    last_msg = state["messages"][-1]
+    if last_msg.tool_calls:
+        return "tools"     # go back to the tools node
+    return END              # done
+
+g = StateGraph(State)
+g.add_node("agent", agent_node)
+g.add_node("tools", tool_executor)
+g.set_entry_point("agent")
+g.add_conditional_edges("agent", should_continue, {
+    "tools": "tools",      # cycle: agent -> tools -> agent
+    END: END
+})
+g.add_edge("tools", "agent")  # tools sends the result back to agent
+
+# result: agent -> tools -> agent -> tools -> agent -> END
+# loops until the agent stops calling tools
+
+-> Cyclic = a ReAct loop where the agent decides itself when to stop`, cap: "a cyclic graph = the agent loops think-act-think until satisfied -> powerful but needs a stop condition", lang: "py" },
+      { code: String.raw`comparison: when to use which?
+
+DAG (acyclic):
+  / fixed-step work (input -> process -> output)
+  / want speed + predictability
+  / no need to "go back"
+  examples: RAG pipeline, report generator, data pipeline
+
+Cyclic:
+  / work that must "re-think" until satisfied
+  / want quality > speed
+  / has a clear stop condition
+  examples: ReAct agent, code reviewer, self-correcting RAG
+
+Network:
+  / many agents must "talk"
+  / want diverse perspectives
+  / accept high latency
+  examples: multi-agent debate, collaborative writing
+
+-> start with DAG -> add cycles when needed -> network when scaling`, lang: "txt" },
+
+      { h: "🔬 Deep Dive C: Loop Termination & Error Recovery — why agents loop forever and how to prevent it" },
+      { p: "**Picture it:** a cyclic agent (Deep Dive B) is powerful because 'the agent decides when to stop' — but that's double-edged: if it decides 'not to stop' (e.g. a tool fails and it calls it again and again), the system loops forever, burning tokens/money endlessly. A production agent needs multiple 'brakes'." },
+      { p: "**3 ways a loop fails to terminate:**" },
+      { code: String.raw`1. tool fails, called again: get_data() -> error -> agent calls get_data() again -> loop
+2. decision loop: agent calls A -> B -> A -> B ... never progressing
+3. waiting on input that never comes: agent asks for an unanswerable tool -> hangs`, cap: "an unending loop = burning tokens until the budget is gone — the biggest danger of an autonomous agent", lang: "txt" },
+      { p: "**4 brakes you must have:**" },
+      { code: String.raw`Layer 1 — Hard cap (iteration ceiling): count iterations, over N (e.g. 10) -> stop + return fallback
+  if state["steps"] >= MAX_STEPS: return {"answer": "Sorry, couldn't complete it", "done": True}
+
+Layer 2 — Detect no-progress: if it calls the same tool with the same args again -> break the loop
+  if (tool, args) in seen: return finalize(state)   # already called, don't repeat
+
+Layer 3 — Tool error recovery: send the error back to the agent (is_error=true)
+  with a bounded retry (e.g. 2 times + exponential backoff); still failing -> answer "can't do it"
+
+Layer 4 — Budget cap: track accumulated tokens/cost, over the ceiling -> stop immediately`, cap: "every agent loop must have at least a hard cap + budget cap — or one day you'll get a runaway bill", lang: "txt" },
+      { p: "**Error recovery vs letting it crash:** when a tool errors, don't crash the whole loop — wrap it in try/except and send the 'error result' back as an observation so the agent sees it and 'thinks on' (maybe try another tool, or just tell the user it can't be done). This is graceful degradation at the loop level." },
+      { note: "Do it yourself: set MAX_STEPS=3 and give the agent a task needing 5 steps — see whether it ends cleanly with a fallback (not a crash or an endless loop). LangGraph has a built-in `recursion_limit` to cap iterations." },
+      { qa: [
+        { q: "Why does a cyclic agent risk an unending loop?", a: "Because 'the agent decides to stop itself' — if it decides wrong (a failing tool called again, A<->B with no progress) it loops forever burning tokens. You need an external brake (hard cap), not 100% reliance on the agent stopping itself." },
+        { q: "What should a tool error do — crash or return to the agent?", a: "Return it as an observation (is_error=true) so the agent sees it and thinks on (bounded retry / try another tool / tell the user it can't) — not let the whole loop crash." },
+        { q: "What's the minimum brake every agent must have?", a: "At least a hard cap (an iteration ceiling, e.g. 10 -> fallback) + a budget cap (a token/cost ceiling) — to stop an unending loop from burning money endlessly." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "LangGraph — Low-level concepts", url: "https://langchain-ai.github.io/langgraph/concepts/low_level/", note: "State, Node, Edge, conditional edges" },
+        { label: "LangGraph — Quickstart", url: "https://langchain-ai.github.io/langgraph/tutorials/introduction/", note: "build your first graph step by step" },
+        { label: "Python — TypedDict", url: "https://docs.python.org/3/library/typing.html#typing.TypedDict", note: "the state's schema" },
+        { label: "ReAct paper (arXiv)", url: "https://arxiv.org/abs/2210.03629", note: "the theory behind ReAct: Reasoning + Acting" },
+        { label: "LangGraph — Cyclic graphs", url: "https://langchain-ai.github.io/langgraph/concepts/low_level/#graphs", note: "cyclic graph patterns in LangGraph" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "agent/workflow design (orchestrator, routing)" },
+        { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "agent + multi-agent + guardrails" },
+        { label: "OpenAI Cookbook — Multi-Tool Orchestration + RAG", url: "https://cookbook.openai.com/examples/responses_api/responses_api_tool_orchestration", note: "routing across multiple tools" },
+        { label: "LangGraph — Docs", url: "https://langchain-ai.github.io/langgraph/", note: "LangGraph official docs" },
+      ]},
+      { h: "🎬 Video lessons (deeper)" },
+      { links: [
+        { label: "LangGraph Tutorial — Build Advanced AI Agent Systems", url: "https://www.youtube.com/watch?v=1w5cCXlh7JQ", note: "deep into the state graph" },
+        { label: "Building Effective Agents with LangGraph (LangChain official)", url: "https://www.youtube.com/watch?v=aHCDrAbH_go", note: "based on Building Effective Agents" },
+        { label: "LangGraph & LangSmith: Build AI Agents (Full Demo)", url: "https://www.youtube.com/watch?v=vhKM27MOgME", note: "a full demo with debugging" },
+        { label: "mikelopster — LangGraph 101 (Thai)", url: "https://www.youtube.com/watch?v=DJ2ZrbIkkO8", note: "StateGraph/node/edge/routing/checkpoint" },
+        { label: "mikelopster — LangChain 101 (Thai)", url: "https://www.youtube.com/watch?v=mH36GOYeJmw", note: "create_agent + @tool + structured output" },
+      ]},
+    ],
+    foundations: [
+      { h: "Build a graph in 5 steps" },
+      { code: String.raw`from langgraph.graph import StateGraph, END
+
+g = StateGraph(State)                       # 1) bind to the state schema
+g.add_node("classify", classify)            # 2) add a node (= step/agent)
+g.add_node("answer_tech", answer_tech)
+g.add_node("answer_general", answer_general)
+g.set_entry_point("classify")               # 3) the start
+g.add_conditional_edges("classify", route,  # 4) connect paths (branch by type)
+    {"tech": "answer_tech", "general": "answer_general"})
+g.add_edge("answer_tech", END); g.add_edge("answer_general", END)  # 5) the end
+app = g.compile()                           # returns an app you can .invoke()`, cap: "the standard graph-building shape", lang: "py" },
+      { h: "nodes can be async" },
+      { p: "Steps waiting on I/O (calling an API/fetching over the network) can be `async def` — LangGraph supports sync and async nodes in the same graph." },
+      { h: "state must be serializable" },
+      { p: "Values in the state should be basic types (str/int/list/dict). If you have numpy/special objects, convert to native first to avoid errors passing through the state." },
+    ],
+    architecture: [
+      { h: "Why a state machine beats long if/else" },
+      { ul: [
+        "**readable** — see the whole flow as a graph, not nested code",
+        "**easy to re-route** — add/move nodes without tearing up the internal logic",
+        "**routing separate from work** — branch conditions live in their own route fn",
+        "**degrade is explicit** — the error shortcut is a visible edge",
+      ]},
+      { h: "Separate orchestration from the agent" },
+      { p: "The graph file knows only 'order and conditions'. Each step's real logic lives in its own function/file — clear separation of responsibilities." },
+      { h: "Common patterns (from Building Effective Agents)" },
+      { table: { head: ["pattern", "use when"], rows: [
+        ["Prompt chaining", "work splits into fixed steps"],
+        ["Routing", "many input types, separate handling"],
+        ["Parallelization", "do many things at once then combine"],
+        ["Orchestrator-workers", "subtasks unknown ahead of time"],
+      ]}},
+      { h: "workflow vs agent (from Building Effective Agents)" },
+      { p: "**Workflow** = LLM+tools follow a pre-written fixed path; **Agent** = the LLM dynamically chooses the path/tools in a loop. The principle: **start as simple as possible, add agency only when truly needed** — an agent trades latency+cost for performance." },
+      { ul: [
+        "Parallelization has 2 forms: **sectioning** (split work to run at once) and **voting** (run the same task several times then vote)",
+        "**Evaluator-optimizer**: one LLM produces an answer, another gives feedback, looping to refine — use when there's a clear evaluation criterion and iteration truly helps",
+        "an autonomous agent risks **compounding error** -> test in a sandbox, place guardrails, keep human checkpoints, show planning steps (transparency)",
+      ]},
+    ],
+    dataflow: [
+      { h: "One question flows through the graph" },
+      { code: String.raw`app.invoke({"question": "app error 500", "category": "", "answer": ""})
+  classify  -> state.category = "tech"
+  route: category=="tech" -> "answer_tech"
+  answer_tech -> state.answer = "try restarting then check the log..."
+  END`, cap: "the state is gradually filled until the answer is ready", lang: "txt" },
+      { note: "See it interactively in the Visualizer ▶ tab — step through each node with the state fields it writes." },
+    ],
+    implementation: [
+      { h: "🧪 A complete runnable example (copy and try)" },
+      { p: "Structure: `State`(TypedDict) -> node `detect` -> conditional edge (`route`) -> node `thai`/`eng` -> END — a tiny graph with all the LangGraph mechanics." },
+      { code: String.raw`# pip install langgraph
+from typing import TypedDict
+from langgraph.graph import StateGraph, END
+
+class State(TypedDict):
+    text: str
+    lang: str
+    reply: str
+
+def detect(state):                       # node 1 — write lang
+    is_th = any("฀" <= c <= "๿" for c in state["text"])
+    return {"lang": "th" if is_th else "en"}
+
+def route(state):                        # routing function (conditional edge)
+    return "thai" if state["lang"] == "th" else "eng"
+
+def thai(state): return {"reply": "สวัสดีครับ 👋"}
+def eng(state):  return {"reply": "Hello 👋"}
+
+g = StateGraph(State)
+g.add_node("detect", detect); g.add_node("thai", thai); g.add_node("eng", eng)
+g.set_entry_point("detect")
+g.add_conditional_edges("detect", route, {"thai": "thai", "eng": "eng"})
+g.add_edge("thai", END); g.add_edge("eng", END)
+app = g.compile()
+
+print(app.invoke({"text": "สวัสดี", "lang": "", "reply": ""})["reply"])   # สวัสดีครับ 👋
+print(app.invoke({"text": "hello", "lang": "", "reply": ""})["reply"])   # Hello 👋`, cap: "a 3-node graph + conditional edge — branches by language (really runnable)", lang: "py" },
+      { ul: [
+        "`State` — the central schema every node reads/writes",
+        "a node returns a partial dict (e.g. {'lang':...}) -> auto-merged into the state",
+        "`add_conditional_edges` + `route` — branch by a value in the state",
+        "`compile()` once, then `invoke()` with fresh state each time",
+      ]},
+      { h: "agent-graph design checklist" },
+      { ul: [
+        "define the state schema (TypedDict) fully first",
+        "one node = one job; a node returns only a partial dict",
+        "put try/except in every node -> return that field's default",
+        "use a conditional edge for skip/branch/degrade instead of an if inside a node",
+        "clean types before putting them in the state (serializable)",
+        "compile once; decide whether to be stateless or use a checkpoint",
+      ]},
+    ],
+    tricks: [
+      { h: "Trick 1: partial update = independent nodes" },
+      { p: "Have a node return only the field it owns — add/remove nodes without affecting others, and test each node easily." },
+      { h: "Trick 2: degrade with a conditional edge" },
+      { p: "Make the 'escape hatch' a real edge — clearer than hiding ifs scattered across nodes, and visible in the flow immediately." },
+      { h: "Trick 3: keep metadata in the state" },
+      { p: "Record latency/which step errored into the state — at the end of a round you have all the info to debug/measure performance." },
+      { h: "Trick 4: compile once as a singleton" },
+      { p: "Build the graph at module level, not on every round, reducing overhead; but invoke with fresh state each time for freshness." },
+      { h: "Trick 5: start with simple patterns" },
+      { p: "Most cases need only chaining/routing — don't jump to complex multi-agent before it's necessary (advice from Building Effective Agents)." },
+    ],
+    eval: [
+      { qa: [
+        { q: "How does an agent differ from a plain LLM call?", a: "An agent is an LLM with a clear role, receiving system context, whose output is acted on (call a function/pass to another step) — not just one-off Q&A." },
+        { q: "What is the State in LangGraph?", a: "A central dict (declared with TypedDict) every node reads/writes to pass data, instead of nodes talking directly." },
+        { q: "Why should a node return a partial dict?", a: "Returning only the changed fields lets LangGraph merge it — keeping nodes independent, easy to test, without overwriting other fields." },
+        { q: "How does a conditional edge differ from a plain edge?", a: "A plain edge always goes to the next node; a conditional edge calls a routing fn that reads the state and chooses the path (skip/branch/degrade)." },
+        { q: "How do you do graceful degradation?", a: "Put an escape hatch as an edge (key step fails -> shortcut to a summary/fallback node) + every node has try/except returning a default." },
+        { q: "Why must state be serializable?", a: "LangGraph passes/persists the state — values should be basic types; convert special objects to native first." },
+        { q: "Why does stateless per round matter?", a: "Start fresh state every invoke so the previous round/user's data doesn't leak — necessary in real-time/multi-user systems." },
+        { q: "Why a state machine instead of long if/else?", a: "Easier to read as a graph, re-route without tearing up logic, separate routing from work, and make degrade a visible edge." },
+      ]},
+    ],
+  },
 };

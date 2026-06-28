@@ -1752,6 +1752,31 @@ Network:
 
 → เริ่มจาก DAG → เพิ่ม cycle เมื่อจำเป็น → network เมื่อ scale`, lang: "txt" },
 
+      { h: "🔬 เจาะลึก C: Loop Termination & Error Recovery — ทำไม agent วนไม่จบ และกันยังไง" },
+      { p: "**ภาพในหัว:** Cyclic agent (เจาะลึก B) ทรงพลังเพราะ 'agent ตัดสินใจหยุดเอง' — แต่นั่นคือดาบสองคม: ถ้ามันตัดสินใจ 'ไม่หยุด' (เช่น tool พังแล้วเรียกซ้ำเรื่อย ๆ) ระบบจะวน loop ไม่จบ เผา token/เงินไม่หยุด. agent production ต้องมี 'เบรก' หลายชั้น" },
+      { p: "**ปัญหา 3 แบบที่ทำให้ loop ไม่จบ:**" },
+      { code: String.raw`1. tool พังแล้วเรียกซ้ำ: get_data() → error → agent เรียก get_data() อีก → วน
+2. ตัดสินใจวน: agent เรียก A → B → A → B ... สลับไม่จบ (ไม่คืบหน้า)
+3. รอ input ที่ไม่มา: agent ขอ tool ที่ตอบไม่ได้ → ค้างรอ`, cap: "loop ไม่จบ = เผา token เรื่อย ๆ จนหมด budget — อันตรายที่สุดของ agent อิสระ", lang: "txt" },
+      { p: "**เบรก 4 ชั้นที่ต้องมี:**" },
+      { code: String.raw`ชั้น 1 — Hard cap (เพดานรอบ): นับ iteration, เกิน N (เช่น 10) → หยุด+คืน fallback
+  if state["steps"] >= MAX_STEPS: return {"answer": "ขอโทษ ทำไม่สำเร็จ", "done": True}
+
+ชั้น 2 — Detect no-progress: ถ้าเรียก tool เดิมด้วย args เดิมซ้ำ → ตัดวง
+  if (tool, args) in seen: return finalize(state)   # เคยเรียกแล้ว ไม่ทำซ้ำ
+
+ชั้น 3 — Tool error recovery: ส่ง error กลับให้ agent (is_error=true)
+  พร้อม retry มีเพดาน (เช่น 2 ครั้ง + exponential backoff) ถ้ายังพัง → ตอบว่าทำไม่ได้
+
+ชั้น 4 — Budget cap: นับ token/cost สะสม เกินเพดาน → ตัดจบทันที`, cap: "ทุก agent loop ต้องมีอย่างน้อย hard cap + budget cap — ไม่งั้นวันหนึ่งจะมีบิลพุ่ง", lang: "txt" },
+      { p: "**Error recovery vs ปล่อยพัง:** เมื่อ tool error อย่าให้ทั้ง loop crash — ห่อด้วย try/except แล้วส่ง 'ผล error' กลับเป็น observation ให้ agent เห็นแล้ว 'คิดต่อ' (อาจลอง tool อื่น หรือบอก user ตรง ๆ ว่าทำไม่ได้). นี่คือ graceful degradation ที่ระดับ loop" },
+      { note: "ลองทำเอง: ตั้ง MAX_STEPS=3 แล้วให้ agent ทำงานที่ต้อง 5 ขั้น — ดูว่ามันตัดจบสวย ๆ ด้วย fallback ไหม (ไม่ใช่ crash หรือวนไม่จบ). LangGraph มี `recursion_limit` ให้ตั้งเพดานรอบในตัว" },
+      { qa: [
+        { q: "ทำไม cyclic agent เสี่ยง loop ไม่จบ?", a: "เพราะ 'agent ตัดสินใจหยุดเอง' — ถ้ามันตัดสินผิด (tool พังแล้วเรียกซ้ำ, สลับ A↔B ไม่คืบหน้า) ก็วนเรื่อย ๆ เผา token. ต้องมีเบรกภายนอก (hard cap) ไม่พึ่งให้ agent หยุดเอง 100%" },
+        { q: "tool error ควรทำยังไง — crash หรือส่งกลับให้ agent?", a: "ส่งกลับเป็น observation (is_error=true) ให้ agent เห็นแล้วคิดต่อ (retry มีเพดาน / ลอง tool อื่น / บอก user ว่าทำไม่ได้) — ไม่ใช่ปล่อย crash ทั้ง loop" },
+        { q: "เบรกขั้นต่ำที่ทุก agent ต้องมีคืออะไร?", a: "อย่างน้อย hard cap (เพดานจำนวนรอบ เช่น 10 → fallback) + budget cap (เพดาน token/cost) — กัน loop ไม่จบไม่ให้เผาเงินไม่หยุด" },
+      ]},
+
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "LangGraph — Low-level concepts", url: "https://langchain-ai.github.io/langgraph/concepts/low_level/", note: "State, Node, Edge, conditional edges" },
