@@ -1355,6 +1355,35 @@ ORDER BY combined_score DESC LIMIT 5;
 -- ผลจริง:
 -- Hybrid = แม่นกว่า vector-only ~20-30%`, cap: "Postgres ทำ hybrid search ได้ใน DB เดียว pgvector + tsvector", lang: "txt" },
 
+      { h: "🔬 เจาะลึก C: วัดผล RAG ให้ครบ — Retrieval metrics + Generation metrics" },
+      { p: "**ภาพในหัว:** 'RAG ดีไหม' วัดเป็นตัวเลขได้ และต้องวัด **2 ชั้นแยกกัน** เพราะมันพังคนละจุด: (1) ค้นเจอของถูกไหม (retrieval) (2) เอาของที่ค้นมาตอบถูกไหม (generation). ถ้าไม่แยก จะไม่รู้ว่าควรแก้ chunk/search หรือแก้ prompt" },
+      { code: String.raw`ชั้น 1 — Retrieval (ค้นแม่นไหม) — ต้องมี 'golden set': คำถาม → source ที่ถูก
+  Recall@k    = % ที่ source ถูกอยู่ใน top-k         ← ตัวหลักของ RAG
+  Precision@k = ใน k อันที่ค้นมา เป็นของถูกกี่ %
+  MRR         = เฉลี่ย 1/(อันดับของ source ถูกตัวแรก) → ถูกอยู่อันดับต้นยิ่งดี
+  nDCG@k      = ให้คะแนนตามอันดับ (อยู่บนได้คะแนนมากกว่า)
+
+ชั้น 2 — Generation (ตอบดีไหม) — มัก 'LLM-as-judge' ให้คะแนน
+  Faithfulness      = คำตอบยึดตาม context ที่ให้ไหม (ไม่แต่งเติม) ← กัน hallucinate
+  Answer relevance  = คำตอบตรงคำถามไหม
+  Context precision = chunk ที่ดึงมา 'ถูกใช้จริง' กี่ %`, cap: "retrieval ผิด = ค้นไม่เจอ (แก้ chunk/search); generation ผิด = ค้นเจอแต่ตอบเพี้ยน (แก้ prompt/model)", lang: "txt" },
+      { p: "**สร้าง golden set ยังไง:** เก็บคำถามจริง ~30-100 ข้อ จับคู่กับ source/คำตอบที่ถูก (คนตรวจ หรือให้ LLM ร่างแล้วคนยืนยัน). ชุดนี้คือ 'ข้อสอบ' ของระบบ — ปรับ chunk/k/strategy แล้ววัดซ้ำเทียบกัน" },
+      { code: String.raw`worked: วินิจฉัยว่าควรแก้อะไร
+
+  Recall@5 = 0.45 (ต่ำ), Faithfulness = 0.95 (สูง)
+    → ปัญหาอยู่ที่ 'ค้น' (chunk/search) ไม่ใช่การตอบ → แก้ chunk size, เพิ่ม hybrid/rerank
+
+  Recall@5 = 0.92 (สูง), Faithfulness = 0.60 (ต่ำ)
+    → ค้นเจอแต่โมเดล 'แต่งเติม' → แก้ prompt ('ตอบจาก context เท่านั้น'), ลด temperature, ใช้ citations
+
+→ วัดแยก 2 ชั้น = รู้จุดที่ต้องแก้ทันที (ไม่ใช่เดา)`, cap: "เทียบ Recall (ค้น) กับ Faithfulness (ตอบ) → ชี้ได้ว่าปัญหาอยู่ขั้นไหน", lang: "txt" },
+      { note: "ลองทำเอง: ทุกครั้งที่เปลี่ยน chunk_size/k/strategy ให้รัน golden set แล้วจดเลข — 'ปรับโดยไม่วัด' คือเดา. เครื่องมือสำเร็จ เช่น RAGAS / LlamaIndex eval ช่วยคำนวณ metric เหล่านี้ให้" },
+      { qa: [
+        { q: "ทำไมต้องวัด retrieval กับ generation แยกกัน?", a: "เพราะมันพังคนละจุด — ถ้าวัดรวมจะไม่รู้ว่าควรแก้ chunk/search (ค้นไม่เจอ) หรือแก้ prompt/model (ค้นเจอแต่ตอบเพี้ยน). แยกวัดแล้วชี้จุดได้ทันที" },
+        { q: "Faithfulness ต่างจาก answer relevance ยังไง?", a: "Faithfulness = คำตอบ 'ยึดตาม context ที่ให้' ไหม (ไม่แต่งเติม/hallucinate); answer relevance = คำตอบ 'ตรงคำถาม' ไหม. ตอบตรงคำถามแต่แต่งข้อมูลก็ยัง faithful ต่ำได้" },
+        { q: "golden set คืออะไร ทำไมจำเป็น?", a: "ชุดคำถาม→source/คำตอบที่ถูก (~30-100 ข้อ) ใช้เป็น 'ข้อสอบ' วัดระบบ — ไม่มีมันก็ปรับ chunk/k แบบเดา วัด Recall@k/Faithfulness ไม่ได้" },
+      ]},
+
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
         { label: "Evaluation: Precision & Recall (Wikipedia)", url: "https://en.wikipedia.org/wiki/Precision_and_recall", note: "นิยาม recall ที่ Recall@k ต่อยอด" },

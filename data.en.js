@@ -4648,4 +4648,379 @@ for doc, score in vs.search("can I get a refund", k=2):
       ]},
     ],
   },
+
+  "ai_rag": {
+    principle: [
+      { h: "What problem RAG solves" },
+      { p: "An LLM only knows what it was trained on (it has a cutoff) and 'guesses words', so it can hallucinate. **RAG** fixes this by **retrieving real data relevant to the question and stuffing it into the prompt before the LLM answers** — the model answers from the data you fed it, not from memory alone." },
+      { h: "RAG's simple equation" },
+      { code: String.raw`RAG = Retrieve + Augment (the prompt) + Generate (let the LLM answer)
+
+question -> retrieve relevant data -> paste it into the prompt -> LLM answers from it`, cap: "the heart: put 'real relevant data' in front of the model before asking", lang: "txt" },
+      { h: "What it's used for" },
+      { ul: [
+        "an assistant answering from a company manual/policy (answers straight from the docs, no making things up)",
+        "search code/technical docs then summarize",
+        "a chatbot that must cite its sources",
+      ]},
+      { note: "RAG = vector search (the Vector DB page) + injecting context into the prompt (this page) + measuring retrieval accuracy (Recall@k)." },
+    ],
+    theory: [
+      { h: "1) Chunking — split documents before storing" },
+      { p: "A long document must be split into chunks before embedding because (a) embeddings of short text are more accurate, (b) they fit back into context. Common chunks are ~200–800 tokens with a small overlap to avoid breaking meaning at the seams." },
+      { h: "2) Retrieve — find the relevant chunks" },
+      { p: "Embed the question -> vector search for the highest-cosine chunks (the Vector DB mechanism). You get the 'top-k sources' likely to contain the answer." },
+      { h: "3) Augment — stuff context into the prompt" },
+      { p: "Take the retrieved chunks, **assemble them into text and insert them in the prompt** with an instruction to answer only from this data." },
+      { code: String.raw`context = "\n".join(f"- {c}" for c in chunks)
+prompt = (f"Use the following data to answer; if it's not there, say you don't know\n"
+          f"Data:\n{context}\n\nQuestion: {question}")`, cap: "this is the 'augment' heart — place chunks into the prompt", lang: "py" },
+      { h: "4) Hybrid search — don't rely on vectors alone" },
+      { p: "Vectors capture meaning but sometimes miss exact terms (names/codes). **hybrid** mixes keyword (BM25) + vector and combines scores, or **reranks** the results with a ranking model — more accurate in practice." },
+      { h: "5) Measure RAG with Recall@k" },
+      { p: "Whether RAG is good is measured at **retrieval**: **Recall@k** = of the correct answers, what % did we find in the top k. Build a test set (question -> correct source) and measure." },
+      { table: { head: ["metric", "meaning"], rows: [
+        ["Recall@1", "% the correct source is at rank 1"],
+        ["Recall@5", "% the correct source is in the top 5"],
+        ["Recall@10", "% the correct source is in the top 10"],
+      ]}},
+      { h: "6) From the real world: Agent Memory (summarized from video lessons)" },
+      { p: "**An agent's memory = a workspace it can read/write**, not just the context in the prompt. Two layers: **short-term** (daily notes by timestamp) and **long-term** (permanent identity/rules in a separate file)." },
+      { table: { head: ["storage layer", "good for"], rows: [
+        ["Markdown / text files", "short, easy-to-recall notes, hand-editable"],
+        ["raw files (PDF/CSV/Excel)", "must extract to text first (OCR/pandas)"],
+        ["SQL / Postgres", "structured data, exact search"],
+        ["Vector DB", "semantic search"],
+      ]}},
+      { ul: [
+        "reading non-text files means **extracting to text first** then stuffing into context = RAG's ingestion pipeline",
+        "**write vs read**: write memory when told to remember, read when queried back; edit memory files directly if you can (saves tokens, don't call the LLM every time)",
+        "pitfalls: stored in the wrong collection -> not found, a PDF as one blob must be chunked with identity, config changes need a reload",
+        "secrets (DB user/pass) go in **env**, not the workspace; beware exec pulling env into the LLM's context",
+      ]},
+      { h: "7) Contextual Retrieval + Reranking (from docs)" },
+      { p: "Level up RAG accuracy (from Anthropic's Contextual Retrieval article):" },
+      { ul: [
+        "**Contextual Retrieval**: before embedding, add a short context specific to that chunk (~50-100 tokens, e.g. 'this chunk is from ACME's Q2 2023 report') to fix context lost when chunking -> ~35% fewer retrieval misses",
+        "add **Contextual BM25** (keyword) mixed with embeddings = hybrid -> ~49% fewer misses; combine the 2 with rank fusion + dedupe",
+        "**Reranking**: pull a wide top-N (e.g. 150) then use a rerank model to keep the top-K (e.g. 20) before answering -> ~67% fewer misses (at latency/cost)",
+        "KB < ~200k tokens: put it all in the prompt + prompt caching is cheaper than RAG; beyond that, use Contextual Retrieval",
+      ]},
+      { h: "8) Citations — answers that cite sources (from docs)" },
+      { p: "**Citations** let the model attach `cited_text` = the original text it actually used -> verifiable provenance, less hallucination (better than just instructing it to cite via the prompt)." },
+      { ul: [
+        "enable: send documents as a `document` content block + set `citations.enabled = true`; it chunks into sentences for you",
+        "a citation points to: which document (document_index) + which span — text uses a char range, PDF uses page numbers, custom uses an index",
+        "use for RAG/tasks needing source attribution (legal/medical/support); `cited_text` doesn't count as output tokens",
+        "limitation: can't combine with structured output (400 error), text only",
+      ]},
+
+      { h: "🔬 Deep Dive A: Chunking Strategies — how to split documents for the most accurate retrieval" },
+      { p: "Chunking is RAG's most important step — split wrong = can't find it = wrong answer. Let's see how each method affects things." },
+      { code: String.raw`4 main chunking methods:
+
+1. Fixed-size (simplest):
+   split every 500 tokens regardless of content
+   "Clause 1. The company... [500 tokens] Clause 2. Employees... [500 tokens]"
+   + fast, simple, predictable size
+   - cuts mid-sentence/paragraph -> some chunks lack complete meaning
+
+2. Recursive (recommended):
+   split on separators by priority: "\n\n" -> "\n" -> ". " -> " "
+   + preserves paragraph/sentence structure
+   - uneven sizes (some chunks very short)
+
+3. Semantic (most accurate):
+   use an embedding model to find where "meaning shifts" and cut there
+   + a chunk = one complete idea
+   - slow, pricey (must call embedding during chunking too)
+
+4. Document-based (for PDF/Markdown):
+   cut by the document's headings/sections
+   + preserves the original structure
+   - depends on the document's format`, lang: "txt" },
+      { code: String.raw`impact of chunk size on Recall@k:
+
+small (100-200 tokens):
+  + most accurate (embedding captures specific meaning)
+  - lots of chunks -> slow search + expensive
+  - some chunks lack enough context
+
+medium (300-500 tokens) <- recommended:
+  + balances accuracy and speed
+  + each chunk has enough context for the LLM to understand
+
+large (800-1500 tokens):
+  + complete context in one chunk
+  - embedding captures "faint" meaning (mixes ideas)
+  - few chunks -> may miss the relevant one
+
+Overlap (10-20%):
+  chunk 1: [token 0-500]
+  chunk 2: [token 450-950]  <- 50-token overlap
+  -> guards against cutting mid-sentence
+
+real impact (from a Pinecone benchmark):
+  300 tokens + 20% overlap -> Recall@5 = 0.78
+  500 tokens + 0% overlap  -> Recall@5 = 0.72
+  100 tokens + 0% overlap  -> Recall@5 = 0.65`, cap: "300-500 tokens + 10-20% overlap = the sweet spot for typical RAG", lang: "txt" },
+      { code: String.raw`RecursiveCharacterTextSplitter example (LangChain):
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,
+    chunk_overlap=50,
+    separators=["\n\n", "\n", ". ", " ", ""]
+)
+
+chunks = splitter.split_text(document)
+# ["Clause 1. Company ABC was founded...", "Clause 2. Employees are entitled..."]
+
+real impact:
+  a 10,000-token document -> ~25 chunks (500 tokens each)
+  a 100,000-token document -> ~250 chunks
+
+-> chunk 1 may hold all of "Clause 1", chunk 2 all of "Clause 2"
+   -> the LLM gets the correct context`, cap: "Recursive = split on separators by priority -> preserves sentence/paragraph structure", lang: "txt" },
+
+      { h: "🔬 Deep Dive B: BM25 vs Vector Search — when to use which" },
+      { p: "Vector search is great for 'search by meaning' but not every case. **BM25 (keyword search)** still has strengths vectors lack — best when you use **both together (hybrid search)**." },
+      { code: String.raw`BM25: a keyword-based relevance score
+
+BM25 formula:
+  score(D, Q) = Σ IDF(qi) × (f(qi,D) × (k1+1)) / (f(qi,D) + k1 × (1 - b + b × |D|/avgdl))
+
+  IDF(qi) = log((N - n(qi) + 0.5) / (n(qi) + 0.5))
+    = "how rare this word is across all documents"
+    (rare word = high value, common word = low value)
+
+  f(qi,D) = the word's frequency in document D
+  k1, b = parameters (default: k1=1.5, b=0.75)
+
+example:
+  Query: "return policy"
+  Document A: "return policy within 7 days..." (the word "return" is frequent)
+  Document B: "the cost will be returned..." (only "return" appears, not "policy")
+
+  BM25(A) > BM25(B) -> because A has a direct keyword match`, lang: "txt" },
+      { code: String.raw`Vector vs BM25 vs Hybrid:
+
+Vector Search (semantic):
+  Query: "can I get a refund"
+  / finds: "refund policy" (same meaning)
+  x misses: an exact code/SKU (different words, similar meaning)
+  x misses: an exact phrase if not embedded similarly
+
+BM25 (keyword):
+  Query: "Refund Policy"
+  / finds: "Refund Policy" (exact match)
+  / finds: "Return Policy" (close words)
+  x misses: a paraphrase with different words
+
+Hybrid (both + rank fusion):
+  / finds both: the exact phrase + the paraphrase
+  -> covers every case
+
+Rank Fusion (combining results):
+  1. vector search -> ranked by cosine similarity
+  2. BM25 search -> ranked by BM25 score
+  3. combine: score = α × vector_rank + (1-α) × bm25_rank
+     (α = weight, usually 0.5-0.7 favouring vector)
+  4. re-sort -> top-k
+
+real impact (from Anthropic Contextual Retrieval):
+  Vector only:        retrieval error = 100% (baseline)
+  + Contextual:       error = 65%  (-35%)
+  + BM25 hybrid:      error = 51%  (-49%)
+  + Reranking:        error = 33%  (-67%)`, cap: "Hybrid search (vector + BM25) = covers both semantic + keyword -> nearly halves the misses", lang: "txt" },
+      { code: String.raw`Hybrid Search example (pgvector + tsvector):
+
+-- add a Full-Text Search column
+ALTER TABLE documents ADD COLUMN fts tsvector;
+UPDATE documents SET fts = to_tsvector('english', content);
+
+-- create a GIN index for BM25
+CREATE INDEX ON documents USING gin(fts);
+
+-- Hybrid query: vector + BM25 together
+WITH vector_results AS (
+    SELECT id, 1 - (embedding <=> $1) AS v_score
+    FROM documents ORDER BY embedding <=> $1 LIMIT 20
+),
+bm25_results AS (
+    SELECT id, ts_rank_cd(fts, plainto_tsquery('english', $2)) AS k_score
+    FROM documents WHERE fts @@ plainto_tsquery('english', $2) LIMIT 20
+)
+SELECT d.id, d.content,
+       0.7 * v.v_score + 0.3 * b.k_score AS combined_score
+FROM documents d
+JOIN vector_results v ON d.id = v.id
+JOIN bm25_results b ON d.id = b.id
+ORDER BY combined_score DESC LIMIT 5;
+
+-- real impact:
+-- Hybrid = ~20-30% more accurate than vector-only`, cap: "Postgres does hybrid search in one DB with pgvector + tsvector", lang: "txt" },
+
+      { h: "🔬 Deep Dive C: Evaluate RAG fully — Retrieval metrics + Generation metrics" },
+      { p: "**Picture it:** 'is RAG good' is measurable, and you must measure **2 layers separately** because they fail at different points: (1) did it retrieve the right thing (retrieval), (2) did it answer correctly from what it retrieved (generation). Without separating, you won't know whether to fix chunking/search or the prompt." },
+      { code: String.raw`Layer 1 — Retrieval (accurate search) — needs a 'golden set': question -> correct source
+  Recall@k    = % the correct source is in the top-k        <- RAG's primary metric
+  Precision@k = of the k retrieved, what % are correct
+  MRR         = average 1/(rank of the first correct source) -> higher rank is better
+  nDCG@k      = scores by rank (higher position scores more)
+
+Layer 2 — Generation (good answer) — often 'LLM-as-judge' scores
+  Faithfulness      = does the answer stick to the given context (no making things up) <- prevents hallucinate
+  Answer relevance  = does the answer address the question
+  Context precision = of the retrieved chunks, what % were actually used`, cap: "retrieval wrong = can't find (fix chunk/search); generation wrong = found but answered oddly (fix prompt/model)", lang: "txt" },
+      { p: "**How to build a golden set:** collect ~30-100 real questions paired with the correct source/answer (human-checked, or LLM-drafted then human-confirmed). This set is the system's 'exam' — change chunk/k/strategy then re-measure and compare." },
+      { code: String.raw`worked: diagnose what to fix
+
+  Recall@5 = 0.45 (low), Faithfulness = 0.95 (high)
+    -> the problem is 'retrieval' (chunk/search), not answering -> fix chunk size, add hybrid/rerank
+
+  Recall@5 = 0.92 (high), Faithfulness = 0.60 (low)
+    -> found it but the model 'makes things up' -> fix the prompt ('answer from context only'),
+       lower temperature, use citations
+
+-> measuring the 2 layers separately = know exactly what to fix (not guess)`, cap: "compare Recall (retrieval) vs Faithfulness (answering) -> pinpoints which stage is the problem", lang: "txt" },
+      { note: "Do it yourself: every time you change chunk_size/k/strategy, run the golden set and record the numbers — 'tuning without measuring' is guessing. Ready-made tools like RAGAS / LlamaIndex eval compute these metrics for you." },
+      { qa: [
+        { q: "Why measure retrieval and generation separately?", a: "They fail at different points — measuring together you won't know whether to fix chunk/search (didn't find) or prompt/model (found but answered oddly). Separate measurement pinpoints it." },
+        { q: "How does faithfulness differ from answer relevance?", a: "Faithfulness = does the answer 'stick to the given context' (no making things up/hallucinating); answer relevance = does the answer 'address the question'. An on-topic answer that fabricates data can still be low faithfulness." },
+        { q: "What is a golden set, why is it necessary?", a: "A set of question->correct-source/answer pairs (~30-100) used as the system's 'exam' — without it you tune chunk/k by guessing and can't measure Recall@k/Faithfulness." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Evaluation: Precision & Recall (Wikipedia)", url: "https://en.wikipedia.org/wiki/Precision_and_recall", note: "the recall definition Recall@k builds on" },
+        { label: "Pinecone — RAG learning center", url: "https://www.pinecone.io/learn/retrieval-augmented-generation/", note: "RAG from chunk to generate" },
+        { label: "Pinecone — Chunking strategies", url: "https://www.pinecone.io/learn/chunking-strategies/", note: "how to split documents" },
+        { label: "BM25 (Wikipedia)", url: "https://en.wikipedia.org/wiki/Okapi_BM25", note: "the BM25 formula + origin" },
+        { label: "LangChain — Hybrid Search", url: "https://python.langchain.com/docs/how_to/hybrid/advanced_text_embedding/", note: "hybrid search + rank fusion example" },
+      ]},
+      { h: "📚 Provider docs (read it from the source)" },
+      { links: [
+        { label: "Anthropic — Contextual Retrieval", url: "https://www.anthropic.com/news/contextual-retrieval", note: "make retrieval more accurate (hybrid/cache)" },
+        { label: "OpenAI Cookbook — RAG Q&A (Pinecone)", url: "https://cookbook.openai.com/examples/vector_databases/pinecone/gen_qa", note: "RAG end-to-end with code" },
+        { label: "OpenAI Cookbook — Evaluate RAG", url: "https://cookbook.openai.com/examples/evaluation/evaluate_rag_with_llamaindex", note: "measuring RAG" },
+        { label: "Google — Gemini File Search (RAG)", url: "https://ai.google.dev/gemini-api/docs/file-search", note: "ready-made RAG, Gemini side" },
+        { label: "LangChain — Build a RAG agent", url: "https://docs.langchain.com/oss/python/langchain/rag", note: "LangChain's official RAG" },
+        { label: "Hugging Face — Advanced RAG", url: "https://huggingface.co/learn/cookbook/en/advanced_rag", note: "advanced RAG + rerank" },
+      ]},
+      { h: "🎬 Video lessons (deeper)" },
+      { links: [
+        { label: "RAG Fundamentals and Advanced Techniques – Full Course (freeCodeCamp)", url: "https://www.youtube.com/watch?v=ea2W8IogX80", note: "the full, most detailed course" },
+        { label: "Learn RAG From Scratch (by a LangChain Engineer)", url: "https://www.youtube.com/watch?v=sVcwVQRHIc8", note: "taught by a LangChain engineer" },
+        { label: "RAG Full Course | Document Loaders -> Multi-Doc RAG", url: "https://www.youtube.com/watch?v=ioveHOLLcO0", note: "from loading documents onward" },
+        { label: "Complete RAG Crash Course with LangChain (2h)", url: "https://www.youtube.com/watch?v=o126p1QN_RI", note: "a hands-on crash course" },
+      ]},
+    ],
+    foundations: [
+      { h: "Components of a RAG pipeline" },
+      { table: { head: ["Stage", "Does what"], rows: [
+        ["Index (offline)", "chunk + embed + store in the vector DB"],
+        ["Retrieve", "embed query + vector search -> top-k"],
+        ["Rank", "(optional) rerank/hybrid to be more precise"],
+        ["Augment", "format chunks as context, insert in the prompt"],
+        ["Generate", "the LLM answers from the context"],
+      ]}},
+      { h: "The Index stage (done once when preparing data)" },
+      { code: String.raw`def index_docs(raw_text, store):
+    chunks = chunk(raw_text, size=500, overlap=50)   # 1) split
+    store.add(chunks)                                # 2) embed + store (see Vector DB page)`, cap: "prepare the data before real use", lang: "py" },
+      { note: "If the knowledge base is small (< ~200k tokens) Anthropic suggests **putting it all in the prompt** with no RAG — use prompt caching instead." },
+    ],
+    architecture: [
+      { h: "The repeated pattern: retrieve -> format -> paste into the prompt" },
+      { code: String.raw`def rag(question, store, k=3):
+    hits    = store.search(question, k=k)        # Retrieve
+    context = format_context(hits)               # Augment
+    return llm_answer(question, context)         # Generate`, cap: "every RAG system has this same shape, differing in the search/ranking strategy", lang: "py" },
+      { h: "Tunable points (affect quality)" },
+      { table: { head: ["Tune", "effect on Recall", "effect on cost"], rows: [
+        ["smaller chunks", "usually more accurate", "more to store/search"],
+        ["larger k", "higher Recall", "longer/pricier prompt"],
+        ["add hybrid/rerank", "more on-target", "more complexity"],
+      ]}},
+    ],
+    dataflow: [
+      { h: "RAG: from question to answer" },
+      { code: String.raw`question = "how many days to return?"
+   |
+   |- store.search(question)           -> top-k chunks
+   |     ["return within 14 days...", "the return process...", ...]
+   |
+   |- format -> context then insert in the prompt
+   |
+   \- LLM answers -> "you can return within 14 days with a receipt"`, cap: "the result: the model answers grounded in real data, not guessing", lang: "txt" },
+      { note: "See it interactively in the Visualizer ▶ tab — step through Retrieve -> Augment -> Generate." },
+    ],
+    implementation: [
+      { h: "🧪 A complete runnable example (copy and try)" },
+      { p: "Structure: build on `TinyVectorStore` (the Vector DB page) — retrieve -> augment (paste context) -> generate (LLM answers from real data)." },
+      { code: String.raw`# needs TinyVectorStore + embed() from the Vector DB page  |  pip install anthropic
+import os, anthropic
+client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+KB = [
+    "The company is open Monday-Friday 9:00-18:00",
+    "Return policy: within 14 days with a receipt",
+    "Free shipping over 500 baht",
+]
+vs = TinyVectorStore(); vs.add(KB)
+
+def rag_answer(question, k=2):
+    hits = vs.search(question, k=k)                    # 1) RETRIEVE
+    context = "\n".join(f"- {d}" for d, _ in hits)     # 2) AUGMENT
+    prompt = (f"Use the following data to answer; if it's not there, say you don't know\n"
+              f"Data:\n{context}\n\nQuestion: {question}")
+    r = client.messages.create(                        # 3) GENERATE
+        model="claude-haiku-4-5-20251001", max_tokens=200,
+        messages=[{"role": "user", "content": prompt}])
+    return r.content[0].text.strip()
+
+print(rag_answer("how many days to return?"))
+# "You can return within 14 days with a receipt"`, cap: "a tiny full RAG in 3 steps: retrieve -> augment -> generate (answer from real data, not guessing)", lang: "py" },
+      { ul: [
+        "RETRIEVE — vector search for chunks relevant to the question",
+        "AUGMENT — paste the chunks into the prompt (the heart of RAG)",
+        "GENERATE — the LLM answers grounded in the given data, not pure memory",
+        "improve accuracy: right-sized chunks, larger k, hybrid/rerank, measure Recall@k",
+      ]},
+      { h: "RAG-building checklist" },
+      { ul: [
+        "split documents into right-sized chunks (with overlap)",
+        "embed + store with metadata (for pre-filtering)",
+        "at search: embed query -> vector search -> keep top-k",
+        "add hybrid/rerank if vectors alone aren't accurate",
+        "format the results tightly before injecting (limit tokens)",
+        "measure Recall@k on a test set, then tune chunk/k/strategy",
+      ]},
+    ],
+    tricks: [
+      { h: "Trick 1: instruct it to say 'I don't know' if not in the data" },
+      { p: "Add to the instruction 'if the data isn't there, say you don't know' — reduces hallucination when retrieval finds nothing on-target." },
+      { h: "Trick 2: small chunks but with overlap" },
+      { p: "Small chunks make embeddings accurate, while a small overlap prevents meaning breaking at sentence seams." },
+      { h: "Trick 3: format the results tightly before injecting" },
+      { p: "Don't stuff long raw chunks — trim/summarize to the essence. Good RAG is 'retrieve a lot, narrow to a few but on-target'." },
+      { h: "Trick 4: cache expensive results for reuse" },
+      { p: "Cache the summary/search result of repeated questions, cutting both cost and latency; for a small KB use prompt caching to stuff it all instead of RAG." },
+      { h: "Trick 5: give knowledge an expiry" },
+      { p: "If data changes over time, add a TTL/expiry to old chunks so stale data doesn't disturb new answers." },
+    ],
+    eval: [
+      { qa: [
+        { q: "What is RAG in brief?", a: "Retrieve + Augment + Generate — retrieve real data relevant to the question, stuff it into the prompt, and have the LLM answer from it, reducing hallucination and bypassing the cutoff limit." },
+        { q: "Why chunk documents?", a: "Embeddings of short text are more accurate, and right-sized chunks fit back into context; overlap is common to prevent broken meaning." },
+        { q: "How does Augment work in practice?", a: "Take the retrieved chunks, format them as tight text, insert in the prompt with an instruction to answer only from this data." },
+        { q: "What is hybrid search?", a: "Mixing keyword (BM25) + vector and combining scores, or reranking — more on-target than vectors alone, especially for exact terms/codes." },
+        { q: "How do you measure whether RAG is good?", a: "Recall@k — the share where the correct source is found in the top k; build a test set of question->source and measure." },
+        { q: "When do you not need RAG?", a: "If the knowledge base is small (< ~200k tokens), put it all in the prompt + use prompt caching, no RAG needed." },
+        { q: "How do you reduce hallucination in RAG?", a: "Instruct it to say 'I don't know' when the data is missing, include only relevant chunks, and allow source citations." },
+        { q: "How does RAG differ from fine-tuning?", a: "RAG augments knowledge at runtime via the prompt (easy to update, no training); fine-tuning bakes knowledge into the model (pricey/slow to update)." },
+      ]},
+    ],
+  },
 };
