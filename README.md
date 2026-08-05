@@ -18,7 +18,9 @@
 
 | โปรเจกต์ | ลิงก์ | เนื้อหา |
 |----------|-------|---------|
-| **libft** | [libft.html](libft.html) | The ~46-function C toolbox + ft_printf + get_next_line: pointer ownership, memmove overlap, strlcpy/strlcat return values, calloc overflow, the get_next_line stash |
+| **libft** | [libft.html](libft.html) | The 46-function C toolbox: pointer ownership, memmove overlap, strlcpy/strlcat return values, calloc overflow, ft_split, t_list, how libft.a links |
+| **ft_printf** | [ft_printf.html](ft_printf.html) | Variadic functions: va_list mechanics, default argument promotion, passing va_list by pointer, recursive base conversion, exact return count |
+| **get_next_line** | [get_next_line.html](get_next_line.html) | static storage, the leftover stash, read's three return cases, per-fd node list, compile-time BUFFER_SIZE |
 | **push_swap** | [push_swap.html](push_swap.html) | Turkish sort, Big-O proof, decision tree lower bound, two's complement, cost calculation |
 | **pipex** | [pipex.html](pipex.html) | fork/pipe/dup2/execve, fd table trace, pipe reference counting, exec memory layout |
 | **so_long** | [so_long.html](so_long.html) | Flood fill, DFS/BFS complexity, camera formula derivation, formal FSM |
@@ -82,7 +84,9 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | Project | จำนวน | หัวข้อ |
 |---------|:-----:|--------|
 | push_swap | **7** | Big-O formal def, comparison sort lower bound, two's complement, cost calculation, normalization proof, greedy optimality, scoring thresholds analysis |
-| libft | **6** | memcpy vs memmove (overlap direction), strlcpy/strlcat return semantics, calloc overflow, itoa & INT_MIN, ft_split count-then-fill + partial-failure cleanup, t_list del vs free |
+| libft | **9** | memcpy vs memmove, strlcpy/strlcat return semantics, calloc overflow, itoa & INT_MIN, atoi parsing rules, ft_split count-then-fill, t_list del vs free, function-pointer parameters, how libft.a is linked |
+| ft_printf | **6** | How va_list works, default argument promotion, why va_list is passed by pointer, recursive base conversion, return-count discipline, write() without buffering |
+| get_next_line | **6** | static storage duration, read's three return cases, the stash cycle, per-fd node list, cleanup without a close function, BUFFER_SIZE extremes |
 | pipex | 4 | fork returns twice, fd table trace, pipe reference counting, exec memory layout |
 | so_long | 4 | DFS/BFS O(V+E), recursion & stack overflow, camera formula, formal FSM |
 | fractol | 4 | Complex multiplication, escape radius proof, IEEE 754, pixel↔complex mapping |
@@ -128,6 +132,8 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 _teaching/
   index.html          # หน้ารวมลิงก์
   libft.html          # หน้าโปรเจกต์ (set window.PROJECT_ID)
+  ft_printf.html
+  get_next_line.html
   push_swap.html
   pipex.html
   so_long.html

@@ -877,7 +877,9 @@
       ),
       h("div", { className: "tabs" },
         TABS.filter(function (tb) {
-          if (isExam || isCPP || proj.id === "libft")
+          var isCore = proj.id === "libft" || proj.id === "ft_printf"
+            || proj.id === "get_next_line";
+          if (isExam || isCPP || isCore)
             return tb[0] !== "demo" && tb[0] !== "flowviz";
           return !(isAI && tb[0] === "demo");
         })
