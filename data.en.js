@@ -13136,7 +13136,9 @@ while (cur) { /* use cur->data */ cur = cur->next; }`, cap: "List exercises come
 3. you write the files named in "Expected files" into rendu/
 4. press grademe → the Moulinette compiles and diffs the output
 5. pass → the next level unlocks (a new random exercise)
-   fail → you can retry (you may get the same one or a new one)`, cap: "Everything happens inside rendu/ — a file with the wrong name or in the wrong place is never found, and that's a fail", lang: "txt" },
+   fail → ★ the exam ends there, scored at the level you had already cleared
+       there is no retry and no fresh exercise to attempt`, cap: "Pressing grademe is a one-shot judgement — always test locally until you are sure", lang: "txt" },
+      { note: "**Only press grademe when you are confident** — failing one exercise ends the exam then and there, with no replacement to redeem it. Whatever time is left is worthless if you submit too early." },
       { h: "The compile-and-test loop on your own machine (before pressing grademe)" },
       { code: String.raw`# for exercises that come with a main.c:
 cc -Wall -Wextra -Werror *.c && ./a.out | cat -e
@@ -13309,7 +13311,7 @@ while (i >= 0) {
         "6. think about the edges: empty, NULL, a single element, INT_MIN, repeated whitespace",
         "7. press grademe",
       ]},
-      { note: "If one exercise has eaten more than about 25 minutes, consider submitting whatever works or retrying (you may draw a different one). Don't sink the whole exam into a single question." },
+      { note: "If one exercise has eaten more than about 25 minutes, make a decision: **don't press grademe yet** and keep working through the edge cases, or accept your current level — because pressing it and failing ends the exam, with no replacement exercise." },
       { h: "How to practise beforehand" },
       { ul: [
         "clone `github.com/terminal-42s/42_examshell` and run `bash exam.sh` for a real rehearsal",
@@ -13347,7 +13349,8 @@ while (i >= 0) {
         { q: "Why does ft_list_remove_if take a `t_list **`?", a: "So it can change the list's head when the first node is removed; recursion plus a pointer-to-pointer keeps the code short and correct at every position." },
         { q: "What does an empty 'Allowed functions' mean?", a: "Only functions you write yourself — no printf, no malloc, nothing from libc. If it lists `malloc`, then malloc is the only one you get." },
         { q: "What do you use to compare output exactly?", a: "`./a.out | cat -e` — it shows `$` for newlines and `^I` for tabs, revealing the extra or missing `\\n` your eyes miss, so you can match the subject's example." },
-        { q: "What should you do when one exercise has taken too long?", a: "Don't sink more than about 25 minutes into it — submit whatever works, or retry (you may draw a different exercise at the same level). The goal is climbing as high as possible, not perfecting one question." },
+        { q: "What should you do when one exercise has taken too long?", a: "**Never press grademe as a gamble** — failing ends the exam immediately, with no retry. If you aren't sure, spend the remaining time on the edge cases (empty/NULL/INT_MIN/repeated whitespace) and submit after that; if it really is beyond you, you finish on the level you had already cleared." },
+        { q: "What happens if you press grademe and fail?", a: "The exam ends immediately, scored at the level you had already cleared — no new exercise is drawn to redeem it. So always test every case locally before pressing." },
       ]},
       { h: "A real rehearsal before the exam" },
       { code: String.raw`git clone https://github.com/terminal-42s/42_examshell
