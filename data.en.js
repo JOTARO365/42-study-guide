@@ -100,6 +100,11 @@ Example: f(n) = 3n^2 + 5n + 2  is O(n^2)
   3n^2 + 5n + 2 <= 4n^2   when n >= 6   OK
   (the 5n+2 term is swallowed by the faster-growing n^2)`, cap: "Big-O looks only at the fastest-growing term and ignores constants — for large n that term dominates everything", lang: "txt" },
       { p: "It has relatives: **Ω (omega)** = a lower bound (at least this much), **Θ (theta)** = both upper and lower (tight). When we say 'the fastest sort is n log n' we really mean Ω(n log n) — an unavoidable lower bound." },
+      { qa: [
+        { q: "What is the formal definition of Big-O?", a: "f(n) = O(g(n)) when there exist constants c > 0 and n₀ such that 0 ≤ f(n) ≤ c·g(n) for every n ≥ n₀ — g is an upper bound on f once n is large enough, ignoring constants." },
+        { q: "How do O, Ω and Θ differ?", a: "`O` is an upper bound (no worse than this) · `Ω` is a lower bound (at least this) · `Θ` is both at once (genuinely the same growth)." },
+        { q: "Why can constants and smaller terms be dropped?", a: "The definition already allows a multiplier c and only cares about large n — `3n² + 100n` and `n²` grow at the same rate as n keeps increasing." },
+      ]},
       { h: "🔬 Deep Dive B: proof that comparison sort needs ≥ ~n·log₂n" },
       { code: String.raw`A binary tree of height h has at most 2^h leaves.
 We must cover every possible ordering -> 2^h >= n!
@@ -116,6 +121,11 @@ So the worst case needs at least ~n*log2(n) comparisons.`, cap: "Tree height = n
   n*log2(n) = 100 x 6.64 ~= 664   (an approximation of the same quantity)`, cap: "Tree height = questions asked on the longest path = worst-case comparisons", lang: "txt" },
       { note: "⚠️ Don't conflate the two units: ~525 is a lower bound on the **number of comparisons**, while push_swap grades the **number of operations you print** (sa/ra/pb/...) — a different unit entirely. The theorem does not prove 'ops must be ≥ 525'. It says sorting has an inherent n log n difficulty, and we use n·log₂n as a *yardstick* for how close an algorithm gets to that level." },
       { note: "By that yardstick: selection sort grows like ~n²/2 (n=100 → ~5000 ops), far above the n log n level, while Turkish sort (~580 ops) sits right at n·log₂n = 664." },
+      { qa: [
+        { q: "Why does a comparison sort need at least ~n·log₂n comparisons?", a: "Each comparison has two possible answers, so it forms a binary tree — a tree of height h has at most 2^h leaves, but it must separate n! possible orderings, so 2^h ≥ n! → h ≥ log₂(n!) ≈ n·log₂n." },
+        { q: "What is the ~525 figure at n = 100 a bound on?", a: "On the number of **comparisons**, not on the operation count push_swap is scored by — two different units that cannot be compared directly." },
+        { q: "Can push_swap escape that bound?", a: "It can escape the bound on *comparisons* by using a radix sort (which doesn't decide by comparing) — but the score counts operations, which is a separate matter. n·log₂n is only a yardstick for how hard the job is." },
+      ]},
       { h: "🔬 Deep Dive C: how two's complement & overflow actually work" },
       { code: String.raw`Writing -5 in 8-bit:
    5        = 0000 0101
@@ -136,6 +146,11 @@ Why is the range asymmetric?
 How to guard (in the code): accumulate digits in a long (64-bit, much
    wider range), then compare against the int bounds yourself,
    before the value could ever overflow.`, lang: "txt" },
+      { qa: [
+        { q: "Why is the range of an `int` asymmetric?", a: "Two's complement puts zero on the positive side, leaving one fewer positive value than negative — hence -2147483648 to 2147483647." },
+        { q: "How do you detect overflow when parsing argv?", a: "Accumulate into a `long` and check against `INT_MAX` and `INT_MIN` — checking on the `int` itself is too late, because it has already wrapped." },
+        { q: "What does `INT_MAX + 1` give?", a: "`INT_MIN` — the top bit flips from 0 to 1, which in this representation means the most negative value. No error, no warning." },
+      ]},
       { h: "🔬 Deep Dive D: walking the cost calculation step by step" },
       { p: "Say we want to insert an element from B back into A, where the target position in A = 3 (out of size 8) and the element in B is at pos = 6 (out of size 7):" },
       { code: String.raw`ca = cost_of(3, 8): 3 <= 8/2 (=4)?  yes -> +3   (ra x3)
@@ -151,6 +166,101 @@ total = |3| + |1| = 4 rotations + pa = 5 ops`, cap: "Opposite directions: just a
 This is why pick_cost uses max(|ca|,|cb|) when directions match
 (the overlapping part is merged away by rr/rrr).`, cap: "The key reason the op count drops enough to pass the budget", lang: "txt" },
       { note: "Theory takeaway: empirically Turkish sort grows like ~n·log n — 100→~580 (0.87× the n·log₂n yardstick of 664) and 500→~5233 (1.17× the yardstick of 4482). The ratio creeps up as n grows, but it stays in the n log n regime rather than n², which is exactly why it beats radix and selection on op count." },
+      { qa: [
+        { q: "What is the cost of moving one element made of?", a: "The rotations needed to bring that element to the top of B (cb) plus those needed to bring its target position in A to the top (ca) — each side choosing the shorter direction by comparing the position with size/2." },
+        { q: "Why can a cost be negative?", a: "The sign carries the *direction* in the same number — positive means rotating forwards (`ra`/`rb`), negative means rotating backwards (`rra`/`rrb`). No separate direction variable is needed." },
+        { q: "When does `rr` save operations?", a: "When ca and cb are both positive (or both negative) — they can rotate together, so the cost becomes `max(|ca|, |cb|)` instead of `|ca| + |cb|`." },
+      ]},
+            { h: "🔬 Deep Dive E: proving that normalisation preserves the order" },
+      { p: "Normalisation turns the real values into ranks 0..n-1. The question that matters: **is sorting the ranks the same as sorting the values?**" },
+      { code: String.raw`definition: rank(x) = how many elements in the set are smaller than x
+
+proof that x < y ⇒ rank(x) < rank(y):
+    every element smaller than x is also smaller than y
+    and x itself is smaller than y but not smaller than x
+    → the count for y is at least one greater than for x
+    → rank(x) < rank(y), for every pair
+
+so the order is identical, and sorting the ranks sorts the values`, cap: "The mapping is strictly increasing, so no ordering information is lost", lang: "txt" },
+      { code: String.raw`why ranks beat raw values:
+
+  finding "where should 42 go in A?"
+    with raw values: compare 42 against every value, worrying about the range
+    with ranks:      compare small integers 0..n-1, no overflow to consider
+
+  and the target position is found by index arithmetic rather than value arithmetic`, cap: "Every comparison after this point works on small integers with a known range", lang: "txt" },
+      { note: "Normalisation is O(n²) (comparing every pair) but runs once at the start — and the score counts stack operations, not time. 250,000 comparisons at n=500 finish in a fraction of a second." },
+      { qa: [
+        { q: "What is normalisation and why do it?", a: "Converting the real values into ranks 0..n-1 (their position once sorted) — so comparisons never risk overflow and target positions can be computed by index rather than by value." },
+        { q: "How do you prove normalisation doesn't disturb the order?", a: "rank(x) = the number of elements smaller than x — if x < y then everything below x is also below y, and x itself is below y, so rank(x) < rank(y) for every pair. The order is preserved exactly." },
+        { q: "Isn't an O(n²) normalisation too slow?", a: "It runs once at the start, and the score counts stack operations rather than time — 250,000 comparisons at n=500 take a fraction of a second." },
+      ]},
+      { h: "🔬 Deep Dive F: why greedy works well here" },
+      { p: "A greedy algorithm doesn't guarantee the optimum in general. What makes it work here is the shape of the cost function." },
+      { code: String.raw`the algorithm, in outline:
+
+  push n-3 elements down to B
+  sort the 3 left in A
+  repeat: find the element in B whose total cost is lowest, and move it back
+  finally rotate the smallest to the top
+
+each move takes the cheapest option available right now — no lookahead at all`, cap: "Purely local decisions, yet the result lands close to n·log n in practice", lang: "txt" },
+      { code: String.raw`why it comes out at ~n·log n rather than n²:
+
+  moving the cheapest element first removes it from the pile
+  → the pile shrinks, and the remaining costs fall with it
+  → later moves are cheaper than earlier ones, not equally expensive
+
+  the worst case really is n², but it needs deliberately constructed input;
+  random input — which is what evaluators use — never comes close`, cap: "The cost per move decreases as the work proceeds, which is what keeps the total near n log n", lang: "txt" },
+      { code: String.raw`compared with the alternatives:
+
+  selection sort:  always take the SMALLEST, whatever it costs to move
+                   → ~n²/2 operations (n=100 → ~5000)
+
+  Turkish sort:    always take the CHEAPEST TO MOVE
+                   → exploits whatever order the pile already happens to have
+                   → ~580 operations at n=100`, cap: "The difference is entirely in what 'best' means when choosing the next element", lang: "txt" },
+      { note: "The deeper reason greedy suits this problem: the cost function is structured so that a locally right choice doesn't make the next step much worse — which is exactly the property greedy algorithms need." },
+      { qa: [
+        { q: "Greedy doesn't guarantee an optimum — why does it work here?", a: "Because the cost function is structured so a correct local choice doesn't harm the next step much — removing the cheapest element shrinks the pile and lowers the remaining costs. The result grows at roughly n·log n." },
+        { q: "How does it differ from selection sort?", a: "Selection sort always takes the *smallest* regardless of the cost of moving it (~n²/2 operations). Turkish sort takes the *cheapest to move*, exploiting whatever order the pile already has." },
+        { q: "How bad is greedy's worst case?", a: "Theoretically as bad as n², but it takes deliberately constructed input — the random input evaluators use never comes close." },
+      ]},
+      { h: "🔬 Deep Dive G: analysing the score thresholds — why <700 and ≤5500" },
+      { p: "People often wonder where `< 700 ops (100 numbers)` and `< 5500 ops (500 numbers)` come from. They sit deliberately close to the n·log₂n mark." },
+      { code: String.raw`the n·log₂n yardstick (how hard the sorting job is):
+
+  n = 100:  100 × 6.64 = 664
+  n = 500:  500 × 8.97 = 4483
+
+the full-marks thresholds:  < 700  and  < 5500
+  → both sit just above the yardstick`, cap: "The thresholds are set at the level of the work itself, not at an arbitrary round number", lang: "txt" },
+      { code: String.raw`which algorithms clear the bar:
+
+  n=100, full marks < 700:
+    selection sort  ~5000    ✗ nowhere near
+    insertion-ish   ~2000    ✗
+    Turkish greedy  ~580     ✓
+    radix sort      ~700     borderline
+
+  n=500, full marks < 5500:
+    Turkish greedy  ~4800    ✓
+    radix sort      ~5500    borderline`, cap: "Anything growing like n² is excluded outright — which is the point of the threshold", lang: "txt" },
+      { code: String.raw`why the thresholds sit so close to n log n:
+
+  the aim is to force an algorithm that genuinely grows like n log n
+  a threshold twice as generous would let n² approaches through at n=100
+  a threshold much tighter would be unreachable in a project of this size
+
+  → the numbers are set exactly where the intended solution passes
+    and the unintended ones do not`, cap: "So an implementation landing near the threshold is a signal about the algorithm, not about tuning", lang: "txt" },
+      { note: "How to check which band you are in: run 5-10 times with random 100 and 500-element input and take the WORST result — the evaluator randomises too and won't draw your lucky set." },
+      { qa: [
+        { q: "Where do the 700 and 5500 thresholds come from?", a: "They sit just above n·log₂n (100 → 664, 500 → 4483), forcing a genuinely n log n algorithm — anything growing like n² cannot pass." },
+        { q: "Does one run of 690 mean you have passed?", a: "Not yet — run 5-10 times with random input and look at the worst result, because the evaluator randomises too and won't get your set." },
+        { q: "What score is 800 operations at 100 numbers?", a: "Band 4 (< 900) — a pass, but not full marks. The table runs from < 700 (full 5) down to < 1500 (1 point)." },
+      ]},
       { h: "📖 Further reading (go deeper on the theory)" },
       { links: [
         { label: "Big-O notation — Wikipedia", url: "https://en.wikipedia.org/wiki/Big_O_notation", note: "Formal definition + growth-rate comparison table" },
@@ -606,6 +716,11 @@ pthread_mutex_unlock(&philo->meal_lock);
 
 rule of thumb: the slice should be << the smallest time in the problem (often time_to_die)`, cap: "slice size = trade-off between timing accuracy (smaller = sharper) and CPU use (smaller = costlier)", lang: "txt" },
       { note: "Measure it yourself: wrap `gettimeofday` around precise_sleep(200) and print the real elapsed time — compare one usleep(200000) vs slicing 200µs: the single block jitters more and overshoots more easily under load." },
+      { qa: [
+        { q: "In what way is `usleep` imprecise?", a: "It only guarantees 'at least' the time requested — the scheduler may wake you several milliseconds late, which can exceed the problem's death threshold." },
+        { q: "How do you fix it?", a: "Sleep in short bursts and compare the current time against the target each round — sleeping in small steps until you are nearly there. Far more accurate, and it doesn't burn CPU the way a bare spin does." },
+        { q: "Why not just spin on the clock?", a: "It consumes a full core for the whole sleep — with several philosophers at once the machine slows down enough to affect everyone's timing." },
+      ]},
       { h: "📖 Further reading" },
       { links: [
         { label: "Dining philosophers problem — Wikipedia", url: "https://en.wikipedia.org/wiki/Dining_philosophers_problem", note: "the original problem + several solutions" },
@@ -2318,6 +2433,11 @@ if (pid == 0) {
 
 parent doesn't exec -> stays the "controller", waits for both children`, cap: "if the parent exec'd itself it would vanish, leaving no one to wait -> can't clean up", lang: "txt" },
 
+      { qa: [
+        { q: "What does `fork()` return, and what does each value mean?", a: "It returns twice, from two processes — in the parent, the child's PID (greater than 0); in the child, 0; and -1 if it failed. The same line then takes two different paths in two processes." },
+        { q: "What does the child inherit?", a: "A copy of everything — variables, memory, and **the entire fd table**. That last one is the root of hanging pipelines, because a forgotten fd is copied into every process." },
+        { q: "Why check `fork`'s return value every time?", a: "-1 means no new process exists — carry on without checking and the 'child' code runs in the parent and destroys its own fds." },
+      ]},
       { h: "🔬 Deep Dive B: how the fd table changes during dup2 (a real trace)" },
       { p: "dup2(old, new) = 'make slot new in the fd table point to the same place as old' (closing new first if it's open). Trace it in child1 where infile=fd3, pipe write=fd5:" },
       { code: String.raw`child1 start:
@@ -2334,6 +2454,11 @@ close(3); close(4); close(5):    close the unused copies
 
 after this, exec(ls): ls writes stdout(fd1) = into the pipe, unknowingly`, cap: "exec keeps the fd table (doesn't reset it) -> the cmd inherits this redirection", lang: "txt" },
 
+      { qa: [
+        { q: "What does `dup2(oldfd, newfd)` do?", a: "It closes `newfd` (if open) and makes it refer to the same thing as `oldfd` — afterwards the two are interchangeable. So `dup2(fd, 0)` means 'from now on stdin is this file'." },
+        { q: "Why `close(oldfd)` after `dup2`?", a: "Afterwards two fds point at the same thing — the original is unused but still counts as holding the pipe end open, which stops the reader ever seeing EOF." },
+        { q: "How does `dup2` differ from `dup`?", a: "`dup` gives you the lowest free fd, chosen by the system; `dup2` lets you name the destination, which matters because you specifically need numbers 0 and 1." },
+      ]},
       { h: "🔬 Deep Dive C: why a pipeline hangs — pipe reference counting" },
       { p: "The kernel counts how many fds still have the pipe's 'write end' open (a write-end reference count). The reader gets EOF **only when that count = 0**." },
       { code: String.raw`the hang scenario (parent forgets to close the write end):
@@ -2347,6 +2472,11 @@ after this, exec(ls): ls writes stdout(fd1) = into the pipe, unknowingly`, cap: 
   -> wc (in child2) reads stdin forever waiting for EOF -> hang`, cap: "the fix: the parent must close both pipe ends right after all forks", lang: "txt" },
       { note: "This is the theory behind the rule 'close every fd' — not just to prevent leaks, but as the condition for the pipeline to actually finish." },
 
+      { qa: [
+        { q: "Why does `wc -l` hang and never finish?", a: "`read` on a pipe returns 0 (EOF) only once **every copy of the write end is closed in every process**. One left anywhere — including in the parent — and the reader waits forever." },
+        { q: "Who has to close the pipe ends?", a: "The parent must close both after forking everything · each child must close the ends it doesn't use **and the one it already dup2'd**." },
+        { q: "How do you diagnose a hang?", a: "Check every process for a remaining open write end — `ls -l /proc/<pid>/fd` tells you directly which fds are open and what they point at." },
+      ]},
       { h: "🔬 Deep Dive D: exec replaces the process's memory" },
       { p: "A process has memory divided into segments. `execve` discards all of it and loads a new program:" },
       { code: String.raw`a process's memory (high -> low addresses):
@@ -2363,6 +2493,12 @@ after this, exec(ls): ls writes stdout(fd1) = into the pipe, unknowingly`, cap: 
 execve(ls): everything above is "wiped" and replaced by ls's
   -> anything malloc'd before exec is gone with the old image (not a leak)
   -> same PID but a brand-new "identity"`, cap: "if execve succeeds it doesn't return; the next line is always an error path", lang: "txt" },
+      { qa: [
+        { q: "What does `execve` do to the process that calls it?", a: "It replaces the entire memory image (code, data, heap, stack) with a new program — same PID, open fds intact, but the old variables and code are gone." },
+        { q: "Why is the code after `execve` always the failure path?", a: "On success it never returns — the old program no longer exists. The next line runs only if exec failed." },
+        { q: "Why must `execve` be given `envp`?", a: "The new program needs its own environment — crucially the `PATH` its own children will use. Passing NULL makes many commands misbehave." },
+        { q: "What exit code should `command not found` use?", a: "127, per the shell convention — and 126 when the file exists but isn't executable." },
+      ]},
       { h: "📖 Further reading" },
       { links: [
         { label: "Beej's Guide to Unix IPC", url: "https://beej.us/guide/bgipc/", note: "the legendary guide to pipe/fork/IPC, fun and clear" },
@@ -2641,6 +2777,11 @@ call order (DFS): fill(1,1)=P
 
 check: any C/E left that isn't V? none -> all reachable /`, cap: "flood fill = DFS leaving a 'V' trail to avoid revisiting (the base case that makes the recursion stop)", lang: "txt" },
 
+      { qa: [
+        { q: "How does flood fill work?", a: "Start from one cell and spread into the walkable neighbours, marking each as visited and spreading on from there — until no new cells remain. Anything unmarked is unreachable." },
+        { q: "How do DFS and BFS differ, and which should you use?", a: "DFS goes deep first (recursion or a stack); BFS spreads in layers (a queue). For 'is it reachable?' both give the same answer at the same O(V+E) cost — DFS is shorter to write, so it's the usual choice here." },
+        { q: "What is flood fill's complexity on a w×h map?", a: "O(w·h) — each cell is visited and marked at most once, and each has a fixed number of edges (four directions)." },
+      ]},
       { h: "🔬 Deep Dive B: recursion, the call stack, and stack overflow" },
       { p: "Every nested flood_fill call pushes a frame onto the call stack. The maximum depth = the length of the longest path through open space." },
       { code: String.raw`the call stack when filling deep:
@@ -2656,6 +2797,11 @@ the recursion depth may exceed the stack size (usually ~8 MB)
 -> for very large maps, switch to BFS with a queue (a loop, no recursion)
   but the project's map size is small enough -> recursion is safe and shorter`, cap: "trade-off: recursion is short/readable but bounded by stack size", lang: "txt" },
 
+      { qa: [
+        { q: "What happens when recursion goes too deep?", a: "A stack overflow — each level occupies call-stack space, which is limited (typically 8 MB). The program dies with a segfault and no warning." },
+        { q: "How large does a map have to be before it's risky?", a: "The maximum depth equals the number of walkable cells along a single path — tens of thousands of cells in one long corridor starts to be risky. The fix is switching to BFS with a heap-allocated queue." },
+        { q: "Why mark a cell before recursing rather than after?", a: "Marking afterwards lets the same cell be re-entered from another neighbour immediately, looping forever — marking first is what makes it terminate." },
+      ]},
       { h: "🔬 Deep Dive C: deriving the camera formula (screen ↔ map coords)" },
       { p: "We want the player always centred, so we move the camera with the player, then clamp so we don't show outside the map:" },
       { code: String.raw`want the player centred:
@@ -2670,6 +2816,11 @@ convert a cell (x,y) to a screen pixel:
   screen_x = (x - cam_x) * TILE
   screen_y = (y - cam_y) * TILE   (screen y points down!)`, cap: "it's a 'shift of frame of reference' — the same principle as a camera in any game", lang: "txt" },
 
+      { qa: [
+        { q: "How is the camera computed?", a: "`cam = the player's position − half the screen`, then clamped to the range `0 .. map size − screen size` — which keeps the player centred except near the map's edges." },
+        { q: "Why clamp it?", a: "Otherwise, with the player in a corner, the camera slides past the edge and draws area with no data — giving a black border or an out-of-bounds read." },
+        { q: "How do you convert map coordinates to screen coordinates?", a: "`screen_x = (map_x − cam_x) × TILE` — subtract the camera position first, then multiply by the tile size." },
+      ]},
       { h: "🔬 Deep Dive D: a formal Finite State Machine" },
       { p: "An FSM is defined by 5 parts (Q, Σ, δ, q₀, F). For so_long:" },
       { code: String.raw`Q  (states)    = { playing, won, closed }
@@ -2680,6 +2831,11 @@ d  (transition):
    playing --reach E with all coins--> won --> exit
    playing --ESC/close-------------> closed --> exit
    playing --press a direction (no wall)--> playing (update position)`, cap: "thinking in FSM makes the logic clear and complete — the same idea as state machines in big systems (e.g. LangGraph)", lang: "txt" },
+      { qa: [
+        { q: "What states does this game have?", a: "Playing (not everything collected) → all collected (the exit opens) → won. The only event driving a transition is the player moving." },
+        { q: "What should happen when entering the exit early?", a: "Nothing — you stay in the same state. The exit behaves exactly like a wall until `collected == total`." },
+        { q: "Why is writing it as an FSM better than scattering `if`s?", a: "The winning condition lives in one place — adding a new state (an enemy that kills you, say) means adding a transition rather than revising every movement check." },
+      ]},
       { h: "📖 Further reading" },
       { links: [
         { label: "Graph theory — Wikipedia", url: "https://en.wikipedia.org/wiki/Graph_theory", note: "graph basics + connectivity" },
@@ -2971,6 +3127,11 @@ z² + c = (a² − b² + e) + (2ab + f)i
   -> z₁ = −0.86 + 0.57i
   |z₁|² = 0.86² + 0.57² = 0.74 + 0.32 = 1.06  (< 4 -> not escaped, keep going)`, cap: "iterate z₁→z₂→... until |z|²>4 or max_iter is reached", lang: "txt" },
 
+      { qa: [
+        { q: "How do you compute `z²` for a complex number?", a: "`(a + bi)² = a² − b² + 2abi` — the real part is `a² − b²` and the imaginary part is `2ab`. The minus sign comes from `i² = −1`." },
+        { q: "Why must you keep the old value before updating?", a: "The new imaginary part uses the **old** real part — overwrite `re` first and `im` comes out wrong immediately. Always keep `tmp = re`." },
+        { q: "Why not use C99's `complex.h`?", a: "You could, technically, but writing it out shows exactly what each iteration does and keeps performance under your control — this loop runs millions of times per frame." },
+      ]},
       { h: "🔬 Deep Dive B: proving the escape radius theorem (why the number 2)" },
       { p: "Claim: if |z| > 2 (and |z| ≥ |c|, true for the points we care about) the sequence diverges to infinity for sure. Proof via the triangle inequality:" },
       { code: String.raw`triangle inequality:  |z² + c| ≥ |z²| − |c| = |z|² − |c|
@@ -2989,6 +3150,11 @@ since |z| > 2  ->  (|z| − 1) > 1  ->  there's a k = |z|−1 > 1
   (squaring both sides is valid since both are ≥ 0)
 -> drop the sqrt = much faster (runs millions of times/frame)`, lang: "txt" },
 
+      { qa: [
+        { q: "Why is the escape radius 2?", a: "It can be proved that once `|z| > 2` the magnitude only grows and can never come back — so the point is definitively outside the set and there is no need to iterate further." },
+        { q: "Could you use a larger value than 2?", a: "Yes, and it stays correct, but it iterates more for nothing — 2 is the smallest value that still guarantees correctness." },
+        { q: "Could you use something smaller than 2?", a: "No — points whose `|z|` reaches 1.9 and then comes back into the set really exist, so cutting there colours them wrongly." },
+      ]},
       { h: "🔬 Deep Dive C: IEEE 754 double & why deep zoom blocks up" },
       { code: String.raw`double = 64 bits:
   [ 1 sign | 11 exponent | 52 mantissa ]
@@ -3003,6 +3169,11 @@ when you zoom: the frame width (max_re − min_re) keeps shrinking
 -> the reason to use double not float (float blocks up far sooner ~2⁻²³)
   and the reason zoom has a natural "ceiling"`, cap: "this numerical limit is real in every fractal renderer", lang: "txt" },
 
+      { qa: [
+        { q: "Why does the image break into blocks at very deep zoom?", a: "A `double` has limited precision (~15-16 decimal digits) — once the frame is narrower than the gap between representable values, neighbouring pixels get exactly the same value and become one flat block." },
+        { q: "Can it be fixed?", a: "Only by moving to higher precision (`long double` buys a little; arbitrary precision genuinely works but is very slow) — outside this project's scope, but you should be able to explain the cause." },
+        { q: "Could you use `float` instead of `double`?", a: "You could, but the usable zoom is far shallower (~7 digits) — the blocking appears many times sooner." },
+      ]},
       { h: "🔬 Deep Dive D: deriving the pixel ↔ complex-plane mapping" },
       { code: String.raw`we want a linear function where:
    x = 0      -> re = min_re
@@ -3021,6 +3192,11 @@ example: frame [−2, 1], WIDTH=800, pixel x=400 (centre)
 the im axis is flipped:  im = max_im − (y/HEIGHT)(max_im − min_im)
    because screen y increases downward but the imaginary axis increases upward`, cap: "linear interpolation = map a value from one range to another proportionally, used in both render and zoom", lang: "txt" },
       { note: "connection: the zoom formula is this interpolation reversed — find the complex point under the mouse, then shrink the [min,max] range toward it by a factor." },
+      { qa: [
+        { q: "How do you map a pixel onto the complex plane?", a: "A linear scale: `re = min_re + x × (max_re − min_re) / width` and `im = max_im − y × (max_im − min_im) / height`." },
+        { q: "Why is the imaginary formula a subtraction?", a: "The screen's y axis grows downwards while the imaginary axis grows upwards — it has to be flipped, or the image is upside down." },
+        { q: "Why preserve the aspect ratio?", a: "If the real and imaginary ranges aren't proportional to the window's width and height, the image is stretched or squashed — the Mandelbrot set comes out misshapen." },
+      ]},
       { h: "📖 Further reading" },
       { links: [
         { label: "Mandelbrot set — Wikipedia", url: "https://en.wikipedia.org/wiki/Mandelbrot_set", note: "definition + properties of the set" },
@@ -3284,6 +3460,11 @@ mandatory fix:  usleep(400) so the server keeps up
 bonus fix:      wait for an ack on every bit (lock-step) — fix at the root`, cap: "this is why you need usleep (mandatory) or an ack handshake (bonus) — not an extra, a necessity", lang: "txt" },
       { note: "POSIX has real-time signals (SIGRTMIN..SIGRTMAX) that 'do queue', but minitalk forces SIGUSR1/2 which don't — so we handle this ourselves." },
 
+      { qa: [
+        { q: "Why do signals get lost?", a: "Standard signals don't queue — the system records only 'pending or not' as a single bit per signal type. Send SIGUSR1 again before the first is handled and the second simply disappears." },
+        { q: "How do you fix it?", a: "With an acknowledgement — the receiver signals back 'I got that bit' and the sender waits for it before sending the next. Guessing at a delay isn't the answer, because machines differ in speed." },
+        { q: "Why is `sigaction` better than `signal`?", a: "Its behaviour is precisely defined and portable (`signal` varies between systems), it can block signals while the handler runs, and with `SA_SIGINFO` it can receive extra information such as the sender's PID." },
+      ]},
       { h: "🔬 Deep Dive A: bitwise operations — proving why `(c >> bit) & 1` reads the bit right" },
       { p: "The heart of minitalk is 'reading one bit at a time' from a byte. Many write the code but don't grasp what `>>` and `& 1` really do — let's prove it with binary." },
       { code: String.raw`take c = 'A' = 65 = 0100 0001 (binary)
@@ -3323,6 +3504,11 @@ USR2 (bit=1):  c = (32 << 1) | 1 = 0100 0001
 result = 0100 0001 = 65 = 'A' — a full byte`, cap: "left shift = open a slot on the right, |1 fills the new bit — MSB-first makes the order correct automatically", lang: "txt" },
       { note: "why MSB-first: if you sent LSB-first the server would have to 'know' which bit position it's at to know where to `|` the value — more complex code. MSB-first + `<<1` means 'no counting positions' — each bit lands correctly on its own." },
 
+      { qa: [
+        { q: "How do you extract bit i of a byte?", a: "`(c >> i) & 1` — shift the bit you want down to the rightmost position, then mask off everything else with 1." },
+        { q: "How do you reassemble the bits into a byte?", a: "`byte = (byte << 1) | bit`, eight times — shift what you have left and drop the new bit into the rightmost position." },
+        { q: "Is it better to send the high bit first or the low bit first?", a: "Either, as long as both sides agree — get it backwards on one side and you receive a character with its bits reversed, so 'A' (65) arrives as 130." },
+      ]},
       { h: "🔬 Deep Dive B: async-signal-safety — why most functions are forbidden in a handler" },
       { p: "A signal handler has a serious limitation many overlook: it 'interrupts' whatever the program is doing at any moment. If the handler calls an 'unsafe' function the result can break in very hard-to-find ways." },
       { code: String.raw`the problem scenario:
@@ -3364,6 +3550,11 @@ static void handle_signal(int sig)
 }`, lang: "c" },
       { note: "In minitalk we're lucky ft_printf is built on write() — if another project must print in a handler, always verify the print function truly builds on write(), not libc printf." },
 
+      { qa: [
+        { q: "What does async-signal-safe mean?", a: "A function safe to call from inside a signal handler — because a signal can interrupt normal execution at any moment, including while `malloc` is halfway through modifying its own structures." },
+        { q: "Why is `printf` dangerous in a handler?", a: "It uses internal buffers and may `malloc` — if the signal interrupts the main program mid-`printf`, those structures are corrupted or it deadlocks." },
+        { q: "What should you use instead?", a: "`write`, which is on the safe list — or record the state in a `volatile sig_atomic_t` and let the main loop do the printing." },
+      ]},
       { h: "🔬 Deep Dive C: UTF-8 encoding — why sending raw bytes supports Thai/emoji for free" },
       { p: "Many are surprised minitalk sends Thai/emoji with no special code. The answer is **UTF-8 encoding** — how every language's characters are stored as raw bytes." },
       { code: String.raw`UTF-8: 1 character = 1 to 4 bytes (not equal)
@@ -3404,6 +3595,11 @@ UTF-8: 11110000 10011111 10001110 10001001
 client sends 4 × 8 = 32 signals
 server receives 4 bytes -> write -> terminal shows '🎉' /`, lang: "txt" },
       { note: "Limitation: if the server uses ft_printf('%c', c) per byte it won't show Thai/emoji, because the terminal needs all bytes of a character to display it. Fix: buffer the bytes and write once per character (or write the bytes directly)." },
+      { qa: [
+        { q: "Why does sending raw bytes still display Thai correctly?", a: "UTF-8 stores one character as several consecutive bytes — send every byte in order and the terminal reassembles them at display time. You never need to know how many bytes a character takes." },
+        { q: "How many bytes does a Thai character use?", a: "Three in UTF-8 (English is 1, most emoji are 4) — so the number of bits to send is three times the character count." },
+        { q: "Do you need to send a terminating byte?", a: "Yes — send a `\0` as the end-of-message marker, or the receiver never knows when to print and the next message runs into it." },
+      ]},
       { h: "📖 Further reading" },
       { links: [
         { label: "Beej's Guide to Unix IPC — Signals", url: "https://beej.us/guide/bgipc/html/#signals", note: "signals / handlers / kill explained, fun and clear" },
@@ -3749,6 +3945,11 @@ temperature=1.2 (creative):
   customer answers: 0.3-0.7
   fiction/ideas: 0.7-1.2`, lang: "txt" },
 
+      { qa: [
+        { q: "What is autoregressive decoding?", a: "The model predicts one token at a time, appending each new token to its input to predict the next — so a whole paragraph comes from repeated one-step predictions rather than from planning ahead." },
+        { q: "What does temperature do to token selection?", a: "It reshapes the probability distribution — low values almost always pick the most likely token (repetitive output), high values give unlikely tokens a real chance (varied, but more prone to going astray)." },
+        { q: "Why can a model be confidently wrong?", a: "It picks tokens that are probable given the patterns of language, without checking them against reality — a statement that is false but well-formed is about as probable as a true one." },
+      ]},
       { h: "🔬 Deep Dive B: how a tokenizer works — the BPE algorithm" },
       { p: "An LLM reads not characters but **tokens** (word pieces). A tokenizer converts text -> token numbers. The most widely used method is **BPE (Byte Pair Encoding)**." },
       { code: String.raw`BPE: trained on enormous text -> find "frequent word pieces" and make them tokens
@@ -3789,6 +3990,11 @@ if a character isn't in the vocab (e.g. emoji 🎉 or special chars):
 
 -> the more 'unusual' the character, the more tokens it costs`, lang: "txt" },
 
+      { qa: [
+        { q: "How does BPE work?", a: "Start from individual characters and repeatedly merge the most frequent pair into a new unit until the vocabulary reaches its target size — so common words become single tokens while rare ones are split into pieces." },
+        { q: "Why does Thai consume more tokens than English?", a: "The vocabulary was trained mostly on English text — Thai words are usually split into several pieces, sometimes byte by byte, so the same amount of text costs several times more tokens." },
+        { q: "Why does the model miscount the letters in a word?", a: "It never sees letters — it sees tokens. A word that is a single token carries no information about which letters, or how many, are inside it." },
+      ]},
       { h: "🔬 Deep Dive C: Context window — the LLM's 'working memory' + why position matters" },
       { p: "an LLM has no memory across calls — the only thing it 'knows' that round is every token in the context window (system + history + docs + question). The context window is its entire working memory; once full, you must trim/summarize." },
       { code: String.raw`context window = the token ceiling per round
@@ -3815,6 +4021,11 @@ when it's about to overflow -> you must:
         { q: "Does an LLM remember the previous conversation on its own?", a: "No — it has no state across calls. You must 'resend the whole history' every time (which is why tokens accumulate in a long chat)." },
         { q: "Why is stuffing lots of context bad even when the ceiling isn't full?", a: "(1) attention O(n²) -> quadratically slower+pricier, (2) lost in the middle -> too much info dilutes attention, recalling key info less accurately. Send only what's relevant rather than everything." },
         { q: "Where should the question go in the prompt?", a: "At the 'bottom' (near where the model starts answering), with long docs/context above — reducing lost-in-the-middle and making the question clear before answering." },
+      ]},
+      { qa: [
+        { q: "What is the context window?", a: "The maximum number of tokens the model accepts in one request, counting both input and output — exceed it and something must be dropped or summarised, because nothing carries over between requests automatically." },
+        { q: "What is 'lost in the middle'?", a: "Models use information at the start and end of the context better than in the middle — so important documents belong at the beginning or the end, not buried in the pile." },
+        { q: "Does a larger context always mean better results?", a: "No — stuffing in irrelevant material costs more and reduces accuracy. Selecting only what is relevant (what RAG does) beats including everything." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -4118,6 +4329,11 @@ what you get:
   - the model spends no tokens formatting the answer itself`, lang: "txt" },
       { note: "Limitation: structured output works with the major providers' APIs (Anthropic/OpenAI/Google) — with a local model you parse it yourself." },
 
+      { qa: [
+        { q: "What does structured output guarantee?", a: "That the result conforms to the schema you supplied — achieved by restricting, at each step, the tokens the model may choose to those that keep the JSON valid against that schema." },
+        { q: "How is that different from asking for JSON in the prompt?", a: "A prompt is only a request — the model can still emit an extra brace, drop a field or add a preamble. Constraining decoding makes malformed output *impossible*." },
+        { q: "Do you still have to validate the result?", a: "Yes — a valid shape doesn't mean valid content. A schema constrains types and structure; it cannot make the values true." },
+      ]},
       { h: "🔬 Deep Dive B: Prompt Caching — the mechanism and the real price" },
       { p: "Prompt caching isn't just 'remember the old prompt' — it's an **API-level optimization** where the provider stores a prefix of the prompt and charges less on repeat." },
       { code: String.raw`how Prompt Caching works:
@@ -4146,6 +4362,11 @@ client.messages.create(
             "text": "You are an expert... (a long 2000-token prompt)",
             "cache_control": {"type": "ephemeral"}  # <- add this line
         }
+      { qa: [
+        { q: "How does prompt caching work?", a: "It stores the processed form of a repeated *prefix* — a later request starting identically skips that computation and is billed at the much cheaper cache-read rate." },
+        { q: "What stops the cache from hitting?", a: "Anything that changes the prefix — a single space, a timestamp placed at the top of the prompt, or a reordered tool list. Whatever varies has to go at the **end**." },
+        { q: "Where is the break-even point?", a: "Writing the cache costs more than the normal rate while reading it costs much less — so it pays once the same prefix is reused more than a certain number of times. Confirm it by reading the cached-token counts in the real responses rather than guessing." },
+      ]},
     ],
     messages=[
         {"role": "user", "content": "the user's question"}
@@ -4219,6 +4440,11 @@ save: $9.60 -> $1.51 = 84%!
         { q: "Can an LLM run functions/call APIs itself?", a: "No — it only produces text. Tool calling is it 'asking' us to run (tool_use) and us feeding the result back (tool_result) so it can answer." },
         { q: "How does the model know which tool to call, with what args?", a: "From the name + description + input_schema we provide, the model matches the question to a suitable tool, then constrained-decodes the args to match the schema." },
         { q: "Why is tool calling the foundation of an agent?", a: "An agent is a loop of 'think -> call a tool -> see the result -> think more' (ReAct). Tool calling is the 'call a tool + get the result' mechanism that makes that loop real." },
+      ]},
+      { qa: [
+        { q: "What does the tool-calling cycle look like?", a: "The model replies saying which tool to call and with what arguments → **your code runs it** → the result is sent back as the next message → the model uses it to continue. Repeat until it stops requesting tools." },
+        { q: "Does the model run the tools itself?", a: "No — it only states what it would like to call. The execution is on your side, which is exactly where permission checks and scope limits belong." },
+        { q: "How much do the tool descriptions matter?", a: "Enormously — they are the only information the model has when choosing a tool and filling in its arguments. Vague descriptions cause more wrong-tool calls than every other problem combined." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -4470,6 +4696,11 @@ Dot Product:
 
 -> for RAG: use cosine similarity (or dot product after normalizing)`, lang: "txt" },
 
+      { qa: [
+        { q: "What does cosine similarity measure?", a: "The angle between two vectors, not the distance between them — a value from -1 to 1, where 1 means exactly the same direction. So a long and a short document on the same topic can still be close." },
+        { q: "Why not use plain Euclidean distance?", a: "A vector's magnitude tracks text length more than meaning — measuring the angle removes that effect. Once vectors are normalised to unit length, both measures give the same ordering anyway." },
+        { q: "Is 0.85 close enough?", a: "It depends on the model and the data — there is no universal threshold. Find yours from your own test set, at whatever cut-off best separates relevant results from irrelevant ones." },
+      ]},
       { h: "🔬 Deep Dive B: HNSW — why vector search is fast even with millions of rows" },
       { p: "Exact kNN (comparing every row) is slow at scale: 1M vectors × 1536 dims = 1.5 billion values to compute. **HNSW (Hierarchical Navigable Small World)** solves it with a graph structure that 'hops' quickly toward nearby points." },
       { code: String.raw`HNSW: a multi-level layered graph
@@ -4541,6 +4772,11 @@ real impact:
   - Sequential scan: ~2000ms
   - HNSW index:     ~5ms (400x faster)`, cap: "pgvector + HNSW makes vector search fast enough for production without a separate DB", lang: "txt" },
 
+      { qa: [
+        { q: "How does HNSW make search fast?", a: "It builds a layered graph — the upper layers hold few nodes with long-range links, used to jump roughly close to the target, and the lower, denser layers refine the answer." },
+        { q: "Are the results always exactly right?", a: "No — it is an *approximate* search. It trades a little accuracy for a speed-up of hundreds of times, and the balance is tunable through the index parameters." },
+        { q: "When should you not use ANN?", a: "With small collections (thousands to tens of thousands) — scanning everything is still fast enough and gives exact answers, with no index to maintain." },
+      ]},
       { h: "🔬 Deep Dive C: Dimensions & Quantization — why vectors eat storage and how to shrink them 4-32×" },
       { p: "a 1536-dim float32 vector = 6 KB each. 1 million rows = ~6 GB just for the vectors (excluding the index). Two ways to shrink: reduce dimensions, and reduce precision per number (quantization)." },
       { code: String.raw`storage = rows × dimensions × bytes per number
@@ -4563,6 +4799,11 @@ float32 -> binary (1 bit per dimension): store only the 'positive/negative' of e
         { q: "Why not just use lots of dimensions for max accuracy?", a: "More dimensions = wasted storage/RAM + slower search + sometimes pricier embedding. Newer models can truncate (Matryoshka) -> choose an accuracy/cost balance, not always the max." },
         { q: "Does quantization make search miss a lot?", a: "int8 barely drops (~99% recall); binary drops more clearly but is recoverable with rescoring (search coarsely for many candidates, then re-rank with full floats)." },
         { q: "What is a Matryoshka embedding?", a: "A training method making 'the early dimensions most important' -> truncate the vector shorter (e.g. 1536->256) and it still works well, no re-embedding — less storage and faster search." },
+      ]},
+      { qa: [
+        { q: "What does quantization mean for vectors?", a: "Reducing the precision of each dimension (32 bits down to 8, or even 1) so they store smaller and compare faster — at a small cost in accuracy." },
+        { q: "Why is a rescoring step still needed?", a: "Shrunken vectors can order results slightly wrongly — so retrieve more candidates than you need using the small vectors, then re-rank just those with the full-precision ones." },
+        { q: "How does reducing dimensions differ from reducing precision?", a: "Reducing dimensions drops whole axes (which some models are trained to allow); reducing precision keeps every axis but coarsens it. The two combine." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -4849,6 +5090,11 @@ real impact:
 -> chunk 1 may hold all of "Clause 1", chunk 2 all of "Clause 2"
    -> the LLM gets the correct context`, cap: "Recursive = split on separators by priority -> preserves sentence/paragraph structure", lang: "txt" },
 
+      { qa: [
+        { q: "Why split documents before embedding them?", a: "One vector represents a whole document badly — several topics get averaged together until it matches no question well. Splitting into single-topic pieces gives each vector a clear meaning." },
+        { q: "Why do the chunks overlap?", a: "So meaning straddling a boundary isn't lost — the sentence answering the question might be cut exactly in half. A little overlap guarantees one chunk still contains it whole." },
+        { q: "What chunk size should you use?", a: "There is no single answer — it depends on the documents and the questions. The right approach is measuring with your own question set and comparing, not copying a number from an article." },
+      ]},
       { h: "🔬 Deep Dive B: BM25 vs Vector Search — when to use which" },
       { p: "Vector search is great for 'search by meaning' but not every case. **BM25 (keyword search)** still has strengths vectors lack — best when you use **both together (hybrid search)**." },
       { code: String.raw`BM25: a keyword-based relevance score
@@ -4927,6 +5173,11 @@ ORDER BY combined_score DESC LIMIT 5;
 -- real impact:
 -- Hybrid = ~20-30% more accurate than vector-only`, cap: "Postgres does hybrid search in one DB with pgvector + tsvector", lang: "txt" },
 
+      { qa: [
+        { q: "How do BM25 and vector search differ?", a: "BM25 matches literal words (good for product codes, proper nouns, acronyms); vectors match meaning even in different words. Each one's strength is the other's weakness." },
+        { q: "How does hybrid search combine the two?", a: "Either by summing scores after rescaling them onto a comparable range, or by combining ranks with RRF, which ignores the score scales entirely. The latter is simpler and more robust." },
+        { q: "Why can't you add the raw scores?", a: "They're in different units — similarity sits in a bounded range while BM25's score has no fixed ceiling. Added directly, the larger-scaled side always drowns out the other." },
+      ]},
       { h: "🔬 Deep Dive C: Evaluate RAG fully — Retrieval metrics + Generation metrics" },
       { p: "'is RAG good' is measurable, and you must measure **2 layers separately** because they fail at different points: (1) did it retrieve the right thing (retrieval), (2) did it answer correctly from what it retrieved (generation). Without separating, you won't know whether to fix chunking/search or the prompt." },
       { code: String.raw`Layer 1 — Retrieval (accurate search) — needs a 'golden set': question -> correct source
@@ -4955,6 +5206,11 @@ Layer 2 — Generation (good answer) — often 'LLM-as-judge' scores
         { q: "Why measure retrieval and generation separately?", a: "They fail at different points — measuring together you won't know whether to fix chunk/search (didn't find) or prompt/model (found but answered oddly). Separate measurement pinpoints it." },
         { q: "How does faithfulness differ from answer relevance?", a: "Faithfulness = does the answer 'stick to the given context' (no making things up/hallucinating); answer relevance = does the answer 'address the question'. An on-topic answer that fabricates data can still be low faithfulness." },
         { q: "What is a golden set, why is it necessary?", a: "A set of question->correct-source/answer pairs (~30-100) used as the system's 'exam' — without it you tune chunk/k by guessing and can't measure Recall@k/Faithfulness." },
+      ]},
+      { qa: [
+        { q: "Why measure retrieval and generation separately?", a: "A wrong answer has two possible causes — the document wasn't found, or it was found and the answer was still wrong. Measured together, you can't tell which to fix." },
+        { q: "What is a golden set?", a: "A set of questions with the answers and source documents you have judged correct — the baseline that makes comparisons between versions meaningful. Without one you cannot measure improvement at all." },
+        { q: "What does Recall@k tell you?", a: "What fraction of the correct documents appear in the top k results — if it is low the problem is in retrieval, and no amount of prompt tuning on the generation side will help." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -5221,6 +5477,11 @@ result = agent.invoke({"messages": [
 # 9. Observation: "Email sent!"
 # 10. Answer: "Emailed the team the AAPL summary /"`, cap: "create_react_agent = a ready-made ReAct loop — no writing the loop yourself", lang: "py" },
 
+      { qa: [
+        { q: "What is ReAct?", a: "Alternating between reasoning and acting, then observing the result — instead of thinking it all through once and answering. It lets the plan adapt to what is actually found." },
+        { q: "Why is that better than reasoning alone?", a: "Pure reasoning relies only on what the model remembers — once real tool results arrive, wrong assumptions get corrected instead of being built upon." },
+        { q: "What is ReAct's downside?", a: "Every round adds context and cost — and without a good stopping condition it can loop indefinitely. You need both an iteration cap and a no-progress detector." },
+      ]},
       { h: "🔬 Deep Dive B: Graph Topology — DAG vs Cyclic vs Network" },
       { p: "LangGraph can build several graph shapes — each suits a different problem. Let's see which to use when." },
       { code: String.raw`1. DAG (Directed Acyclic Graph) — no cycle:
@@ -5299,6 +5560,11 @@ Network:
 
 -> start with DAG -> add cycles when needed -> network when scaling`, lang: "txt" },
 
+      { qa: [
+        { q: "How do DAG and cyclic topologies differ in practice?", a: "A DAG flows one way and always terminates, suiting work whose steps are known in advance; a cyclic graph can go back, suiting work that needs retrying — but it needs an explicit stopping condition." },
+        { q: "How do you choose?", a: "If you can write the steps down in advance, use a DAG — it is easier to control and predict. Use cycles only when the number of rounds genuinely depends on the results." },
+        { q: "Why not always use the most flexible option?", a: "The more flexible it is, the less predictable, the harder to test and the more expensive — flexibility you don't use is pure cost." },
+      ]},
       { h: "🔬 Deep Dive C: Loop Termination & Error Recovery — why agents loop forever and how to prevent it" },
       { p: "a cyclic agent (Deep Dive B) is powerful because 'the agent decides when to stop' — but that's double-edged: if it decides 'not to stop' (e.g. a tool fails and it calls it again and again), the system loops forever, burning tokens/money endlessly. A production agent needs multiple 'brakes'." },
       { p: "**3 ways a loop fails to terminate:**" },
@@ -5322,6 +5588,11 @@ Layer 4 — Budget cap: track accumulated tokens/cost, over the ceiling -> stop 
         { q: "Why does a cyclic agent risk an unending loop?", a: "Because 'the agent decides to stop itself' — if it decides wrong (a failing tool called again, A<->B with no progress) it loops forever burning tokens. You need an external brake (hard cap), not 100% reliance on the agent stopping itself." },
         { q: "What should a tool error do — crash or return to the agent?", a: "Return it as an observation (is_error=true) so the agent sees it and thinks on (bounded retry / try another tool / tell the user it can't) — not let the whole loop crash." },
         { q: "What's the minimum brake every agent must have?", a: "At least a hard cap (an iteration ceiling, e.g. 10 -> fallback) + a budget cap (a token/cost ceiling) — to stop an unending loop from burning money endlessly." },
+      ]},
+      { qa: [
+        { q: "Why do agents loop forever?", a: "Usually because the stopping condition is 'does it think it's done?', and the model can keep saying no indefinitely — you also need a criterion checkable from outside, such as whether the tests pass." },
+        { q: "How many stopping mechanisms should there be?", a: "Several, working independently — an iteration cap, a cost cap, a no-progress detector, and a success condition measured externally. One alone always eventually fails." },
+        { q: "Should every error trigger a retry?", a: "No — distinguish transient failures (where retrying is worth it) from logical ones (where retrying gives the same result and burns money)." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -5700,6 +5971,11 @@ def output_guardrail(response):
 
 # cost: ~$0 (pure regex, no LLM call)`, cap: "output guardrail = regex + rule-based -> cheap + fast + doesn't trust LLM output", lang: "py" },
 
+      { qa: [
+        { q: "What is prompt injection?", a: "Planting instructions in data the system will read, so the model follows the attacker rather than the system's owner — possible because a model has no natural boundary between 'instruction' and 'data'." },
+        { q: "How do direct and indirect injection differ?", a: "Direct is typed in by the user; indirect hides in content the system fetches (a web page, an email, a document) — the indirect kind is more dangerous because even the user doesn't know it's there." },
+        { q: "Is prompt-level defence enough?", a: "No — you also need it at the permission level. Give tools the narrowest possible scope, require human approval for anything irreversible, and never let external data carry the same authority as the system's own instructions." },
+      ]},
       { h: "🔬 Deep Dive B: Cost Optimization — compute the real price and find savings" },
       { p: "Every token has a price — let's compute what your AI system really pays and how to cut it." },
       { code: String.raw`real prices (per 1M tokens)
@@ -5774,6 +6050,11 @@ With the 1-hour TTL the write costs 2x ($6.00), not 1.25x:
      -> you need at least 3 reuses before it pays off
      pick 1h when traffic arrives in bursts more than 5 minutes apart`, cap: "5-minute TTL pays off on round 2; the 1-hour TTL needs round 3 because the write is pricier.", lang: "txt" },
 
+      { qa: [
+        { q: "Where can costs be reduced?", a: "Match the model to the task (easy work doesn't need the largest one), cache repeated prefixes, strip irrelevant material from the context, and batch anything that isn't urgent." },
+        { q: "Why does routing by difficulty save so much?", a: "Easy requests are usually the bulk of the volume — moving just those to a cheaper model cuts the total substantially without touching the hard ones." },
+        { q: "How do you confirm the saving is real?", a: "Read the token counts actually reported per request, split into input, output, cache write and cache read — not by counting requests alone." },
+      ]},
       { h: "🔬 Deep Dive C: LLM-as-Judge — how to have an LLM grade an LLM reliably" },
       { p: "open-ended tasks (customer answers/summaries/translation) have no 'fixed answer key' to compare — grading thousands of cases by hand is pricey/slow. The solution is using **a second LLM as a judge** to score. But 'an LLM judging an LLM' has pitfalls you must know before you can trust the result." },
       { p: "**2 judging modes:**" },
@@ -5806,6 +6087,11 @@ Pairwise (compare 2 answers, which is better):
         { q: "How do pointwise and pairwise judges differ?", a: "Pointwise scores 1 answer against a rubric (simple, scalable, but scores drift); pairwise compares 2 answers for which is better (more accurate because comparing is easier, but runs many pairs)." },
         { q: "What is position bias, how do you fix it?", a: "A pairwise judge often favours the first (or last) option regardless of content. Fix by running both orders (A,B) and (B,A) and averaging — if they disagree, call it a tie." },
         { q: "Can you trust an LLM judge's scores directly?", a: "Not yet — calibrate first: test the judge against a human-scored set (~50 cases), check agreement with humans; high enough (e.g. >85%) then trust it for the real thousands." },
+      ]},
+      { qa: [
+        { q: "What is LLM-as-judge, and when do you use it?", a: "Using a model to grade a model's output — suited to work with no single correct answer (writing quality, say), where string comparison is useless." },
+        { q: "Why is pairwise comparison better than absolute scoring?", a: "Judging which of two outputs is better is far more consistent than assigning a 1-10 score, which drifts between runs — models are steadier at 'better' than at 'how good'." },
+        { q: "Which biases must you watch for?", a: "A preference for longer answers, for whichever option is presented first, and for output formatted like its own. Counter them by swapping the order and judging again, and by calibrating against some human scores." },
       ]},
       { h: "📖 Further reading" },
       { links: [
@@ -6791,6 +7077,10 @@ total input = 2k · (1+2+3+...+N) = 2k · N(N+1)/2  →  O(N²)
         "Send only the **latest round's diff/error**, not the whole log every time",
       ]},
 
+      { qa: [
+        { q: "Why does a loop's cost grow faster than expected?", a: "Every round resends the whole accumulated context — round n pays the input cost of every previous round combined, not just its own." },
+        { q: "How do you reduce it?", a: "Summarise the history once it exceeds a threshold, keep only what the next round actually needs, and cache the prefix that doesn't change." },
+      ]},
       { h: "🔬 Deep dive B: anatomy of a false-pass — when a loop 'games' the gate" },
       { p: "The silent danger of a loop is that it finds the **easiest path** to make the gate pass — which is sometimes not fixing the real problem but 'making the gate stop complaining'. If the gate is loosely designed, the agent will find that hole on its own." },
       { code: String.raw`gate = "pytest green"   ← looks measurable, but the agent can cheat:
@@ -6809,6 +7099,10 @@ all of these = gate passes, but the real work isn't done → false-pass`, cap: "
       ]},
       { note: "Principle: every gate has a hidden incentive — design the gate as if guarding against a cheater, not an honest worker." },
 
+      { qa: [
+        { q: "What is a false pass?", a: "The loop 'passes' its stopping condition while the work isn't actually done — usually because the condition measures the model's own words rather than a checkable result." },
+        { q: "How do you prevent it?", a: "Make the stopping condition externally measured, such as tests that really run — and never let the loop modify the thing being measured, or it will fix the measure instead of the work." },
+      ]},
       { h: "🔬 Deep dive C: inside one action step — ReAct (Reason → Act → Observe)" },
       { p: "Within each round of the loop, the agent doesn't just 'act' — it runs an inner **ReAct** sub-loop: reason → call a tool (act) → read the result (observe) → reason again, until it has that round's result." },
       { code: String.raw`one round of the outer loop  ⊃  several ReAct steps inside:
@@ -6847,6 +7141,10 @@ ReAct — each step grounds on real results before continuing:
         { q: "How does ReAct differ from chain-of-thought, and why is it better in a loop?", a: "CoT guesses the whole chain without seeing reality → risk of hallucination; ReAct interleaves act/observe so each step reasons on a real observation, cutting hallucination and recovering from errors mid-way — ideal for loops that touch real systems and need a trustworthy gate." },
       ]},
 
+      { qa: [
+        { q: "What does one round of the loop consist of?", a: "Reasoning about what to do next → acting (calling a tool) → observing the real result, which then feeds the next round." },
+        { q: "Why is the observe step the most important?", a: "It is the only point where information from the real world can correct a wrong assumption — skip it and the loop is just thinking to itself." },
+      ]},
       { h: "🔬 Deep dive D: the no-progress detector — knowing a loop is 'stuck' before it hits the cap" },
       { p: "Caps prevent long-term disaster but don't tell you whether the loop is 'spinning uselessly' or 'making progress'. A **no-progress detector** checks whether each round actually reduces the problem; if not, cut it short and save the cap." },
       { code: String.raw`Keep a 'fingerprint' of each round and compare:
@@ -6863,6 +7161,10 @@ signs of being 'stuck' → abort before the cap:
   → ① or ③ met → EXHAUSTED(stuck) → escalate with the log`, cap: "convergence = the failset keeps shrinking; if it doesn't shrink / grows / repeats / oscillates, the loop is spinning — cut it short rather than wait for the cap.", lang: "txt" },
       { note: "Bonus: the detector's log is a great escalation summary — it tells a human immediately 'tried N rounds, stuck on which test, re-proposed which patch'." },
 
+      { qa: [
+        { q: "How do you tell a loop is stuck?", a: "Compare the state between rounds — if the actions and results repeat for several rounds, or the progress measure doesn't move at all, treat it as stuck and stop." },
+        { q: "Why isn't an iteration cap enough on its own?", a: "By the time the cap is reached everything has already been spent — a progress detector can stop it at round three or four instead of round fifty." },
+      ]},
       { h: "📖 Further reading (to dig into the concepts)" },
       { links: [
         { label: "รู้จักกับ Loop Engineering (source talk, Thai)", url: "https://www.youtube.com/watch?v=qlIuFfs-7pY", note: "the definition + real/fake use cases" },
@@ -13837,3 +14139,132 @@ while ((nl = strchr(stash[fd], '\n'))) {        // a complete line is present
     ],
   },
 });
+
+/* ===== EN: ai_loop_engineering — the six sections that were still Thai ===== */
+(function () {
+  var t = window.TEACHING_EN["ai_loop_engineering"];
+
+  t.foundations = [
+    { h: "What a good loop is made of (Andy Osmani's five pieces)" },
+    { table: { head: ["Piece", "Its job"], rows: [
+      ["Automation / **trigger**", "what sets the loop going (a webhook, a timer, an event)"],
+      ["Sandbox isolation", "the agent runs somewhere separate, limiting the blast radius"],
+      ["**Skills**", "ready-made skills, so it doesn't reinvent a wrong approach every round"],
+      ["Plugin / connector", "access to the target system (with the narrowest permissions)"],
+      ["Sub-agents + state/memory", "a separate verifier, plus a record of what has already been tried"],
+    ]}},
+    { note: "The speaker singles out two as the most important: **automation (the trigger)** and **skills**." },
+    { h: "Hard rule 1: always cap both axes (the number one mistake)" },
+    { p: "A loop runs until it is 'satisfied', which may be never. You have to bound both **the number of iterations** and **the token or money budget**. Hitting a cap means the state is **EXHAUSTED → hand it to a human**, not pretend it succeeded." },
+    { code: String.raw`# check the caps BEFORE every round
+if iterations >= MAX_ITERATIONS: return EXHAUSTED   # escalate to a human
+if tokens_used >= TOKEN_BUDGET:  return EXHAUSTED   # stop before the bill grows`, cap: "The classic disaster: still fixing tests on round 20 and burning tokens without limit — caps solve both the wrong result and the cost", lang: "py" },
+    { h: "Hard rule 2: self-verify with a separate verifier" },
+    { p: "An agent shouldn't grade its own work (it tends to be lenient with itself, producing a false pass). Use **a separate sub-agent** to review, with a per-item 'definition of done' checklist. In Claude Code, `/go` can build the verifier for you." },
+    { p: "So the condition for actually being finished is: **the gate passes AND the verifier approves** — only then does it return SUCCESS." },
+  ];
+
+  t.architecture = [
+    { h: "The core shape: run_loop() with three swappable pieces" },
+    { p: "Every loop has the same skeleton and differs in just three functions: **action** (decide and do), **gate** (a measurable check), and **verify** (an independent second opinion). The caps and escalation live in the shared skeleton and come for free." },
+    { code: String.raw`def run_loop(cfg, run_agent_step, check_gate, verify):
+    state = LoopState()
+    while True:
+        # --- caps first, always (bound both axes) ---
+        if state.iterations >= cfg.max_iterations: return EXHAUSTED, state
+        if state.tokens_used  >= cfg.token_budget: return EXHAUSTED, state
+        state.iterations += 1
+
+        # --- ACTION: the agent decides and acts ---
+        summary, used = run_agent_step(state); state.tokens_used += used
+
+        # --- FEEDBACK GATE: measurable (build/test/...) ---
+        passed, report = check_gate(state)
+        if not passed: continue                 # not passing → go round again
+
+        # --- SELF-VERIFY: an independent check before declaring victory ---
+        ok, _ = verify(state)
+        if not ok: continue                     # a false pass → keep going
+        return SUCCESS, state`, cap: "Three terminal states: **SUCCESS** (passed and verified) / **EXHAUSTED** (hit a cap → escalate) / ABORTED (an unrecoverable failure)", lang: "py" },
+    { h: "The terminal states — never auto-publish on risky work" },
+    { table: { head: ["State", "When", "What happens next"], rows: [
+      ["SUCCESS", "the gate passed and the verifier approved", "done (for risky work: queue it for a human rather than publishing)"],
+      ["EXHAUSTED", "max_iterations or token_budget reached", "**escalate to a human**, with a summary of what was already tried"],
+      ["ABORTED", "an unrecoverable error", "stop and report the error"],
+    ]}},
+  ];
+
+  t.dataflow = [
+    { h: "One round of the loop — everything flows through one state" },
+    { p: "Each round reads and writes a single **state** (iterations, tokens_used, history, the latest gate report), so the next round builds on the last rather than starting over." },
+    { code: String.raw`state = { iterations, tokens_used, history[], last_gate_report }
+
+round N:
+  check caps(state)              # a cap reached → EXHAUSTED
+  state.action  = agent(state)   # decide and act, appending to history
+  state.passed  = gate(state)    # measure → a report
+  if passed: verify(state) → approved = done / rejected = go round again`, cap: "The history plus the accumulated tokens and iterations are the loop's memory (step through it in the Visualizer tab ▶)", lang: "txt" },
+    { note: "The no-progress detector: if the gate keeps reporting the same problem round after round (the same test failing), abort before reaching the cap — that stops it re-fixing the same thing for nothing." },
+  ];
+
+  t.implementation = [
+    { h: "A 'good' example: a bounded blog-revision loop" },
+    { p: "A blog loop can work if (1) it is tightly bounded, (2) the gate checks **only measurable things**, and (3) a human holds the **publish gate** for anything to do with taste. The agent never publishes — once it passes, the piece is queued for a person." },
+    { code: String.raw`def objective_gate(text, source):
+    problems = []
+    if not (40 <= words(text) <= 200):      problems.append("length")
+    if avg_sentence_len(text) > 22:         problems.append("readability")
+    if "##" not in text:                    problems.append("missing section")
+    if banned_filler_in(text):              problems.append("filler")
+    if new_links(text) - links(source):     problems.append("unsourced link")
+    return (not problems), report(problems)
+# nothing here judges whether it "reads nicely" — taste is the human's job`, cap: "The gate checks length, sentences, structure, filler and new links — all measurable; 'is it actually good?' is left to a person", lang: "py" },
+    { h: "An example that 'works': a CI auto-fixer loop" },
+    { ul: [
+      "**trigger:** a webhook when a PR's build goes red",
+      "**gate:** that commit's CI returns `success` (not the agent's opinion) — locked down so it can't delete tests or edit the CI config to fake a green",
+      "**caps:** max attempts + a token budget + a no-progress detector (the same test failing twice → abort)",
+      "**verify:** a sub-agent reviews the diff to confirm it fixed the root cause rather than silencing a test — and **a human does the merge**",
+    ]},
+    { h: "The actual tools" },
+    { table: { head: ["Tool", "What it's for"], rows: [
+      ["Claude Code `/loop`", "re-running on an interval (one minute minimum)"],
+      ["`/go`", "having the model work out a checklist and build the sub-agent loop and verifier"],
+      ["Schedule / Routine", "time-based triggers (the thing that starts the loop)"],
+    ]}},
+    { h: "Start small (don't start with the big one)" },
+    { ul: [
+      "1. run **one round** by hand and get it passing",
+      "2. if it is repeatable and can be drawn as a workflow with a measurable exit, it's a candidate",
+      "3. *then* add the trigger or timer, with low caps at first, loosening them once you trust it",
+    ]},
+  ];
+
+  t.tricks = [
+    { h: "Trick 1: if you can't define a measurable gate, it shouldn't be a loop yet" },
+    { p: "If 'done = ___' can't be written as a command or check a machine can run, the task is a matter of taste or is still vague — don't loop it." },
+    { h: "Trick 2: cap both axes, and escalate rather than fake completion" },
+    { p: "Max iterations alone isn't enough — a single round can burn an enormous number of tokens, so cap the money too. When a cap is hit, hand it to a person with a summary." },
+    { h: "Trick 3: the machine owns the measurable gate, the human owns the taste gate" },
+    { p: "For work with both a measurable and a subjective part, let the loop handle the measurable part and queue the subjective decision (publishing, say) for a person." },
+    { h: "Trick 4: the verifier must not be the executor" },
+    { p: "The same agent grades itself leniently — use a sub-agent or a different perspective to review, and it catches false passes far better." },
+    { h: "Trick 5: skills are the guardrail against drift" },
+    { p: "Supply task-specific skills (the build and test commands, the conventions, the flaky tests) so the agent doesn't invent a new wrong approach on every round." },
+    { h: "Trick 6: the no-progress detector" },
+    { p: "Track the set of problems the gate reports — if it repeats round after round, or the diff barely changes, abort early rather than spending the whole cap." },
+  ];
+
+  t.eval = [
+    { qa: [
+      { q: "How does loop engineering differ from prompt engineering?", a: "Prompt engineering is instructing one step at a time; loop engineering sets a goal and a feedback gate and lets the agent compose its own prompts, cycling reason→act until it passes." },
+      { q: "What makes a good feedback gate?", a: "It is machine-checkable (build, tests, coverage, lint, schema) rather than a feeling; loose enough not to be unpassable, and tight enough not to wave a false pass through." },
+      { q: "Why set caps, and on how many axes?", a: "A loop runs until it is 'satisfied', which may be never — cap both the iteration count and the token budget. Hitting a cap escalates to a human, rather than pretending it succeeded." },
+      { q: "How does a loop differ from a cron job?", a: "Cron does the same thing on a schedule and never checks its own work; a loop reads the current state, produces an action suited to it, and has a gate that checks the result." },
+      { q: "What kinds of work should not be loops?", a: "Anything judged by taste or otherwise unmeasurable (writing content, 'make it look nice'), and anything that mustn't go wrong (data production, security and keys) — the latter always needs a human validating first." },
+      { q: "Why not let the agent check its own work?", a: "It tends to be lenient with itself, producing false passes; a separate verifier or a different perspective (via `/go`) catches what slipped through far better." },
+      { q: "How should you start building a loop?", a: "Run one round by hand until it passes → confirm it is repeatable and has a measurable exit → only then add a trigger, with low caps at first." },
+      { q: "What are the five pieces of a good loop?", a: "Automation/trigger, sandbox isolation, skills, a plugin/connector, and sub-agents that verify and manage state or memory — with the trigger and the skills mattering most." },
+    ]},
+  ];
+})();
