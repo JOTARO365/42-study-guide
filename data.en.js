@@ -1701,7 +1701,7 @@ make bonus                 # zoom/rotate/pan/switch view
         { q: "How is isometric projection computed?", a: "x_screen = (x-y)·cos30·zoom, y_screen = (x+y)·sin30·zoom - z·scale, then add the offset to center the screen; equivalent to rotating the grid 45° then squashing vertically." },
         { q: "Why subtract z from y (not add)?", a: "Because the screen's y axis points down — a high point (large z) must be higher on screen = a smaller y, so z is subtracted." },
         { q: "How does Bresenham work, why use it?", a: "It keeps an accumulated error and decides each step whether to move x, y, or both, using only integers + add/subtract, no float/division — fast and gap-free on a pixel grid." },
-        { q: "Why is the map int ** not a fixed array?", a: "The map size isn't known ahead of time, you allocate dynamically per file — int ** is an array of pointers each to one row, accessed via z[y][x]." },
+        { q: "Why is the map a `int **` and not a fixed array?", a: "The map size isn't known ahead of time, you allocate dynamically per file — `int **` is an array of pointers each to one row, accessed via z[y][x]." },
         { q: "How does the auto-fit camera work?", a: "Compute zoom from the map size against both width and height, take the smaller to avoid overflow, set the offset to the screen center, clamp z_scale by the height range." },
         { q: "Why write pixels to a buffer instead of mlx_pixel_put?", a: "mlx_pixel_put talks to the X server per pixel, very slow; writing to the image buffer in memory then mlx_put_image_to_window once is dozens of times faster." },
         { q: "What does lerp_color do?", a: "Fades color between a line's two ends by splitting R/G/B and interpolating each with t (0..1) then repacking, giving a gradient." },
@@ -7427,7 +7427,7 @@ valgrind --leak-check=full --error-exitcode=42 -q ./test && echo "clean"
 
 # on Windows via WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && make re && norminette *.c *.h'`, lang: "bash" },
-      { note: "**Compare results *and* return values against libc** — the functions that fail most often (`strlcpy`, `strlcat`) fail on the return value, which the output alone never shows." },
+      { note: "**Compare both the results and the return values against libc** — the functions that fail most often (`strlcpy`, `strlcat`) fail on the return value, which the output alone never shows." },
     ],
 
     tricks: [
