@@ -8605,3 +8605,956 @@ valgrind --leak-check=full --error-exitcode=42 -q ./gnl normal.txt && echo "clea
     ],
   },
 });
+
+/* ===================== EN: CPP Module 01 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_01": {
+    principle: [
+      { h: "What Module 01 teaches" },
+      { p: "Module 00 showed what a class is. Module 01 asks the next question: **where in memory should this object live, and who cleans it up**. All seven exercises circle one question — 'how long does this thing need to exist?' — and once you can answer that, the choice between stack and heap, or reference and pointer, answers itself." },
+      { h: "Seven exercises, one point each" },
+      { table: { head: ["Exercise", "Name", "The point", "The trap"], rows: [
+        ["ex00", "BraiiiiiiinnnzzzZ", "object lifetime on the stack vs the heap", "a heap zombie leaves the caller to `delete` it"],
+        ["ex01", "Moar brainz!", "allocating N objects in one go", "`new[]` pairs with `delete[]` — plain `delete` is UB"],
+        ["ex02", "HI THIS IS BRAIN", "a reference is another name for the same thing", "`&ref` gives exactly the variable's own address"],
+        ["ex03", "Unnecessary violence", "when to use a reference and when a pointer", "a reference member must bind in the initialiser list"],
+        ["ex04", "Sed is for losers", "reading and writing files with C++ streams", "`std::string::replace` is banned; an empty `s1` loops forever"],
+        ["ex05", "Harl 2.0", "pointer to a **member** function", "`&Harl::debug` and `(this->*f)()` — the syntax is mandatory"],
+        ["ex06", "Harl filter", "a `switch` that deliberately doesn't `break`", "fall-through is the mechanism, not a bug"],
+      ]}},
+      { h: "Module-wide hard rules (one slip = 0 or −42)" },
+      { ul: [
+        "**No `printf` / `malloc` / `free`** — use `new` / `delete` and `std::cout`",
+        "**No `using namespace`** and **no `friend`** (both cost −42)",
+        "**No STL containers or algorithms** (`<vector>`, `<map>`, `<algorithm>`) — this module doesn't need them. `std::string`, `<iostream>`, `<fstream>`, `<sstream>` are fine",
+        "**No function bodies in headers** (templates excepted, and they're not here yet) — declare in `.hpp`, define in `.cpp`, include guards everywhere",
+        "Compile only with `c++ -Wall -Wextra -Werror -std=c++98`",
+      ]},
+      { note: "**Orthodox Canonical Form** isn't required yet (it starts in Module 02) — a constructor taking a name plus a destructor is enough here." },
+      { note: "**Norminette does not apply to C++** — the 25-line rule, the ban on `for`, the ban on `?:` are all C-side rules with no force here. Write it however reads best." },
+    ],
+
+    theory: [
+      { p: "The ideas below have to be clear first, or you'll write correct code without knowing why it's correct." },
+      { h: "1) Stack vs heap — who cleans up" },
+      { table: { head: ["", "Stack", "Heap"], rows: [
+        ["How you create it", "`Zombie z(\"foo\");`", "`new Zombie(\"foo\")`"],
+        ["When it dies", "at the end of the scope (`}`), automatically", "only when you say `delete`"],
+        ["Forgetting to release it", "impossible", "**a memory leak**"],
+        ["Use it for", "things local to this function", "things that must outlive the function"],
+      ]}},
+      { p: "The only question to ask is **'does this need to outlive the current scope?'** If not, use the stack, always — it's simpler and cannot leak. If so, use the heap and be able to say **who is going to delete it**." },
+      { h: "2) `new` and `new[]` are different pairs" },
+      { code: String.raw`Zombie *one  = new Zombie("a");   →  delete one;
+Zombie *many = new Zombie[5];     →  delete[] many;
+
+Mismatching them is undefined behaviour:
+  delete many;     ← runs only the first destructor, frees the wrong size
+  delete[] one;    ← equally broken
+
+new Zombie[5] calls the **default constructor** five times
+  → you must have a Zombie() taking no arguments
+  → you cannot pass a name through new[], so you need setName() afterwards`, cap: "This is the number one bug caught in ex01 — valgrind reports it immediately", lang: "cpp" },
+      { h: "3) Reference vs pointer — what actually differs" },
+      { table: { head: ["", "Pointer `T *p`", "Reference `T &r`"], rows: [
+        ["Can it be NULL?", "yes", "no"],
+        ["Can it point elsewhere later?", "yes (`p = &other`)", "no — bound once, for life"],
+        ["Must it bind at construction?", "no", "**yes** (in the initialiser list)"],
+        ["How you write it", "`p->getType()`", "`r.getType()`"],
+        ["What it says to the reader", "'may be absent, may change'", "'must exist, never changes'"],
+      ]}},
+      { note: "The short answer for the evaluation: **pick a pointer when the thing may be absent or may change; pick a reference when it must always be there and stays fixed for the object's lifetime.**" },
+      { h: "4) The initialiser list — not just style" },
+      { code: String.raw`HumanA::HumanA(std::string name, Weapon &weapon)
+    : _name(name), _weapon(weapon)     // ← this is where members are CONSTRUCTED
+{
+    // this is ASSIGNING over something already constructed
+}`, cap: "Members are always constructed before the braces are entered — inside them you are only overwriting", lang: "cpp" },
+      { p: "A reference has no 'not bound yet' state → if it isn't bound in the list there is nothing to assign to in the body, and **it won't compile**. Exactly the same reason a `const` member has to be in the list too." },
+      { h: "5) Pointer to member function" },
+      { p: "A pointer to an ordinary function holds just 'the address of some code', but a member function also needs to know **which object it works on** — so the syntax differs when declaring it, when taking the address, and when calling it." },
+      { code: String.raw`declare:     void (Harl::*p)(void);       // the Harl:: qualifier is required
+take addr:   p = &Harl::debug;           // both & and Harl:: (&debug won't compile)
+call:        (this->*p)();                // the parentheses are required (this->p() won't)
+
+They go into an array too:
+void (Harl::*funcs[4])(void) = {&Harl::debug, &Harl::info,
+                                &Harl::warning, &Harl::error};`, cap: "The three things the compiler complains about most: a missing `Harl::`, a missing `&`, missing parentheses at the call", lang: "cpp" },
+      { h: "6) `switch` fall-through" },
+      { p: "We normally put `break` in every case precisely because we don't want to fall into the next one. ex06 makes that falling **the mechanism**: enter the switch at a level and it prints that level and every more severe one, for free." },
+      { h: "7) C++ file streams" },
+      { code: String.raw`std::ifstream in(name.c_str());   // C++98 takes const char* → hence .c_str()
+if (!in.is_open()) { ... }        // check every time
+
+std::stringstream buf;
+buf << in.rdbuf();                // slurp the whole file in one go
+std::string content = buf.str();
+
+std::ofstream out((name + ".replace").c_str());
+out << result;                    // closes itself at end of scope (RAII)`, cap: "rdbuf() is the shortcut for reading a whole file; the stream closes itself, so there's no fclose", lang: "cpp" },
+
+      { h: "🔬 Deep dive A: object lifetime — why ex00 has two functions" },
+      { p: "ex00 asks for two functions that do almost exactly the same thing, differing only in where the object lives. That difference *is* the exercise." },
+      { code: String.raw`Zombie *newZombie(std::string name)     // heap
+{
+    return (new Zombie(name));           // survives the return
+}                                        // ← the caller must delete it
+
+void randomChump(std::string name)      // stack
+{
+    Zombie z(name);
+    z.announce();
+}                                        // ← z is destroyed right here, automatically`, cap: "One line apart, completely different responsibilities", lang: "cpp" },
+      { code: String.raw`Why the stack can't do what newZombie does:
+
+Zombie *bad(std::string name)
+{
+    Zombie z(name);
+    return (&z);      // ✗ returning the address of something about to die
+}                     //   the pointer now points at nothing = dangling
+
+  → sometimes readable, sometimes not (it's UB) — one of the hardest bugs to find
+  → this is the only reason the heap exists: things that must outlive their scope`, cap: "The heap isn't 'better' than the stack — it solves a problem the stack can't, in exchange for the delete responsibility", lang: "cpp" },
+      { note: "Put a `std::cout` in Zombie's destructor from the start and run it — you can *see* which object dies when. It's the fastest way to learn object lifetime." },
+      { qa: [
+        { q: "When should you use the heap?", a: "When the object has to outlive the current function's return, or its size isn't known at compile time. Otherwise use the stack — it cannot leak and nobody has to remember to delete it." },
+        { q: "Can you return a pointer to a local variable?", a: "No — the variable dies when the function ends, so the returned pointer points at nothing. Reading through it is undefined behaviour." },
+        { q: "Who should call `delete`?", a: "Whoever *owns* the object — in ex00 that's the `main` which called `newZombie`. The rule is that every `new` should have an answer to 'who deletes this?' at the moment you write it." },
+      ]},
+
+      { h: "🔬 Deep dive B: what a reference really is — ex02 demonstrates it" },
+      { p: "ex02 has no classes and almost nothing else — it just prints three addresses and three values. The point is to destroy the idea that 'a reference is some new kind of thing'." },
+      { code: String.raw`std::string  str = "HI THIS IS BRAIN";
+std::string *stringPTR = &str;
+std::string &stringREF = str;
+
+printing addresses:  &str  ·  stringPTR  ·  &stringREF
+  → 0x7ffd...  ·  0x7ffd...  ·  0x7ffd...     ← the same number all three times
+
+printing values:     str  ·  *stringPTR  ·  stringREF
+  → HI THIS IS BRAIN, all three`, cap: "A reference is not a copy and not a new object — it is a second name for the existing variable", lang: "cpp" },
+      { p: "Internally the compiler stores a reference as an address, just like a pointer. What differs is **the syntax and the contract**: it's written like an ordinary variable (no `*`), it can't be NULL, and it can't be re-bound." },
+      { note: "ex03 shows the consequence immediately: `HumanA` holds a reference to the very `Weapon` that `main` holds, so when `main` calls `club.setType(...)` the next attack changes with it — because it is the same Weapon, not a copy." },
+      { qa: [
+        { q: "How does a reference differ from a pointer at machine level?", a: "Barely at all — the compiler stores an address either way. The difference is in the language rules: a reference cannot be NULL, cannot be reseated, and must bind at construction." },
+        { q: "Why does `&stringREF` give str's address rather than the reference's own?", a: "Because a reference isn't a separate object with an address of its own — it's another name for str, so every operation goes straight to str." },
+      ]},
+
+      { h: "🔬 Deep dive C: pointer-to-member — why the syntax is so strange" },
+      { p: "`&Harl::debug` isn't an ordinary address. A member function needs a `this` when called, but `&Harl::debug` doesn't yet know which object it will work on — it is **'the position of this method within the class'**, not 'the address of runnable code'. The object gets paired with it at the call, via `this->*`." },
+      { code: String.raw`ordinary function                 member function
+--------------------------------  --------------------------------
+void f(void);                     void Harl::debug(void);
+void (*p)(void) = f;              void (Harl::*p)(void) = &Harl::debug;
+       ^ no & needed                     ^^^^^^^ both Harl:: and & are required
+p();                              (obj.*p)();      // through an object
+                                  (this->*p)();    // through a pointer`, cap: "They differ because a member function has to know 'whose' — and that information arrives at the call, not when the address is stored", lang: "cpp" },
+      { p: "**Why the parentheses at the call:** `()` binds tighter than `->*`, so `this->*p()` makes the compiler try to call `p()` first and then apply `->*` to the result, which is meaningless. `(this->*p)()` forces the right order." },
+      { code: String.raw`Our real code (ex05/Harl.cpp) — dispatch through an array:
+
+void Harl::complain(std::string level)
+{
+    std::string levels[4] = {"DEBUG", "INFO", "WARNING", "ERROR"};
+    void (Harl::*funcs[4])(void) = {&Harl::debug, &Harl::info,
+                                    &Harl::warning, &Harl::error};
+    int i = 0;
+    while (i < 4)
+    {
+        if (levels[i] == level)
+        {
+            (this->*funcs[i])();
+            return ;
+        }
+        i++;
+    }
+    std::cout << "[ Probably complaining about insignificant problems ]"
+              << std::endl;
+}`, cap: "Four levels of if/else replaced by two index-aligned arrays — a new level is two adjacent lines", lang: "cpp" },
+      { note: "This exercise bans a long if/else-if chain on purpose — the point is to meet the pointer-to-member syntax, not to produce the right output." },
+      { qa: [
+        { q: "Why can't you just write `&debug`?", a: "`debug` isn't a free-standing name in the program — it lives in the class's scope, so you must say which class with `&Harl::debug`. The `&` is also mandatory for member functions, unlike ordinary functions where it can be omitted." },
+        { q: "Why doesn't `this->p()` compile?", a: "`this->p` means 'find a member named p in the class', which doesn't exist. What you want is 'call the function p points at, on this object' — written `(this->*p)()`." },
+        { q: "What does the array buy over if/else?", a: "Adding a level means editing two index-aligned arrays and nothing else; and it exercises the pointer-to-member syntax, which is the exercise's actual purpose." },
+      ]},
+
+      { h: "🔬 Deep dive D: switch fall-through — when 'forgetting break' is the answer" },
+      { p: "ex06 must print the requested level **and every more severe one**. The obvious approaches are four ifs, or a loop from the given index to the end. But the exercise wants you to see that `switch` does it by itself when you leave out `break`." },
+      { code: String.raw`switch (this->levelToIndex(level))   // -1 when unknown
+{
+    case 0:
+        this->debug();
+        // fall through   ← deliberately no break
+    case 1:
+        this->info();
+        // fall through
+    case 2:
+        this->warning();
+        // fall through
+    case 3:
+        this->error();
+        break ;                      // only the last one breaks
+    default:
+        std::cout << "[ Probably complaining about insignificant problems ]"
+                  << std::endl;
+        break ;
+}`, cap: "Our real code (ex06/Harl.cpp) — whichever case you enter, it runs on to the end", lang: "cpp" },
+      { code: String.raw`Walking the results:
+
+  ./harlFilter DEBUG    → enters case 0 → DEBUG INFO WARNING ERROR  (all four)
+  ./harlFilter WARNING  → enters case 2 → WARNING ERROR
+  ./harlFilter ERROR    → enters case 3 → ERROR
+  ./harlFilter garbage  → levelToIndex returns -1 → default`, cap: "There is no 'also print the higher levels' logic anywhere in the code — it comes purely from the order of the cases", lang: "txt" },
+      { note: "Write a `// fall through` comment at every deliberate one — both for the reader and to silence compilers with `-Wimplicit-fallthrough` enabled." },
+      { qa: [
+        { q: "What is fall-through?", a: "The default behaviour of a switch: without a `break` it runs on into the next case. Normally we don't want that, so we break everywhere — ex06 uses it as the mechanism." },
+        { q: "Why not just write four ifs?", a: "Same result, but the exercise wants you to meet switch fall-through. The switch version is also shorter and reads the severity ordering straight off the case order." },
+        { q: "How is an unknown level handled?", a: "`levelToIndex` returns -1, which matches no case, so it falls to `default` and prints the fallback message." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — new expression", url: "https://en.cppreference.com/w/cpp/language/new", note: "new / new[] and pairing them with delete" },
+        { label: "cppreference — References", url: "https://en.cppreference.com/w/cpp/language/reference", note: "the formal rules for references" },
+        { label: "cppreference — Pointer to member", url: "https://en.cppreference.com/w/cpp/language/pointer#Pointers_to_members", note: "the ->* and .* syntax" },
+        { label: "cppreference — switch", url: "https://en.cppreference.com/w/cpp/language/switch", note: "fall-through, formally" },
+        { label: "learncpp — Stack and heap", url: "https://www.learncpp.com/cpp-tutorial/the-stack-and-the-heap/", note: "a hands-on explanation of stack vs heap" },
+      ]},
+    ],
+
+    foundations: [
+      { p: "This section walks through what each exercise needs — which classes, which members, and why they have to be that way." },
+      { h: "ex00-01 — Zombie" },
+      { code: String.raw`class Zombie
+{
+    private:
+        std::string _name;
+
+    public:
+        Zombie(void);                    // ★ required! new Zombie[N] calls this
+        Zombie(std::string name);
+        ~Zombie(void);                   // print the name on death → see the lifetime
+
+        void setName(std::string name);  // ★ required! new[] can't pass a name
+        void announce(void) const;
+};`, cap: "The two starred members exist purely because of ex01 — ex00 alone doesn't need them", lang: "cpp" },
+      { p: "A good example of 'the tool's limits shaping the class': `new Zombie[N]` **cannot pass arguments to the constructor**, which forces both a default constructor and a way to set the name afterwards." },
+      { h: "ex03 — Weapon / HumanA / HumanB" },
+      { code: String.raw`class Weapon
+{
+    private:
+        std::string _type;
+    public:
+        const std::string &getType(void) const;   // return a reference, no copy
+        void setType(std::string type);
+};`, cap: "Returning `const std::string&` means readable, not writable, and no string copy", lang: "cpp" },
+      { code: String.raw`class HumanA                      class HumanB
+{                                 {
+  private:                          private:
+    std::string _name;                std::string _name;
+    Weapon      &_weapon;  ← ref      Weapon      *_weapon;  ← ptr
+  public:                           public:
+    HumanA(std::string, Weapon &);    HumanB(std::string);
+    void attack(void) const;          void setWeapon(Weapon &);
+};                                    void attack(void) const;
+                                    };
+
+HumanA: always armed        → given at construction → reference
+HumanB: may not be armed    → set later             → pointer (starts NULL)`, cap: "The exercise is designed to show that the requirement picks the type, not personal taste", lang: "cpp" },
+      { code: String.raw`// our real code — HumanA binds the reference in the initialiser list
+HumanA::HumanA(std::string name, Weapon &weapon)
+    : _name(name), _weapon(weapon)
+{
+}
+
+// HumanB starts at NULL, so attack has to handle being unarmed
+HumanB::HumanB(std::string name) : _name(name), _weapon(NULL)
+{
+}
+
+void HumanB::attack(void) const
+{
+    if (this->_weapon == NULL)
+    {
+        std::cout << this->_name << " has no weapon to attack with"
+                  << std::endl;
+        return ;
+    }
+    std::cout << this->_name << " attacks with their "
+              << this->_weapon->getType() << std::endl;
+}`, cap: "The tangible difference: HumanB needs a NULL check — HumanA can never reach that case at all", lang: "cpp" },
+      { note: "A consequence you must be able to explain: both hold **the same Weapon `main` holds**, not a copy. `main` calls `club.setType(\"some other type of club\")` and the next `attack()` reflects it immediately." },
+      { h: "ex05-06 — Harl" },
+      { code: String.raw`class Harl                       // ex05
+{
+    private:
+        void debug(void);            // these four are private
+        void info(void);             // the outside world only gets complain()
+        void warning(void);
+        void error(void);
+    public:
+        void complain(std::string level);
+};
+
+// ex06 adds a helper turning a level name into an index
+int levelToIndex(std::string level) const;   // -1 = unknown`, cap: "Encapsulation: users shouldn't be able to call debug() directly — there is one door, complain()", lang: "cpp" },
+    ],
+
+    architecture: [
+      { h: "Files per exercise" },
+      { table: { head: ["Exercise", "Files", "Notes"], rows: [
+        ["ex00", "`Zombie.hpp/.cpp`, `newZombie.cpp`, `randomChump.cpp`, `main.cpp`", "the two functions live in separate files, as the subject asks"],
+        ["ex01", "`Zombie.hpp/.cpp`, `zombieHorde.cpp`, `main.cpp`", "Zombie gains a default ctor and setName"],
+        ["ex02", "`main.cpp`", "one file, no classes at all"],
+        ["ex03", "`Weapon.hpp/.cpp`, `HumanA.hpp/.cpp`, `HumanB.hpp/.cpp`, `main.cpp`", "three classes, three file pairs"],
+        ["ex04", "`main.cpp`", "one file, with a `static` `replaceAll` helper"],
+        ["ex05", "`Harl.hpp/.cpp`, `main.cpp`", "the binary can be called anything"],
+        ["ex06", "`Harl.hpp/.cpp`, `main.cpp`", "**the binary must be called `harlFilter`**"],
+      ]}},
+      { note: "Every exercise has its own Makefile — nothing is shared, each folder compiles independently." },
+      { h: "A Makefile skeleton that works for every exercise" },
+      { code: String.raw`NAME     = zombie
+CXX      = c++
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+SRCS     = main.cpp Zombie.cpp newZombie.cpp randomChump.cpp
+OBJS     = $(SRCS:.cpp=.o)
+
+all: $(NAME)
+
+$(NAME): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJS)
+
+%.o: %.cpp Zombie.hpp          # ← depend on the header, so editing it rebuilds
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJS)
+
+fclean: clean
+	rm -f $(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re`, cap: "What evaluators check: running make twice must print 'Nothing to be done' (no relink)", lang: "makefile" },
+    ],
+
+    dataflow: [
+      { p: "Exercise by exercise, in the order things actually happen." },
+      { h: "ex00 — following object lifetimes" },
+      { code: String.raw`main()
+ ├─ randomChump("Foo")
+ │    └─ Zombie z("Foo") on the stack → z.announce()
+ │       "Foo: BraiiiiiiinnnzzzZ..."
+ │    ← function ends → ~Zombie() runs on its own  "Foo destroyed"
+ │
+ ├─ Zombie *heap = newZombie("Bar")
+ │    └─ new Zombie("Bar")  → returns a pointer (nothing dies)
+ ├─ heap->announce()          "Bar: BraiiiiiiinnnzzzZ..."
+ └─ delete heap;            → ~Zombie() runs  "Bar destroyed"
+                              ★ forget this line and it leaks`, cap: "Notice Foo is destroyed before Bar is even created — different lifetimes entirely", lang: "txt" },
+      { h: "ex01 — the horde: one allocation, one delete[]" },
+      { code: String.raw`Zombie *zombieHorde(int N, std::string name)
+{
+    Zombie *horde;
+    int     i;
+
+    if (N <= 0)
+        return (NULL);          // guards new Zombie[0] and negative N (UB)
+    horde = new Zombie[N];      // ★ one allocation, N default-constructor calls
+    i = 0;
+    while (i < N)
+    {
+        horde[i].setName(name); // named afterwards, since new[] takes no arguments
+        i++;
+    }
+    return (horde);
+}
+
+// on the main side:
+Zombie *h = zombieHorde(5, "grunt");
+for (...) h[i].announce();
+delete[] h;                     // ★ delete[], not delete`, cap: "Our real code — three things get checked: the N<=0 guard, a single allocation, and delete[]", lang: "cpp" },
+      { h: "ex03 — one Weapon, two holders" },
+      { code: String.raw`main:
+  Weapon club("crude spiked club");
+
+  HumanA bob("Bob", club);        → _weapon binds to club (reference)
+  bob.attack();                   → "Bob attacks with their crude spiked club"
+  club.setType("some other type of club");
+  bob.attack();                   → "...some other type of club"  ← it followed!
+
+  HumanB jim("Jim");              → _weapon = NULL
+  jim.attack();                   → "Jim has no weapon to attack with"
+  jim.setWeapon(club);            → _weapon = &club
+  jim.attack();                   → "...some other type of club"`, cap: "It follows because both point at the same club — nothing was copied on the way in", lang: "txt" },
+      { h: "ex04 — how replaceAll works" },
+      { code: String.raw`// std::string::replace is banned → build a new string with find + substr
+static std::string replaceAll(const std::string &src,
+        const std::string &s1, const std::string &s2)
+{
+    std::string result;
+    size_t      pos;
+    size_t      start;
+
+    start = 0;
+    pos = src.find(s1, start);
+    while (pos != std::string::npos)
+    {
+        result += src.substr(start, pos - start);  // the part before the match
+        result += s2;                              // the replacement
+        start = pos + s1.length();                 // skip past the old text
+        pos = src.find(s1, start);
+    }
+    result += src.substr(start);                   // whatever tail is left
+    return (result);
+}`, cap: "The idea: don't edit the original, reassemble it piece by piece — safer, and it needs no replace()", lang: "cpp" },
+      { code: String.raw`Round by round: src="aXbXc", s1="X", s2="--"
+
+  start=0  pos=1  → result += "a"     + "--"   → "a--"      start=2
+  start=2  pos=3  → result += "b"     + "--"   → "a--b--"   start=4
+  start=4  pos=npos → leave the loop
+  result += "c"                                → "a--b--c"`, cap: "Two markers: start = how far we've consumed, pos = where the next match is", lang: "txt" },
+      { note: "Why an empty `s1` must be rejected: `find(\"\")` always returns `start` and is never `npos` → the loop never ends and `start` never moves. Check it up front and exit 1." },
+      { h: "ex04 — main: the order of the error checks" },
+      { code: String.raw`if (argc != 4)          → usage error, exit 1
+if (s1.empty())         → "s1 must not be empty", exit 1   ★ prevents the endless loop
+ifstream in(...)
+if (!in.is_open())      → "cannot open input file", exit 1
+buffer << in.rdbuf()    → slurp the whole file
+ofstream out(name + ".replace")
+if (!out.is_open())     → "cannot open output file", exit 1
+out << replaceAll(...)  → write the result`, cap: "Cheapest checks first, most expensive last: argc → arguments → opening files → the actual work", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "A suggested order to write them in" },
+      { ul: [
+        "1. **ex02 first** — 15 lines, no classes, but it settles what a reference is, which the rest of the module rests on",
+        "2. **ex00** — Zombie plus the two functions; put a `cout` in the destructor and watch the order of deaths",
+        "3. **ex01** — add a default ctor and setName to the same Zombie, then write zombieHorde",
+        "4. **ex03** — Weapon first, then HumanA (reference), then HumanB (pointer)",
+        "5. **ex05** — Harl with the array of pointers-to-member",
+        "6. **ex06** — copy Harl, turn complain into a switch, rename NAME to `harlFilter`",
+        "7. **ex04 last** — the longest exercise and unrelated to the rest",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["valgrind reports `mismatched free`", "`new[]` released with plain `delete`", "use `delete[]` for anything from `new[]`"],
+        ["ex01 doesn't compile", "`new Zombie[N]` with no default ctor", "add `Zombie(void);`"],
+        ["HumanA doesn't compile", "assigning the reference in the body", "move it to the initialiser list: `: _weapon(w)`"],
+        ["HumanB segfaults", "`attack()` while `_weapon` is still NULL", "check for NULL before using it"],
+        ["ex04 never finishes", "`s1` is an empty string", "reject it up front and exit 1"],
+        ["ex05 `&debug` won't compile", "missing `Harl::`", "`&Harl::debug`"],
+        ["ex05 `this->p()` won't compile", "missing parentheses", "`(this->*p)()`"],
+        ["the evaluator can't find your binary", "it isn't called `harlFilter`", "`NAME = harlFilter`"],
+      ]}},
+      { h: "Building and running" },
+      { code: String.raw`# one exercise at a time (each folder has its own Makefile)
+cd ex01 && make re && ./zombie
+
+# on Windows there's no c++ in Git Bash — go through WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 01/ex01" && make re && ./zombie'
+
+# leak check (for the exercises that use new)
+valgrind --leak-check=full --error-exitcode=42 -q ./zombie
+
+# no forbidden functions — this must print nothing
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp`, lang: "bash", cap: "Three gates: compiles without warnings · valgrind clean · no forbidden functions" },
+      { note: "The WSL path has to sit **inside** the quotes of `-lc '...'` — passing `/mnt/d/...` as a bare argument makes Git Bash rewrite it to `C:/Program Files/Git/mnt/...` and it won't be found." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: put a cout in the destructor from the start" },
+      { p: "The whole module is about object lifetime — printing on birth and death lets you *see* what you're learning instead of imagining it. ex00 asks for it anyway." },
+      { h: "Trick 2: every `new` should have an immediate answer to 'who deletes it'" },
+      { p: "The moment you write `new`, name the line that will delete it. If you can't, the ownership design isn't settled yet — and that's where nearly every leak comes from." },
+      { h: "Trick 3: let the requirement pick the type" },
+      { p: "Don't choose reference or pointer out of habit. Ask 'can it be absent?' and 'can it change?' — no to both means a reference; yes to either means a pointer. ex03 is that question as an exercise." },
+      { h: "Trick 4: two index-aligned arrays are a dispatch table" },
+      { p: "`levels[]` and `funcs[]` line up, so finding a name gives you the function immediately. The pattern generalises well beyond Harl — a new entry is two adjacent lines." },
+      { h: "Trick 5: always comment `// fall through`" },
+      { p: "A case that deliberately doesn't break needs the comment, or readers (and some compilers) will assume you forgot." },
+      { h: "Trick 6: reassembling a string beats editing one" },
+      { p: "ex04 bans `replace()`, which forces the 'read a piece, append a piece' approach — and it really is safer, because you never have to reason about indices shifting after an edit in the middle." },
+      { h: "Trick 7: ex06 is ex05 with only complain changed" },
+      { p: "Copy the whole folder, turn `complain` into a switch, add `levelToIndex`, change `NAME` — there's no need to rewrite the four level functions." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "How do the stack and the heap differ, and when do you use each?", a: "Stack objects die at the end of their scope — use them for anything temporary. Heap objects live until you `delete` them — use them when an object must outlive the function. Prefer the stack, because it cannot leak." },
+        { q: "Why does ex01 need a default constructor?", a: "`new Zombie[N]` calls the default constructor N times and cannot pass arguments — so you need one taking none, plus a `setName` to name them afterwards." },
+        { q: "How do `delete` and `delete[]` differ, and what happens if you mix them?", a: "`delete[]` runs every destructor and frees the array-sized block; using plain `delete` on an array is undefined behaviour — destructors are skipped and the wrong size is freed. valgrind flags it at once." },
+        { q: "How does a reference differ from a pointer?", a: "A reference cannot be NULL, cannot be re-bound, and must bind at construction (in the initialiser list); a pointer can be NULL, can change, and can be set later." },
+        { q: "Why does HumanA use a reference and HumanB a pointer?", a: "HumanA is always armed and never swaps holders → a reference says exactly that and the compiler enforces binding at construction. HumanB may be unarmed and gets a weapon later → it has to be a pointer that can start at NULL." },
+        { q: "Why must a reference member go in the initialiser list?", a: "A reference has no 'unbound' state — it must bind as it is constructed, which happens before the body is entered, so there is nothing left to assign in the body and it won't compile." },
+        { q: "Why does `getType` return `const std::string&`?", a: "Returning a reference avoids copying the string; the `const` lets callers read it but not modify the Weapon through it." },
+        { q: "Why do Bob and Jim both change when `club.setType()` is called?", a: "Because both hold a reference or pointer to **the same Weapon `main` holds**, not a copy — changing it at the source shows up everywhere." },
+        { q: "Why does ex04 ban `std::string::replace`?", a: "The subject requires it, so you practise assembling strings yourself with `find` + `substr` and working with C++ streams instead of reaching for a ready-made function." },
+        { q: "What happens in ex04 if s1 is an empty string?", a: "`find(\"\")` always returns the current position and never `npos` → the loop never ends and `start` never advances. Check it up front and exit 1." },
+        { q: "How do you declare and call a pointer to member function?", a: "Declare `void (Harl::*p)(void);`, take the address with `&Harl::debug` (both the `&` and the `Harl::` are required), and call it with `(this->*p)()` — the parentheses are needed because `()` binds tighter than `->*`." },
+        { q: "Why does ex05 forbid if/else?", a: "The exercise exists to make you meet the pointer-to-member syntax, not to produce the right output; and a dispatch table means a new level is two index-aligned lines." },
+        { q: "How does ex06's fall-through work?", a: "Turn the level name into an index, enter the switch at that case, and **omit `break`** until the last one — so it prints the requested level and every more severe one with no extra logic." },
+        { q: "How does ex06 handle an unknown level?", a: "`levelToIndex` returns -1, which matches no case, so it falls to `default` and prints the fallback message." },
+        { q: "Why does the whole module ban `using namespace std`?", a: "It's a 42 rule (−42 if broken), so it's obvious what comes from the standard library and so names don't collide as projects grow." },
+      ]},
+      { h: "Test before submitting" },
+      { code: String.raw`# 1) every exercise compiles without warnings
+for d in ex0*; do (cd $d && make re) || echo "FAIL $d"; done
+
+# 2) ex01 boundaries
+./zombie 0      # N=0 → NULL, no crash
+./zombie -3     # negative → NULL, no crash
+
+# 3) ex03 must show two different weapon names for both Bob and Jim
+./violence
+
+# 4) ex04 every error case
+./replace                       # wrong argc
+./replace nofile.txt a b        # can't open the file
+./replace f.txt "" b            # empty s1 → error, not a hang
+./replace f.txt a ""            # empty s2 = deletion (correct)
+
+# 5) ex06 every level plus an unknown one
+for l in DEBUG INFO WARNING ERROR NOPE; do ./harlFilter $l; done
+
+# 6) leaks
+valgrind --leak-check=full --error-exitcode=42 -q ./zombie`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: CPP Module 02 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_02": {
+    principle: [
+      { h: "What Module 02 teaches" },
+      { p: "This module has one class, **`Fixed`**, written four times over, each round adding capability. The real goals are two: (1) **Orthodox Canonical Form**, mandatory for every class from here on, and (2) **operator overloading** — making your object usable with `+`, `<`, `<<`, `++` just like a built-in type." },
+      { h: "Four exercises, from the basics to real use" },
+      { table: { head: ["Exercise", "Adds", "The point"], rows: [
+        ["ex00", "OCF + `getRawBits`/`setRawBits`", "the four mandatory methods, and watching ctor/dtor order"],
+        ["ex01", "int/float conversion + `operator<<`", "representing a decimal as a scaled integer"],
+        ["ex02", "14 operators + static `min`/`max`", "comparison, arithmetic, increment, and overloading on const"],
+        ["ex03", "`Point` + `bsp()`", "`const` members, and using your own operators to solve a geometry problem"],
+      ]}},
+      { h: "The core idea: fixed-point is an int pre-multiplied by 256" },
+      { code: String.raw`How do you store 42.42 in an int?
+  → multiply by 256 and round to a whole number
+
+  _value = roundf(42.42 * 256) = 10860
+  reading it back = 10860 / 256.0     = 42.421875   → printed as 42.4219
+
+  static const int _bits = 8;   →  256 = (1 << _bits)
+
+Four formulas to remember:
+  int   → raw   : _value = i << _bits;                 (i * 256)
+  float → raw   : _value = roundf(f * (1 << _bits));   ← round, don't truncate
+  raw   → float : (float)_value / (1 << _bits);
+  raw   → int   : _value >> _bits;`, cap: "Everything in this module is one int, understood as already divided by 256", lang: "cpp" },
+      { note: "**Why `roundf` and not truncation:** 42.42×256 = 10859.52 — truncating gives 10859 (reads back as 42.4180) while rounding gives 10860 (reads back as 42.4219), which is what the subject expects. Get this wrong and the diff fails." },
+      { h: "Module hard rules" },
+      { ul: [
+        "**Orthodox Canonical Form is now mandatory** — every class needs all four: default ctor, copy ctor, copy assignment, destructor",
+        "**No `friend`** (−42) — the trap is `operator<<`, which is usually taught as a friend. Here it must be a **free function** calling the public `toFloat()`",
+        "No `printf` / `malloc` / `free` / `using namespace`",
+        "`roundf` from `<cmath>` is allowed from ex01 onwards (the one exception)",
+        "ex03 is optional per the subject — but do it; it's short and it ties the whole module together",
+      ]},
+    ],
+
+    theory: [
+      { h: "1) What Orthodox Canonical Form is" },
+      { table: { head: ["Member", "Signature", "Called when"], rows: [
+        ["Default constructor", "`Fixed(void);`", "`Fixed a;`"],
+        ["Copy constructor", "`Fixed(const Fixed &o);`", "`Fixed b(a);` or `Fixed b = a;`"],
+        ["Copy assignment", "`Fixed &operator=(const Fixed &o);`", "`b = a;` (b already exists)"],
+        ["Destructor", "`~Fixed(void);`", "end of scope / `delete`"],
+      ]}},
+      { p: "If you don't write them, the compiler generates all four (copying member by member). 42 makes you write them because (a) once a class holds a pointer, the generated version copies only the address, leaving two objects pointing at the same memory and double-freeing it, and (b) so you can see exactly what gets called when." },
+      { note: "**`Fixed b = a;` calls the copy constructor, not `operator=`** — despite the `=` sign. The rule: if the left-hand side is being created, it's the copy ctor; if it already existed, it's assignment. A standard evaluation question." },
+      { h: "2) Why the copy constructor forwards to operator=" },
+      { code: String.raw`Fixed::Fixed(const Fixed &other)
+{
+    std::cout << "Copy constructor called" << std::endl;
+    *this = other;                    // ← hand it to operator=
+}
+
+Fixed &Fixed::operator=(const Fixed &other)
+{
+    std::cout << "Copy assignment operator called" << std::endl;
+    if (this != &other)               // guard against a = a
+        this->_value = other.getRawBits();
+    return (*this);
+}`, cap: "Copy logic written once — and it produces exactly the two lines of output the subject shows", lang: "cpp" },
+      { p: "**What `if (this != &other)` is for:** it guards self-assignment (`a = a`). In a `Fixed` holding only an int nothing actually breaks, but once a class holds a pointer, skipping the check means 'free the old buffer, then copy from the thing you just freed' — a classic bug, so the habit starts here." },
+      { h: "3) `operator<<` must be a free function" },
+      { code: String.raw`// wrong: friend = -42
+class Fixed { friend std::ostream &operator<<(...); };
+
+// right: declared outside the class, at the bottom of the header
+std::ostream &operator<<(std::ostream &out, const Fixed &fixed);
+
+// defined in the .cpp — the public interface is enough, no need for _value
+std::ostream &operator<<(std::ostream &out, const Fixed &fixed)
+{
+    out << fixed.toFloat();
+    return (out);
+}`, cap: "Returning `std::ostream&` is what lets them chain: `cout << a << b << endl;`", lang: "cpp" },
+      { p: "**Why it can't be a member:** the left operand of `<<` is `std::cout`, not `Fixed` — making it a member would mean adding a method to `std::ostream`, which you can't do. Hence a free function taking two arguments." },
+      { h: "4) The 14 operators of ex02" },
+      { table: { head: ["Group", "Operators", "Working on"], rows: [
+        ["comparison", "`>` `<` `>=` `<=` `==` `!=`", "`_value` directly (integers compare exactly)"],
+        ["arithmetic", "`+` `-` `*` `/`", "convert to float, compute, build a new Fixed"],
+        ["increment", "`++a` `a++` `--a` `a--`", "move `_value` by one raw unit = 1/256"],
+      ]}},
+      { note: "**Never compare via `toFloat()`** — comparing floats with `==` isn't reliable. Comparing the integer `_value` is always exact." },
+      { h: "🔬 Deep dive A: why increment moves only 1/256" },
+      { p: "`++a` on a `Fixed` **doesn't add 1** — it adds 'the smallest value this type can represent', which is one raw bit = 1/256 = 0.00390625. The subject states it directly: add the smallest ε such that 1 + ε is greater than 1." },
+      { code: String.raw`Fixed &Fixed::operator++(void)      // pre-increment: ++a
+{
+    this->_value++;                 // move the raw value by 1 = 1/256
+    return (*this);                 // return a reference to ourselves
+}
+
+Fixed Fixed::operator++(int)        // post-increment: a++
+{
+    Fixed tmp(*this);               // keep the old value first
+
+    this->_value++;
+    return (tmp);                   // return the value 'before' as a copy
+}`, cap: "Our real code (ex02/Fixed.cpp) — the dummy `int` in operator++(int) is how the language distinguishes pre from post", lang: "cpp" },
+      { code: String.raw`Why pre and post return different things:
+
+  ++a   must yield "a after the increment"   → return *this by reference (no copy)
+  a++   must yield "a before the increment"  → keep a copy first, return that (by value)
+
+  → post is always more expensive than pre (one extra copy)
+  → when you don't use the returned value, make ++i the habit rather than i++
+
+Testing the epsilon:
+  Fixed a;              // 0
+  std::cout << a;       // 0
+  std::cout << ++a;     // 0.00390625   ← 1/256, proving it moved one raw bit`, cap: "That 0.00390625 is the evidence that you moved a raw bit rather than adding 1.0", lang: "txt" },
+      { qa: [
+        { q: "Why doesn't `++a` add 1?", a: "Because the subject defines it as adding the smallest representable value of the type, which is one raw bit = 1/256. To add one you'd write `a = a + Fixed(1)`." },
+        { q: "What is the `int` in `operator++(int)` for?", a: "Nothing — it's a dummy parameter the language uses to tell post-increment apart from pre-increment, which takes none." },
+        { q: "Why does pre return a reference and post a value?", a: "Pre returns the same object after incrementing, so `*this` works with no copy; post must return the value from before the increment, which no longer exists by the time it returns — so it keeps a copy and returns that." },
+      ]},
+      { h: "🔬 Deep dive B: overloading on const — why min/max need four versions" },
+      { p: "The subject asks for two versions each of `min` and `max`: non-const and const. People wonder why one wouldn't do — the answer is in **what comes back**." },
+      { code: String.raw`static Fixed       &min(Fixed &a, Fixed &b);
+static const Fixed &min(const Fixed &a, const Fixed &b);
+static Fixed       &max(Fixed &a, Fixed &b);
+static const Fixed &max(const Fixed &a, const Fixed &b);
+
+Both return a reference to whichever argument won (no copy)
+
+non-const version:  Fixed::max(a, b) = Fixed(3);   ← the winner can be modified
+const version:      not modifiable, but accepts const objects
+
+With only the non-const version:
+  const Fixed a(1), b(2);
+  Fixed::max(a, b);        // ✗ a const object can't bind to a non-const parameter
+
+With only the const version:
+  works everywhere, but the result can never be modified,
+  even when the arguments weren't const`, cap: "This is ad-hoc polymorphism: one name, and the closest-matching version is chosen at compile time", lang: "cpp" },
+      { p: "**How the compiler chooses:** with non-const arguments it takes the non-const version (a closer match, no conversion needed); with const arguments only the const version is viable. All of it is decided at compile time — nothing happens at run time." },
+      { qa: [
+        { q: "Why do min/max need both a const and a non-const version?", a: "The non-const one returns a modifiable reference but cannot accept const objects; the const one accepts anything but returns something unmodifiable. Both are needed to cover both uses." },
+        { q: "Why are they static?", a: "They compare two objects passed in rather than acting on any one object — `Fixed::min(a, b)` reads more naturally than `a.min(b)`." },
+        { q: "What does returning a reference rather than a value buy you?", a: "No copy of the object, and (in the non-const version) the caller can modify the winner through the returned reference." },
+      ]},
+      { h: "🔬 Deep dive C: `const` members — ex03 forces you to really understand the initialiser list" },
+      { p: "`Point` holds `Fixed const _x;` and `Fixed const _y;`. Putting `const` there has two unavoidable consequences." },
+      { code: String.raw`class Point
+{
+    private:
+        Fixed const _x;      // const → settable exactly once, at construction
+        Fixed const _y;
+    public:
+        Point(void);
+        Point(const float x, const float y);
+        Point(const Point &other);
+        Point &operator=(const Point &other);   // OCF requires it
+        ~Point(void);
+};
+
+Consequence 1 — every constructor must bind them in the initialiser list:
+  Point::Point(void) : _x(0), _y(0) {}
+  Point::Point(const float x, const float y) : _x(x), _y(y) {}
+  Point::Point(const Point &o) : _x(o._x), _y(o._y) {}     ← the copy ctor too
+
+Consequence 2 — operator= can do nothing, yet OCF demands it exist:
+  Point &Point::operator=(const Point &other)
+  {
+      (void)other;      // _x/_y can't be changed, they're const
+      return (*this);
+  }`, cap: "Writing _x = o._x in the body won't compile — that is the lesson of this exercise", lang: "cpp" },
+      { note: "It looks contradictory but isn't: OCF says 'the class must have an operator=', while `const` members say 'assignment is impossible'. The accepted resolution is to provide it doing nothing, casting the parameter to `(void)` to silence the unused-parameter warning." },
+      { qa: [
+        { q: "Why must a const member go in the initialiser list?", a: "Members are constructed before the constructor body is entered, so anything in the body is assignment — which const forbids. The initialiser list is the only place it still counts as construction." },
+        { q: "So what does Point's operator= do?", a: "Nothing — it just returns `*this`, because the members are const and can't be changed. OCF still requires it to exist, so it's written with the parameter cast to (void)." },
+      ]},
+      { h: "🔬 Deep dive D: BSP — point-in-triangle from the sign of a cross product" },
+      { p: "`bsp()` answers whether a point is inside a triangle. The method looks only at the **sign** of three cross products — no areas, no angles." },
+      { code: String.raw`The idea: cross(o, a, b) says which "side" of the line o→a the point b is on
+
+  cross(o,a,b) = (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x)
+
+  > 0  →  b is to the left of the line
+  < 0  →  b is to the right
+  = 0  →  b is exactly on the line
+
+A point is "inside" the triangle ⟺ it is on the same side of all three edges
+  → all three cross products must share the same sign`, cap: "You never need to know whether the triangle is wound clockwise or not — 'all three agree' is enough", lang: "txt" },
+      { code: String.raw`bool bsp(Point const a, Point const b, Point const c, Point const point)
+{
+    Fixed d1 = cross(a, b, point);
+    Fixed d2 = cross(b, c, point);
+    Fixed d3 = cross(c, a, point);
+
+    if (d1 == Fixed(0) || d2 == Fixed(0) || d3 == Fixed(0))
+        return (false);          // on an edge or a vertex → the subject says "no"
+
+    bool has_neg = (d1 < Fixed(0)) || (d2 < Fixed(0)) || (d3 < Fixed(0));
+    bool has_pos = (d1 > Fixed(0)) || (d2 > Fixed(0)) || (d3 > Fixed(0));
+    return (!(has_neg && has_pos));   // both signs present = different sides = outside
+}`, cap: "Our real code (ex03/bsp.cpp) — every computation runs through the operators written in ex02", lang: "cpp" },
+      { note: "Note that `Point` is passed **by value**, as the subject's signature requires — so every call makes four copies, which shows up as a flood of ctor/dtor messages at run time. That's expected, not a bug." },
+      { qa: [
+        { q: "How does bsp decide whether a point is inside?", a: "It computes three cross products, one per edge against the point — if all three signs agree, the point is on the same side of every edge, which means inside." },
+        { q: "What does a point exactly on an edge return?", a: "`false`, per the subject — checked first with `== Fixed(0)`, since a zero cross product means the point lies exactly on that line." },
+        { q: "Why is there no area or angle computation anywhere?", a: "Because the *sign* of the cross product already answers which side of each edge the point is on — cheaper, and free of floating-point precision worries." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Operator overloading", url: "https://en.cppreference.com/w/cpp/language/operators", note: "every overloadable operator and its canonical form" },
+        { label: "cppreference — Rule of three", url: "https://en.cppreference.com/w/cpp/language/rule_of_three", note: "the origin of OCF: need one, need all three" },
+        { label: "cppreference — Copy assignment operator", url: "https://en.cppreference.com/w/cpp/language/copy_assignment", note: "including self-assignment" },
+        { label: "Fixed-point arithmetic — Wikipedia", url: "https://en.wikipedia.org/wiki/Fixed-point_arithmetic", note: "why one uses an int instead of a float" },
+        { label: "Cross product — Wikipedia", url: "https://en.wikipedia.org/wiki/Cross_product", note: "where the 'sign tells you the side' idea comes from" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "The full Fixed class (ex02)" },
+      { code: String.raw`class Fixed
+{
+    private:
+        int                 _value;        // raw value = real value × 256
+        static const int    _bits = 8;     // ★ an integral static const can be initialised in-class
+
+    public:
+        Fixed(void);                       //  OCF
+        Fixed(const int value);            //  convert from int
+        Fixed(const float value);          //  convert from float
+        Fixed(const Fixed &other);         //  OCF
+        Fixed &operator=(const Fixed &o);  //  OCF
+        ~Fixed(void);                      //  OCF
+
+        int   getRawBits(void) const;
+        void  setRawBits(int const raw);
+        float toFloat(void) const;
+        int   toInt(void) const;
+
+        // 6 comparison · 4 arithmetic · 4 increment · 4 min/max (see the operator section)
+};
+
+std::ostream &operator<<(std::ostream &out, const Fixed &fixed);`, cap: "Our real code — `_bits` is a `static const int`, so it can carry its value inside the class even in C++98", lang: "cpp" },
+      { p: "**Why `_bits` is static:** it is a property of the *type* Fixed, not of any one object — every instance uses the same scale, so one copy is enough and no space is wasted per object." },
+      { h: "The four conversion functions" },
+      { code: String.raw`Fixed::Fixed(const int value)
+{
+    this->_value = value << this->_bits;              // × 256
+}
+
+Fixed::Fixed(const float value)
+{
+    this->_value = roundf(value * (1 << this->_bits)); // × 256, then round
+}
+
+float Fixed::toFloat(void) const
+{
+    return ((float)this->_value / (1 << this->_bits));
+}
+
+int Fixed::toInt(void) const
+{
+    return (this->_value >> this->_bits);              // ÷ 256, discarding the remainder
+}`, cap: "Shifting works because the scale is exactly a power of two — faster than multiply/divide, and it reads as what it is: moving the point", lang: "cpp" },
+      { h: "Point (ex03)" },
+      { code: String.raw`class Point
+{
+    private:
+        Fixed const _x;    // both const → bindable only in the initialiser list
+        Fixed const _y;
+    public:
+        Point(void);
+        Point(const float x, const float y);
+        Point(const Point &other);
+        Point &operator=(const Point &other);   // exists, does nothing
+        ~Point(void);
+
+        Fixed getX(void) const;
+        Fixed getY(void) const;
+};
+
+bool bsp(Point const a, Point const b, Point const c, Point const point);`, cap: "getX/getY are needed because cross() is a free function with no access to privates (and friend is banned)", lang: "cpp" },
+    ],
+
+    architecture: [
+      { h: "Files per exercise" },
+      { table: { head: ["Exercise", "Files", "Added since the last one"], rows: [
+        ["ex00", "`Fixed.hpp/.cpp`, `main.cpp`", "OCF + getRawBits/setRawBits"],
+        ["ex01", "same as ex00", "+ int/float ctors, toFloat/toInt, `operator<<`; **remove** the getRawBits message"],
+        ["ex02", "same as ex01", "+ the 14 operators and the 4 min/max"],
+        ["ex03", "+ `Point.hpp/.cpp`, `bsp.cpp`", "copy `Fixed.hpp/.cpp` over from ex02"],
+      ]}},
+      { note: "ex03 copies Fixed wholesale from ex02 rather than rewriting it — each folder has to compile on its own." },
+      { h: "The order the OCF messages appear (ex00)" },
+      { code: String.raw`int main(void)
+{
+    Fixed a;                        → "Default constructor called"
+    Fixed b(a);                     → "Copy constructor called"
+                                      "Copy assignment operator called"   ★ two lines
+    Fixed c;                        → "Default constructor called"
+    c = b;                          → "Copy assignment operator called"
+    ...
+}                                   → "Destructor called" × 3 (reversed: c, b, a)`, cap: "b(a) produces two lines because our copy ctor forwards to operator= — matching the subject's example exactly", lang: "txt" },
+    ],
+
+    dataflow: [
+      { p: "Following the actual arithmetic, exercise by exercise." },
+      { h: "ex01 — where the subject's expected numbers come from" },
+      { code: String.raw`Fixed a;                    // _value = 0
+Fixed const b(10);          // int ctor:   10 << 8 = 2560
+Fixed const c(42.42f);      // float ctor: roundf(42.42 * 256) = roundf(10859.52) = 10860
+Fixed const d(b);           // copy
+
+std::cout << a << std::endl;    // toFloat: 0 / 256      = 0
+std::cout << b << std::endl;    // toFloat: 2560 / 256   = 10
+std::cout << c << std::endl;    // toFloat: 10860 / 256  = 42.421875 → prints 42.4219
+std::cout << b.toInt();         // 2560 >> 8 = 10`, cap: "42.4219 isn't an error — it's the closest value to 42.42 that a 1/256 scale can represent", lang: "cpp" },
+      { p: "**Why it prints 42.4219 and not 42.421875:** `std::cout` shows floats at the default six significant digits, giving `42.4219`. No precision setting is needed." },
+      { h: "ex02 — how the arithmetic operators work" },
+      { code: String.raw`Fixed Fixed::operator+(const Fixed &rhs) const
+{
+    return (Fixed(this->toFloat() + rhs.toFloat()));
+}`, cap: "Convert to float → add → construct a new Fixed (which applies roundf for you)", lang: "cpp" },
+      { code: String.raw`Why not just add the _value directly?
+
+  add/subtract:  adding _value directly works and is exact
+  multiply:      _value * _value ends up scaled by 256², needing a divide back
+                 and risking overflow along the way
+  divide:        you must multiply by 256 first or the fraction is lost entirely
+
+  → going through a float and reconstructing = one formula covers all four
+    and gives the rounding the subject expects (5.05 * 2 → 10.1016)
+
+  Comparison, though, must never go through float — comparing the int _value is exact`, cap: "Compute through float, compare through int — two different choices for two different reasons", lang: "txt" },
+      { h: "ex03 — cross() uses our own operators" },
+      { code: String.raw`static Fixed cross(Point const &o, Point const &a, Point const &b)
+{
+    Fixed ax = a.getX() - o.getX();     // ← Fixed's operator-
+    Fixed ay = a.getY() - o.getY();
+    Fixed bx = b.getX() - o.getX();
+    Fixed by = b.getY() - o.getY();
+
+    return (ax * by - ay * bx);         // ← operator* and operator-
+}`, cap: "That last line reads like ordinary mathematics — which is the payoff for overloading the operators in ex02", lang: "cpp" },
+      { note: "This is the answer to 'why overload operators at all': without it, that line would read `ax.mul(by).sub(ay.mul(bx))`, where the formula is no longer visible." },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — the four OCF members with exactly the right messages; run it and diff line by line against the subject",
+        "2. **ex01** — add the int/float ctors, toFloat/toInt and `operator<<`; **delete the getRawBits message** (ex01 no longer has it)",
+        "3. **ex02** — write the six comparisons first (easiest), then the four arithmetic, then the four increments, then the four min/max",
+        "4. **ex03** — copy Fixed over, build Point (where const members bite), then bsp",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["the last digits don't match the diff", "truncating with `(int)` instead of `roundf`", "`roundf(f * (1 << _bits))`"],
+        ["`friend` earns you −42", "writing `operator<<` as a friend", "make it a free function calling `toFloat()`"],
+        ["OCF output doesn't match the subject", "the copy ctor doesn't forward to operator=", "`*this = other;` in the copy ctor body"],
+        ["comparisons occasionally wrong", "comparing through `toFloat()`", "compare `_value` directly"],
+        ["`++a` gives 1 instead of 0.00390625", "incrementing on the float side", "increment `_value` (the raw bits)"],
+        ["Point doesn't compile", "assigning a const member in the body", "bind it in the initialiser list, in every ctor"],
+        ["`Fixed::max(a,b)` fails when a and b are const", "only the non-const version exists", "add the const version"],
+        ["unused-parameter warning in `Point::operator=`", "a parameter you can't use", "`(void)other;`"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`cd ex02 && make re && ./a.out
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 02/ex02" && make re && ./a.out'
+
+# forbidden things (must print nothing) — note that friend is included
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp
+
+# leaks (this module never calls new, so it should be perfectly clean)
+valgrind --leak-check=full --error-exitcode=42 -q ./a.out`, lang: "bash" },
+      { note: "When diffing output against the subject, filter the OCF lines out first (`Constructor called` / `Destructor called` / `getRawBits member function called`) — otherwise the diff is too noisy to see whether the values are right." },
+      { note: "Don't grep make's output for bare `error` or `warning` — it matches the `-Werror` on the compile line. Grep for `error:` and `warning:` with the colon." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: let the copy constructor forward to operator=" },
+      { p: "Write the copying logic once inside `operator=` and let the copy ctor be just `*this = other;` — you get non-duplicated code and exactly the two lines of output the subject expects." },
+      { h: "Trick 2: shift instead of multiply/divide, because the scale is a power of two" },
+      { p: "`<< 8` and `>> 8` instead of `* 256` and `/ 256` — faster, and it makes clear you're moving the binary point rather than doing ordinary arithmetic." },
+      { h: "Trick 3: compare on the int, compute on the float" },
+      { p: "Compare `_value` because integers compare exactly; compute through `toFloat()` because one formula then covers all four operators and gives the rounding the subject expects." },
+      { h: "Trick 4: make the self-assignment check a habit" },
+      { p: "`if (this != &other)` isn't strictly needed in a Fixed holding one int, but by Module 04, where classes hold pointers, it's the line between working code and a double free — start doing it now." },
+      { h: "Trick 5: make `++i` your default over `i++`" },
+      { p: "When you don't use the returned value (in a loop, say) `++i` avoids constructing a copy. This module lets you see exactly why post-increment costs more." },
+      { h: "Trick 6: ex03 copies Fixed wholesale" },
+      { p: "Don't rewrite Fixed — copy `Fixed.hpp/.cpp` from ex02 and put your attention on Point and bsp, which are the genuinely new parts." },
+      { h: "Trick 7: check the edges before the interior" },
+      { p: "In `bsp`, test `== Fixed(0)` first — that disposes of the edge and vertex cases entirely, and what remains is just 'do the signs agree?', which reads far more clearly." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is Orthodox Canonical Form and what does it include?", a: "The form 42 requires of every class: a default constructor, a copy constructor, a copy assignment operator and a destructor — so you control construction, copying and destruction yourself rather than leaving it to the compiler." },
+        { q: "Why write OCF by hand when the compiler generates it?", a: "The generated version copies member by member — once a class holds a pointer, that copies only the address, leaving two objects pointing at the same memory and double-freeing it. Writing it yourself builds the habit before you reach such a class." },
+        { q: "What does `Fixed b = a;` call?", a: "The copy constructor, not `operator=` — because b is being created. `b = a;` when b already exists is the assignment operator." },
+        { q: "How does fixed-point store a value?", a: "As an `int _value` holding the real value multiplied by 256 (`_bits = 8`), read back by dividing by 256 — so decimals are representable to 1/256 without using a float." },
+        { q: "Why `roundf` when converting from a float?", a: "42.42×256 = 10859.52 — truncating gives 10859, which reads back as 42.4180 and doesn't match the subject. `roundf` gives 10860 and therefore 42.4219, exactly right." },
+        { q: "Why must `operator<<` be a free function rather than a member?", a: "The left operand of `<<` is `std::cout`, not Fixed — a member would mean modifying `std::ostream`, which is impossible. And `friend` is banned (−42), so it goes through the public `toFloat()`." },
+        { q: "Why does `operator<<` return `std::ostream&`?", a: "So calls can chain: `cout << a << b << endl;`. Returning void would break the chain." },
+        { q: "How do `++a` and `a++` differ in code?", a: "Pre (`++a`) takes no parameter and returns `*this` by reference; post (`a++`) takes a dummy `int`, keeps a copy first and returns that copy by value — which makes post the more expensive one." },
+        { q: "Why does increment move only 0.00390625?", a: "Because the subject defines it as adding the smallest representable value, which is one raw bit = 1/256, not 1.0." },
+        { q: "Why are there four min/max functions?", a: "Two versions each of min and max (const and non-const) — the non-const one returns a modifiable reference but rejects const objects; the const one accepts anything but returns something unmodifiable." },
+        { q: "Why are min/max static?", a: "They compare two objects passed in rather than describing the behaviour of any one object — calling them through the class name reads more naturally." },
+        { q: "Why must comparisons use `_value` rather than `toFloat()`?", a: "Integers compare exactly, while floats carry rounding error that makes `==` unreliable — and `_value` is the object's real content anyway." },
+        { q: "Why must a const member go in the initialiser list?", a: "Members are constructed before the body is entered, so anything in the body is assignment, which const forbids. The initialiser list is the only place that still counts as construction." },
+        { q: "Point has const members — what does its operator= do?", a: "It must exist under OCF but can't do anything — it returns `*this` and casts the parameter to `(void)` to silence the warning." },
+        { q: "How does bsp decide?", a: "It computes three cross products (the point against each edge). If all three signs agree, the point is on the same side of every edge and therefore inside; if any is zero, the point is on an edge and the answer is false per the subject." },
+      ]},
+      { h: "Test before submitting" },
+      { code: String.raw`# ex01 must match exactly
+./a.out | grep -v 'called'
+# a is 1234.43
+# c is 42.4219
+# c is 42 as integer
+
+# ex02 must match exactly (the values shown in the subject)
+# 0 / 0.00390625 / 0.00390625 / 0.00390625 / 0.0078125 / 10.1016 / 10.1016
+
+# test the epsilon yourself
+# Fixed a; ++a;  → must give 0.00390625 (= 1/256)
+
+# ex03 edge cases
+# a point on a vertex   → false
+# a point on an edge    → false
+# a point in the middle → true
+# a point far outside   → false
+
+# no friend anywhere
+grep -rn 'friend' ex0*/ && echo "found friend = -42"`, lang: "bash" },
+    ],
+  },
+});
