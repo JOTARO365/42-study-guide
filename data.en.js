@@ -6856,3 +6856,1724 @@ signs of being 'stuck' → abort before the cap:
     ],
   },
 };
+
+/* ===================== EN: libft ===================== */
+Object.assign(window.TEACHING_EN, {
+  "libft": {
+    principle: [
+      { h: "What libft is, and why getting it right matters" },
+      { p: "libft means rewriting C's standard functions by hand and archiving them into a single file, `libft.a`. **Every project after this one links against it** — push_swap, pipex, minitalk, fdf, so_long, cub3d, miniRT, minishell." },
+      { p: "That has a consequence this project doesn't share with any other: **a small bug you leave here comes back in a project that is far harder to debug**. An `ft_strlcat` that returns the wrong length shows up as a buffer overflow in minishell, months after you've forgotten how you wrote it." },
+      { h: "The four families" },
+      { table: { head: ["Family", "Functions", "What they have in common"], rows: [
+        ["char classification", "`isalpha isdigit isalnum isascii isprint toupper tolower`", "take and return `int` · allocate nothing · no side effects"],
+        ["memory", "`memset bzero memcpy memmove memchr memcmp calloc`", "work on `void *` and byte counts; `\\0` means nothing to them"],
+        ["string", "`strlen strlcpy strlcat strchr strrchr strncmp strnstr strdup atoi` + `substr strjoin strtrim split itoa strmapi striteri`", "the second half allocates, every one of them"],
+        ["list (bonus)", "`lstnew lstadd_front lstadd_back lstsize lstlast lstdelone lstclear lstiter lstmap`", "singly-linked `t_list` holding a `void *content`"],
+      ]}},
+      { h: "The line that actually matters: who owns the returned pointer" },
+      { code: String.raw`Returns memory the caller must free:
+    ft_substr  ft_strjoin  ft_strtrim  ft_split  ft_itoa
+    ft_strmapi  ft_strdup  ft_calloc  ft_lstnew  ft_lstmap
+
+Returns a pointer the caller must NOT free (it points into their own data):
+    ft_strchr  ft_strrchr  ft_strnstr  ft_memchr
+    ft_memset  ft_memcpy  ft_memmove   (they return the dst you passed in)
+
+Writes into a buffer the caller supplied (allocates nothing):
+    ft_strlcpy  ft_strlcat  ft_bzero  ft_striteri`, cap: "Sort every function into one of these three before writing any code and most leak and double-free bugs simply never happen", lang: "txt" },
+      { h: "Hard rules" },
+      { ul: [
+        "**Norminette must pass on every file** — 25 lines per function, 5 functions per file, 5 parameters, no `for`, no ternary, tabs, ≤ 80 columns",
+        "The only external functions allowed are `malloc`, `free`, `write` — no `printf`, no `strlen`, no `memcpy` from libc",
+        "Archive with `ar rcs libft.a *.o` · targets `all clean fclean re bonus` · **must not relink when nothing changed**",
+        "Bonus files are named `ft_lst*_bonus.c` and compile only under the `bonus` target",
+      ]},
+      { note: "**ft_printf** and **get_next_line** are separate projects with their own pages. This workspace keeps their sources in the same `libft/` folder so downstream projects link one archive — but they are submitted separately." },
+    ],
+
+    theory: [
+      { h: "🔬 Deep dive A: `memcpy` vs `memmove` — the overlap rule" },
+      { p: "They look interchangeable, which is why people write one and have the other call it — and that is wrong in exactly one direction." },
+      { code: String.raw`Say  char b[10] = "abcdefghi";  and we shift right by 2
+     memcpy(b + 2, b, 5);
+
+  Copying left to right:
+      b[2] = b[0]   →  ab a defghi
+      b[3] = b[1]   →  ab ab efghi
+      b[4] = b[2]   ★ b[2] was already overwritten! reads 'a' instead of 'c'
+      result is corrupted
+
+  Copying right to left:
+      b[6] = b[4]  →  b[5] = b[3]  →  b[4] = b[2] ...
+      ★ every cell is read before anything overwrites it  →  correct
+
+memcpy   the standard says the regions must not overlap — overlapping is UB
+memmove  must behave as if copied through a temporary → it picks the direction`, cap: "Picking the direction is the entire content of memmove", lang: "txt" },
+      { code: String.raw`void	*ft_memmove(void *dst, const void *src, size_t len)
+{
+	unsigned char	*dest;
+	unsigned char	*source;
+
+	dest = (unsigned char *)dst;
+	source = (unsigned char *)src;
+	if (source > dest)
+		ft_memcpy(dst, src, len);      /* dest is to the left: forward is safe */
+	else
+	{
+		while (len-- != 0)
+			dest[len] = source[len];   /* dest is to the right: go backwards */
+	}
+	return (dest);
+}`, cap: "Real code — `while (len-- != 0)` walks the index from len-1 down to 0 exactly", lang: "c" },
+      { note: "**Why cast to** `unsigned char *`: `void *` cannot be offset portably, and `char` may be signed, which is irrelevant here — we want raw bytes, and that is precisely `unsigned char`." },
+      { qa: [
+        { q: "What is the difference between `memcpy` and `memmove`?", a: "`memcpy` gives no guarantee when source and destination overlap (it is undefined behaviour); `memmove` must always be correct, choosing its copy direction based on where the two regions sit." },
+        { q: "When must you copy backwards?", a: "When the destination is after the source (`dst > src`) and they overlap — copying forwards would overwrite bytes that haven't been read yet." },
+        { q: "Why cast to `unsigned char *`?", a: "`void *` cannot be offset portably, and we want to treat the data as raw unsigned bytes." },
+      ]},
+
+      { h: "🔬 Deep dive B: `strlcpy` / `strlcat` return the length they *tried* to build" },
+      { p: "This is the single most-failed detail in libft. Neither function **returns how many bytes it copied** — both return the length that *would* have resulted if the buffer had been big enough." },
+      { table: { head: ["Function", "Returns", "What it's for"], rows: [
+        ["`strlcpy(dst, src, n)`", "`strlen(src)` always — even when `n` is 0", "`ret >= n` means truncation happened"],
+        ["`strlcat(dst, src, n)`", "`strlen(dst) + strlen(src)` (or `n + strlen(src)` if dst is already longer than n)", "same"],
+      ]}},
+      { code: String.raw`size_t	ft_strlcat(char *dst, const char *src, size_t dstsize)
+{
+	size_t		src_len;
+	size_t		dst_len;
+	size_t		i;
+
+	src_len = ft_strlen(src);
+	dst_len = ft_strlen(dst);
+	if (dst_len >= dstsize)
+		return (src_len + dstsize);      /* ★ dst doesn't even terminate inside dstsize */
+	i = 0;
+	while (src[i] != '\0' && dst_len + 1 < dstsize)
+		dst[dst_len++] = src[i++];
+	dst[dst_len] = '\0';
+	return (dst_len + ft_strlen(src + i));
+}`, cap: "Real code — the last line is 'what actually fit' plus 'what still didn't'", lang: "c" },
+      { p: "**Why design it this way:** the caller wants to know *whether it was truncated*, not *how many bytes went in*. Returning the copied count makes 'fit exactly' indistinguishable from 'filled up and cut off'. Returning the intended length lets the caller just compare against `dstsize`." },
+      { note: "When `dst_len >= dstsize` it returns `src_len + dstsize`, not `src_len + dst_len` — by definition `dst` has no `\\0` within `dstsize`, so its length is taken to be `dstsize`." },
+      { qa: [
+        { q: "What does `ft_strlcpy` return?", a: "`strlen(src)`, always — the length it tried to copy, not the number of bytes that fit. Callers use `ret >= dstsize` to detect truncation." },
+        { q: "Why not return the number of bytes actually copied?", a: "Because 'fit exactly' and 'was truncated' would produce the same number. The intended length compares directly against `dstsize`." },
+        { q: "What does `ft_strlcat` return when `dst` is longer than `dstsize`?", a: "`strlen(src) + dstsize` — `dst` doesn't terminate inside the bound, so its length counts as `dstsize`." },
+      ]},
+
+      { h: "🔬 Deep dive C: `ft_calloc` — the multiplication that overflows silently" },
+      { p: "`calloc(count, size)` must allocate `count * size` bytes. That product is computed in `size_t`, which **wraps** on overflow — you allocate far less than asked, and the caller then writes past the end without ever knowing." },
+      { code: String.raw`On 64-bit:  SIZE_MAX = 18446744073709551615
+
+  calloc(2, 9223372036854775808)
+      2 * 9223372036854775808 = 18446744073709551616
+                              = 0 after wrapping           ★
+      → malloc(0) → a pointer you cannot actually use
+      → caller writes 18 quintillion bytes into it → heap destroyed
+
+void	*ft_calloc(size_t count, size_t size)
+{
+	void	*res;
+
+	if (count == 0 || size == 0)
+		return (malloc(1));                /* ★ a real, freeable pointer */
+	if ((count * size) > __INT_MAX__
+		|| size > __INT_MAX__
+		|| count > __INT_MAX__)
+		return (NULL);                     /* ★ guard before trusting the product */
+	res = malloc(count * size);
+	if (!res)
+		return (NULL);
+	ft_bzero(res, count * size);
+	return (res);
+}`, cap: "Real code — both operands are checked separately, because the product you'd test may itself have wrapped already", lang: "c" },
+      { p: "**Why a zero-sized request returns** `malloc(1)` **rather than NULL:** the caller should get a unique pointer they can `free` normally. Returning NULL would signal an allocation failure, and asking for 0 bytes is not a failure." },
+      { qa: [
+        { q: "What does `ft_calloc` have to watch out for?", a: "`count * size` can overflow silently — check before multiplying. It must also zero the whole region, since that is what calloc guarantees." },
+        { q: "What should `calloc(0, 0)` return?", a: "A unique, freeable pointer (e.g. `malloc(1)`) — not NULL, because requesting zero bytes isn't a failure." },
+        { q: "Why check `count` and `size` separately instead of just the product?", a: "Because the product you would be testing may already have wrapped, which makes it useless as a check." },
+      ]},
+
+      { h: "🔬 Deep dive D: `ft_itoa` and the `INT_MIN` that has no positive twin" },
+      { code: String.raw`Range of a 32-bit int:  -2147483648  to  2147483647
+                                        ↑ there is no +2147483648
+
+  So  -INT_MIN  overflows → undefined behaviour
+  Code written as  if (n < 0) n = -n;  breaks the moment it sees INT_MIN
+
+Fix: widen to long first`, cap: "A consequence of two's complement — the negative side always has one more value than the positive side", lang: "txt" },
+      { code: String.raw`char	*ft_itoa(int c)
+{
+	long	size;
+	char	*res;
+	long	yeah;
+
+	yeah = c;                      /* ★ widen before doing anything at all */
+	size = get_numb(yeah);
+	res = malloc(size + 1);
+	if (!res)
+		return (NULL);
+	res[size] = '\0';
+	if (yeah < 0)
+	{
+		res[0] = '-';
+		yeah = -yeah;              /* safe: a long holds 2147483648 */
+	}
+	else if (yeah == 0)
+		res[0] = '0';
+	while (yeah)
+	{
+		res[--size] = (yeah % 10) + 48;
+		yeah /= 10;
+	}
+	return (res);
+}`, cap: "Real code — digits are written back to front (`res[--size]`) because `% 10` yields the rightmost digit first", lang: "c" },
+      { qa: [
+        { q: "Why does `ft_itoa` break on `INT_MIN`?", a: "`-INT_MIN` overflows `int`, because two's complement has one more negative value than positive. Widen to `long` before negating." },
+        { q: "Why write the digits back to front?", a: "`n % 10` produces the units digit first, which belongs at the right end of the result. Writing from the last position backwards gets the order right without reversing the string afterwards." },
+      ]},
+
+      { h: "🔬 Deep dive E: `ft_atoi` — more rules than it looks" },
+      { p: "`atoi` looks trivial enough that people write it in one pass and then hit the bug in push_swap while validating arguments. The standard defines four ordered steps, each with its own condition." },
+      { code: String.raw`int	ft_atoi(const char *str)
+{
+	int		neg;
+	int		res;
+
+	res = 0;
+	neg = 1;
+	while (*str == 32 || (*str >= 9 && *str <= 13))     /* 1. skip whitespace */
+		str++;
+	if (*str == '-')
+		neg *= -1;                                      /* 2. one sign */
+	if (*str == '-' || *str == '+')
+		str++;
+	while (*str >= '0' && *str <= '9')                  /* 3. accumulate digits */
+	{
+		res = (res * 10) + (*str - 48);
+		str++;
+	}
+	return (res * neg);                                 /* 4. apply the sign */
+}`, cap: "Real code — it stops at the first non-digit and does not treat that as an error", lang: "c" },
+      { table: { head: ["Input", "Correct result", "Why"], rows: [
+        ["`\"  -42\"`", "`-42`", "leading whitespace is skipped"],
+        ["`\"42abc\"`", "`42`", "stops at the first non-digit"],
+        ["`\"abc42\"`", "`0`", "no digits to read at all"],
+        ["`\"--42\"`", "`0`", "only one sign is read; the second `-` isn't a digit, so it stops"],
+        ["`\"+-42\"`", "`0`", "same"],
+        ["`\"\\t\\n 42\"`", "`42`", "whitespace covers `\\t\\n\\v\\f\\r` (ASCII 9–13) and space (32)"],
+      ]}},
+      { note: "**There are six whitespace characters**, not just space — 9 through 13 (`\\t \\n \\v \\f \\r`) and 32. The condition `(*str >= 9 && *str <= 13)` is exactly that range." },
+      { p: "**On overflow:** a string representing a number outside `int` range makes the accumulator wrap. The classic 42 version lets it (real `atoi` is undefined here too). That's accepted, but you must know it — **and push_swap needs its own separate validator**, because there an overflow is an error you have to catch." },
+      { qa: [
+        { q: "What does `ft_atoi(\"42abc\")` return?", a: "`42` — it stops at the first non-digit and treats that as normal, not as an error." },
+        { q: "What does `ft_atoi(\"--42\")` return?", a: "`0` — one sign is consumed, then the second `-` isn't a digit so it stops immediately, having accumulated nothing." },
+        { q: "How does `ft_atoi` handle overflow?", a: "It doesn't — the accumulator wraps, matching real `atoi`, which is undefined here. Projects that must reject overflow (push_swap) need their own validator." },
+      ]},
+
+      { h: "🔬 Deep dive F: `ft_split` — count first, fill second, clean up on partial failure" },
+      { p: "`ft_split` is the hardest of the standard set because it allocates **two levels** — an array of pointers, then each string inside it. Two levels of allocation means two levels of possible leak." },
+      { code: String.raw`Three functions (count + fill + entry point) keep every one under the 25-line limit:
+
+  count_word(s, c)           walk s and count the words
+  str_tokenized(arr, s, c)   walk again, cutting each word with ft_substr
+  ft_split(s, c)             allocate (words + 1) slots, then call the two above
+
+Why count first:
+  you know the exact size → one malloc, no realloc
+  (and realloc isn't in the allowed list anyway)`, cap: "One extra pass buys a single allocation — always worth it when realloc is off the table", lang: "txt" },
+      { code: String.raw`char	**ft_split(char const *s, char c)
+{
+	char	**res;
+	int		size;
+
+	if (!s)
+		return (NULL);
+	size = count_word(s, c);
+	res = malloc(sizeof(char *) * (size + 1));   /* ★ +1 for the NULL terminator */
+	if (!res)
+		return (NULL);
+	str_tokenized(res, s, c);
+	return (res);
+}`, cap: "Real code — the `+1` is the NULL slot that lets the caller walk to the end without being told the count", lang: "c" },
+      { table: { head: ["Input", "Correct result"], rows: [
+        ["`ft_split(\"\", ' ')`", "an array containing only NULL (0 words) — not NULL"],
+        ["`ft_split(\"   \", ' ')`", "same — separators alone are not words"],
+        ["`ft_split(\"  a  b  \", ' ')`", "2 words — repeated and edge separators produce no empty words"],
+        ["`ft_split(NULL, ' ')`", "NULL"],
+      ]}},
+      { p: "**The trap testers check:** if `ft_substr` in the fill loop returns NULL, every word already allocated leaks unless you free them all and return NULL. Testers with a malloc-failure injector are checking exactly this." },
+      { note: "The trailing NULL is not decoration — it is the only way the caller (and your own cleanup code) can know where the array ends, since `ft_split` never returns a count." },
+      { qa: [
+        { q: "Why does `ft_split` count the words first?", a: "To allocate the right size in one go — `realloc` isn't allowed, and doubling-as-you-go is both wasteful and more complex." },
+        { q: "Why does the array need a NULL terminator?", a: "Because the function doesn't return a word count, so the caller needs a signal for where the array ends." },
+        { q: "What must happen if malloc fails halfway?", a: "Free every word already allocated plus the array itself, then return NULL — otherwise the whole thing leaks. This is a case testers check specifically." },
+        { q: "What should `ft_split(\"\", ' ')` return?", a: "An array containing only the NULL slot (0 words) — not NULL, so the caller can still free it normally." },
+      ]},
+
+      { h: "🔬 Deep dive G: `t_list` — `del` belongs to the caller, `free` belongs to you" },
+      { p: "`t_list` holds a `void *content` that libft knows nothing about — **so the caller has to supply a `del` function saying how to destroy it**, while the node itself is ours to free." },
+      { table: { head: ["Function", "What it does", "What it does NOT do"], rows: [
+        ["`ft_lstdelone(lst, del)`", "calls `del(lst->content)` then `free(lst)`", "**never touches `lst->next`** — unlinking isn't its job"],
+        ["`ft_lstclear(&lst, del)`", "walks the list calling `lstdelone`, then sets `*lst = NULL`", "—"],
+        ["`ft_lstiter(lst, f)`", "calls `f(node->content)` on every node", "builds nothing, deletes nothing"],
+        ["`ft_lstmap(lst, f, del)`", "builds a **new** list from the results of `f`", "never touches the original"],
+      ]}},
+      { p: "`ft_lstclear` **must set** `*lst = NULL`, or the caller is left holding a pointer to a freed node — use it once and that's a use-after-free. This is exactly why the parameter is `t_list **` and not `t_list *`." },
+      { p: "**`ft_lstmap` has the same trap as `ft_split`:** if `f` or `ft_lstnew` returns NULL after several nodes are built, you must `ft_lstclear` the partial list with `del` before returning NULL." },
+      { qa: [
+        { q: "Why does `ft_lstclear` take a `t_list **`?", a: "Because it has to write NULL back into the caller's variable — with a `t_list *` it could only modify a copy, leaving the caller pointing at freed memory." },
+        { q: "How is `del` different from `free`?", a: "`content` is a `void *` we know nothing about — it may own memory of its own. The caller supplies `del` to say how it dies; libft frees the node itself." },
+        { q: "Why doesn't `ft_lstdelone` delete the next node too?", a: "Because its job is one node — the caller may be splicing a node out of the middle and relinking around it. Destroying the whole chain is `ft_lstclear`'s job." },
+      ]},
+
+      { h: "🔬 Deep dive H: functions that take functions — `strmapi`, `striteri`, `lstiter`, `lstmap`" },
+      { p: "These four take a **pointer to a function** as a parameter, the first time the curriculum requires writing one. The similarly-named pairs differ only in 'mutate in place' vs 'build something new'." },
+      { code: String.raw`char	*ft_strmapi(char const *s, char (*f)(unsigned int, char));
+void	ft_striteri(char *s, void (*f)(unsigned int, char *));
+
+  Reading the type:  char (*f)(unsigned int, char)
+                          ^^^  f is a pointer to a function
+                     taking (unsigned int, char) and returning char
+
+  The parentheses around (*f) are required
+      char *f(unsigned int, char)     = a function returning char*   (different thing)
+      char (*f)(unsigned int, char)   = a pointer to a function returning char  ✓
+
+strmapi   f returns a value  → it goes into a "new" string  → mallocs → caller frees
+striteri  f takes a char*    → it edits the original in place → allocates nothing`, cap: "The trailing `i` means the index is passed in as well, so the callback knows which position it's working on", lang: "c" },
+      { p: "**Why pass the index:** so position-dependent logic is possible, e.g. 'uppercase every even character'. Given only the character, the callback has no way to know where it is — it never sees the whole string." },
+      { p: "**The same pair exists on the list side:** `ft_lstiter` mutates (matching `striteri`) and `ft_lstmap` builds a new list (matching `strmapi`). You'll meet this shape again in every language that has `map` and `forEach`." },
+      { qa: [
+        { q: "How does `ft_strmapi` differ from `ft_striteri`?", a: "`strmapi` uses each value `f` returns to build a new string (so it allocates); `striteri` hands `f` a `char *` so it edits the original in place (so it allocates nothing)." },
+        { q: "How do you read `char (*f)(unsigned int, char)`?", a: "`f` is a pointer to a function taking `unsigned int` and `char` and returning `char`. The parentheses around `*f` are required — without them it's a function returning `char *`." },
+        { q: "Why is the index passed to `f`?", a: "So position-dependent logic is possible — `f` only sees one character and could never work out where it is on its own." },
+      ]},
+
+      { h: "🔬 Deep dive I: how `libft.a` actually gets linked" },
+      { code: String.raw`ft_strlen.c  ──cc -c──►  ft_strlen.o  ┐
+ft_split.c   ──cc -c──►  ft_split.o   ├──ar rcs──►  libft.a
+...                                    ┘
+
+ar rcs libft.a *.o
+   r  insert or replace members
+   c  create without warning that it didn't exist
+   s  ★ build the symbol index the linker uses to find which .o holds what
+
+cc main.c libft.a -o prog
+   the linker sees main.o calls ft_split, which is still undefined
+   → opens libft.a's index → finds it in ft_split.o
+   → ★ pulls in ft_split.o only (plus ft_substr.o, which it calls)
+   → object files nobody needs are never pulled in at all`, cap: "This is why one-function-per-file matters — the linker pulls whole .o files, not individual functions", lang: "txt" },
+      { p: "**The practical consequence:** put ten functions in one `.c` and a program using one of them drags in the other nine. Splitting them keeps binaries small — and it's why the subject requires it." },
+      { p: "**Order on the command line matters:** `cc main.c libft.a` works, `cc libft.a main.c` may not — the linker walks left to right and only extracts symbols that are *already* undefined when it reaches the archive. Reaching `libft.a` before `main.c` means nothing has been requested yet, so nothing is extracted." },
+      { qa: [
+        { q: "How does a `.a` differ from a `.so`?", a: "A `.a` is baked into the binary at link time — the program runs with no library file present. A `.so` is loaded at run time: smaller binary, but the file has to exist." },
+        { q: "What does each letter of `ar rcs` do?", a: "`r` insert/replace, `c` create quietly, `s` build the symbol index so the linker can find functions." },
+        { q: "Why one function per file?", a: "Because the linker extracts whole `.o` files — bundling many functions together drags all of them into any binary that uses one." },
+        { q: "Why might `cc libft.a main.c` fail to link?", a: "The linker walks left to right and only pulls symbols that are already undefined at that point — when it reaches the archive first, nothing has been requested yet." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "man 3 memmove", url: "https://man7.org/linux/man-pages/man3/memmove.3.html", note: "the definition of the overlap rule" },
+        { label: "man 3 strlcpy (OpenBSD)", url: "https://man.openbsd.org/strlcpy.3", note: "the original, explaining why it returns the intended length" },
+        { label: "man 3 calloc", url: "https://man7.org/linux/man-pages/man3/malloc.3.html", note: "the requirement about count × size overflow" },
+        { label: "man 3 atoi", url: "https://man7.org/linux/man-pages/man3/atoi.3.html", note: "the parsing order and the behaviour on overflow" },
+        { label: "man 1 ar", url: "https://man7.org/linux/man-pages/man1/ar.1.html", note: "what r, c and s mean" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "Character classification — simple, with details" },
+      { code: String.raw`int	ft_isalpha(int c);     /* 'A'-'Z' or 'a'-'z' */
+int	ft_isdigit(int c);     /* '0'-'9' */
+int	ft_isalnum(int c);     /* isalpha or isdigit */
+int	ft_isascii(int c);     /* 0 to 127 */
+int	ft_isprint(int c);     /* 32 to 126 (space through ~) */
+int	ft_toupper(int c);     /* not lowercase → returned unchanged */
+int	ft_tolower(int c);
+
+Why int and not char:
+    this family in libc has to accept EOF (= -1) as well,
+    which is not the value of any char — hence the wider type`, cap: "The return value is 'true or false' — it need not be 1, only non-zero", lang: "c" },
+      { note: "`isprint` starts at 32 (space) and ends at 126 (`~`) — **127 is DEL, which is not printable**. This exact detail comes back in CPP Module 06 when separating `Non displayable` from `impossible`." },
+
+      { h: "`ft_strnstr` — searching a substring within a bound" },
+      { code: String.raw`char	*ft_strnstr(const char *haystack, const char *needle, size_t len)
+{
+	size_t		i;
+	size_t		j;
+
+	i = 0;
+	if (*needle == '\0')
+		return ((char *)haystack);          /* ★ empty needle = found at 0 */
+	while (haystack[i] && i < len)
+	{
+		if (haystack[i] == needle[0])
+		{
+			j = 0;
+			while (needle[j] && haystack[i + j] == needle[j] && i + j < len)
+				j++;
+			if (needle[j] == '\0')          /* ★ walked the whole needle = match */
+				return ((char *)(haystack + i));
+		}
+		i++;
+	}
+	return (NULL);
+}`, cap: "Real code — `i + j < len` in the inner loop is what stops it reading past the bound even mid-string", lang: "c" },
+      { p: "**What `len` bounds:** how many bytes of the *haystack* may be read — not how many must match. A substring that starts inside the bound but runs past it counts as **not found**." },
+      { note: "It returns `char *` while taking `const char *` — a libc convention that lets the caller modify through the result when their data wasn't really const. It grates, but it's standard." },
+
+      { h: "`ft_strtrim` — walking in from both ends" },
+      { code: String.raw`char	*ft_strtrim(char const *s1, char const *set)
+{
+	const char	*str1;
+	const char	*str2;
+	size_t		i;
+	char		*res;
+
+	if (!s1 || !set)
+		return (NULL);
+	while (*s1 && ft_strchr(set, *s1))          /* head: walk right past the set */
+		s1++;
+	str1 = s1;
+	str2 = ft_strchr(s1, '\0');                 /* ★ jump to the terminator */
+	while (str2 > str1 && ft_strchr(set, *(str2 - 1)))
+		str2--;                                  /* tail: walk left past the set */
+	i = str2 - str1;
+	if (i == 0)
+		return (ft_strdup(""));                  /* ★ everything was trimmed */
+	res = malloc(sizeof(char) * (i + 1));
+	if (!res)
+		return (NULL);
+	ft_strlcpy(res, str1, (i + 1));
+	return (res);
+}`, cap: "Real code — `ft_strchr(set, c)` is used as the question 'is this character one I should trim?'", lang: "c" },
+      { p: "**`set` is a set of characters, not a substring to match** — `ft_strtrim(\"xxhixx\", \"x\")` gives `\"hi\"`, and `ft_strtrim(\"abcHIcba\", \"abc\")` gives `\"HI\"`, because it trims one character at a time." },
+      { note: "The `str2 > str1` condition is what stops the tail walk from running past the start — without it, `ft_strtrim(\"xxx\", \"x\")` reads outside the string." },
+
+      { h: "`t_list` — the shape of the list" },
+      { code: String.raw`typedef struct s_list
+{
+	void			*content;      /* anything at all — libft doesn't know the type */
+	struct s_list	*next;
+}	t_list;
+
+ft_lstnew(content)        new node, next = NULL
+ft_lstadd_front(&l, n)    n->next = *l  then  *l = n        → O(1)
+ft_lstadd_back(&l, n)     walk to the end with ft_lstlast   → O(n)
+ft_lstsize(l)             count the nodes
+ft_lstlast(l)             last node (NULL for an empty list)`, cap: "`add_front` always beats `add_back` — which is why this shape is so often used as a stack", lang: "c" },
+      { p: "**`ft_lstadd_front` and `ft_lstadd_back` both take `t_list **`** because both may have to change the head — `add_front` always does, and `add_back` does whenever the list is still empty." },
+    ],
+
+    architecture: [
+      { h: "File layout" },
+      { code: String.raw`libft/
+  libft.h                              every declaration
+  Makefile                             all clean fclean re bonus
+
+  ft_isalpha.c … ft_putnbr_fd.c        34 standard files (one function each)
+  ft_lst*_bonus.c                      9 bonus files
+
+Product:  libft.a  ← the single file other projects link
+
+This workspace also parks two other projects' sources in the same folder:
+  ft_printf.c  ft_printf_utils.c  ft_printf.h        → the ft_printf page
+  get_next_line.c  get_next_line_utils.c  ...h       → the get_next_line page`, cap: "Three separate submissions, one folder, so downstream projects link a single archive", lang: "txt" },
+
+      { h: "Makefile — building filenames from a list" },
+      { code: String.raw`SRC     := isalpha isdigit ... putnbr_fd
+SRC_B   := lstnew lstadd_front ... lstmap
+
+FILES   := $(addprefix ft_, $(addsuffix .c, $(SRC)))
+FILES_B := $(addsuffix .c, $(addprefix ft_, $(addsuffix _bonus, $(SRC_B))))`, cap: "Write bare function names and let make add the `ft_` and `.c` — adding a function is a one-word edit", lang: "make" },
+      { table: { head: ["Target", "Must do"], rows: [
+        ["`all`", "build `libft.a` (without bonus)"],
+        ["`bonus`", "compile the `_bonus.c` files into the same archive"],
+        ["`clean`", "remove `.o`"],
+        ["`fclean`", "remove `.o` and `libft.a`"],
+        ["`re`", "`fclean` then `all`"],
+      ]}},
+      { note: "**No unnecessary relink** — running `make` twice must print *Nothing to be done* the second time. And `.o` files must depend on `libft.h`, or editing the header rebuilds nothing." },
+
+      { h: "libft in later projects — deliberately duplicated" },
+      { p: "This workspace holds **eight copies** of `libft/` (push_swap, pipex, minitalk, fdf, so_long, cub3d, miniRT, minishell). That is normal and necessary: each project must build standalone from its own directory." },
+      { note: "**The side effect to watch:** fixing a bug in one copy leaves the other seven wrong. When you change a shared function, copy the file into every project that uses it, or write down which copy is authoritative." },
+    ],
+
+    dataflow: [
+      { h: "Who calls whom inside libft" },
+      { code: String.raw`ft_strlen  ←──────┬── ft_strdup ── ft_strjoin ── ft_strtrim
+                  ├── ft_strlcpy ──┘         ↑
+                  ├── ft_strlcat             └── ft_strchr
+                  ├── ft_substr ── ft_split
+                  └── ft_itoa (indirectly)
+
+ft_bzero  ←── ft_calloc
+ft_memcpy ←── ft_memmove
+
+Write them in the order of these arrows.
+  Write ft_split before ft_substr and you can't test anything at all.`, cap: "This dependency graph is why `ft_strlen` has to come first", lang: "txt" },
+
+      { h: "Tracing `ft_split(\"  ab  cd  \", ' ')`" },
+      { code: String.raw`count_word:
+    walk: skip separators → find 'a', count 1 → skip the word
+          skip separators → find 'c', count 2 → skip the word
+          skip trailing separators → end of string
+    → returns 2
+
+ft_split:
+    malloc(sizeof(char *) * 3)      ← 2 words + 1 NULL slot
+
+str_tokenized:
+    pass 1: skip separators → start at 'a' → length 2
+            arr[0] = ft_substr(start, 0, 2) = "ab"
+    pass 2: skip separators → start at 'c' → length 2
+            arr[1] = ft_substr(start, 0, 2) = "cd"
+    pass 3: skip trailing separators → *s is '\0' → leave the loop
+    arr[2] = NULL
+
+In memory:
+    arr ──► [ 0 ]──► "ab"
+            [ 1 ]──► "cd"
+            [ 2 ]──► NULL
+
+How the caller cleans up:
+    i = 0; while (arr[i]) free(arr[i++]);  free(arr);
+                          ★ free each word first, then the array itself`, cap: "Three allocations (the array plus two words) means three frees", lang: "txt" },
+
+      { h: "Edge cases every allocating function needs" },
+      { table: { head: ["Function", "The case that usually breaks"], rows: [
+        ["`ft_substr`", "`start` past the end → must give `\"\"`, not NULL and not a crash"],
+        ["`ft_substr`", "`len` running past the end → clamp; never read out of bounds"],
+        ["`ft_strjoin`", "one side NULL → decide the behaviour and apply it consistently everywhere"],
+        ["`ft_strtrim`", "everything trimmed (`\"xxx\"` with set `\"x\"`) → must give a freeable `\"\"`"],
+        ["`ft_split`", "empty string / separators only → an array holding just NULL"],
+        ["`ft_itoa`", "`0`, `INT_MIN`, `INT_MAX`"],
+        ["`ft_strmapi`", "empty string → a freeable `\"\"`"],
+        ["all of them", "`malloc` returning NULL → return NULL and leave nothing allocated"],
+      ]}},
+    ],
+
+    implementation: [
+      { h: "The order to write them in" },
+      { ul: [
+        "1. **Character classification** — 7 easy functions that also get the file layout and Makefile in place",
+        "2. **`ft_strlen`** — on its own, because almost everything else calls it",
+        "3. **Memory family** — `memset` `bzero` `memcpy` first, then `memmove` (which calls `memcpy`), then `calloc` (which calls `bzero`)",
+        "4. **Non-allocating strings** — `strlcpy` `strlcat` `strchr` `strrchr` `strncmp` `strnstr` `atoi`",
+        "5. **Allocating strings** — `strdup` and `substr` first (`split` needs it), then `strjoin` `strtrim` `itoa` `split` `strmapi` `striteri`",
+        "6. **`t_list` bonus** — `lstnew` `lstadd_*` `lstsize` `lstlast` first, then `lstdelone` `lstclear` `lstiter` `lstmap`",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["`ft_memmove` corrupts overlapping data", "always copying in one direction", "`src > dst` forwards, otherwise backwards"],
+        ["testers flag `strlcpy`/`strlcat` return values", "returning the copied count", "return the length you *tried* to build"],
+        ["`ft_calloc` corrupts the heap", "`count * size` overflowed", "check both operands and the product before allocating"],
+        ["`ft_itoa(INT_MIN)` wrong or crashes", "`-n` overflowed `int`", "copy into a `long` before negating"],
+        ["`ft_split` leaks when malloc fails", "partial words never freed", "free every word plus the array, return NULL"],
+        ["`ft_split(\"   \", ' ')` gives odd output", "`count_word` counts empty words", "skip separators first, then check something is left"],
+        ["caller loops past the end of a split", "no NULL terminator", "`*arr = NULL;` after the last word"],
+        ["`ft_strtrim(\"xxx\", \"x\")` reads out of bounds", "the tail walk passes the start", "the `str2 > str1` condition"],
+        ["`ft_strnstr` matches past `len`", "only the outer loop checks the bound", "check `i + j < len` in the inner loop too"],
+        ["the list is still usable after `ft_lstclear`", "`*lst = NULL` was never set", "set it before returning"],
+        ["norminette complains though the code looks fine", "declaration mid-block / a `for` / a ternary / a line over 80", "run `norminette` before every commit"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`make re && make            # the second run must say "Nothing to be done"
+make bonus
+norminette *.c *.h          # zero errors
+
+# a driver comparing against libc: print both results AND both return values
+cc -Wall -Wextra -Werror main_test.c libft.a -o test && ./test
+
+# no forbidden functions (only malloc, free and write are allowed)
+grep -nE 'printf|strlen|strcpy|memcpy|calloc|strdup|realloc' *.c | grep -v ft_
+
+# valgrind on every driver
+valgrind --leak-check=full --error-exitcode=42 -q ./test && echo "clean"
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && make re && norminette *.c *.h'`, lang: "bash" },
+      { note: "**Compare results *and* return values against libc** — the functions that fail most often (`strlcpy`, `strlcat`) fail on the return value, which the output alone never shows." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: settle pointer ownership before writing anything" },
+      { p: "Write down the three groups — 'returns memory to free', 'returns a pointer not to free', 'writes into the caller's buffer'. Knowing this up front makes leaks and double frees mostly disappear on their own." },
+      { h: "Trick 2: write them in dependency order" },
+      { p: "`strlen` before everything · `substr` before `split` · `memcpy` before `memmove` · `bzero` before `calloc`. Follow that order and you never have to stub something out and come back." },
+      { h: "Trick 3: always compare return values, not just output" },
+      { p: "An `ft_strlcat` that copies correctly but returns the wrong number passes visual inspection and fails the tester — and then resurfaces as a buffer overflow in another project months later." },
+      { h: "Trick 4: widen to `long` before negating anything" },
+      { p: "`-n` on an `int` overflows whenever `n` is `INT_MIN`. The habit carries all the way through push_swap's argument validation and every project that takes numbers from the user." },
+      { h: "Trick 5: count before allocating" },
+      { p: "`ft_split` walks twice to `malloc` once. It's the same shape you'll use building argument arrays in pipex and minishell — one extra pass always beats growing memory piece by piece." },
+      { h: "Trick 6: write the cleanup function alongside the allocating one" },
+      { p: "Write `free_split(char **arr)` while writing `ft_split`, then copy it into every project that uses it — every later project needs it, and rewriting it each time is where the leaks come from." },
+      { h: "Trick 7: `ft_strchr(set, c)` as a membership test" },
+      { p: "`ft_strtrim` uses it that way instead of looping over the set by hand. The same shape answers 'is this character a delimiter?' in minishell's lexer." },
+      { h: "Trick 8: propagate every fix to all eight copies" },
+      { p: "This workspace has eight `libft/` folders — fixing one and forgetting the rest is a bug that comes back to haunt the next project. `cp` the file everywhere the moment it's fixed." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is libft and why do it?", a: "Rewriting C's standard functions and archiving them as `libft.a`, which every later project links against — both to understand how those functions actually work and to have a toolbox in projects where most of libc is banned." },
+        { q: "How does a static library differ from a shared one?", a: "A `.a` is baked into the binary at link time, so it runs with no library present. A `.so` is loaded at run time — smaller binary, but the file must exist." },
+        { q: "What does `ar rcs` do?", a: "Bundles `.o` files into an archive — `r` insert/replace, `c` create quietly, `s` build the symbol index the linker needs." },
+        { q: "Why one function per file?", a: "The linker pulls whole `.o` files, not individual functions — bundling many together drags all of them into any binary that needs one." },
+        { q: "How do `ft_memcpy` and `ft_memmove` differ?", a: "`memcpy` is undefined on overlapping regions; `memmove` must always be correct, picking forwards or backwards based on where the regions sit." },
+        { q: "What does `ft_strlcpy` return, and why?", a: "`strlen(src)`, always — the length it *tried* to copy, so the caller can compare `ret >= dstsize` and detect truncation." },
+        { q: "How does `ft_calloc` differ from `malloc`?", a: "It takes two parameters and multiplies them (which can overflow, so it must be checked) and guarantees the memory it returns is zeroed." },
+        { q: "How does `ft_itoa` handle `INT_MIN`?", a: "It copies into a `long` before negating — `-INT_MIN` overflows `int`." },
+        { q: "When does `ft_atoi` stop reading?", a: "At the first non-digit, and it treats that as normal rather than an error. `\"42abc\"` gives 42; `\"abc\"` gives 0." },
+        { q: "How does `ft_split` work?", a: "Count the words first, allocate `words + 1` slots (the extra one is the NULL terminator), then walk again cutting each word out with `ft_substr`." },
+        { q: "What must `ft_split` do if malloc fails halfway?", a: "Free every word already allocated plus the array, then return NULL — otherwise the whole thing leaks with no way for the caller to recover it." },
+        { q: "How does a caller free the result of `ft_split`?", a: "Free each word until the NULL slot, then free the array itself — `free(arr)` alone leaks every word." },
+        { q: "What does `ft_strnstr`'s `len` parameter bound?", a: "How many bytes of the haystack may be read — a substring starting inside the bound but extending past it counts as not found." },
+        { q: "Does `ft_strtrim` trim a whole substring or one character at a time?", a: "One character at a time — `set` is a *set of characters* to remove, not a substring to match." },
+        { q: "How does `ft_strmapi` differ from `ft_striteri`?", a: "`strmapi` builds a new string from what `f` returns (so it allocates); `striteri` hands `f` a `char *` to edit the original in place." },
+        { q: "Why does `t_list` hold a `void *content`?", a: "So the list can hold anything — libft never needs to know the type. The consequence is that destruction requires the caller to supply a `del` function." },
+        { q: "Why does `ft_lstclear` take a `t_list **`?", a: "To write NULL back into the caller's variable, so they aren't left pointing at a freed node." },
+        { q: "Why does `ft_lstadd_back` take a `t_list **`?", a: "Because when the list is empty it has to set the caller's head to the new node." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. build + norm
+make re && make          # second run must say "Nothing to be done"
+make bonus
+norminette *.c *.h       # 0 errors
+
+# 2. no forbidden functions (only malloc, free, write)
+grep -nE 'printf|strlen|strcpy|memcpy|calloc|strdup|realloc' *.c | grep -v ft_
+
+# 3. compare against libc — results AND return values
+#    focus on: strlcpy/strlcat returns, memmove overlap,
+#              atoi "  -42abc" / "--42" / INT_MIN,
+#              substr with start past the end, split "" / "   " / separators only,
+#              strtrim trimming everything, strnstr past len,
+#              itoa 0 / INT_MIN / INT_MAX
+
+# 4. bonus: lstclear must null the head; lstmap must clean up on partial failure
+
+# 5. valgrind clean on every driver
+valgrind --leak-check=full --error-exitcode=42 -q ./test && echo "clean"
+
+# 6. tidy directory
+make fclean`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: ft_printf ===================== */
+Object.assign(window.TEACHING_EN, {
+  "ft_printf": {
+    principle: [
+      { h: "What ft_printf teaches" },
+      { p: "The stated task is to rewrite `printf`. What the project actually teaches is **a function that accepts any number of arguments of any type** — the machinery C hides behind `...`." },
+      { code: String.raw`int ft_printf(const char *s, ...);
+                          ^^^
+     "any number of further arguments, of any type"
+
+Questions you have to be able to answer:
+    how does the function know how many there are?   →  it doesn't; it reads the format
+    how does it know what type each one is?          →  it doesn't; it reads the specifier
+    ★ if the format disagrees with the real arguments = undefined behaviour
+      which is why printf is unsafe by construction`, cap: "The compiler doesn't check (unless you add a special attribute) — `printf(\"%s\", 42)` compiles fine and breaks at run time", lang: "c" },
+      { h: "Scope of the mandatory part" },
+      { table: { head: ["Specifier", "Type read", "Prints"], rows: [
+        ["`%c`", "`int`", "one character"],
+        ["`%s`", "`char *`", "the string · NULL must print `(null)`"],
+        ["`%p`", "an address", "`0x` followed by lowercase hex · NULL prints `(nil)`"],
+        ["`%d` `%i`", "`int`", "signed decimal"],
+        ["`%u`", "`unsigned int`", "unsigned decimal"],
+        ["`%x`", "`unsigned int`", "lowercase hex"],
+        ["`%X`", "`unsigned int`", "uppercase hex"],
+        ["`%%`", "—", "one `%`, and it counts toward the return value"],
+      ]}},
+      { p: "**No flags, no width, no precision** in the mandatory part — `%-5.3d` belongs to the bonus. So the mandatory part is pure dispatch, not parsing." },
+      { h: "Hard rules" },
+      { ul: [
+        "**The real `printf` is forbidden** (obviously) · allowed externals: `malloc`, `free`, `write`, and the `va_*` macros",
+        "**Norminette must pass** — 25 lines per function, 5 functions per file · this is exactly why the dispatch is split across levels",
+        "Ship it as `libftprintf.a` (or folded into `libft.a` if the downstream project wants that)",
+        "**The return value must match real `printf`** — the total number of characters written",
+      ]},
+      { note: "This workspace keeps the ft_printf sources in the shared `libft/` folder and declares `ft_printf` at the bottom of `libft.h`, so downstream projects link one archive. **It is still submitted as its own project.**" },
+    ],
+
+    theory: [
+      { h: "🔬 Deep dive A: what `va_list` really is" },
+      { p: "There is no magic in C — `va_list` is **a cursor walking the block of arguments the caller laid down**. `va_arg` reads at that cursor as whatever type you name, then advances it by that type's size." },
+      { code: String.raw`ft_printf("%d %s", 42, "hi");
+
+The caller lays the arguments out (conceptually — on x86-64 registers come first,
+then the stack):
+
+    [ s = "%d %s" ]  [ 42 ]  [ "hi" ]
+                        ↑
+                    va_list points here after va_start
+
+va_arg(args, int)        reads 42 → advances by sizeof(int)
+va_arg(args, char *)     reads "hi" → advances by sizeof(char *)
+
+★ nothing is checked, at all
+  say int and it reads 4 bytes there and interprets them as an int
+  say the wrong thing and you get garbage — or read past the block entirely`, cap: "A va_list is a cursor plus advance rules, not a structure that knows what's inside", lang: "c" },
+      { table: { head: ["Macro", "Does", "Called when"], rows: [
+        ["`va_start(args, last)`", "points `args` just past `last`", "before the first `va_arg`"],
+        ["`va_arg(args, T)`", "reads as `T`, then advances", "for each further argument"],
+        ["`va_end(args)`", "cleans up (a no-op on some platforms, still required)", "before every `return`"],
+        ["`va_copy(dst, src)`", "duplicates the cursor state", "when you must walk again from the same point (not needed here)"],
+      ]}},
+      { p: "**`last` in `va_start` must be the final named parameter** — `s` here. The macro uses it as the reference point for where the unnamed block begins." },
+      { note: "Every exit path must reach `va_end` — returning early without it is undefined behaviour by the standard, even where Linux/x86-64 shows no visible effect." },
+      { qa: [
+        { q: "What is a `va_list`?", a: "A cursor over the block of unnamed arguments — `va_arg` reads at that position as the type you name and advances the cursor." },
+        { q: "Which parameter does `va_start` take?", a: "The last *named* parameter (here the format string) — it's the reference point for where the unnamed block starts." },
+        { q: "What happens if you name the wrong type in `va_arg`?", a: "Undefined behaviour — it reads that many bytes and interprets them accordingly, with no checking whatsoever. You get garbage, or read past the block." },
+        { q: "Why is `printf` unsafe by construction?", a: "The format string alone declares the argument types, and nothing forces it to match what was passed — `printf(\"%s\", 42)` compiles and breaks at run time." },
+      ]},
+
+      { h: "🔬 Deep dive B: default argument promotion — why `%c` reads an `int`" },
+      { p: "Arguments passed through `...` are **widened automatically** before the callee sees them. The rule dates from before C had prototypes and is still with us." },
+      { code: String.raw`Type passed in          Promoted to        Read it with
+  char, signed char       int             va_arg(args, int)
+  unsigned char           int             va_arg(args, int)
+  short                   int             va_arg(args, int)
+  unsigned short          int/unsigned    va_arg(args, int)
+  _Bool                   int             va_arg(args, int)
+  float                   double          va_arg(args, double)
+
+  int, long, pointer      unchanged       as declared
+
+So:
+    ft_printf("%c", 'A');
+        'A' is a char → widened to int on the caller's side
+        va_arg(args, char)   ✗ undefined behaviour
+        va_arg(args, int)    ✓ correct`, cap: "There is no choice — the char isn't in the block any more, only the int it became", lang: "c" },
+      { code: String.raw`int	ft_check(va_list *args, char c)
+{
+	if (c == 'c')
+		return (ft_putchar(va_arg(*args, int)));    /* ★ int, not char */
+	else if (c == 's')
+		return (ft_putstr(va_arg(*args, char *)));
+	else if (c == '%')
+		return (ft_putchar('%'));
+	return (ft_check_num(args, c));
+}`, cap: "Real code — `va_arg(*args, int)` handed to `ft_putchar(char c)`, which narrows it back at the call", lang: "c" },
+      { note: "**Some compilers say so outright** — gcc reports *'second argument to va_arg is of promotable type char'*. `-Wall -Wextra -Werror` catches this at compile time." },
+      { qa: [
+        { q: "Why does `%c` need `va_arg(args, int)`?", a: "Because a `char` passed through `...` was widened to `int` on the caller's side by default argument promotion — there is no `char` left in the block." },
+        { q: "Which types get promoted?", a: "`char`, `short` and `_Bool` become `int`; `float` becomes `double`. `int`, `long` and pointers are unchanged." },
+        { q: "Why does that rule exist?", a: "It predates prototypes — back then the compiler didn't know the parameter types, so one uniform widening rule let caller and callee agree." },
+      ]},
+
+      { h: "🔬 Deep dive C: why the `va_list` is passed by pointer" },
+      { p: "Norminette caps every function at 25 lines, which forces the work across several functions. That is exactly where `va_list` turns out to be fragile." },
+      { code: String.raw`The problem: how va_list is defined depends on the architecture
+
+  On x86-64 System V (Linux, Intel macOS):
+      typedef struct { ... } va_list[1];     ← ★ a one-element array!
+
+  On other architectures it may be:
+      typedef char *va_list;                ← a plain pointer
+
+What passing by value does:
+  if it's an array  → decays to a pointer → the callee walks the same cursor
+                       → the caller sees it advance
+  if it's a pointer → the value is copied → the callee walks a copy
+                       → ★ the caller sees nothing → it re-reads the same argument
+
+  So the identical code is correct on one machine and wrong on another.`, cap: "The standard states outright that handing a va_list to another function and continuing to read is not defined", lang: "c" },
+      { p: "**The fix: always pass the address** — `ft_check(&args, c)` and then `va_arg(*args, T)` inside. However `va_list` happens to be defined, every level then walks the same cursor." },
+      { code: String.raw`int	ft_printf(const char *s, ...)
+{
+	va_list	args;
+	...
+	length += ft_check(&args, s[i]);       /* ★ pass the address */
+}
+
+int	ft_check(va_list *args, char c)        /* ★ take a pointer */
+{
+	... va_arg(*args, int) ...             /* ★ dereference to use */
+}`, cap: "Real code — the same shape at all four levels", lang: "c" },
+      { qa: [
+        { q: "Why pass `va_list *` instead of `va_list`?", a: "Because `va_list` may be an array (x86-64) or a plain pointer (elsewhere) — passed by value, some platforms have the callee walk a copy, so the caller re-reads the same argument. Passing the address makes every level share one cursor everywhere." },
+        { q: "What does the bug look like when you get it wrong?", a: "On a platform where `va_list` is a plain pointer, the caller's cursor never advances — `ft_printf(\"%d %d\", 1, 2)` prints `1 1`. On x86-64 you never see it at all, because there it's an array." },
+      ]},
+
+      { h: "🔬 Deep dive D: converting numbers by recursion" },
+      { p: "Printing a number has an ordering problem: division yields the **rightmost** digit first, but we print left to right. The classic answer is to recurse before printing, so the digits emerge as the stack unwinds." },
+      { code: String.raw`int	ft_putnbr_base_len(long long nbr, char *base)
+{
+	int	len_base;
+	int	count;
+
+	count = 0;
+	len_base = (int)ft_strlen(base);
+	if (nbr < 0)
+	{
+		count += ft_putchar('-');
+		nbr = -nbr;                 /* ★ safe because nbr is a long long */
+	}
+	if (nbr >= len_base)
+		count += ft_putnbr_base_len(nbr / len_base, base);   /* ★ recurse first */
+	count += ft_putchar(base[nbr % len_base]);               /* ★ print after */
+	return (count);
+}`, cap: "Real code — one function serves every base, using the length of the base string as the radix", lang: "c" },
+      { code: String.raw`ft_putnbr_base_len(255, "0123456789abcdef")     len_base = 16
+
+  call(255)   255 >= 16  →  call(15) first
+    call(15)   15 < 16    →  no further call
+                             prints base[15 % 16] = base[15] = 'f'
+  back in (255)             prints base[255 % 16] = base[15] = 'f'
+
+  ★ "ff"  — the first digit was printed while unwinding from the deepest call
+
+Recursion depth = number of digits
+    a 64-bit number in base 2 is at most 64 deep — no stack overflow risk`, cap: "A recursion with a hard, obvious bound — depth is never a concern", lang: "txt" },
+      { p: "**Why the parameter is `long long`:** `%d` passes an `int`, but `-INT_MIN` overflows `int`. Widening in the signature makes `nbr = -nbr` safe with no special case." },
+      { p: "**Why `ft_putptr_base_len` exists separately:** `%p` must read an `unsigned long long`, whose maximum exceeds `long long` range — it can't share the function, and it has no sign to handle." },
+      { qa: [
+        { q: "How does converting a number by recursion work?", a: "Division yields the rightmost digit first, so you recurse on the quotient before printing the remainder — the leftmost digit is printed while unwinding from the deepest call, giving the right order." },
+        { q: "Why take a `long long` rather than an `int`?", a: "Because `-INT_MIN` overflows `int` — widening in the signature makes negation safe without a special case for `INT_MIN`." },
+        { q: "Why does `%p` need its own function?", a: "An address must be read as `unsigned long long`, whose maximum exceeds `long long` range — and it has no sign to handle." },
+        { q: "Is this recursion a stack overflow risk?", a: "No — the depth equals the digit count, at most 64 (a 64-bit value in base 2)." },
+      ]},
+
+      { h: "🔬 Deep dive E: the return value — what testers catch immediately" },
+      { p: "`printf` returns **the total number of characters written**. Simple to state, easy to get wrong — and the shape that makes it hard to get wrong is **every printing function returning what it wrote**." },
+      { code: String.raw`int	ft_putchar(char c)
+{
+	write(1, &c, 1);
+	return (1);              /* ★ returns 1, not void */
+}
+
+int	ft_putstr(char *str)
+{
+	size_t	len;
+
+	if (str == NULL)
+	{
+		write(1, "(null)", 6);
+		return (6);          /* ★ (null) counts as 6 */
+	}
+	len = ft_strlen(str);
+	write(1, str, len);
+	return ((int)len);
+}`, cap: "Real code — designed to return `int` from the bottom up, so the upper levels only ever add", lang: "c" },
+      { table: { head: ["Case", "Counts as", "Why"], rows: [
+        ["`%%`", "1", "the `%` printed is a real character"],
+        ["`%s` with NULL", "6", "`(null)` is 6 characters"],
+        ["`%p` with NULL", "5", "`(nil)` is 5 characters"],
+        ["`%p` normally", "2 + digits", "the `0x` counts too"],
+        ["`%d` negative", "1 + digits", "the `-` counts too"],
+        ["literal text in the format", "all of it", "it gets printed the same as anything else"],
+      ]}},
+      { note: "**Test the return value separately from the output** — an ft_printf that prints every byte correctly but returns the wrong number passes visual inspection 100% of the time and fails the tester 100% of the time." },
+      { qa: [
+        { q: "What does `ft_printf` return?", a: "The total number of characters printed, including literal text from the format, the `%` from `%%`, and any `(null)` substitution — exactly like real `printf`." },
+        { q: "How do you structure it so the count is never wrong?", a: "Make the bottom-level printers (`ft_putchar`, `ft_putstr`) return the count they wrote, then every level above just sums — nothing ever counts by hand." },
+        { q: "What does `%p` with NULL return?", a: "5 — `(nil)` is five characters." },
+      ]},
+
+      { h: "🔬 Deep dive F: calling `write` directly means no buffering" },
+      { p: "Real `printf` collects output in a buffer and flushes it in blocks. An `ft_printf` calling `write` per character has no buffer at all — which cuts both ways." },
+      { table: { head: ["", "Real `printf` (buffered)", "`ft_printf` (direct write)"], rows: [
+        ["System calls", "few (batched)", "**many** — one per character"],
+        ["Speed", "much faster on large output", "slower"],
+        ["When output appears", "on flush, newline, or buffer full", "**immediately**"],
+        ["If the program crashes", "whatever was still buffered is lost", "everything already printed is out"],
+      ]}},
+      { p: "**The practical effect:** when debugging a program that segfaults, `ft_printf` always shows the last line before the crash, while real `printf` may swallow it in an unflushed buffer — which is why many people switch to `ft_printf` for tracing in later projects." },
+      { note: "Collecting characters in a buffer and writing once is entirely possible and much faster — but then you own the flushing, and the 25-line limit makes the code noticeably longer. The mandatory part isn't asking for speed." },
+      { qa: [
+        { q: "How does `ft_printf` behave differently from real `printf`?", a: "Real `printf` buffers and writes in blocks; an `ft_printf` calling `write` directly emits immediately — slower, but nothing is lost when the program crashes." },
+        { q: "Why is one `write` per character slow?", a: "`write` is a system call, so every character requires a switch into the kernel — far more expensive per unit than writing into a memory buffer." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "man 3 printf", url: "https://man7.org/linux/man-pages/man3/printf.3.html", note: "the return value and every specifier" },
+        { label: "man 3 stdarg", url: "https://man7.org/linux/man-pages/man3/stdarg.3.html", note: "`va_start` / `va_arg` / `va_end` / `va_copy`" },
+        { label: "cppreference — Variadic arguments", url: "https://en.cppreference.com/w/c/variadic", note: "the default argument promotion rules" },
+        { label: "System V ABI — x86-64", url: "https://gitlab.com/x86-psABIs/x86-64-ABI", note: "why `va_list` is an array on this architecture" },
+        { label: "man 2 write", url: "https://man7.org/linux/man-pages/man2/write.2.html", note: "why a syscall costs more than a buffered write" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "The four dispatch levels" },
+      { code: String.raw`ft_printf(s, ...)        walk the format; on '%' hand the next char down
+   └─ ft_check           %c %s %%  end here · everything else goes down
+       └─ ft_check_num   %d %i %u  end here · hex goes down
+           └─ ft_check_hex   %x %X %p
+
+Why four levels:
+    norm allows 25 lines per function — nine if-else branches don't fit in one
+    and 5 functions per file — hence ft_printf.c plus ft_printf_utils.c
+
+Every level returns an int (characters written) → the level above adds it up`, cap: "The norm dictates the structure, and the structure happens to read well", lang: "txt" },
+      { code: String.raw`int	ft_printf(const char *s, ...)
+{
+	va_list	args;
+	int		length;
+	int		i;
+
+	length = 0;
+	i = 0;
+	va_start(args, s);
+	while (s[i])
+	{
+		if (s[i] == '%')
+		{
+			i++;
+			length += ft_check(&args, s[i]);
+		}
+		else
+			length += ft_putchar(s[i]);
+		i++;
+	}
+	va_end(args);
+	return (length);
+}`, cap: "Real code — two `i++`: the inner one steps over the `%`, the outer one past the specifier", lang: "c" },
+
+      { h: "The bottom level — the printing helpers" },
+      { code: String.raw`int	ft_putpointer(unsigned long long p)
+{
+	int	len;
+
+	len = 0;
+	if (p == 0)
+		len += ft_putstr("(nil)");            /* ★ NULL → (nil) */
+	else
+	{
+		len = ft_putstr("0x");                /* ★ the 0x prefix */
+		len += ft_putptr_base_len(p, "0123456789abcdef");
+	}
+	return (len);
+}`, cap: "Real code — `%p` is the only specifier that carries a prefix", lang: "c" },
+      { code: String.raw`int	ft_check_hex(va_list *args, char c)
+{
+	char	*base;
+
+	if (c == 'x')
+	{
+		base = "0123456789abcdef";
+		return (ft_putnbr_base_len(va_arg(*args, unsigned int), base));
+	}
+	else if (c == 'X')
+	{
+		base = "0123456789ABCDEF";           /* ★ only the base string differs */
+		return (ft_putnbr_base_len(va_arg(*args, unsigned int), base));
+	}
+	else if (c == 'p')
+		return (ft_putpointer(va_arg(*args, unsigned long long)));
+	return (0);
+}`, cap: "Real code — `%x` and `%X` share one converter, differing only in the digit set handed in", lang: "c" },
+      { p: "**Passing `base` as a string is the key idea** — one converter covers every base, using `ft_strlen(base)` as the radix and `base[n % len]` as each digit. Adding octal or binary is just another string." },
+      { note: "`%X` doesn't uppercase afterwards — it uses an uppercase digit set from the start. Converting after works too, but it's longer for no benefit." },
+    ],
+
+    architecture: [
+      { h: "File layout" },
+      { code: String.raw`ft_printf.h            declares all 7 functions · includes libft.h and <stdarg.h>
+ft_printf.c            ft_printf · ft_check · ft_check_num · ft_check_hex   (4)
+ft_printf_utils.c      ft_putchar · ft_putstr · ft_putpointer
+                       ft_putnbr_base_len · ft_putptr_base_len              (5)
+
+norm allows 5 functions per file → nine functions split into exactly two`, cap: "The file split isn't a matter of taste — it's what the norm allows", lang: "txt" },
+      { code: String.raw`#ifndef FT_PRINTF_H
+# define FT_PRINTF_H
+
+# include "libft.h"        /* ★ reuse libft's ft_strlen rather than rewriting it */
+# include <stdarg.h>       /* ★ va_list and friends */
+
+int	ft_printf(const char *s, ...);
+int	ft_check(va_list *args, char c);
+int	ft_putchar(char c);
+int	ft_putstr(char *str);
+int	ft_putnbr_base_len(long long nbr, char *base);
+int	ft_putptr_base_len(unsigned long long nbr, char *base);
+int	ft_putpointer(unsigned long long p);
+
+#endif`, cap: "Real code — `<stdarg.h>` is the only header this project needs beyond libft", lang: "c" },
+      { p: "**Why include `libft.h`:** `ft_putstr` needs `ft_strlen`, and so does `ft_putnbr_base_len` to measure `base`. Rewriting `ft_strlen` here would work too — this workspace links the existing libft instead." },
+
+      { h: "Two ways to package it" },
+      { table: { head: ["", "Separate `libftprintf.a`", "Folded into `libft.a` (what's done here)"], rows: [
+        ["At submission", "what the subject asks for", "still needs a Makefile producing `libftprintf.a`"],
+        ["How downstream links", "`cc main.c libft.a libftprintf.a`", "`cc main.c libft.a`"],
+        ["The ft_strlen it uses", "rewrite it, or link libft too", "libft's, directly"],
+      ]}},
+      { note: "The submission must produce `libftprintf.a` as the subject requires — this workspace keeps the sources next to libft for the convenience of downstream projects, but the submitted project is its own directory building the required archive name." },
+    ],
+
+    dataflow: [
+      { h: "Tracing `ft_printf(\"n=%d s=%s\\n\", 42, \"hi\")`" },
+      { code: String.raw`i   s[i]   action                                   length   argument cursor
+ 0   'n'   ft_putchar('n')                          1
+ 1   '='   ft_putchar('=')                          2
+ 2   '%'   i++ → ft_check(&args, 'd')
+             ft_check_num → ft_putnbr_base_len(42)
+               42 < 10? no → call(4) first
+                 4 < 10 → prints '4'
+               back → prints '2'                     4       past 42
+ 4   ' '   ft_putchar(' ')                          5
+ 5   's'   ft_putchar('s')                          6
+ 6   '='   ft_putchar('=')                          7
+ 7   '%'   i++ → ft_check(&args, 's')
+             ft_putstr("hi") → writes 2 bytes        9       past "hi"
+ 9   '\n'  ft_putchar('\n')                         10
+
+va_end(args)
+return 10                    ★ matches real printf`, cap: "Arguments are consumed in the order the specifiers appear — no skipping, no going back", lang: "txt" },
+
+      { h: "Edge cases to cover" },
+      { table: { head: ["Input", "Correct result", "What it catches"], rows: [
+        ["`ft_printf(\"%s\", NULL)`", "`(null)` · returns 6", "no crash, and the count is right"],
+        ["`ft_printf(\"%p\", NULL)`", "`(nil)` · returns 5", "the special case for `%p`"],
+        ["`ft_printf(\"%d\", INT_MIN)`", "`-2147483648` · returns 11", "negation without overflow"],
+        ["`ft_printf(\"%u\", -1)`", "`4294967295`", "read as unsigned, not signed"],
+        ["`ft_printf(\"%x\", UINT_MAX)`", "`ffffffff`", "no stray minus sign"],
+        ["`ft_printf(\"%%\")`", "`%` · returns 1", "counts what's printed, not what's in the format"],
+        ["`ft_printf(\"\")`", "nothing · returns 0", "an empty format"],
+        ["`ft_printf(\"%c\", 0)`", "writes byte 0 · returns 1", "`\\0` is a valid character — `write` can send it"],
+        ["`ft_printf(\"abc\")`", "`abc` · returns 3", "no specifiers at all"],
+      ]}},
+      { note: "**`%c` with the value 0 is the case people miss** — routed through a string function it stops at `\\0` and prints nothing. Only `write(1, &c, 1)` actually emits the zero byte." },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **`ft_putchar` / `ft_putstr` returning `int`** — everything sits on these, and starting them as `void` means rewriting the whole set later",
+        "2. **The `ft_printf` skeleton with `%c` `%s` `%%`** — confirm the format walk and the counting before going further",
+        "3. **`ft_putnbr_base_len`** — test base 10 first, then hex through the same function",
+        "4. **`%d` `%i` `%u`** — mind that `%u` needs `va_arg(*args, unsigned int)`",
+        "5. **`%x` `%X` `%p`** — `%p` needs its own unsigned converter",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["`%d %d` prints the first number twice", "`va_list` passed by value", "pass `va_list *` and use `va_arg(*args, T)`"],
+        ["compiler warns *promotable type*", "`va_arg(args, char)`", "`va_arg(args, int)`"],
+        ["`%d` with `INT_MIN` is wrong", "negating an `int`", "take the parameter as `long long`"],
+        ["`%u` with `-1` prints `-1`", "`va_arg(*args, int)`", "`va_arg(*args, unsigned int)`"],
+        ["`%x` shows a minus sign on large values", "same", "same"],
+        ["`%s` with NULL crashes", "no NULL branch", "print `(null)` and return 6"],
+        ["`%p` with NULL prints `0x0`", "no special case", "print `(nil)` and return 5"],
+        ["`%c` with 0 prints nothing", "routed through a string function that stops at `\\0`", "`write(1, &c, 1)` directly"],
+        ["the return value is too low", "some printer returns `void`, or a level forgets to add", "every helper returns `int`, every level sums"],
+        ["norminette rejects the file", "more than 5 functions", "split into `ft_printf.c` and `ft_printf_utils.c`"],
+        ["a trailing `%` reads past the end", "`i++` then `s[i]` without checking", "check you haven't hit `\\0` before dispatching"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`make re && make          # the second run must say "Nothing to be done"
+norminette *.c *.h        # 0 errors
+
+# a driver comparing against real printf: both output and return value
+cat > cmp.c <<'EOF'
+#include <stdio.h>
+#include "ft_printf.h"
+int main(void)
+{
+    int a = ft_printf("[%s] [%d] [%p]\n", "hi", -42, (void *)0);
+    int b = printf("[%s] [%d] [%p]\n", "hi", -42, (void *)0);
+    printf("ret: mine=%d real=%d\n", a, b);
+    return (0);
+}
+EOF
+cc -Wall -Wextra -Werror cmp.c libftprintf.a -o cmp && ./cmp
+
+# separate the streams to diff the output alone
+./mine > mine.txt && ./ref > ref.txt && diff mine.txt ref.txt && echo "output matches"
+
+# valgrind
+valgrind --leak-check=full --error-exitcode=42 -q ./cmp && echo "clean"
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_printf*.c ft_printf.h'`, lang: "bash" },
+      { note: "**Compare against real `printf` inside the same program** — not against what you think it should print. `%p` formatting varies between platforms, so a live comparison is the only reliable oracle." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: make every printer return `int` from the first line of code" },
+      { p: "Starting with `void ft_putchar(char c)` and discovering later that you need counts means rewriting the whole set plus every call site. Returning `int` from the start costs nothing." },
+      { h: "Trick 2: always pass `va_list *` across functions" },
+      { p: "It's technically necessary and it's a favourite evaluation question — knowing the reason (`va_list` may be an array) answers it in one sentence." },
+      { h: "Trick 3: pass `base` as a string instead of writing one function per base" },
+      { p: "`ft_putnbr_base_len(n, \"0123456789\")` and `(n, \"0123456789abcdef\")` share all their code — and `%X` is just the uppercase string." },
+      { h: "Trick 4: test the return value separately from the output" },
+      { p: "Write a driver that prints `ret: mine=%d real=%d` after every case — counting bugs are completely invisible in the output." },
+      { h: "Trick 5: compare against real `printf` in the same program" },
+      { p: "`%p` formatting differs between Linux and macOS, so a live side-by-side comparison beats a table of expected results you wrote down once." },
+      { h: "Trick 6: mind a `%` at the very end of the format" },
+      { p: "`ft_printf(\"100%\")` does `i++` and then reads `s[i]`, which is the `\\0`. It doesn't crash, but it shouldn't be left there — one check before dispatching settles it." },
+      { h: "Trick 7: use your own ft_printf for debugging later projects" },
+      { p: "No buffering means the last line before a segfault always makes it out, while real `printf` can swallow it in an unflushed buffer." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is a variadic function?", a: "A function taking any number of arguments, declared with `...`. It cannot know the count or the types on its own — it needs another source of that information, here the format string." },
+        { q: "What do `va_start` / `va_arg` / `va_end` do, in order?", a: "`va_start` points the cursor just past the last named parameter · `va_arg` reads as the named type and advances · `va_end` cleans up before returning." },
+        { q: "Does `va_arg` check the type for you?", a: "Not at all — it reads that many bytes and interprets them as told. Naming the wrong type is undefined behaviour." },
+        { q: "Why must `%c` be read as an `int`?", a: "Default argument promotion widened the `char` to an `int` on the caller's side before the function ever saw it." },
+        { q: "Which types are promoted when passed through `...`?", a: "`char`, `short` and `_Bool` become `int`; `float` becomes `double`." },
+        { q: "Why pass `va_list *` rather than `va_list`?", a: "Its definition varies by architecture (array vs plain pointer) — passed by value, some platforms give the callee a copy, so the caller re-reads the same argument. The address makes every level share one cursor." },
+        { q: "Why is it split into four levels?", a: "Norminette allows 25 lines per function and 5 functions per file — nine if-else branches cannot live in one function." },
+        { q: "How is a number converted to a string?", a: "Recurse on the quotient first, print the remainder after — division yields the rightmost digit first, so printing while unwinding puts them in the right order." },
+        { q: "Why does the converter take a `long long`?", a: "So that `-INT_MIN` doesn't overflow during negation — with an `int` you'd need a separate case for `INT_MIN`." },
+        { q: "How do `%x` and `%X` differ in the code?", a: "They share one converter and differ only in the `base` string handed to it — lowercase versus uppercase digits." },
+        { q: "What does `ft_printf` return?", a: "The total number of characters printed, including literal format text, the `%` from `%%`, and any `(null)` / `(nil)` substitutions." },
+        { q: "What must `%s` do with NULL?", a: "Print `(null)` and count 6 — not crash, and not print nothing." },
+        { q: "What must `%p` do with NULL?", a: "Print `(nil)` and count 5." },
+        { q: "What must `%c` do with the value 0?", a: "Actually write byte 0 and count 1 — use `write(1, &c, 1)`, because anything string-based stops at `\\0`." },
+        { q: "How does `ft_printf` differ from real `printf`?", a: "Real `printf` buffers and writes in blocks; `ft_printf` writing directly emits immediately — slower, but nothing is lost when the program crashes." },
+        { q: "Why is `printf` considered unsafe?", a: "The format string decides how arguments are read, with nothing forcing it to match reality — and a format string coming from user input opens the door to reading memory out of bounds." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. build + norm
+make re && make          # second run must say "Nothing to be done"
+norminette *.c *.h       # 0 errors
+
+# 2. no real printf left in the code
+grep -n 'printf' *.c | grep -v ft_printf
+
+# 3. compare against real printf — output and return value, every specifier
+#    %c %s %p %d %i %u %x %X %%
+
+# 4. edge cases
+#    %s NULL → (null) returns 6
+#    %p NULL → (nil)  returns 5
+#    %d INT_MIN → -2147483648 returns 11
+#    %u -1 → 4294967295
+#    %x UINT_MAX → ffffffff
+#    %c 0 → writes byte 0, returns 1
+#    "" → returns 0
+#    trailing "%" → must not read past the end
+
+# 5. valgrind clean
+valgrind --leak-check=full --error-exitcode=42 -q ./cmp && echo "clean"
+
+# 6. tidy directory
+make fclean`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: get_next_line ===================== */
+Object.assign(window.TEACHING_EN, {
+  "get_next_line": {
+    principle: [
+      { h: "What get_next_line teaches" },
+      { p: "The task is `get_next_line(fd)`, returning **the next line including its `\\n`**, and NULL at end of file. The difficulty isn't finding the newline — it's that **`read` delivers fixed-size blocks while lines are whatever length they happen to be**." },
+      { code: String.raw`file:            "Hello\nWorld\n"
+BUFFER_SIZE = 5
+
+read #1  gives "Hello"        ← no \n anywhere yet
+read #2  gives "\nWorl"       ← there's the \n, but "Worl" came along with it
+
+  We must return "Hello\n"
+  So what about "Worl"?
+      ★ it's already been read; there's no going back (no lseek allowed)
+      ★ it can't be thrown away — it's the start of the next line
+      → it has to survive between calls  =  the stash`, cap: "The whole project is getting that stash right in every case", lang: "txt" },
+      { h: "Why you can't just re-read it" },
+      { p: "`read` always advances the descriptor's position — data that has been read is gone as far as the fd is concerned. `lseek` could rewind, but it's **not in the allowed function list** and wouldn't work on a pipe or terminal anyway. Keeping it yourself is the only option." },
+      { h: "Three decisions to settle" },
+      { table: { head: ["Question", "Answer in this version"], rows: [
+        ["Where does the stash live?", "a `static` variable inside the function — it survives between calls"],
+        ["How are several fds handled?", "a static linked list with one node per fd"],
+        ["When is memory released?", "the node is unlinked the moment its stash runs out"],
+      ]}},
+      { h: "Hard rules" },
+      { ul: [
+        "Allowed externals: `read`, `malloc`, `free` — **no `lseek`**, and reading the whole file up front is forbidden",
+        "**No global variables** — it must be a `static` inside the function or the file",
+        "**Norminette must pass** · 5 functions per file, so the code splits across two files",
+        "`BUFFER_SIZE` comes from the compile line (`-D BUFFER_SIZE=42`) — it must work from 1 up into the tens of thousands",
+        "**Bonus:** only one static variable, and several file descriptors must work concurrently",
+      ]},
+      { note: "This workspace keeps the get_next_line sources in the shared `libft/` folder and uses libft's `ft_strlen` / `ft_strchr` / `ft_strjoin` / `ft_strlcpy` directly — **but it is submitted as its own project**, where those helpers have to live in your own `get_next_line_utils.c`." },
+    ],
+
+    theory: [
+      { h: "🔬 Deep dive A: what `static` does to a local variable" },
+      { p: "An ordinary local lives on the stack and vanishes when the function returns. `static` moves it into storage that lives as long as the program — **while keeping it visible only inside that function**." },
+      { code: String.raw`void f(void)
+{
+    int         a = 0;      /* on the stack — created fresh every call */
+    static int  b = 0;      /* ★ initialised once, at program start */
+
+    a++;  b++;
+    printf("%d %d\n", a, b);
+}
+
+f();  →  1 1
+f();  →  1 2        ← a resets, b remembers
+f();  →  1 3
+
+  static  =  lifetime of the program (storage duration)
+             but the same visibility as before (scope)
+
+  ★ unlike a global, no other file or function can touch it at all
+    which is why the subject bans globals but permits static`, cap: "static means 'remembers' without opening the state to the whole program", lang: "c" },
+      { p: "**An uninitialised `static` is zero or NULL**, always — unlike a stack variable, which holds garbage. So `static t_gnl_node *files;` needs no explicit initialiser." },
+      { note: "`static` written outside a function (at file scope) means something different — 'this symbol is not visible to other files'. The same keyword does two jobs depending on where it sits." },
+      { qa: [
+        { q: "What does `static` do inside a function?", a: "Gives the variable program lifetime, so its value survives between calls, while keeping it visible only within that function." },
+        { q: "Why does the subject ban globals but allow `static`?", a: "Because `static` provides the memory without exposing it to the rest of the program — it is controlled state rather than state anyone can reach." },
+        { q: "What is an uninitialised `static` set to?", a: "0, or NULL for a pointer — always, unlike a stack variable which holds garbage." },
+      ]},
+
+      { h: "🔬 Deep dive B: what `read` can return — three cases, not two" },
+      { code: String.raw`ssize_t br = read(fd, buf, BUFFER_SIZE);
+
+  br > 0    that many bytes were read
+            ★ may be fewer than BUFFER_SIZE even mid-file (pipe, terminal, socket)
+            → never conclude "short read = end of file"
+
+  br == 0   end of file. Normal, not an error.
+
+  br == -1  an error (bad fd, closed fd, no permission)
+            ★ free what you hold and return NULL immediately — not the EOF path`, cap: "Folding -1 into the EOF case is the bug that surfaces the moment an evaluator hands you a closed fd", lang: "c" },
+      { p: "**`buf[br] = '\\0'` is why the buffer is `malloc(BUFFER_SIZE + 1)`** — `read` doesn't NUL-terminate (it has no idea you're reading text), so you do it yourself, which needs one extra byte." },
+      { code: String.raw`char	*read_and_store(int fd, char *stash)
+{
+	char		*buf;
+	ssize_t		br;
+	char		*tmp;
+
+	buf = (char *)malloc(BUFFER_SIZE + 1);      /* ★ +1 for the '\0' */
+	if (!buf)
+		return (NULL);
+	br = 1;
+	while ((stash == NULL || !ft_strchr(stash, '\n')) && br > 0)
+	{
+		br = read(fd, buf, BUFFER_SIZE);
+		if (br == -1)
+			return (free(buf), free(stash), NULL);   /* ★ error is not EOF */
+		buf[br] = '\0';
+		if (br > 0)
+		{
+			tmp = ft_strjoin(stash, buf);
+			free(stash);
+			stash = tmp;
+			if (!stash)
+				return (free(buf), NULL);
+		}
+	}
+	free(buf);
+	return (stash);
+}`, cap: "Real code — the loop condition is 'no newline yet **and** still reading'", lang: "c" },
+      { p: "**The `free(buf), free(stash), NULL` idiom in one set of parentheses** uses the comma operator to clean up and return in a single line — which is how these paths stay inside the 25-line limit without extra blocks." },
+      { note: "`ft_strjoin(stash, buf)` on the very first pass gets a NULL `stash` — the libft version used here returns `ft_strdup(buf)` when one side is NULL, **so it just works with no special case**. Writing your own `ft_strjoin` means matching that behaviour deliberately." },
+      { qa: [
+        { q: "How do `read` returning 0 and -1 differ?", a: "`0` is end of file (normal); `-1` is an error — free everything held and return NULL immediately rather than treating it as EOF." },
+        { q: "Does a short read mean end of file?", a: "No — pipes, terminals and sockets return whatever is available at that moment. Only `0` means EOF." },
+        { q: "Why `malloc(BUFFER_SIZE + 1)`?", a: "Because `read` doesn't NUL-terminate — you need one spare byte to write `buf[br] = '\\0'` before using it as a string." },
+      ]},
+
+      { h: "🔬 Deep dive C: the stash cycle — three functions, three jobs" },
+      { code: String.raw`stash before the call:   "Worl"                (left over from last time)
+
+  read_and_store    read on until a \n     →  "World\n"
+  extract_line      copy out the first line →  "World\n"   (new block, handed to caller)
+  update_stash      keep what follows the \n →  NULL        (nothing left)
+
+Another case:
+stash before the call:   NULL
+
+  read_and_store    "Hello" → "Hello\nWorl"
+  extract_line                →  "Hello\n"
+  update_stash                →  "Worl"     ← kept for next time`, cap: "These three always run in this order — extract must precede update, because update destroys the old stash", lang: "txt" },
+      { code: String.raw`char	*extract_line(const char *stash)
+{
+	size_t	i;
+	size_t	len;
+	char	*line;
+
+	if (!stash || !stash[0])
+		return (NULL);                      /* ★ nothing left = end of file */
+	i = 0;
+	while (stash[i] && stash[i] != '\n')
+		i++;
+	len = i + (stash[i] == '\n');           /* ★ include the \n when there is one */
+	line = (char *)malloc(len + 1);
+	if (!line)
+		return (NULL);
+	ft_strlcpy(line, stash, len + 1);
+	if (stash[i] == '\n')
+		line[i] = '\n';
+	line[len] = '\0';
+	return (line);
+}`, cap: "Real code — `len = i + (stash[i] == '\\n')` adds 1 when there's a newline and 0 when the file simply ended", lang: "c" },
+      { p: "**This is where a file with no trailing newline is handled** — the condition `stash[i] == '\\n'` is false once the loop reaches the terminator, so `len = i` exactly and the remainder is returned as the last line. **Requiring a `\\n` makes that line disappear silently.**" },
+      { code: String.raw`char	*update_stash(char *stash)
+{
+	char	*new_s;
+	size_t	i;
+	size_t	j;
+
+	if (!stash)
+		return (NULL);
+	i = 0;
+	while (stash[i] && stash[i] != '\n')
+		i++;
+	if (!stash[i])
+		return (free(stash), NULL);         /* ★ no \n = nothing left */
+	i++;                                     /* ★ step over the \n itself */
+	new_s = (char *)malloc(ft_strlen(stash + i) + 1);
+	if (!new_s)
+		return (free(stash), NULL);
+	j = 0;
+	while (stash[i])
+		new_s[j++] = stash[i++];
+	new_s[j] = '\0';
+	free(stash);                             /* ★ the old block always goes */
+	return (new_s);
+}`, cap: "Real code — every exit path disposes of the old `stash`; it can never be left dangling", lang: "c" },
+      { note: "The `i++` after the `if (!stash[i])` check is what people miss most often — forget it and the new stash begins with `\\n`, so every subsequent call returns an empty line, forever." },
+      { qa: [
+        { q: "How do `extract_line` and `update_stash` differ?", a: "`extract_line` copies the *first line* out as a new block for the caller; `update_stash` builds a new stash holding *what follows the `\\n`* and frees the old one." },
+        { q: "Why must `extract_line` run first?", a: "Because `update_stash` frees the old stash — run it first and the data for the line you were about to return is already gone." },
+        { q: "How is a file with no trailing newline handled?", a: "`extract_line` computes the length as `i + (stash[i] == '\\n')` — with no newline that term is 0, so the remainder is returned as the final line like any other." },
+        { q: "What happens if you forget the `i++` past the `\\n`?", a: "The new stash starts with `\\n`, so the next call returns a line consisting of just a newline — and it repeats forever." },
+      ]},
+
+      { h: "🔬 Deep dive D: several fds at once — why one static isn't enough" },
+      { p: "The bonus requires reading `fd1` and `fd2` alternately and getting each file's lines right. With a single `static char *stash;` the two files' data merges immediately." },
+      { code: String.raw`static char *stash;   one shared variable:
+
+    gnl(fd1)  reads "AAA\nBB"   stash = "BB"      returns "AAA\n"
+    gnl(fd2)  stash is still "BB" — from fd1!
+              reads from fd2 and appends → "BBXXX\n"
+              ★ returns "BBXXX\n" — the two files are now mixed
+
+Two ways out:
+
+  (a) array:  static char *stash[FD_MAX];    stash[fd]
+      + O(1) access · short code
+      − reserves 1024 pointers even for one open file
+      − you have to guess FD_MAX
+
+  (b) list:   static t_gnl_node *files;      find_fd_node(&files, fd)
+      + allocates only for fds actually used
+      + the node is unlinked when its stash empties → valgrind is clean
+        with no cleanup function the subject never provides
+      − access is O(number of open fds) — normally a very small number`, cap: "This version takes (b) — the deciding factor is cleanup, not speed", lang: "c" },
+      { code: String.raw`typedef struct s_gnl_node
+{
+	int					fd;
+	char				*buf;      /* this fd's stash */
+	struct s_gnl_node	*next;
+}	t_gnl_node;
+
+t_gnl_node	*find_fd_node(t_gnl_node **lst, int fd)
+{
+	t_gnl_node	*cur;
+
+	cur = *lst;
+	while (cur)
+	{
+		if (cur->fd == fd)
+			return (cur);              /* ★ found the existing one */
+		cur = cur->next;
+	}
+	cur = (t_gnl_node *)malloc(sizeof(t_gnl_node));
+	if (!cur)
+		return (NULL);
+	cur->fd = fd;
+	cur->buf = NULL;
+	cur->next = *lst;                  /* ★ prepend — O(1) */
+	*lst = cur;
+	return (cur);
+}`, cap: "Real code — it creates the node when it isn't found, so the caller never has a 'new fd' case", lang: "c" },
+      { p: "**Prepending rather than appending** because a descriptor just used is usually used again immediately — putting it at the front means the next call finds it in one step." },
+      { qa: [
+        { q: "Why isn't one static enough for several fds?", a: "The leftover from one fd gets appended to data from another — the two files' text merges immediately." },
+        { q: "Array or list — how do they compare?", a: "The array is O(1) but reserves pointers up to FD_MAX and forces you to pick that constant; the list allocates only for descriptors actually in use and can release them, which makes cleanup far easier." },
+        { q: "What does `find_fd_node` do when the fd isn't found?", a: "Creates the node and prepends it — so the caller never needs a special case for a freshly opened descriptor." },
+      ]},
+
+      { h: "🔬 Deep dive E: cleaning up without a closing function" },
+      { p: "The subject provides no `gnl_close()` or anything like it — yet valgrind must be clean. So the question is **when does the held memory actually get released**." },
+      { code: String.raw`char	*get_next_line(int fd)
+{
+	static t_gnl_node	*files;
+	t_gnl_node			*node;
+	char				*line;
+
+	if (fd < 0 || fd >= FD_MAX || BUFFER_SIZE <= 0)
+		return (NULL);
+	node = find_fd_node(&files, fd);
+	if (!node)
+		return (NULL);
+	node->buf = read_and_store(fd, node->buf);
+	if (!node->buf)
+		return (remove_fd_node(&files, fd), NULL);   /* ★ error or EOF, immediately */
+	line = extract_line(node->buf);
+	node->buf = update_stash(node->buf);
+	if (!node->buf)
+		remove_fd_node(&files, fd);                  /* ★ stash empty = unlink */
+	return (line);
+}`, cap: "Real code — the node goes the moment its stash is empty, so reading a file to the end leaves nothing behind", lang: "c" },
+      { code: String.raw`Release sequence when reading a two-line file to the end:
+
+  call 1   stash = "Worl"     node still there
+  call 2   stash = NULL       ★ node unlinked
+  call 3   fresh node (buf=NULL) → read returns 0 → stash still NULL
+                                 ★ node unlinked again → returns NULL
+
+  At exit:  the list is empty · nothing held · valgrind clean
+
+★ If the caller stops reading part-way (one line then quits) the node stays
+  → a known leak that some evaluation scripts do check for
+  → the fix: keep calling until you get NULL, or add your own cleanup function`, cap: "Unlinking on an empty stash covers reading to the end, which is the case the subject tests", lang: "txt" },
+      { note: "**A limitation worth stating rather than defending:** abandoning an fd part-way leaves its node allocated until the program exits. Knowing and explaining that beats arguing there's no issue — and closing the hole properly needs a cleanup function the subject doesn't specify." },
+      { qa: [
+        { q: "When is the memory released?", a: "As soon as that fd's stash runs out — `update_stash` returns NULL and `get_next_line` unlinks the node. Reading a file to the end therefore leaves nothing behind." },
+        { q: "Does abandoning a file part-way leak?", a: "That fd's node stays allocated until the program exits — a known limitation. Read on until NULL, or add a cleanup function the subject doesn't require." },
+      ]},
+
+      { h: "🔬 Deep dive F: `BUFFER_SIZE` — a value that arrives at compile time" },
+      { code: String.raw`cc -D BUFFER_SIZE=42 get_next_line.c ...
+      ^^^^^^^^^^^^^^^^^^
+   exactly as if  #define BUFFER_SIZE 42  sat at the top of every file
+
+The header needs a fallback:
+    # ifndef BUFFER_SIZE
+    #  define BUFFER_SIZE 1024
+    # endif
+        ★ without it, compiling without -D fails outright
+
+Values that must work:
+    1       every line goes through the read loop many times → catches stash bugs
+    42      the value evaluators typically use
+    9999    the whole file arrives at once → long stash, several lines held together
+    0       ★ must return NULL, not loop forever`, cap: "With `BUFFER_SIZE = 0`, `read` returns 0 every time and the loop never ends unless you guard it", lang: "c" },
+      { p: "**Why test 1 and 9999 specifically:** at 1, everything goes repeatedly through the 'read again, still no newline' path — which catches `ft_strjoin` and stash-freeing bugs. At 9999 the stash holds several lines at once — which catches `update_stash` cutting in the wrong place. A middling value like 42 exercises both paths too weakly to catch either." },
+      { note: "Joining the stash with `ft_strjoin` on every pass is O(n²) for long lines with a small `BUFFER_SIZE`, because each pass copies everything again. Acceptable within this project, but know it and be ready to say so." },
+      { qa: [
+        { q: "Where does `BUFFER_SIZE` come from?", a: "From the compile line `-D BUFFER_SIZE=n`, which acts like a `#define` at the top of every file — so the header needs a fallback under `#ifndef`." },
+        { q: "What must `BUFFER_SIZE = 0` do?", a: "Return NULL — otherwise `read` returns 0 every time and the loop never terminates." },
+        { q: "Why test both 1 and a very large value?", a: "1 forces every line through the read-and-join loop repeatedly (catching stash bugs); a large value keeps several lines in the stash at once (catching cutting bugs). Middling values exercise neither hard enough." },
+        { q: "Is joining the stash every pass a performance problem?", a: "Yes — it's O(n²) for long lines with a small `BUFFER_SIZE`, since every pass recopies the whole thing. Fine for this project's scope, but worth knowing." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "man 2 read", url: "https://man7.org/linux/man-pages/man2/read.2.html", note: "what 0 and -1 mean, and why a short read isn't EOF" },
+        { label: "man 2 open", url: "https://man7.org/linux/man-pages/man2/open.2.html", note: "where file descriptors come from and how many there can be" },
+        { label: "cppreference — Storage duration", url: "https://en.cppreference.com/w/c/language/storage_duration", note: "both meanings of `static`" },
+        { label: "man 3 fgets", url: "https://man7.org/linux/man-pages/man3/fgets.3.html", note: "the real function solving the same problem with FILE*'s own buffer" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "Four functions and what each one owns" },
+      { table: { head: ["Function", "Its single job", "What it allocates"], rows: [
+        ["`read_and_store(fd, stash)`", "keep reading `BUFFER_SIZE` bytes and joining onto the stash until a `\\n` appears or `read` returns 0", "`buf` (freed by itself) plus a new stash on every join"],
+        ["`extract_line(stash)`", "copy the first line out, including its `\\n`", "`line` — **the caller frees it**"],
+        ["`update_stash(stash)`", "build a new stash holding what follows the `\\n`, freeing the old one", "the new stash (or NULL)"],
+        ["`get_next_line(fd)`", "find this fd's node, run the three above, unlink when the stash empties", "the node (via `find_fd_node`)"],
+      ]}},
+      { p: "**Every allocation has an owner** — `buf` is freed inside `read_and_store`, the stash is freed by whichever function replaces it, `line` belongs to the caller, and the node is freed by `remove_fd_node`. Write that table before coding and leaks are settled before a line is written." },
+
+      { h: "The header" },
+      { code: String.raw`#ifndef GET_NEXT_LINE_H
+# define GET_NEXT_LINE_H
+
+# include "libft.h"          /* ★ reuse ft_strlen/ft_strchr/ft_strjoin/ft_strlcpy */
+# include <fcntl.h>
+
+# ifndef BUFFER_SIZE
+#  define BUFFER_SIZE 1024   /* ★ fallback when no -D was given */
+# endif
+
+# ifndef FD_MAX
+#  define FD_MAX 1024
+# endif
+
+typedef struct s_gnl_node
+{
+	int					fd;
+	char				*buf;
+	struct s_gnl_node	*next;
+}	t_gnl_node;
+
+char		*get_next_line(int fd);
+t_gnl_node	*find_fd_node(t_gnl_node **lst, int fd);
+void		remove_fd_node(t_gnl_node **lst, int fd);
+
+#endif`, cap: "Real code — both `BUFFER_SIZE` and `FD_MAX` have fallbacks so it compiles with no `-D` at all", lang: "c" },
+      { note: "In the submitted project you must write `ft_strlen` / `ft_strchr` / `ft_strjoin` in your own `get_next_line_utils.c` — including `libft.h` works here only because this workspace keeps everything together." },
+
+      { h: "`remove_fd_node` — unlinking a node" },
+      { code: String.raw`void	remove_fd_node(t_gnl_node **lst, int fd)
+{
+	t_gnl_node	*prev;
+	t_gnl_node	*cur;
+
+	prev = NULL;
+	cur = *lst;
+	while (cur)
+	{
+		if (cur->fd == fd)
+		{
+			if (prev)
+				prev->next = cur->next;    /* ★ in the middle */
+			else
+				*lst = cur->next;          /* ★ it was the head */
+			free(cur->buf);
+			free(cur);
+			return ;
+		}
+		prev = cur;
+		cur = cur->next;
+	}
+}`, cap: "Real code — `prev` is tracked because a singly-linked list can't look backwards", lang: "c" },
+      { p: "**It takes a `t_gnl_node **`** because when the node to remove is the head, the caller's head pointer has to be updated — the same reason `ft_lstclear` does in libft." },
+      { note: "`free(cur->buf)` comes before `free(cur)` — it releases any stash still held. Free the node first and the pointer to that stash is gone with no way to recover it." },
+    ],
+
+    architecture: [
+      { h: "File layout" },
+      { code: String.raw`get_next_line.h            declarations + the BUFFER_SIZE fallback + t_gnl_node
+get_next_line.c            read_and_store · update_stash · extract_line
+                           get_next_line                              (4)
+get_next_line_utils.c      find_fd_node · remove_fd_node
+                           (+ ft_strlen etc. when not linking libft)
+
+norm allows 5 functions per file → this split fits exactly`, cap: "The bonus part uses `_bonus`-suffixed filenames as the subject requires", lang: "txt" },
+
+      { h: "The order of the steps inside get_next_line" },
+      { code: String.raw`get_next_line(fd)
+   │
+   ├─ 1. validate input   fd < 0 · fd >= FD_MAX · BUFFER_SIZE <= 0  →  NULL
+   │
+   ├─ 2. find the node    find_fd_node(&files, fd)     created if absent
+   │                        malloc failed → NULL
+   │
+   ├─ 3. read_and_store   read until a \n or EOF
+   │                        NULL (error, or nothing at all) → unlink node, return NULL
+   │
+   ├─ 4. extract_line     copy out the first line  ← this is what the caller gets
+   │
+   ├─ 5. update_stash     keep the remainder
+   │                        NULL → unlink the node
+   │
+   └─ 6. return line
+
+★ Step 4 must precede step 5 — step 5 destroys the stash step 4 reads`, cap: "That sequence is the whole main function; the rest is detail inside the three helpers", lang: "txt" },
+
+      { h: "Why not read the whole file first" },
+      { table: { head: ["", "Read it all, then split", "Read in blocks (what this does)"], rows: [
+        ["Memory", "the size of the whole file", "`BUFFER_SIZE` plus the current line"],
+        ["A 10 GB file", "cannot be allocated", "works normally"],
+        ["stdin / a pipe", "**impossible** — no known end", "works"],
+        ["When the first line appears", "after the whole file is read", "as soon as the first `\\n` shows up"],
+        ["Allowed by the subject", "**no** — explicitly forbidden", "yes"],
+      ]}},
+      { p: "**The decisive point is stdin** — a program reading from a pipe has to act on the first line without waiting for the other end to close. That is why get_next_line is shaped this way, and it's exactly what minishell will need." },
+    ],
+
+    dataflow: [
+      { h: "Call by call with BUFFER_SIZE = 5" },
+      { code: String.raw`file:  "Hello\nWorld\n"
+
+call 1  get_next_line(fd)
+    fresh node, stash = NULL
+    read → "Hello"      stash = "Hello"        no \n yet → read again
+    read → "\nWorl"     stash = "Hello\nWorl"  found a \n → stop
+    extract_line   →  "Hello\n"     ← returned
+    update_stash   →  "Worl"        ← kept in the node
+
+call 2  get_next_line(fd)
+    stash = "Worl"                            no \n yet → read again
+    read → "d\n"        stash = "World\n"     found a \n → stop
+    extract_line   →  "World\n"    ← returned
+    update_stash   →  NULL (nothing after the \n) → ★ node unlinked
+
+call 3  get_next_line(fd)
+    fresh node, stash = NULL
+    read → 0 (EOF)      stash still NULL
+    read_and_store returns NULL → ★ node unlinked → returns NULL = done`, cap: "The whole idea is 'whatever you read too much of, keep it' — no rewinding, no re-reading", lang: "txt" },
+
+      { h: "A file that doesn't end with a newline" },
+      { code: String.raw`file:  "abc"      (no \n)
+
+call 1
+    read → "abc"        stash = "abc"
+    read → 0 (EOF)      loop exits because br == 0
+    read_and_store returns "abc"       ← ★ not NULL, there is data
+    extract_line("abc")
+        walks to the end: stash[3] == '\0', not '\n'
+        len = 3 + 0 = 3                 ← ★ nothing added
+        returns "abc"                    ← correct final line, no newline
+    update_stash("abc")
+        no \n → frees and returns NULL  → node unlinked
+
+call 2  → read returns 0 straight away → returns NULL`, cap: "This is the case where most implementations lose the last line", lang: "txt" },
+
+      { h: "Two descriptors read alternately" },
+      { code: String.raw`fd1 = open("a.txt")     "A1\nA2\n"
+fd2 = open("b.txt")     "B1\nB2\n"
+
+get_next_line(fd1)   list: [fd1 "A2\n"]                     returns "A1\n"
+get_next_line(fd2)   list: [fd2 "B2\n"] → [fd1 "A2\n"]      returns "B1\n"
+get_next_line(fd1)   fd1 found second · stash = "A2\n"      returns "A2\n"
+                     stash empty → unlink fd1 → list: [fd2 "B2\n"]
+get_next_line(fd2)   returns "B2\n" → unlink fd2 → list empty
+get_next_line(fd1)   fresh node → read returns 0 → returns NULL
+
+★ each fd carries its own stash; they cannot mix`, cap: "New nodes are always prepended, so the most recently used fd is found first", lang: "txt" },
+
+      { h: "Every edge case worth testing" },
+      { table: { head: ["Input", "Correct behaviour"], rows: [
+        ["an empty file (0 bytes)", "returns NULL immediately"],
+        ["a file of nothing but `\\n`", "returns `\"\\n\"`, then NULL next call"],
+        ["a file with no trailing `\\n`", "the last line must still come out in full"],
+        ["several `\\n` in a row", "each one is its own line — never collapsed"],
+        ["`BUFFER_SIZE=1`", "identical results to any other value"],
+        ["`BUFFER_SIZE=9999`", "same — a long stash, cut correctly"],
+        ["`BUFFER_SIZE=0`", "returns NULL, does not loop forever"],
+        ["`fd = -1`", "returns NULL"],
+        ["an already-closed fd", "`read` returns -1 → clean up → return NULL"],
+        ["two fds alternating", "each file's text is correct and unmixed"],
+        ["stdin through a pipe", "works — `echo hi | ./gnl`"],
+        ["stdin from a terminal", "**waits for input — that is correct**, not a hang"],
+      ]}},
+      { note: "**Test with a pipe, not a terminal** — `read` on a terminal blocks waiting for input by nature, which looks exactly like a hung program even when everything is right." },
+    ],
+
+    implementation: [
+      { h: "The order to build it in" },
+      { ul: [
+        "1. **The libft helpers** — `ft_strlen` `ft_strchr` `ft_strjoin` `ft_strlcpy` have to exist first",
+        "2. **A single-fd version** — one `static char *stash;`, and get reading one file to the end completely right",
+        "3. **The single-fd edge cases** — empty file, no trailing `\\n`, only newlines, `BUFFER_SIZE` at 1 and 9999",
+        "4. **Only then go multi-fd** — swap the `static char *stash` for a list of nodes and test two files alternating",
+        "5. **valgrind at every step**, not at the end — a leak is far easier to find while the code is still small",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["the last line vanishes with no trailing `\\n`", "`extract_line` insists on finding a `\\n`", "`len = i + (stash[i] == '\\n')`"],
+        ["the same line returns forever", "`update_stash` didn't skip the `\\n` (missing `i++`)", "`i++` right after confirming the `\\n`"],
+        ["empty lines alternating with real ones", "same cause — the stash starts with `\\n`", "same"],
+        ["`update_stash`'s result isn't kept", "called without assigning back", "`node->buf = update_stash(node->buf);`"],
+        ["valgrind reports a leak at exit", "the node isn't unlinked when the stash empties", "check after `update_stash` and call `remove_fd_node`"],
+        ["valgrind reports `buf` leaking", "an early `return` inside the loop without `free(buf)`", "every exit path releases `buf`"],
+        ["two fds mix their text", "one shared static", "one stash per fd (array or list)"],
+        ["infinite loop with `BUFFER_SIZE=0`", "no guard", "`if (BUFFER_SIZE <= 0) return (NULL);`"],
+        ["crash with a very large `BUFFER_SIZE`", "unchecked `malloc`", "check every `malloc`"],
+        ["a closed fd breaks things", "`read == -1` folded into EOF", "handle -1 separately: clean up and return NULL"],
+        ["seems to hang reading stdin from a terminal", "**that is correct**", "test with a pipe: `echo hi | ./gnl`"],
+        ["norminette rejects the file", "more than 5 functions", "move some into `get_next_line_utils.c`"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`# test several BUFFER_SIZE values in one loop
+for b in 1 2 5 42 1024 9999; do
+    cc -Wall -Wextra -Werror -D BUFFER_SIZE=$b \
+       get_next_line.c get_next_line_utils.c main.c -o gnl || exit 1
+    echo "--- BUFFER_SIZE=$b"
+    ./gnl test.txt
+done
+
+# the test files you need
+printf ''                    > empty.txt
+printf 'abc'                 > no_newline.txt
+printf '\n\n\n'              > only_newlines.txt
+printf 'Hello\nWorld\n'      > normal.txt
+
+# check the content survives intact
+./gnl normal.txt | diff - normal.txt && echo "content matches"
+
+# stdin through a pipe (not a terminal)
+printf 'a\nb\n' | ./gnl
+
+# valgrind at every BUFFER_SIZE
+valgrind --leak-check=full --error-exitcode=42 -q ./gnl normal.txt && echo "clean"
+
+# norminette
+norminette get_next_line*.c get_next_line*.h
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_next_line*.c get_next_line*.h'`, lang: "bash" },
+      { note: "**`./gnl file | diff - file`** is the most complete test you can write in one line — if concatenating every returned line reproduces the file exactly, nothing was lost, nothing was duplicated, and every `\\n` sits where it belongs." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: get one fd right before going multi-fd" },
+      { p: "The stash logic and the multi-fd logic are separate problems — build them together and you can't tell which side a bug came from." },
+      { h: "Trick 2: write down who frees what before coding" },
+      { p: "`buf` → `read_and_store` · the stash → whichever function replaces it · `line` → the caller · the node → `remove_fd_node`. Four lines that remove nearly every leak in advance." },
+      { h: "Trick 3: `./gnl file | diff - file`" },
+      { p: "One test that catches lost characters, duplicated lines and misplaced newlines at once — one line to write and reusable after every change." },
+      { h: "Trick 4: test `BUFFER_SIZE` in a loop, not one at a time" },
+      { p: "`for b in 1 2 5 42 1024 9999`, recompiling each round — 1 and a very large value are the two that actually find bugs; middling values almost never do." },
+      { h: "Trick 5: `if (!stash[i]) return (free(stash), NULL);`" },
+      { p: "The comma operator cleans up and returns in a single line — it fits the 25-line limit with no extra block and reads better than a temporary variable." },
+      { h: "Trick 6: never forget to assign `update_stash`'s result back" },
+      { p: "Calling `update_stash(node->buf);` on its own leaves `node->buf` pointing at freed memory — the compiler says nothing and valgrind catches it instantly." },
+      { h: "Trick 7: always test through a pipe" },
+      { p: "`printf 'a\\nb\\n' | ./gnl` — testing straight from a terminal looks like a hang when `read` is simply waiting for input, as it should." },
+      { h: "Trick 8: get_next_line gets reused everywhere" },
+      { p: "fdf reads `.fdf`, so_long reads `.ber`, cub3D reads `.cub`, minishell reads heredocs. A correct, leak-free version now saves debugging in four later projects." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What does get_next_line do?", a: "Returns the next line from a file descriptor, including its `\\n`, and NULL at end of file or on error — callable repeatedly until the file runs out." },
+        { q: "Why is a stash needed?", a: "Because `read` delivers `BUFFER_SIZE` bytes at a time, which never aligns with line length — the excess can't be un-read, so it has to survive between calls." },
+        { q: "Why can't you just re-read?", a: "`read` always advances the descriptor's position, and `lseek` is not in the allowed list — nor would it work on a pipe or terminal." },
+        { q: "What does `static` do, and how does it differ from a global?", a: "It gives the variable program lifetime while keeping it visible only inside the function — unlike a global, which the whole program can reach and modify, and which the subject bans." },
+        { q: "What can `read` return, and what does each mean?", a: "More than 0 = that many bytes (possibly fewer than requested even mid-file); 0 = end of file; -1 = an error, where you clean up and return NULL." },
+        { q: "Why `malloc(BUFFER_SIZE + 1)`?", a: "`read` doesn't NUL-terminate — you need one extra byte to terminate it yourself before using the data as a string." },
+        { q: "What are the three steps in the main function, and in what order?", a: "`read_and_store` until a `\\n` appears → `extract_line` copies the first line out → `update_stash` keeps the remainder. Step two must precede step three, because step three destroys the old stash." },
+        { q: "How is a file with no trailing newline handled?", a: "`extract_line` computes the length as `i + (stash[i] == '\\n')` — with no newline that term is 0, so the remainder comes out as the final line like any other." },
+        { q: "Why would the same line return forever?", a: "`update_stash` didn't skip the `\\n` (a missing `i++`), or its result was never assigned back to `node->buf`." },
+        { q: "How do you support several fds at once?", a: "One stash per descriptor — this version uses a static linked list with a node per fd, unlinked when that fd's stash runs out." },
+        { q: "Is the array or the list better?", a: "The array is O(1) but reserves pointers up to FD_MAX and forces you to guess it; the list allocates only for descriptors in use and can hand memory back — which is what keeps valgrind clean with no closing function." },
+        { q: "When is the memory released?", a: "The moment that fd's stash empties — `update_stash` returns NULL and the main function unlinks the node." },
+        { q: "Does abandoning a file mid-way leak?", a: "That fd's node stays until the program exits — a known limitation. Read on until NULL, or add a cleanup function the subject doesn't specify." },
+        { q: "Where does `BUFFER_SIZE` come from, and what must it handle?", a: "From `-D BUFFER_SIZE=n` at compile time, with a fallback under `#ifndef` in the header. It must work from 1 into the tens of thousands, and `0` must return NULL rather than loop." },
+        { q: "Why not read the whole file up front and split it?", a: "The subject forbids it, and it doesn't work in practice — huge files can't be allocated, stdin and pipes have no known end, and the first line would arrive far too late." },
+        { q: "How do you prove it actually works?", a: "`./gnl file | diff - file` — if concatenating every returned line reproduces the file byte for byte, nothing is lost, duplicated, or misplaced." },
+        { q: "Is joining the stash every pass a performance problem?", a: "Yes — O(n²) for long lines with a small `BUFFER_SIZE`, since each pass recopies everything. Acceptable within the project's scope." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. compiles at every BUFFER_SIZE
+for b in 1 2 5 42 1024 9999; do
+    cc -Wall -Wextra -Werror -D BUFFER_SIZE=$b \
+       get_next_line.c get_next_line_utils.c main.c -o gnl || echo "FAIL $b"
+done
+
+# 2. norminette 0 errors
+norminette get_next_line*.c get_next_line*.h
+
+# 3. no globals (static only) and no lseek
+grep -nE 'lseek' *.c
+grep -n 'static' get_next_line*.c        # must be inside a function
+
+# 4. content survives for every test file
+for f in empty.txt no_newline.txt only_newlines.txt normal.txt; do
+    ./gnl $f | diff - $f > /dev/null && echo "OK $f" || echo "FAIL $f"
+done
+
+# 5. several fds alternating · fd = -1 · a closed fd · BUFFER_SIZE=0
+
+# 6. stdin through a pipe
+printf 'a\nb\n' | ./gnl
+
+# 7. valgrind clean at every BUFFER_SIZE
+valgrind --leak-check=full --error-exitcode=42 -q ./gnl normal.txt && echo "clean"`, lang: "bash" },
+    ],
+  },
+});
