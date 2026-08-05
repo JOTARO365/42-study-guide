@@ -13217,3 +13217,623 @@ rm += open;                                            // the '(' left unclosed
     ],
   },
 });
+
+/* ===================== EN: Exam Rank 04 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "exam_rank04": {
+    principle: [
+      { h: "Exam Rank 04 — the hardest of the C exams" },
+      { p: "Two levels, each exercise small but deep. It demands several skills at once: **process control** (fork/pipe/dup2/exec/wait/signal) for level 1, and **writing a parser from a grammar** (recursive descent) for level 2." },
+      { h: "The two levels" },
+      { table: { head: ["Level", "Theme", "Exercises"], rows: [
+        ["**1**", "processes and file descriptors", "ft_popen, picoshell, sandbox"],
+        ["**2**", "recursive-descent parsers", "vbc (arithmetic expressions), argo (JSON)"],
+      ]}},
+      { note: "Level 1 builds directly on pipex and minishell (having done those two, it will feel familiar). Level 2 uses one grammar shape for both vbc and argo — understand recursive descent once and both follow." },
+      { h: "Why it's hard" },
+      { ul: [
+        "level 1 requires **closing every fd** and **leaking no processes** (zombies) — one slip and it hangs or fails",
+        "level 2 requires getting **precedence, parentheses and error tokens** exactly right",
+        "several exercises come with **a skeleton and a main** you must read before adding anything",
+      ]},
+    ],
+
+    theory: [
+      { p: "The real Rank 04 exercise pool." },
+      { h: "Level 1 — processes and file descriptors" },
+      { table: { head: ["Exercise", "What it does", "Allowed"], rows: [
+        ["`ft_popen`", "run a command and return an fd connected to its output ('r') or its input ('w')", "pipe, fork, dup2, execvp, close, exit"],
+        ["`picoshell`", "run several commands chained together by pipes", "close, fork, wait, exit, execvp, dup2, pipe"],
+        ["`sandbox`", "run f() in a child and judge it good or bad (signal / non-zero exit / timeout)", "fork, waitpid, alarm, sigaction, kill, printf..."],
+      ]}},
+      { h: "Level 2 — recursive-descent parsers" },
+      { table: { head: ["Exercise", "What it does", "Grammar"], rows: [
+        ["`vbc`", "evaluate expressions with + * and parentheses (digits 0-9)", "expr/term/factor"],
+        ["`argo`", "parse JSON (number/string/map) into an AST and print it back", "value/number/string/map"],
+      ]}},
+      { note: "vbc and argo are the same recursive descent, differing only in the grammar — the parse_X() functions call into each other exactly the same way." },
+    ],
+
+    foundations: [
+      { p: "Rank 04's two pillars: the process/fd patterns, and the shape of a recursive-descent parser." },
+      { h: "1) fork + pipe + dup2 (returning the command's fd)" },
+      { code: String.raw`int p[2];
+pipe(p);                         // p[0]=read, p[1]=write
+if (fork() == 0) {               // the child runs the command
+    dup2(p[1], 1);               // 'r': the command's stdout goes into the pipe
+    close(p[0]); close(p[1]);
+    execvp(file, argv);
+    exit(1);                     // exec failed
+}
+close(p[1]);                     // the parent closes the write end
+return (p[0]);                   // return the read end = the command's output`, cap: "'r' means read the command's output (dup stdout→pipe, return the read end); 'w' means feed it input (dup stdin←pipe, return the write end)", lang: "c" },
+      { h: "2) waitpid and decoding the child's status (sandbox)" },
+      { code: String.raw`int status;
+waitpid(pid, &status, 0);
+if (WIFEXITED(status)) {
+    int code = WEXITSTATUS(status);      // exited normally → its exit code
+}
+if (WIFSIGNALED(status)) {
+    int sig = WTERMSIG(status);          // killed by a signal (segfault = 11, ...)
+}
+// timeout: set alarm(timeout) beforehand and catch SIGALRM → kill(pid)`, cap: "WIFEXITED/WEXITSTATUS for a normal exit; WIFSIGNALED/WTERMSIG for a kill; alarm is the timeout mechanism", lang: "c" },
+      { h: "3) The shape of a recursive-descent parser (the heart of level 2)" },
+      { code: String.raw`// the vbc grammar, from lowest precedence to highest:
+//   expr   = term   ('+' term)*
+//   term   = factor ('*' factor)*
+//   factor = digit | '(' expr ')'
+
+int parse_expr(void) {
+    int v = parse_term();
+    while (peek() == '+') { next(); v = v + parse_term(); }
+    return (v);
+}
+int parse_term(void) {
+    int v = parse_factor();
+    while (peek() == '*') { next(); v = v * parse_factor(); }
+    return (v);
+}
+int parse_factor(void) {
+    if (isdigit(peek())) return (next() - '0');
+    if (peek() == '(') {
+        next();
+        int v = parse_expr();
+        if (peek() != ')') error_token(peek());
+        next();                                  // consume the ')'
+        return (v);
+    }
+    error_token(peek());                          // an unexpected token
+    return (0);
+}`, cap: "One function per grammar rule; precedence falls out of who calls whom (expr calls term calls factor)", lang: "c" },
+      { note: "Why `*` binds tighter than `+`: parse_term (the `*` level) is called *inside* parse_expr (the `+` level), so multiplication is always grouped first. A parenthesis resets you back to parse_expr." },
+    ],
+
+    architecture: [
+      { h: "examshell — Rank 04" },
+      { ul: [
+        "several exercises supply **a main and a skeleton** (picoshell has a main; vbc/argo give you the node struct and helpers) → read them before writing",
+        "level 1 genuinely tests for fd and process leaks — close everything and waitpid every child",
+        "level 2 tests that the output matches the input exactly (argo) or that the arithmetic is right (vbc), with the error messages matching too",
+      ]},
+      { code: String.raw`# ft_popen / picoshell — testing a pipeline:
+./picoshell echo squalala "|" cat "|" sed 's/a/b/g'   # → squblblb
+# sandbox — test with an f() that segfaults / loops / exits 0
+# vbc — test precedence, parentheses and both errors:
+./vbc '3+4*5' | cat -e        # 23
+./vbc '(3+4)*5' | cat -e       # 35
+./vbc '1+' | cat -e            # Unexpected end of input
+./vbc '1+2)' | cat -e          # Unexpected token ')'`, cap: "For vbc, walk through precedence, parentheses, and both kinds of error (a token and end of input)", lang: "bash" },
+    ],
+
+    dataflow: [
+      { p: "A closer look at Rank 04's main exercises." },
+      { h: "🔬 ft_popen — running a command and returning an fd to its output or input" },
+      { code: String.raw`int ft_popen(const char *file, char *const argv[], char type) {
+    int p[2];
+    if (!file || !argv || (type != 'r' && type != 'w')) return (-1);
+    if (pipe(p) == -1) return (-1);
+    pid_t pid = fork();
+    if (pid == -1) { close(p[0]); close(p[1]); return (-1); }
+    if (pid == 0) {
+        if (type == 'r') dup2(p[1], 1);    // reading its output → the child writes stdout into the pipe
+        else             dup2(p[0], 0);    // feeding it input → the child reads stdin from the pipe
+        close(p[0]); close(p[1]);
+        execvp(file, argv);
+        exit(1);
+    }
+    if (type == 'r') { close(p[1]); return (p[0]); }   // the parent returns the read end
+    close(p[0]); return (p[1]);                         // the parent returns the write end
+}`, cap: "'r' returns the read end (to read the command's output); 'w' returns the write end (to feed it input). Always close the opposite end", lang: "c" },
+      { h: "🔬 picoshell — chaining a pipeline (the rolling pipe)" },
+      { p: "Fork one command at a time, keeping the **previous pipe's read end** as the next command's stdin — the same pattern as minishell's exec_pipeline." },
+      { code: String.raw`int picoshell(char **cmds[]) {
+    int in = 0, p[2], i = 0;
+    pid_t pid;
+    while (cmds[i]) {
+        if (cmds[i + 1]) pipe(p);                // another command follows → make a pipe
+        pid = fork();
+        if (pid == 0) {
+            if (in) { dup2(in, 0); close(in); }   // read from the previous pipe
+            if (cmds[i + 1]) { dup2(p[1], 1); close(p[0]); close(p[1]); }
+            execvp(cmds[i][0], cmds[i]);
+            exit(1);
+        }
+        if (in) close(in);
+        if (cmds[i + 1]) { close(p[1]); in = p[0]; } // ★ close the write end at once
+        i++;
+    }
+    while (wait(NULL) > 0);                        // reap every child
+    return (0);
+}`, cap: "The parent closes the write end immediately every round → EOF propagates correctly and nothing hangs (as in the minishell deep dive)", lang: "c" },
+      { h: "🔬 sandbox — judging whether f() is good or bad" },
+      { p: "fork → the child runs f() and then exit(0); the parent sets alarm(timeout) and waitpids. Decode the status: killed by a signal is bad, a non-zero exit is bad, a timeout is bad, exit(0) is good." },
+      { code: String.raw`int sandbox(void (*f)(void), unsigned int timeout, bool verbose) {
+    pid_t pid = fork();
+    if (pid == -1) return (-1);
+    if (pid == 0) { f(); exit(0); }               // the child: run f, and exit 0 if it survives
+    // the parent: install a SIGALRM handler and set alarm(timeout) to catch a hang
+    int status;
+    alarm(timeout);                                // (via sigaction, to catch the timeout)
+    if (waitpid(pid, &status, 0) == -1) { kill(pid, SIGKILL); return (-1); }
+    alarm(0);
+    if (WIFSIGNALED(status)) { /* "Bad: <signal>" */ return (0); }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) { /* Nice! */ return (1); }
+    return (0);                                     // any other exit code is bad
+}`, cap: "Good means WIFEXITED and code == 0, nothing else; everything else (signal / non-zero exit / timeout) is bad — and never leave a zombie", lang: "c" },
+      { h: "🔬 vbc — recursive descent over + * and parentheses" },
+      { p: "Three levels by precedence: expr (+) → term (*) → factor (a digit or a parenthesised expression). The full skeleton is in foundations. Errors: an unexpected token → \"Unexpected token '%c'\", and input running out mid-expression → \"Unexpected end of input\"." },
+      { code: String.raw`// tracing '3+4*5'
+parse_expr:  v = parse_term()        → 3
+             peek '+' → v = 3 + parse_term()
+                                       parse_term: parse_factor()=4
+                                       peek '*' → 4 * parse_factor()=5 → 20
+             v = 3 + 20 = 23  ✓ (* binds first, because term is the inner level)
+
+// '(3+4)*5':
+parse_factor sees '(' → parse_expr=7 → consume ')' → term: 7 * 5 = 35 ✓`, cap: "Precedence emerges from the call structure — there is no separate precedence rule to write", lang: "txt" },
+      { h: "🔬 argo — recursive descent over JSON" },
+      { p: "A simpler grammar than real JSON: only numbers, strings and maps. `parse_value` branches on the first character, and the output must be printed back identically to the input." },
+      { code: String.raw`int parse_value(json *dst, FILE *f) {
+    int c = peek(f);
+    if (isdigit(c) || c == '-')  return parse_number(dst, f);  // 42
+    if (c == '"')                return parse_string(dst, f);  // "abc"
+    if (c == '{')                return parse_map(dst, f);     // {"k":v,...}
+    return unexpected(c);                                       // error
+}
+// parse_map: consume '{' → loop (string ':' value) separated by ',' → consume '}'
+// string: consume '"' → read until the closing '"' (handling only \\ and \")`, cap: "parse_value is a dispatcher on the first character; map calls value again (recursion) → nested {} to any depth", lang: "c" },
+    ],
+
+    implementation: [
+      { h: "A strategy for Rank 04" },
+      { ul: [
+        "if pipex/minishell are your strength, go for **level 1** first (ft_popen is the gentlest of the group)",
+        "if parsers are your strength, **level 2**'s vbc is more direct than argo (which adds string escaping and maps)",
+        "know the recursive-descent skeleton by heart — vbc and argo share it",
+        "close every fd and wait for every child (level 1 fails on leaks very easily)",
+      ]},
+      { h: "Practising beforehand" },
+      { ul: [
+        "write ft_popen and picoshell from scratch (revisiting fork/pipe/dup2/wait)",
+        "write the vbc evaluator from the expr/term/factor grammar until it's fluent",
+        "revisit WIFEXITED/WIFSIGNALED/WTERMSIG and alarm for sandbox",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trap 1: an unclosed fd hangs the pipeline" },
+      { p: "In ft_popen and picoshell the parent must close the end it doesn't use immediately, and the child must close both ends after dup2 — forget either and a read waits for an EOF that never comes (exactly as in pipex and minishell)." },
+      { h: "Trap 2: zombie processes (sandbox/picoshell)" },
+      { p: "You must waitpid or wait for **every** child — sandbox is checked for process leaks, and picoshell needs `while(wait(NULL)>0)` to reap them all." },
+      { h: "Trap 3: wrong precedence (vbc)" },
+      { p: "`3+4*5` must be 23, not 35 — parse_term (the `*` level) has to sit *inside* parse_expr (the `+` level). Swap the levels and precedence breaks." },
+      { h: "Trap 4: the wrong error message (vbc/argo)" },
+      { p: "An unexpected token gives `\"Unexpected token '%c'\\n\"` and exit 1; input running out gives `\"Unexpected end of input\\n\"`. The two cases and their wording must both be exact." },
+      { h: "Trap 5: argo — escaping and printing back identically" },
+      { p: "Handle only `\\\\` and `\\\"` (no `\\n`, no `\\u`); the output must equal the input exactly, escapes included — so printing a string means putting the backslashes back correctly." },
+      { h: "Trap 6: not reading the main and structs you were given" },
+      { p: "vbc and argo supply a node struct and helpers (accept/expect/unexpected) — use what you're given rather than rewriting everything, which wastes time and breaks the interface." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "How do ft_popen's 'r' and 'w' differ?", a: "'r' reads the command's output: the child does dup2(pipe_w, stdout) and the parent returns the read end. 'w' feeds it input: the child does dup2(pipe_r, stdin) and the parent returns the write end. Always close the opposite end." },
+        { q: "How does picoshell chain a pipeline without hanging?", a: "A rolling pipe: keep the previous pipe's read end as the next command's stdin; the parent closes the write end immediately after each fork so EOF propagates; close the old `in` too; and wait for every child at the end." },
+        { q: "How does sandbox decide something is good?", a: "Good is WIFEXITED(status) with WEXITSTATUS == 0, and nothing else. Bad is a signal (WIFSIGNALED), a non-zero exit code, or a timeout (alarm). And it must leave no zombies." },
+        { q: "How does recursive descent make `*` bind tighter than `+`?", a: "By layering: expr (handling +) calls term (handling *) which calls factor. Because term sits inside expr, multiplications are grouped first — precedence comes for free." },
+        { q: "How are parentheses handled in vbc?", a: "In parse_factor, on seeing '(' consume it and call parse_expr (returning to the top level) → that gives the value inside; then a ')' must follow, or it's an error." },
+        { q: "How many kinds of error does vbc have?", a: "Two: an unexpected token → \"Unexpected token '%c'\", and input running out mid-expression (like '1+') → \"Unexpected end of input\". Both exit 1." },
+        { q: "How does argo parse nested maps?", a: "parse_value dispatches on the first character; '{' goes to parse_map, which loops over (string ':' value); a value may itself be a map, so recursion handles any depth of nesting." },
+        { q: "Which escapes does argo handle?", a: "Only `\\\\` (backslash) and `\\\"` (quote) — no `\\n`, no `\\u`. When printing back, the backslashes must be restored so the output matches the input exactly." },
+        { q: "What causes most level 1 failures in Rank 04?", a: "Leaked fds (an unclosed pipe end, so it hangs) and leaked or zombie processes (not waiting for every child). Closing fds and waiting properly is the whole game." },
+      ]},
+      { h: "A real rehearsal" },
+      { code: String.raw`bash exam.sh   # choose Rank 04
+# level 1: ft_popen → picoshell → sandbox (revisiting fork/pipe/dup2/wait/signal)
+# level 2: vbc (expr/term/factor) → argo (value/string/map), from the same skeleton`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: Exam Rank 05 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "exam_rank05": {
+    principle: [
+      { h: "Exam Rank 05 — mostly C++" },
+      { p: "A continuation of the CPP modules. Level 1 is **C++ classes** focused on operator overloading, OCF and inheritance; level 2 returns to **C algorithms** (bsq, life). Compiled with `c++ -Wall -Wextra -Werror -std=c++98`." },
+      { h: "The two levels" },
+      { table: { head: ["Level", "Theme", "Exercises"], rows: [
+        ["**1**", "C++ classes and operators", "vect2, bigint, polyset"],
+        ["**2**", "C algorithms", "bsq (biggest square / DP), life (game of life)"],
+      ]}},
+      { note: "Level 1 demands a solid grasp of **Orthodox Canonical Form** (constructor, copy constructor, copy assignment, destructor), operator overloading and const correctness. vect2 is the gentlest; polyset is the hardest (inheritance plus abstract classes)." },
+    ],
+
+    theory: [
+      { p: "The real Rank 05 exercise pool." },
+      { h: "Level 1 — C++ classes" },
+      { table: { head: ["Exercise", "What it does", "Focus"], rows: [
+        ["`vect2`", "a 2D vector with + - * [] << ++ --", "the basics of operator overloading"],
+        ["`bigint`", "arbitrary-precision integers (addition, comparison, digit shifts <<>>)", "operators + storing digits in a string/array"],
+        ["`polyset`", "inheritance: a searchable bag plus a set wrapper", "abstract classes, virtual, OCF, const"],
+      ]}},
+      { h: "Level 2 — C algorithms" },
+      { table: { head: ["Exercise", "What it does", "Technique"], rows: [
+        ["`bsq`", "find the largest square on a map avoiding obstacles", "dynamic programming"],
+        ["`life`", "Conway's Game of Life (the input is a sequence of pen commands)", "grid + parsing + simulation"],
+      ]}},
+    ],
+
+    foundations: [
+      { p: "Rank 05's pillars: Orthodox Canonical Form, operator overloading, and DP on a grid." },
+      { h: "1) Orthodox Canonical Form — the four mandatory functions" },
+      { code: String.raw`class Foo {
+public:
+    Foo();                              // default constructor
+    Foo(const Foo &other);              // copy constructor
+    Foo &operator=(const Foo &other);   // copy assignment
+    ~Foo();                             // destructor
+};`, cap: "Every Rank 05 class (polyset especially) needs all four — missing one is a fail", lang: "cpp" },
+      { h: "2) Operator overloading — member versus free function" },
+      { code: String.raw`// arithmetic and compound assignment: members (our object is the left operand)
+vect2  operator+(const vect2 &r) const { return vect2(x+r.x, y+r.y); }
+vect2 &operator+=(const vect2 &r) { x+=r.x; y+=r.y; return *this; }
+
+// pre and post increment
+vect2 &operator++()    { ++x; ++y; return *this; }      // ++v (pre)
+vect2  operator++(int) { vect2 t=*this; ++*this; return t; } // v++ (post, dummy int)
+
+// << must be a FREE function, because the left operand is an ostream, not a vect2
+std::ostream &operator<<(std::ostream &o, const vect2 &v) {
+    return o << "{" << v[0] << ", " << v[1] << "}";
+}
+// scalar*vect (3 * v) must be free too, since the left operand is an int`, cap: "Our object on the left → a member; an ostream or an int on the left → a free function", lang: "cpp" },
+      { note: "The rule of thumb: pre-increment returns a reference (`*this`), post-increment returns a copy of the old value (and takes a dummy `int` to distinguish it from pre). Any method that only reads gets a trailing `const`." },
+      { h: "3) Dynamic programming on a grid (bsq)" },
+      { code: String.raw`// dp[i][j] = the size of the largest square whose BOTTOM-RIGHT corner is at (i,j)
+if (map[i][j] == obstacle) dp[i][j] = 0;
+else if (i==0 || j==0)     dp[i][j] = 1;          // the edges
+else dp[i][j] = min3(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]) + 1;
+// track the max and its position (topmost first, then leftmost)`, cap: "A square ending at (i,j) can be as large as the smallest of its three neighbours, plus one", lang: "c" },
+    ],
+
+    architecture: [
+      { h: "examshell — Rank 05" },
+      { ul: [
+        "level 1 always provides a `main` (vect2/bigint) — your class has to make that main compile and run correctly",
+        "polyset provides the abstract classes (bag, searchable_bag, array_bag, tree_bag) → you write the searchable_* classes and set",
+        "always compile with `-std=c++98`",
+        "level 2 (bsq/life) is ordinary C — check the output exactly with cat -e",
+      ]},
+      { code: String.raw`# C++ (level 1):
+c++ -Wall -Wextra -Werror -std=c++98 *.cpp && ./a.out
+# bsq (level 2):
+./bsq map.txt | cat -e        # check the square is the right one (topmost, then leftmost)
+# life:
+echo 'sdxddssaaww' | ./life 5 5 0 | cat -e`, cap: "Level 1 has to satisfy the provided main; level 2 is compared byte for byte", lang: "bash" },
+    ],
+
+    dataflow: [
+      { p: "A closer look at Rank 05's main exercises." },
+      { h: "🔬 vect2 — the full set of operators" },
+      { p: "An exercise in covering the operators: + - * (scalar) [] << ++ -- += -= *=. The key is knowing which are members and which are free functions (see foundations)." },
+      { code: String.raw`class vect2 {
+    int e[2];
+public:
+    vect2(int a=0, int b=0) { e[0]=a; e[1]=b; }
+    int &operator[](int i) { return e[i]; }
+    int  operator[](int i) const { return e[i]; }   // the const overload
+    vect2 operator+(const vect2 &r) const { return vect2(e[0]+r[0], e[1]+r[1]); }
+    vect2 operator*(int s) const { return vect2(e[0]*s, e[1]*s); }
+    vect2 &operator+=(const vect2 &r) { e[0]+=r[0]; e[1]+=r[1]; return *this; }
+};
+vect2 operator*(int s, const vect2 &v) { return v * s; }    // 3 * v
+std::ostream &operator<<(std::ostream &o, const vect2 &v) {
+    return o << "{" << v[0] << ", " << v[1] << "}";
+}`, cap: "operator[] needs both versions (const and non-const); scalar*vect and << are free functions", lang: "cpp" },
+      { h: "🔬 bigint — arbitrary-precision integers" },
+      { p: "Store the number as **a string of digits** (so it can exceed SIZE_MAX). Add with a carry, compare by length first and then digit by digit, and implement the digit shift by appending or removing '0's." },
+      { code: String.raw`// addition: work from the units digit up, carrying
+// comparing a < b: different lengths → the shorter one is smaller
+//                  equal lengths → compare the strings from the left (lexicographic)
+// digit shift:  42 << 3  →  "42" + "000" = "42000"
+//               1337 >> 2 →  drop the last two digits = "13"
+bigint operator<<(unsigned n) const {           // shifting digits left = × 10^n
+    return bigint(digits + std::string(n, '0'));
+}
+// the printing <<: strip leading zeros before printing`, cap: "A string of digits gives unlimited size; take care to separate operator<< (digit shift) from operator<< (printing to an ostream)", lang: "cpp" },
+      { h: "🔬 polyset — inheritance, abstract classes and OCF (the hardest of the rank)" },
+      { p: "You're given the abstract `bag` and `searchable_bag`, plus working `array_bag` and `tree_bag`. You write `searchable_array_bag` / `searchable_tree_bag` (inheriting and implementing the search) and `set` (wrapping a searchable_bag to reject duplicates)." },
+      { code: String.raw`// inheriting from two sides: the implementation from array_bag, the interface from searchable_bag
+class searchable_array_bag : public array_bag, public searchable_bag {
+public:
+    searchable_array_bag();
+    searchable_array_bag(const searchable_array_bag &o);     // the full OCF!
+    searchable_array_bag &operator=(const searchable_array_bag &o);
+    ~searchable_array_bag();
+    bool has(int e) const {                                  // the virtual from searchable_bag
+        for (size_t i = 0; i < size(); ++i)
+            if ((*this)[i] == e) return true;
+        return false;
+    }
+};
+// set: check has() before inserting → no duplicates`, cap: "Full OCF on every class, plus const on every read-only method; set uses has() to prevent duplicates", lang: "cpp" },
+      { h: "🔬 bsq — the biggest square (DP)" },
+      { p: "Read the map (the first line gives the row count and the empty/obstacle/full characters). The DP: the square ending at (i,j) is min(above, left, above-left) + 1 when the cell is empty; track the maximum and the topmost-leftmost position." },
+      { code: String.raw`for i in rows:
+  for j in cols:
+    if (map[i][j] == obstacle) dp[i][j] = 0;
+    else if (i==0 || j==0)     dp[i][j] = 1;
+    else dp[i][j] = min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]) + 1;
+    if (dp[i][j] > best) { best = dp[i][j]; bi = i; bj = j; }  // the bottom-right corner
+// draw 'full' over the best×best square whose bottom-right corner is (bi,bj)`, cap: "Keep the FIRST maximum found while scanning top→bottom, left→right → the topmost-leftmost square comes out automatically", lang: "txt" },
+      { h: "🔬 life — Game of Life plus pen parsing" },
+      { p: "Two phases: (1) turn the wasd (move) and x (pen up/down) commands into a starting grid, and (2) run Conway for n rounds and print 'O' and spaces." },
+      { code: String.raw`// phase 1: the pen follows the commands; while "down", mark the cell alive
+//   w/a/s/d = move x,y ; x = toggle the pen (down/up)
+// phase 2: Conway's rule per cell:
+//   count the living neighbours (8 directions; outside the grid counts as dead)
+//   alive: survives with 2 or 3 neighbours; dead: born with exactly 3
+//   (compute the new grid from the whole old one — never edit in place)`, cap: "Crucial: compute each round from a full snapshot of the previous one (double buffering), or cells you just changed corrupt their neighbours", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "A strategy for Rank 05" },
+      { ul: [
+        "strong at C++ → level 1: **vect2** first (the operators are straightforward), and avoid polyset if time is short",
+        "strong at algorithms → level 2: **bsq** (classic DP) or life",
+        "know OCF by heart (all four), and know which operators are members and which are free functions",
+        "read the provided main first — your class exists to make exactly that main work",
+      ]},
+      { h: "Practising beforehand" },
+      { ul: [
+        "write vect2 with every operator from scratch (+, -, *, [], <<, ++, --)",
+        "revisit OCF and when to use a member versus a free function (<<, scalar*obj)",
+        "write bsq (DP) and life (Conway with double buffering) until they're fluent",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trap 1: forgetting OCF or forgetting const" },
+      { p: "polyset is all about a complete OCF plus `const` on every read-only method (`has() const`, for instance). Missing either fails — the subject says outright 'Don't forget the const'." },
+      { h: "Trap 2: writing << as a member" },
+      { p: "The printing `operator<<` must be a free function (the left operand is an ostream, not your object); as a member, `cout << v` won't compile." },
+      { h: "Trap 3: post-increment returning the wrong thing" },
+      { p: "`v++` must return the **old** value (a copy) and take a dummy `int` to distinguish it from `++v`, which returns a reference. Swap them and `v++` gives the wrong result." },
+      { h: "Trap 4: operator[] with no const overload" },
+      { p: "You need both: the non-const one returning a reference (modifiable) and the const one returning a value. Without the const version it can't be used on a const object — including inside `operator<<`." },
+      { h: "Trap 5: bsq picking the wrong square" },
+      { p: "There can be several answers → you must pick the **topmost, then leftmost**. Scan top→bottom, left→right and keep the **first** maximum (use `>`, not `>=`) and the position is right." },
+      { h: "Trap 6: life editing the grid in place" },
+      { p: "Conway must compute each round from a full snapshot of the previous one (double buffering) — editing the grid as you go means cells you've already changed make their neighbours count wrongly." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What does Orthodox Canonical Form consist of?", a: "Four functions: a default constructor, a copy constructor, a copy assignment operator (operator=) and a destructor. Every Rank 05 class needs all four (polyset especially)." },
+        { q: "Why must the printing `operator<<` be a free function?", a: "Because its left operand is a `std::ostream` (cout), not your object — as a member function your object would be on the left, and `cout << v` wouldn't compile." },
+        { q: "How do pre- and post-increment differ in code?", a: "Pre (`++v`): `T &operator++()`, returning a reference after incrementing. Post (`v++`): `T operator++(int)` with a dummy int — save the old value, increment, and return the old copy." },
+        { q: "Why does operator[] need a const overload?", a: "The non-const version returns a modifiable reference; the const version returns a value for read-only use, so it can be called on a const object — as `operator<<` does when it takes a `const vect2&`." },
+        { q: "How does bigint store numbers larger than SIZE_MAX?", a: "As a string or array of base-10 digits; addition walks the digits with a carry; comparison checks length first and then the strings; a digit shift appends or removes trailing '0's." },
+        { q: "How does polyset use inheritance?", a: "searchable_array_bag inherits from array_bag (for the implementation) and searchable_bag (for the search interface), then implements has(); set wraps a searchable_bag and checks has() before inserting to reject duplicates." },
+        { q: "How does bsq use DP?", a: "dp[i][j] (the square ending at i,j) is min(above, left, above-left)+1 when the cell is empty, and 0 on an obstacle; track the first maximum found while scanning top-left → the topmost-leftmost square." },
+        { q: "Why does Game of Life need double buffering?", a: "Every cell must be computed from the **previous** generation simultaneously — editing the grid in place makes cells you've already changed give their neighbours the wrong count, so write into a new buffer." },
+        { q: "What is Conway's rule?", a: "A living cell survives with 2 or 3 living neighbours; a dead cell is born with exactly 3; anything outside the board counts as dead." },
+      ]},
+      { h: "A real rehearsal" },
+      { code: String.raw`bash exam.sh   # choose Rank 05
+# level 1: vect2 (operators) → bigint → polyset (OCF + inheritance)
+# level 2: bsq (DP) → life (Conway with double buffering)`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: Exam Rank 06 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "exam_rank06": {
+    principle: [
+      { h: "Exam Rank 06 — the select() server" },
+      { p: "The last rank of the Common Core's C/C++ track. There are two substantial programs, both **non-blocking TCP servers** handling many clients at once with `select()` on 127.0.0.1. The exam runs longer than the others." },
+      { table: { head: ["Program", "Language", "What it does"], rows: [
+        ["`mini_serv`", "C", "a group chat: a client sends a message → it is broadcast to everyone"],
+        ["`mini_db`", "C++", "a key-value store: POST/GET/DELETE over TCP"],
+      ]}},
+      { note: "One idea covers both exercises: the **select() event loop** — watch many fds at once, never block, and handle accept/recv/send with no threads at all. Understand that pattern and both follow." },
+      { h: "The rules that fail you" },
+      { ul: [
+        "**Never block** — select before every recv and send; and **never check EAGAIN** (the subject forbids it)",
+        "**No leaks** of fds or memory (genuinely checked)",
+        "errors → `\"Fatal error\\n\"` on stderr, exit 1; wrong arguments → `\"Wrong number of arguments\\n\"`",
+        "deliver messages 'as fast as possible' — don't buffer more than you must (the tester measures timing)",
+      ]},
+    ],
+
+    theory: [
+      { p: "Rank 06's two programs — the specification in brief." },
+      { h: "mini_serv (C) — the group chat" },
+      { ul: [
+        "takes a port as its argument; binds 127.0.0.1 only",
+        "a new client gets id = the last id + 1 (starting at 0); broadcast `\"server: client %d just arrived\\n\"`",
+        "on receiving a message → forward it to every other client, prefixing **every line** with `\"client %d: \"`",
+        "a client leaving → broadcast `\"server: client %d just left\\n\"`",
+        "a message may contain several `\\n`; a client may be 'lazy about reading' → never drop the connection for it",
+        "`#define` is forbidden",
+      ]},
+      { h: "mini_db (C++) — the key-value store" },
+      { ul: [
+        "arguments = a port and a path; once ready to accept connections, print `\"ready\\n\"` on stdout",
+        "connections are persistent (one session can carry many commands)",
+        "`POST <key> <value>` → add an entry, reply `\"0\"`",
+        "`GET <key>` → `\"0 <value>\"`, or `\"1\"` when the key is absent",
+        "`DELETE <key>` → remove the entry",
+      ]},
+    ],
+
+    foundations: [
+      { p: "One pillar: the select() event loop, used by both mini_serv and mini_db." },
+      { h: "1) The shape of a select() loop" },
+      { code: String.raw`fd_set readfds;
+int maxfd = listen_fd;
+// (keep all client fds in an array/set of your own)
+while (1) {
+    FD_ZERO(&readfds);
+    FD_SET(listen_fd, &readfds);
+    for each client c: FD_SET(c.fd, &readfds);     // watch every client
+    select(maxfd + 1, &readfds, NULL, NULL, NULL); // block until some fd is ready
+    if (FD_ISSET(listen_fd, &readfds))
+        accept_new_client();                        // someone is connecting
+    for each client c:
+        if (FD_ISSET(c.fd, &readfds))
+            handle_recv(c);                          // data arrived, or a disconnect
+}`, cap: "select tells you which fds are ready to read → you handle only those, and nothing else blocks: one thread serves everyone", lang: "c" },
+      { h: "2) accept, and handing out ids" },
+      { code: String.raw`int cfd = accept(listen_fd, ...);
+clients[cfd].id = next_id++;          // the last id + 1 (starting at 0)
+if (cfd > maxfd) maxfd = cfd;
+// broadcast "server: client %d just arrived\n" to the others`, cap: "maxfd must be updated every time you get a new fd — select needs the upper bound", lang: "c" },
+      { h: "3) recv, and buffering until a line is complete" },
+      { code: String.raw`int n = recv(cfd, buf, sizeof(buf), 0);
+if (n <= 0) { /* disconnect: broadcast "just left", close, remove the client */ }
+else {
+    // append buf to client[cfd].msg (the accumulating buffer)
+    // cut off one line at each '\n' → broadcast it (with the "client %d: " prefix)
+    // keep any incomplete tail for the next recv
+}`, cap: "recv returning 0 means the client closed; one message may hold several lines or an incomplete one → buffer per fd", lang: "c" },
+    ],
+
+    architecture: [
+      { h: "examshell — Rank 06" },
+      { ul: [
+        "you are given a `main.c` (mini_serv) or a skeleton (mini_db) to help — but the subject warns that this main **contains forbidden functions or code you must remove** from what you submit",
+        "test with `nc` (netcat): open several terminals, connect to the server and type",
+        "the exam runs longer than usual — the exercises are big, so take your time",
+      ]},
+      { code: String.raw`# run and test with nc:
+./mini_serv 8080
+# in another terminal:
+nc 127.0.0.1 8080        # connect as a client and type — the others see it
+
+# mini_db:
+./mini_db 8080 ./data
+nc 127.0.0.1 8080
+POST foo bar             # → 0
+GET foo                  # → 0 bar
+GET nope                 # → 1`, cap: "nc is the main testing tool — open several to simulate several clients", lang: "bash" },
+    ],
+
+    dataflow: [
+      { p: "A closer look at Rank 06's two programs — both revolve around the select() loop." },
+      { h: "🔬 mini_serv — a multi-client group chat" },
+      { p: "The select loop watches the listening fd plus every client. Three events: a new connection (accept + arrived), incoming data (buffer + broadcast), and a disconnect (left + close)." },
+      { code: String.raw`while (1) {
+    readfds = active;                          // copy the set (select modifies it)
+    select(maxfd + 1, &readfds, NULL, NULL, NULL);
+    for (fd = 0; fd <= maxfd; fd++) {
+        if (!FD_ISSET(fd, &readfds)) continue;
+        if (fd == listen_fd) {                 // (1) a new client
+            cfd = accept(...);
+            ids[cfd] = next_id++;
+            FD_SET(cfd, &active); maxfd = max(maxfd, cfd);
+            broadcast(cfd, "server: client %d just arrived\n", ids[cfd]);
+        } else {                               // (2)/(3) data, or a disconnect
+            n = recv(fd, buf, BUF, 0);
+            if (n <= 0) {                      // disconnected
+                broadcast(fd, "server: client %d just left\n", ids[fd]);
+                FD_CLR(fd, &active); close(fd); free(stash[fd]);
+            } else
+                buffer_and_broadcast(fd, buf, n); // accumulate to a full line → send
+        }
+    }
+}`, cap: "Broadcasting means looping over every client fd except the sender, prefixing each line with \"client %d: \"", lang: "c" },
+      { note: "mini_serv's fatal mistakes: (1) not prefixing every line (messages with several `\\n`), (2) not buffering per client (incomplete lines), (3) forgetting to free the stash on disconnect (a leak), (4) not updating maxfd." },
+      { h: "🔬 Per-client buffering and line splitting" },
+      { code: String.raw`// each client has a stash (an accumulating string)
+stash[fd] = strjoin(stash[fd], buf);           // append the new data
+while ((nl = strchr(stash[fd], '\n'))) {        // a complete line is present
+    *nl = '\0';
+    send_to_others(fd, "client %d: %s\n", ids[fd], stash[fd]);
+    memmove(stash[fd], nl + 1, len(nl + 1) + 1); // shift the remainder to the front
+}`, cap: "Accumulate until a '\\n' → send one prefixed line → keep the excess; this handles both partial and multi-line messages", lang: "c" },
+      { h: "🔬 mini_db — a key-value store over TCP" },
+      { p: "The same select loop as mini_serv, except that instead of broadcasting it parses a command and replies to the sender alone. The database is a map (C++)." },
+      { code: String.raw`std::map<std::string, std::string> db;
+// once ready → printf("ready\n"); fflush
+// accumulate each client's recv until a full line, then parse:
+//   POST <key> <value>  → db[key] = value;       reply "0"
+//   GET  <key>          → db.count(key) ? "0 "+db[key] : "1"
+//   DELETE <key>        → db.erase(key);
+// persistent: one client may send many commands in a single session`, cap: "db is a std::map; parse the command from the line and reply only to the client that sent it (no broadcast)", lang: "cpp" },
+    ],
+
+    implementation: [
+      { h: "A strategy for Rank 06" },
+      { ul: [
+        "start by getting a **select loop running at all** (accept + echo), then add the logic",
+        "mini_serv: get accept/arrived/left complete first, then add the buffering and line broadcasting",
+        "mini_db: the same select loop plus a std::map and three commands to parse",
+        "test with several `nc` sessions often while you write",
+      ]},
+      { h: "Practising beforehand" },
+      { ul: [
+        "write a TCP echo server with select from scratch (socket/bind/listen/accept/select/recv)",
+        "add multiple clients and broadcasting (a miniature mini_serv)",
+        "revisit per-fd buffering and line splitting with strchr/memmove",
+        "revisit fd_set: FD_ZERO/SET/CLR/ISSET, and maxfd",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trap 1: blocking, by not using select or by checking EAGAIN" },
+      { p: "You must select before every recv and send, and you **must not check EAGAIN** (the subject forbids it). recv and send won't block once select has said the fd is ready." },
+      { h: "Trap 2: forgetting to copy the fd_set before select" },
+      { p: "select **modifies the fd_set in place** (leaving only the ready ones) — copy your master set (`readfds = active`) every round, or the set gradually empties." },
+      { h: "Trap 3: multi-line messages without a prefix on every line" },
+      { p: "In mini_serv one message may contain several `\\n` → `\"client %d: \"` must prefix **every** line, not only the first." },
+      { h: "Trap 4: a message arriving as an incomplete line" },
+      { p: "recv may deliver half a line → buffer per client until a `\\n` appears and only then send; keep the excess for the next round. Sending on every recv splits lines." },
+      { h: "Trap 5: leaking an fd or memory on disconnect" },
+      { p: "When a client leaves you must close(fd), FD_CLR it and free its buffer; forget any of those and it leaks (this is really checked). Update maxfd too if it matters." },
+      { h: "Trap 6: the wrong error or argument message" },
+      { p: "Wrong arguments → `\"Wrong number of arguments\\n\"`; a syscall failing before you start → `\"Fatal error\\n\"` on **stderr**, exit 1. The wrong wording or the wrong stream is a fail." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "How does select() work, and why doesn't it block?", a: "It watches many fds at once and returns as soon as at least one is ready (readable or writable) → you handle only the ready ones and nothing else stalls, so a single thread serves every client." },
+        { q: "Why copy the fd_set before every select?", a: "select modifies the set in place, leaving only the ready fds — without a master copy, the fds that weren't ready disappear from the set next round and you stop watching them." },
+        { q: "How does mini_serv broadcast a multi-line message?", a: "It prefixes **every** line (split at each `\\n`) with \"client %d: \", not just the first, and sends to every client except the sender." },
+        { q: "Why buffer per client?", a: "recv may deliver an incomplete line or several lines at once — accumulate in a per-fd buffer until a `\\n` appears, send one line, and keep the excess for the next recv." },
+        { q: "How are client ids assigned?", a: "The last id plus one, starting at 0 (the first client is 0); store the id per fd for use when broadcasting arrivals, departures and messages." },
+        { q: "Why is checking EAGAIN forbidden?", a: "The subject forbids it — if select is used correctly (watching before every recv/send) the fd is always ready when you call, so EAGAIN shouldn't occur. Checking for it signals a badly designed flow." },
+        { q: "What does recv returning 0 mean?", a: "The client closed the connection (EOF) → broadcast \"just left\", close(fd), FD_CLR it and free that client's buffer." },
+        { q: "How does mini_db differ from mini_serv?", a: "The select structure is identical, but instead of broadcasting it parses a command (POST/GET/DELETE) and replies only to the sender; the database is a std::map, and it prints \"ready\\n\" once it is listening." },
+        { q: "What are mini_serv's two error messages?", a: "Wrong arguments → \"Wrong number of arguments\\n\"; a syscall failing before accepting connections → \"Fatal error\\n\". Both on stderr, exit 1." },
+      ]},
+      { h: "A real rehearsal" },
+      { code: String.raw`bash exam.sh   # choose Rank 06
+# 1) get an echo server running with select first
+# 2) add multiple clients and broadcasting = mini_serv
+# test: ./mini_serv 8080, then open several nc 127.0.0.1 8080`, lang: "bash" },
+    ],
+  },
+});
