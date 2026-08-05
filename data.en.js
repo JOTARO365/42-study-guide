@@ -90,6 +90,7 @@ window.TEACHING_EN = {
       { p: "Arranging n things has n! orders — 3 things have only 3! = 6, few enough to write fixed rules covering every case (≤ 2 ops). That's the theoretical reason small cases are hardcoded instead of going through greedy." },
 
       { h: "🔬 Deep Dive A: the formal definition of Big-O" },
+      { p: "We use Big-O loosely most of the time, but it has a precise mathematical definition — and knowing it is what lets you say why constants and lower-order terms can be dropped." },
       { p: "We use Big-O loosely, but it has a precise definition: f(n) = O(g(n)) means g is a 'ceiling' for f once n is large enough." },
       { code: String.raw`f(n) = O(g(n))   iff
   there exist constants c > 0 and n0 such that
@@ -106,6 +107,7 @@ Example: f(n) = 3n^2 + 5n + 2  is O(n^2)
         { q: "Why can constants and smaller terms be dropped?", a: "The definition already allows a multiplier c and only cares about large n — `3n² + 100n` and `n²` grow at the same rate as n keeps increasing." },
       ]},
       { h: "🔬 Deep Dive B: proof that comparison sort needs ≥ ~n·log₂n" },
+      { p: "Think of it as a **decision tree**: every time you ask 'is a < b?' there are two possible answers, so the whole sort is a binary tree whose leaves are the possible orderings." },
       { code: String.raw`A binary tree of height h has at most 2^h leaves.
 We must cover every possible ordering -> 2^h >= n!
                                        -> h >= log2(n!)
@@ -312,6 +314,9 @@ last = *stack;
 while (last->next)         // 4. walk to the end
     last = last->next;
 last->next = first;        // 5. attach first at the tail`, cap: "Moves the head to the tail with NO malloc — just pointer moves (that's why linked lists are fast here)", lang: "c" },
+      { code: String.raw`before: [42] -> [17] -> [99] -> NULL
+step 2: *stack points at [17]    [42]->NULL (detached for a moment)
+step 5: [17] -> [99] -> [42] -> NULL`, cap: "Watch the pointers move one step at a time", lang: "txt" },
       { h: "5) Memory management: who allocates, who frees" },
       { ul: [
         "**Allocate:** every node is born from `malloc` in new_node (1 box per number) + 1 box for the t_ps struct",
@@ -540,6 +545,12 @@ overlap: should be 7 but ends up 6 -> data lost!`, cap: "++ is not atomic — it
       { h: "3) Mutex (Mutual Exclusion)" },
       { p: "A **mutex** is a lock guaranteeing 'only 1 thread at a time' touches a resource. A thread must `lock` before entering and `unlock` when leaving — if someone holds the key, others wait." },
       { p: "In philosophers: **each fork = 1 mutex**. Picking up a fork = lock; putting it down = unlock. There are also mutexes for print, the stop flag, and meal data." },
+      { table: { head: ["Function", "What it does"], rows: [
+        ["`pthread_mutex_init`", "create the lock"],
+        ["`pthread_mutex_lock`", "take the lock (waiting if someone holds it)"],
+        ["`pthread_mutex_unlock`", "release the lock"],
+        ["`pthread_mutex_destroy`", "destroy the lock (at the end)"],
+      ]}},
       { h: "4) Deadlock — the 4 Coffman conditions" },
       { p: "Deadlock happens only when all 4 of these hold at once — break any single one and you prevent it:" },
       { table: { head: ["Condition", "Meaning", "We break it by"], rows: [
@@ -3227,6 +3238,27 @@ the im axis is flipped:  im = max_im − (y/HEIGHT)(max_im − min_im)
       { code: String.raw`dst = addr + (y * line_len + x * (bpp / 8));
 *(unsigned int *)dst = color;   /* write 1 pixel's color */`, cap: "compute the pixel's byte offset in the buffer then write directly — far faster than mlx_pixel_put", lang: "c" },
       { note: "Why faster: write the whole image into memory first, then mlx_put_image_to_window once — no talking to the X server per pixel." },
+      { h: "Breaking the pointer arithmetic down" },
+      { ul: [
+        "`y * line_len` = skip to row y (each row is line_len bytes long)",
+        "`x * (bpp/8)` = skip to column x within that row (one pixel is bpp/8 bytes, e.g. 32/8 = 4)",
+        "`f->addr + (...)` = exactly the address of pixel (x,y)",
+        "`*(unsigned int *)dst = color` = treat that address as a 4-byte int slot and write the whole colour in one go",
+      ]},
+      { note: "The trick: `(unsigned int *)dst` is a cast telling C to view this address as a 4-byte int — so an RGB colour (0xRRGGBB) goes in with a single instruction, hundreds of times faster than mlx_pixel_put." },
+      { h: "Why you never malloc an array yourself" },
+      { p: "Unlike push_swap or so_long, where you allocate the structures, fract-ol has **mlx allocate the image memory for you** (in mlx_new_image) — you simply receive an `addr` to write into. The `t_fractol f` struct is an ordinary local on the stack (never malloc'd), so there is nothing to free for it either." },
+      { h: "Memory management: returning mlx's resources on exit" },
+      { code: String.raw`int close_hook(t_fractol *f) {
+    mlx_destroy_image(f->mlx, f->img);     // return the image's byte buffer
+    mlx_destroy_window(f->mlx, f->win);    // return the window
+    mlx_destroy_display(f->mlx);           // return the connection to the X server
+    free(f->mlx);                          // free mlx's own struct
+    exit(0);
+}`, cap: "mlx's resources must be returned with mlx's own functions (not free) — except the mlx handle itself, which ends with a free", lang: "c" },
+      { note: "Forget the destroys and valgrind always reports 'still reachable / leak' coming from mlx." },
+      { h: "A pointer passed around means one shared state" },
+      { p: "Every hook (key, mouse, close) receives the same `t_fractol *f` — zooming edits `f->min_re/max_re...` and then calls `render(f)` to redraw. Because it is a pointer to one struct, changing the visible frame takes effect on the next draw immediately." },
       { h: "Why double, not float" },
       { p: "Coordinates need high precision so deep zoom stays sharp. `double` (64-bit, ~15–16 digits) blocks up far later than `float` (~7 digits) — see Deep Dive C." },
     ],
@@ -4362,11 +4394,6 @@ client.messages.create(
             "text": "You are an expert... (a long 2000-token prompt)",
             "cache_control": {"type": "ephemeral"}  # <- add this line
         }
-      { qa: [
-        { q: "How does prompt caching work?", a: "It stores the processed form of a repeated *prefix* — a later request starting identically skips that computation and is billed at the much cheaper cache-read rate." },
-        { q: "What stops the cache from hitting?", a: "Anything that changes the prefix — a single space, a timestamp placed at the top of the prompt, or a reordered tool list. Whatever varies has to go at the **end**." },
-        { q: "Where is the break-even point?", a: "Writing the cache costs more than the normal rate while reading it costs much less — so it pays once the same prefix is reused more than a certain number of times. Confirm it by reading the cached-token counts in the real responses rather than guessing." },
-      ]},
     ],
     messages=[
         {"role": "user", "content": "the user's question"}
@@ -4405,6 +4432,26 @@ save: $9.60 -> $1.51 = 84%!
   2. you reuse the same prompt many rounds
   3. it isn't batch processing (batch is already 50% off)`, cap: "caching is truly worth it only when the prompt is long + reused many rounds — for a single send it isn't", lang: "txt" },
 
+      { code: String.raw`three traps that silently stop caching from working:
+
+1. the prefix is shorter than the minimum → nothing is cached, with no error
+     Opus 5: 512 tokens · Sonnet 5 / Opus 4.8: 1024 · Opus 4.7: 2048 · Haiku 4.5: 4096
+
+2. something invisible changes the prefix → a fresh cache write every time
+     a timestamp or a session id placed at the TOP of the prompt
+     a reordered tool list · a single extra space
+     → whatever varies belongs at the END, always
+
+3. more than four cache breakpoints → the extra ones are ignored
+
+how to verify it is actually working:
+     read usage.cache_read_input_tokens from a real response
+     0 on the second identical request = the cache never hit`, cap: "None of these raise an error — the bill simply stays high, so check the token counts rather than assuming", lang: "txt" },
+      { qa: [
+        { q: "How does prompt caching work?", a: "It stores the processed form of a repeated *prefix* — a later request starting identically skips that computation and is billed at the much cheaper cache-read rate." },
+        { q: "What stops the cache from hitting?", a: "Anything that changes the prefix — a single space, a timestamp placed at the top of the prompt, or a reordered tool list. Whatever varies has to go at the **end**." },
+        { q: "Where is the break-even point?", a: "Writing the cache costs more than the normal rate while reading it costs much less — so it pays once the same prefix is reused more than a certain number of times. Confirm it by reading the cached-token counts in the real responses rather than guessing." },
+      ]},
       { h: "🔬 Deep Dive C: Tool / Function Calling — how an LLM 'calls a function'" },
       { p: "an LLM can't run code or fetch live data itself — it only produces 'text'. Tool calling is the mechanism for it to **say 'please call function X with these args'**, and you (the code) actually run it and feed the result back. This is the foundation of every agent." },
       { p: "**Mechanism — a 4-beat cycle:**" },
@@ -5351,6 +5398,9 @@ print(rag_answer("how many days to return?"))
       { p: "An **agent** is an LLM with a clear role that receives context from the system, and whose output is acted on (call a function / pass to another step) — not just a one-off Q&A. **LangGraph** is the runtime that controls the flow of these steps." },
       { h: "Why a state graph instead of nested if/else" },
       { p: "Multi-step AI systems get tangled fast. Modeling them as a **graph** (nodes = steps, edges = paths) makes the flow readable, editable, and able to branch/skip/loop cleanly." },
+      { code: String.raw`example: a customer-support assistant
+take the question -> classify it ─(technical?)─► search the KB -> answer
+                                 └(billing?)──► fetch the bill -> answer`, cap: "Several routes: classify first, then branch by type", lang: "txt" },
       { h: "The 3 pieces of LangGraph" },
       { table: { head: ["Piece", "Role"], rows: [
         ["State", "the central dict every node reads/writes"],
@@ -5749,6 +5799,13 @@ print(app.invoke({"text": "hello", "lang": "", "reply": ""})["reply"])   # Hello
       { p: "How to wrap an LLM into a real, production system: the **harness** = the deterministic, code-level layers around the LLM (guardrails, tools, system prompt, cost/quality metering). The same model behaves differently on Claude Code / Cursor / Copilot because the harness differs." },
       { h: "The key idea: the LLM is just one layer" },
       { p: "An LLM call is one component. Around it sits the harness: filter before (pre-guard), check after (post-guard), let code execute actions (not the LLM directly), and meter cost/quality. Numeric rules belong in code, not the prompt." },
+      { code: String.raw`def handle(req):
+    if not pre_guard(req):       # plain code: rejected here costs 0 tokens
+        return reject(req)
+    decision = llm_decide(req)   # the LLM decides (only where judgement is needed)
+    if not post_guard(decision): # check the result before acting on it
+        return reject(req)
+    return do_action(decision)   # code calls the real tool`, cap: "The LLM is one layer in the middle — everything around it is the harness", lang: "py" },
       { h: "The harness pillars" },
       { table: { head: ["Pillar", "Role"], rows: [
         ["Guardrails", "filter input/output (rules + an LLM guard)"],
