@@ -10440,3 +10440,909 @@ valgrind --leak-check=full -q ./materia`, lang: "bash" },
     ],
   },
 });
+
+/* ===================== EN: CPP Module 05 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_05": {
+    principle: [
+      { h: "What Module 05 teaches" },
+      { p: "This module teaches **exceptions** — how to report 'I can't do that' from a place that cannot return a value (a constructor) to somebody able to handle it. The theme is bureaucracy: bureaucrats have grades, forms need someone to sign and someone to execute them — and everywhere a grade falls short, the code **throws** rather than **returning an error code**." },
+      { h: "Why exceptions rather than return codes" },
+      { code: String.raw`Bureaucrat b("bob", 0);      // grade 0 doesn't exist
+
+  a constructor returns nothing → there is no way to hand back an error code
+  which leaves only:
+    (a) let construction succeed and set an "I'm broken" flag → every method must check it
+    (b) throw → this object never came into existence  ★ what this module teaches
+
+throwing from a constructor means "construction genuinely failed"
+  - the object is never created → its destructor never runs
+  - members already constructed (the const std::string _name) are cleaned up normally`, cap: "Throwing from a constructor is the heart of ex00 — not a trick, but the only thing that works", lang: "cpp" },
+      { h: "Four exercises" },
+      { table: { head: ["Exercise", "Adds", "The point"], rows: [
+        ["ex00", "Bureaucrat + 2 nested exception classes", "throwing from a constructor · the inverted grade scale · `const` members vs OCF"],
+        ["ex01", "Form + beSigned + signForm", "who catches the exception (Bureaucrat handles it; it never reaches main)"],
+        ["ex02", "Form → abstract AForm + 3 real forms", "**check in the base, act in the child** (the template method)"],
+        ["ex03", "Intern::makeForm", "table lookup instead of the if/else chain the subject forbids"],
+      ]}},
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend` (−42)",
+        "**OCF is mandatory for every class — except the exception classes.** The subject says so outright",
+        "No STL containers (this module doesn't need any)",
+        "**There is no norminette in CPP** — `for`, ternaries and functions longer than 25 lines are all fine",
+        "No function bodies in headers (templates excepted)",
+      ]},
+      { note: "The exercises build on each other — ex01 uses ex00's Bureaucrat, ex02 uses ex01's and renames Form to AForm, ex03 uses ex02's and adds the Intern. **Copy the previous folder forward; don't rewrite.**" },
+    ],
+
+    theory: [
+      { h: "1) The inverted grade scale — the biggest source of failures" },
+      { p: "**Grade 1 is the highest, 150 the lowest.** Every comparison in this module therefore runs against intuition." },
+      { table: { head: ["Situation", "Condition", "Throws"], rows: [
+        ["constructing/setting above the top", "`grade < 1`", "`GradeTooHighException`"],
+        ["constructing/setting below the bottom", "`grade > 150`", "`GradeTooLowException`"],
+        ["`incrementGrade()` (better grade, smaller number)", "`grade - 1 < 1`", "`GradeTooHighException`"],
+        ["`decrementGrade()` (worse grade, larger number)", "`grade + 1 > 150`", "`GradeTooLowException`"],
+        ["can this bureaucrat sign?", "they can if `g <= form.gradeToSign`", "otherwise `GradeTooLowException`"],
+      ]}},
+      { p: "One sentence is enough: *'incrementing grade 3 must give grade 2'* — a better grade means **a smaller number**." },
+      { note: "When a test throws the wrong exception, 90% of the time you compared against the wrong side of a bound — come back and read this table before reading the code." },
+      { h: "2) A correct exception class in C++98" },
+      { code: String.raw`class Bureaucrat
+{
+    public:
+        class GradeTooHighException : public std::exception
+        {
+            public:
+                virtual const char *what() const throw();
+        };
+        class GradeTooLowException : public std::exception
+        {
+            public:
+                virtual const char *what() const throw();
+        };
+};
+
+throwing:  throw Bureaucrat::GradeTooHighException();
+catching:  catch (std::exception &e) { std::cout << e.what(); }`, cap: "Nested inside the class, so the name itself says it came from Bureaucrat", lang: "cpp" },
+      { p: "**The `const throw()` must not go missing** — the signature has to match `std::exception::what()` exactly, or you get *'looser throw specifier for virtual ... what()'*. `throw()` is the C++98 way of promising 'this function throws nothing' (C++11 replaced it with `noexcept`, but this module is C++98)." },
+      { p: "**Always catch by reference** (`catch (std::exception &e)`) — catching by value slices the thrown object down to its `std::exception` part, and `what()` then returns the base's message instead of the real one." },
+      { h: "3) How throw / try / catch flows" },
+      { code: String.raw`try
+{
+    Bureaucrat b("bob", 0);      // ← throws here
+    std::cout << b;              // ← skipped entirely
+}
+catch (std::exception &e)
+{
+    std::cout << e.what();       // ← jumps to here
+}
+// ← and then carries on from this line
+
+During the jump (stack unwinding):
+  fully-constructed objects in the scope are destroyed in reverse order
+  → their destructors all run → but anything new'd and not yet deleted still leaks`, cap: "Exceptions clean up stack objects for you but not heap ones — something ex03 has to be careful about", lang: "cpp" },
+      { h: "🔬 Deep dive A: `const` members versus OCF" },
+      { p: "`Bureaucrat` holds a `const std::string _name;`, and `AForm` has a const name and two const grades. But OCF requires an `operator=` — which **cannot overwrite a `const` member**." },
+      { code: String.raw`Bureaucrat &Bureaucrat::operator=(const Bureaucrat &other)
+{
+    if (this != &other)
+        this->_grade = other._grade;   // ★ copy only what isn't const
+    return (*this);                    //   _name is simply left alone
+}`, cap: "The accepted resolution: copy the mutable state, leave the identity (the name) where it is", lang: "cpp" },
+      { p: "**Why that is acceptable:** `_name` is the object's *identity*, not its *state*. Assignment in this sense means 'give this person that person's grade', not 'turn this person into that person'." },
+      { note: "**Don't `const_cast` the name** to make it copyable — it's a red flag at defence, because it amounts to telling the compiler the const you wrote isn't real." },
+      { qa: [
+        { q: "Why does a class with a `const` member still need an `operator=`?", a: "Because OCF requires one. The resolution is to copy only the non-const members and leave the const ones — it compiles and it makes sense." },
+        { q: "What happens if you don't write `operator=` yourself?", a: "The compiler tries to generate one and can't, because of the const member — so any code that assigns fails to compile. And OCF isn't satisfied either." },
+        { q: "Why is `const_cast` forbidden here?", a: "It tells the compiler the const you wrote yourself isn't true — modifying something declared const is undefined behaviour, and you'll be questioned about it at defence." },
+      ]},
+      { h: "🔬 Deep dive B: throwing from a constructor — the object that never was" },
+      { code: String.raw`Bureaucrat::Bureaucrat(const std::string &name, int grade) : _name(name)
+{
+    if (grade < 1)
+        throw GradeTooHighException();     // ← _name is already constructed
+    if (grade > 150)
+        throw GradeTooLowException();
+    this->_grade = grade;
+}
+
+When the throw happens there:
+  ✓ _name (constructed in the initialiser list) is destroyed normally
+  ✗ ~Bureaucrat() is NOT called — the object was never finished
+  ✗ the variable that was to receive it never existed at all`, cap: "The rule: destructors run only for objects whose constructor completed", lang: "cpp" },
+      { p: "**The consequence to watch for:** if the constructor had already `new`'d something before throwing, that block leaks, because the destructor that would `delete` it never runs. There's no such case in this module, but it is why you should always **validate before allocating**." },
+      { qa: [
+        { q: "Does the destructor run when a constructor throws?", a: "No — construction never completed, so there is no object to destroy. Members that were already constructed are destroyed normally." },
+        { q: "Why validate the grade before assigning it?", a: "So the object never enters a half-built state. The general principle: finish all validation before acquiring any resource, because a throw after acquisition means the destructor never runs and it leaks." },
+      ]},
+      { h: "🔬 Deep dive C: check in the base, act in the child (the template method)" },
+      { p: "ex02 has three forms needing identical checks (signed yet? grade high enough?) but doing entirely different work. The subject hints that there is a way **'more elegant'** than copying the checks into all three classes." },
+      { code: String.raw`class AForm
+{
+    protected:
+        virtual void executeAction(void) const = 0;   // ★ the only thing a child writes
+
+    public:
+        void execute(Bureaucrat const &executor) const;   // ★ not virtual
+        virtual ~AForm(void);
+};
+
+void AForm::execute(Bureaucrat const &executor) const
+{
+    if (!this->_signed)
+        throw FormNotSignedException();               // checked in one place
+    if (executor.getGrade() > this->_gradeToExecute)
+        throw GradeTooLowException();                 // checked in one place
+    this->executeAction();                            // ★ dispatch to the child
+}`, cap: "The pattern is called the template method — the base owns the sequence, the child fills in each step", lang: "cpp" },
+      { table: { head: ["", "Checks repeated in every child", "Checks in the base (this way)"], rows: [
+        ["The checking code", "copied three times", "written once"],
+        ["Forgetting it in a new child", "possible", "impossible — a child can't be called directly"],
+        ["Adding a new condition", "three edits", "one edit"],
+        ["`executeAction` visible outside", "—", "no (protected) — the only route is through `execute`"],
+      ]}},
+      { p: "**Why `executeAction` must be `protected`:** were it public, somebody could call it directly and bypass the checks — letting an unsigned form be executed." },
+      { qa: [
+        { q: "Why not make `execute` virtual and let each form implement it?", a: "You'd have to copy the signed and grade checks into all three classes — repetitive and easy to forget. The subject warns that this is the 'less elegant' route." },
+        { q: "Why is `executeAction` protected?", a: "So nobody can bypass the checks — the only way to run a form is through `execute()`, which has already validated everything." },
+        { q: "Does AForm need a virtual destructor?", a: "Yes — forms are deleted through an `AForm*` in both ex02 and ex03 (the Intern returns an `AForm*`). Without it, the concrete form's destructor never runs." },
+      ]},
+      { h: "🔬 Deep dive D: makeForm without if/else — a table and function pointers" },
+      { p: "The subject **forbids** a plain `if (name == \"a\") ... else if (name == \"b\") ...`. The approach used instead keeps the names and the builders in two parallel arrays and searches them." },
+      { code: String.raw`// Intern.hpp — the builders are static, since they need no this
+static AForm *makeShrubbery(const std::string &target);
+static AForm *makeRobotomy(const std::string &target);
+static AForm *makePresidential(const std::string &target);
+
+// Intern.cpp
+AForm *Intern::makeForm(const std::string &name, const std::string &target)
+{
+    const std::string names[3] = {
+        "shrubbery creation", "robotomy request", "presidential pardon" };
+    AForm *(*builders[3])(const std::string &) = {
+        &Intern::makeShrubbery, &Intern::makeRobotomy, &Intern::makePresidential };
+    int i = 0;
+
+    while (i < 3)
+    {
+        if (names[i] == name)
+        {
+            std::cout << "Intern creates " << name << std::endl;
+            return (builders[i](target));
+        }
+        i++;
+    }
+    std::cout << "Error: form \"" << name << "\" does not exist." << std::endl;
+    throw FormNotFoundException();
+}`, cap: "The real code — adding a form means one more row in each array and no change to the logic", lang: "cpp" },
+      { code: String.raw`Read this type from the inside out:
+
+    AForm *(*builders[3])(const std::string &)
+           ^^          ^^^
+           |            └── builders is an array of three
+           └── each slot is a pointer to a function
+               taking const std::string & and returning AForm*
+
+The parentheses around (*builders[3]) are required
+  without them → AForm *builders[3](...) = an array of functions (not a thing in C++)`, cap: "Same reason as pointer-to-member in Module 01 — the parentheses say 'pointer first, function second'", lang: "txt" },
+      { p: "**Why the builders must be `static`:** an ordinary method carries a hidden `this`, which makes its type a pointer-to-member and far more awkward to write. A `static` one has no `this`, so it's an ordinary function that drops straight into the array above." },
+      { note: "`makeForm` hands ownership to the caller — every `AForm*` you get must be `delete`d. When it throws `FormNotFoundException` there is nothing to delete (nothing was `new`'d yet), which is correct." },
+      { qa: [
+        { q: "Why does the subject forbid an if/else chain in makeForm?", a: "Because it doesn't scale — every new form means editing the logic. A table of names and builders only ever gains data, never new control flow." },
+        { q: "Why must the builders be static members?", a: "So they are ordinary functions (no `this`) and can live in a plain function-pointer array. Non-static ones would require pointer-to-member syntax, which is far messier." },
+        { q: "What should happen for a name that isn't in the table?", a: "Two options — throw an exception or return NULL. Pick one, apply it consistently, and make main handle it. This code throws `FormNotFoundException`." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Exceptions", url: "https://en.cppreference.com/w/cpp/language/exceptions", note: "throw / try / catch and stack unwinding" },
+        { label: "cppreference — std::exception", url: "https://en.cppreference.com/w/cpp/error/exception", note: "the `what()` signature you must match" },
+        { label: "isocpp FAQ — Exceptions", url: "https://isocpp.org/wiki/faq/exceptions", note: "why to catch by reference, and why throwing from a ctor is right" },
+        { label: "cppreference — Function pointer", url: "https://en.cppreference.com/w/cpp/language/pointer", note: "reading the type of a function-pointer array" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — Bureaucrat" },
+      { code: String.raw`class Bureaucrat
+{
+    private:
+        const std::string _name;      // ★ const → untouchable by operator=
+        int               _grade;     //   1 = highest, 150 = lowest
+
+    public:
+        Bureaucrat(void);
+        Bureaucrat(const std::string &name, int grade);
+        Bureaucrat(const Bureaucrat &other);
+        Bureaucrat &operator=(const Bureaucrat &other);
+        ~Bureaucrat(void);
+
+        const std::string &getName(void) const;
+        int getGrade(void) const;
+
+        void incrementGrade(void);    // better grade, smaller number
+        void decrementGrade(void);    // worse grade, larger number
+
+        class GradeTooHighException : public std::exception
+        { public: virtual const char *what(void) const throw(); };
+        class GradeTooLowException : public std::exception
+        { public: virtual const char *what(void) const throw(); };
+};
+
+std::ostream &operator<<(std::ostream &os, const Bureaucrat &b);  // ★ free function`, cap: "`operator<<` is a free function calling the getters — `friend` is banned (−42)", lang: "cpp" },
+      { h: "ex02 — the three real forms" },
+      { table: { head: ["Form", "Sign grade", "Exec grade", "What it does"], rows: [
+        ["ShrubberyCreationForm", "145", "137", "writes ASCII trees into `<target>_shrubbery`"],
+        ["RobotomyRequestForm", "72", "45", "drilling noises, then a 50/50 success or failure"],
+        ["PresidentialPardonForm", "25", "5", "prints that `<target>` has been pardoned by Zaphod Beeblebrox"],
+      ]}},
+      { code: String.raw`// Shrubbery — must use C++ streams (printf/FILE* are banned)
+std::ofstream out((this->_target + "_shrubbery").c_str());
+                                              ^^^^^^^^^
+     a C++98 ofstream takes only a const char* — hence the conversion
+
+// Robotomy — the coin flip
+std::srand(std::time(0));      // ★ once, in main
+if (std::rand() % 2)           // ★ inside the action
+    std::cout << this->_target << " has been robotomized successfully"
+              << std::endl;`, cap: "Seeding inside the action means the same result every time it's called within the same second", lang: "cpp" },
+      { h: "ex03 — the Intern" },
+      { code: String.raw`Intern someRandomIntern;
+AForm *rrf = someRandomIntern.makeForm("robotomy request", "Bender");
+
+  prints:    Intern creates robotomy request
+  returns:   a new'd AForm*  → ★ the caller must delete it
+  unknown:   prints an error, then throws FormNotFoundException`, cap: "The Intern holds no state at all — its OCF is empty, but it still has to be written", lang: "cpp" },
+      { note: "`Intern` has no members, so its copy constructor and `operator=` need `(void)other;` to avoid `-Wunused-parameter` under `-Wextra -Werror`." },
+    ],
+
+    architecture: [
+      { h: "Files per exercise" },
+      { table: { head: ["Exercise", "Classes", "How to build it"], rows: [
+        ["ex00", "Bureaucrat", "from scratch"],
+        ["ex01", "+ Form", "copy ex00 → add Form → forward declaration to break the include cycle"],
+        ["ex02", "Form → AForm + 3 forms", "copy ex01 → rename → `executeAction() = 0`"],
+        ["ex03", "+ Intern", "copy ex02 → add the Intern"],
+      ]}},
+      { h: "How the classes relate" },
+      { code: String.raw`Bureaucrat  ──signForm(AForm&)──►  AForm::beSigned(Bureaucrat const&)
+            ──executeForm(AForm const&)──►  AForm::execute(Bureaucrat const&)
+                                                        │
+                                                        ▼ (protected, pure virtual)
+                                                   executeAction()
+                                                   ┌────┼────┐
+                                          Shrubbery  Robotomy  Presidential
+
+Intern::makeForm(name, target) ──► new <the matching form>(target) ──► AForm*`, cap: "The Bureaucrat gives the orders; the form checks its own permissions", lang: "txt" },
+      { h: "The circular include between Bureaucrat and Form" },
+      { code: String.raw`// Bureaucrat.hpp
+class AForm;                      // ★ forward declaration
+class Bureaucrat
+{
+    public:
+        void signForm(AForm &f) const;          // a reference → enough
+        void executeForm(AForm const &f) const;
+};
+
+// Bureaucrat.cpp
+#include "Bureaucrat.hpp"
+#include "AForm.hpp"              // ★ here the full type is needed, to call beSigned()`, cap: "Exactly the same pattern as AMateria/ICharacter in Module 04", lang: "cpp" },
+      { h: "Who catches the exception" },
+      { code: String.raw`AForm::beSigned()       →  throws GradeTooLowException      (catches nothing itself)
+        ▲
+Bureaucrat::signForm()  →  try { f.beSigned(*this); }
+                           catch (std::exception &e) { print "couldn't sign ... because ..." }
+        ▲
+main()                  →  no try needed — signForm already handled it
+
+What main still needs a try for:
+  - constructing a Bureaucrat with an invalid grade
+  - increment/decrement past a bound
+  - Intern::makeForm with an unknown name`, cap: "The principle: catch at the level that knows what to do next — signForm knows what to print, main doesn't", lang: "txt" },
+      { h: "Messages that must match exactly (peers will diff them)" },
+      { code: String.raw`Bureaucrat's operator<< :  <name>, bureaucrat grade <grade>.
+signForm success        :  <bureaucrat> signed <form>
+signForm failure        :  <bureaucrat> couldn't sign <form> because <reason>.
+executeForm success     :  <bureaucrat> executed <form>
+Intern                  :  Intern creates <form>`, cap: "`<reason>` is the `e.what()` of whatever was caught", lang: "txt" },
+    ],
+
+    dataflow: [
+      { h: "The life of a single form" },
+      { code: String.raw`1. create       ShrubberyCreationForm f("home");
+                   _signed = false, _gradeToSign = 145, _gradeToExecute = 137
+
+2. sign          bob.signForm(f);
+                   → f.beSigned(bob)
+                     bob.getGrade() <= 145 ?
+                        yes → _signed = true → prints "bob signed ..."
+                        no  → throw GradeTooLow → signForm catches → "couldn't sign"
+
+3. execute       bob.executeForm(f);
+                   → f.execute(bob)
+                     _signed ?               no → throw FormNotSigned
+                     bob.getGrade() <= 137 ? no → throw GradeTooLow
+                     both pass               → executeAction() → writes the file
+                   → prints "bob executed ..."`, cap: "Two gates with different grades — signing is always the easier of the two", lang: "txt" },
+      { h: "Edge cases to test" },
+      { table: { head: ["Input", "Correct result"], rows: [
+        ["`Bureaucrat b(\"x\", 0)`", "`GradeTooHighException`"],
+        ["`Bureaucrat b(\"x\", 151)`", "`GradeTooLowException`"],
+        ["`Bureaucrat b(\"x\", 1)` and `(\"x\", 150)`", "**both valid** — these are the legal bounds"],
+        ["grade 1 then `incrementGrade()`", "`GradeTooHighException`"],
+        ["grade 150 then `decrementGrade()`", "`GradeTooLowException`"],
+        ["`execute` on an unsigned form", "`FormNotSignedException`"],
+        ["grade 138 executing a Shrubbery (needs 137)", "`GradeTooLowException`"],
+        ["`makeForm(\"nonexistent\", \"x\")`", "prints an error and throws (or returns NULL) — must not crash"],
+      ]}},
+      { note: "Grades 1 and 150 **must be constructible** — people trip here by writing `<=1` / `>=150` instead of `<1` / `>150`." },
+      { h: "ex02 — testing polymorphism and leaks" },
+      { code: String.raw`AForm *forms[3];
+forms[0] = new ShrubberyCreationForm("home");
+forms[1] = new RobotomyRequestForm("Bender");
+forms[2] = new PresidentialPardonForm("Marvin");
+
+Bureaucrat boss("boss", 1);
+for (int i = 0; i < 3; i++)
+{
+    boss.signForm(*forms[i]);
+    boss.executeForm(*forms[i]);
+    delete forms[i];          // ★ deleted through AForm* → needs virtual ~AForm()
+}`, cap: "This loop is where a missing virtual destructor shows up in valgrind", lang: "cpp" },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — Bureaucrat and its two exceptions. Test the bounds 0/1/150/151 and increment/decrement past them before going further",
+        "2. **ex01** — copy ex00 → Form → forward declaration in Bureaucrat.hpp → `signForm` catches the exception itself",
+        "3. **ex02** — rename Form to AForm everywhere (files, include guards, `: public AForm`) → `executeAction() = 0` → write the three forms",
+        "4. **ex03** — the Intern, the two parallel arrays, and a `delete` for every form you get back",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["the wrong exception on increment", "comparing against the wrong side (the scale is inverted)", "`grade - 1 < 1` → TooHigh"],
+        ["`looser throw specifier for virtual ... what()`", "`what()` is missing `const throw()`", "`virtual const char *what() const throw();`"],
+        ["`passing const ... discards qualifiers` in operator=", "trying to copy a const member", "copy only the non-const ones"],
+        ["leak/crash when deleting through `AForm*`", "no virtual destructor", "`virtual ~AForm(void);`"],
+        ["Robotomy gives the same result every run", "no `srand`, or seeding inside the action", "`std::srand(std::time(0));` once, in `main`"],
+        ["`what()` returns std::exception's message", "caught by value → object slicing", "`catch (std::exception &e)`"],
+        ["grade 150 can't be constructed", "`>=150` instead of `>150`", "`if (grade > 150)`"],
+        ["the shrubbery file never appears", "missing `.c_str()`, or an unwritable path", "`std::ofstream out((t + \"_shrubbery\").c_str());`"],
+        ["`*printf` / `FILE*` / `malloc` present", "using the C toolkit", "switch to streams and `new`/`delete`"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`cd ex03 && make re && ./intern
+valgrind --leak-check=full --error-exitcode=42 -q ./intern
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 05/ex03" && make re && valgrind -q --leak-check=full ./intern'
+
+# a stricter pass
+c++ -Wall -Wextra -Werror -std=c++98 -pedantic *.cpp -o test
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|FILE' ex0*/*.cpp ex0*/*.hpp
+
+# does the shrubbery file really get written?
+cd ex02 && ./form && cat home_shrubbery`, lang: "bash" },
+      { note: "valgrind must be clean on ex02 (the new/delete loop through `AForm*`) and ex03 (every `makeForm` result deleted) — those are the two places a missing virtual destructor or a forgotten `delete` shows up." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: write the grade table down before you start" },
+      { p: "Copy the five-row table from the theory section and keep it beside the screen. The number one bug in this module is comparing against the wrong bound, and checking a table is faster than re-deriving it every time." },
+      { h: "Trick 2: make `what()` say what actually went wrong" },
+      { p: "`\"grade is too high\"` is more useful than `\"error\"`, because that string ends up in the `couldn't sign ... because <reason>.` line the evaluator reads." },
+      { h: "Trick 3: one `catch (std::exception &)` is enough" },
+      { p: "There's no need for a separate catch per type — they all derive from `std::exception` and what you display is `e.what()` in every case." },
+      { h: "Trick 4: get ex00 passing every edge case before starting ex01" },
+      { p: "ex01–ex03 all reuse that Bureaucrat — a bug left in ex00 follows you through the whole module and gets harder to isolate each time." },
+      { h: "Trick 5: rename Form → AForm with a single sed" },
+      { p: "`sed -i 's/\\bForm\\b/AForm/g' *.cpp *.hpp`, then check the include guards and filenames — faster than editing by hand and nothing gets missed. The `\\b` protects names like `ShrubberyCreationForm`." },
+      { h: "Trick 6: `srand` once, in main, always" },
+      { p: "Reseeding inside the action gives the same value on every call within the same second, because `time(0)` hasn't changed — it looks as though the randomness is broken." },
+      { h: "Trick 7: let the base check and the child act" },
+      { p: "Whenever you're about to copy a condition into several derived classes, stop and ask whether it can move up into the base — the pattern stays useful all the way to Modules 08 and 09." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is an exception, and how does it differ from returning an error code?", a: "It sends a failure up the call stack until somebody catches it. It differs in that a constructor can't return a value, so error codes aren't available there — and the caller can't ignore it: uncaught, the program dies." },
+        { q: "Why is grade 1 higher than grade 150?", a: "The subject inverts the scale — 1 is the top, 150 the bottom. So incrementing lowers the number, and 'high enough to sign' means `g <= gradeToSign`." },
+        { q: "What signature must `what()` have, and why?", a: "`virtual const char *what() const throw();` — it must match `std::exception` exactly or you get a *looser throw specifier* error. `throw()` is the C++98 promise that it throws nothing." },
+        { q: "Why catch by reference?", a: "Catching by value slices the object down to its `std::exception` part, so `what()` returns the base's message rather than the real one." },
+        { q: "Is throwing from a constructor safe?", a: "Safe and correct — construction never completed so the object never existed, members already built are destroyed normally, and the class's destructor doesn't run." },
+        { q: "How does a class with a `const` member satisfy OCF?", a: "Write `operator=` to copy only the non-const members and leave the const ones alone — the const part is the object's identity, not its state." },
+        { q: "Why are the exception classes exempt from OCF?", a: "The subject exempts them outright — an exception only needs a `what()`." },
+        { q: "What does `execute` do, in order?", a: "Check whether the form is signed (no → `FormNotSignedException`), check the executor's grade (too low → `GradeTooLowException`), then call the concrete form's `executeAction()`." },
+        { q: "Why is checking in the base better than checking in every form?", a: "The checking code lives in one place, it can't be forgotten, adding a form doesn't mean copying it, and `executeAction` being protected makes bypassing it impossible." },
+        { q: "Does AForm need a virtual destructor, and why?", a: "Yes — forms are deleted through an `AForm*` (the ex02 loop, and whatever the Intern returns). Without it the concrete destructor never runs." },
+        { q: "Why does makeForm forbid an if/else chain?", a: "The subject forbids it because it doesn't scale. Use an array of names alongside an array of function pointers and search it — a new form is just more data." },
+        { q: "Why are the Intern's builders `static`?", a: "Because a static member has no `this`, making it an ordinary function that drops straight into a function-pointer array — no pointer-to-member syntax needed." },
+        { q: "Who owns the form that makeForm returns?", a: "The caller — it must `delete` it. This is ex03's main source of leaks." },
+        { q: "Why must the Shrubbery use `ofstream` rather than `fprintf`?", a: "`*printf` and `FILE*` are forbidden functions in this module (score 0). And a C++98 `ofstream` takes a `const char*`, hence the `.c_str()`." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. every exercise compiles under the strict flags
+for d in ex00 ex01 ex02 ex03; do (cd $d && make re) || echo "FAIL $d"; done
+
+# 2. grade edge cases: 0 / 1 / 150 / 151, plus increment/decrement past the bounds
+# 3. executing an unsigned form → FormNotSignedException
+# 4. the shrubbery file really gets written
+cd ex02 && ./form && ls -l *_shrubbery
+
+# 5. the robotomy is actually random (repeated runs must not all agree)
+# 6. the intern builds all three forms, and an unknown name must not crash
+# 7. valgrind clean on ex02 and ex03
+valgrind --leak-check=full --error-exitcode=42 -q ./intern && echo "pass"
+
+# 8. no forbidden functions
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: CPP Module 06 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_06": {
+    principle: [
+      { h: "What Module 06 teaches" },
+      { p: "C++ splits casting into four named operators instead of C's single `(type)x`. This module gives you three exercises, one cast each — **and at defence the evaluator will ask why you picked that one**." },
+      { table: { head: ["Exercise", "Cast", "Why this one"], rows: [
+        ["ex00 ScalarConverter", "`static_cast`", "converting between related numeric types (double → int/float/char) — the compiler knows how to convert the value"],
+        ["ex01 Serializer", "`reinterpret_cast`", "reading a pointer's bits as an integer and back — two entirely unrelated types"],
+        ["ex02 identify", "`dynamic_cast`", "safely casting down from a base class to discover the real type at run time"],
+      ]}},
+      { h: "All four casts in one table" },
+      { table: { head: ["Cast", "What it does", "Checked when", "How it fails"], rows: [
+        ["`static_cast<T>`", "converts between related types", "compile time", "compile error"],
+        ["`dynamic_cast<T>`", "casts down an inheritance chain (needs polymorphism)", "**run time**", "pointer returns NULL · reference **throws**"],
+        ["`const_cast<T>`", "adds or removes `const`", "compile time", "compile error (though misusing it is UB)"],
+        ["`reinterpret_cast<T>`", "reinterprets the bits without converting", "compile time", "it doesn't fail — which is the dangerous part"],
+      ]}},
+      { p: "**Why not C's `(type)x`:** a C-style cast silently tries all four in turn — you can't tell from reading the code what happened, and you can't grep for it. C++'s long names are deliberately awkward, because every cast is a place where the type system is being bypassed." },
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend` (−42) · no STL",
+        "**ex00 and ex01 must not be instantiable** — full OCF, but declared `private`",
+        "**ex02 is exempt from OCF** — the subject says so outright",
+        "**ex02 must not `#include <typeinfo>`** — catch `std::exception&` instead of `std::bad_cast`",
+        "**ex02 must not use a pointer inside `identify(Base&)`**",
+      ]},
+    ],
+
+    theory: [
+      { h: "1) Making a class non-instantiable (ex00, ex01)" },
+      { code: String.raw`class ScalarConverter
+{
+    private:                                    // ★ all four live in private
+        ScalarConverter(void);
+        ScalarConverter(const ScalarConverter &other);
+        ScalarConverter &operator=(const ScalarConverter &other);
+        ~ScalarConverter(void);
+
+    public:
+        static void convert(const std::string &literal);   // the only way in
+};
+
+The result:
+    ScalarConverter c;              // ✗ the ctor is private
+    new ScalarConverter();          // ✗ likewise
+    ScalarConverter::convert("42"); // ✓ a static needs no object`, cap: "OCF is still complete as the subject requires, but users can't touch it — the class becomes a named namespace", lang: "cpp" },
+      { note: "You must still **define** all four in the `.cpp` (empty bodies are fine), because OCF requires them to exist — they simply can't be called." },
+      { h: "2) static_cast — converting values between related types" },
+      { code: String.raw`double d = 65.9;
+
+static_cast<int>(d)    →  65      (truncates, doesn't round)
+static_cast<char>(d)   →  'A'     (65 is the code for 'A')
+static_cast<float>(d)  →  65.9f   (less precision)
+
+What static_cast cannot do:
+  static_cast<Data*>(someInteger)   // ✗ entirely unrelated
+  static_cast<int*>(charPointer)    // ✗ likewise`, cap: "static_cast converts the *value* by rules the compiler knows — it does not reinterpret bits", lang: "cpp" },
+      { h: "3) reinterpret_cast — reinterpreting the bits" },
+      { code: String.raw`Data *ptr = &data;
+
+reinterpret_cast<uintptr_t>(ptr)   →  a number with the same bits as the address
+reinterpret_cast<Data*>(raw)       →  converts back, giving exactly the same address
+
+No conversion happens at all — the same bits, with the compiler told "see this as that type"
+
+Why uintptr_t rather than int:
+  an int may be narrower than a pointer (on 64-bit: int = 4 bytes, pointer = 8)
+  uintptr_t is defined as "an unsigned integer big enough to hold a pointer"`, cap: "It lives in `<stdint.h>` — `<cstdint>` is C++11 and unusable in this module", lang: "cpp" },
+      { h: "🔬 Deep dive A: dynamic_cast's two faces — NULL and throw" },
+      { p: "`dynamic_cast` is the only cast that **works at run time** — it inspects the object's real type and decides whether the conversion is valid. And it has two completely different behaviours depending on the form used." },
+      { table: { head: ["", "`dynamic_cast<A*>(p)`", "`dynamic_cast<A&>(r)`"], rows: [
+        ["On success", "a usable pointer", "a usable reference"],
+        ["On failure", "returns `NULL`", "**throws `std::bad_cast`**"],
+        ["How you check", "`if (dynamic_cast<A*>(p))`", "`try { ... } catch (std::exception &) {}`"],
+        ["Why they differ", "a pointer can be NULL", "**a reference cannot be null**, so no value can mean failure"],
+      ]}},
+      { code: String.raw`void identify(Base *p)
+{
+    if (dynamic_cast<A *>(p))       std::cout << "A" << std::endl;
+    else if (dynamic_cast<B *>(p))  std::cout << "B" << std::endl;
+    else if (dynamic_cast<C *>(p))  std::cout << "C" << std::endl;
+    else                            std::cout << "Unknown" << std::endl;
+}
+
+void identify(Base &p)
+{
+    try { (void)dynamic_cast<A &>(p); std::cout << "A" << std::endl; return; }
+    catch (std::exception &) {}
+    try { (void)dynamic_cast<B &>(p); std::cout << "B" << std::endl; return; }
+    catch (std::exception &) {}
+    try { (void)dynamic_cast<C &>(p); std::cout << "C" << std::endl; return; }
+    catch (std::exception &) {}
+}`, cap: "The real code — the `(void)` is there because we only care that it didn't throw, not about the result", lang: "cpp" },
+      { p: "**The subject forbids using a pointer inside `identify(Base&)`** — you can't write `identify(&p)` and hand the work to the other overload. It forces you to meet the reference form, which genuinely needs try/catch." },
+      { note: "**`#include <typeinfo>` is banned**, and that is where `std::bad_cast` is declared — so catch `std::exception &` from `<exception>` instead. `bad_cast` derives from it, so it's caught normally and no rule is broken." },
+      { qa: [
+        { q: "What happens when a `dynamic_cast` fails?", a: "It depends on the form: the pointer form returns `NULL`, the reference form **throws `std::bad_cast`** — because a reference can't be null, so no value could stand for failure." },
+        { q: "Why does `identify(Base&)` need try/catch?", a: "Because the reference form throws when the conversion is impossible, and the subject forbids using a pointer inside that function." },
+        { q: "Why can't you catch `std::bad_cast`?", a: "It's declared in `<typeinfo>`, which the subject forbids including. Catch `std::exception &` instead — `bad_cast` already derives from it." },
+      ]},
+      { h: "🔬 Deep dive B: `dynamic_cast` requires a polymorphic class" },
+      { code: String.raw`class Base
+{
+    public:
+        virtual ~Base();      // ★ this single virtual is all it takes
+};
+
+class A : public Base {};     // completely empty
+class B : public Base {};
+class C : public Base {};`, cap: "The real ex02 code — Base has only a virtual destructor", lang: "cpp" },
+      { p: "**Why that one `virtual` is required:** `dynamic_cast` needs the object's real type at run time, and that information (the RTTI) rides along with the vtable. A class with no virtual method at all has no vtable, so there is nowhere for the type information to live." },
+      { code: String.raw`Forget the virtual and you get:
+    error: cannot dynamic_cast 'p' (of type 'class Base*')
+           to type 'class A*' (source type is not polymorphic)
+
+    ← a compile error, not a run-time bug — at least you find out immediately`, cap: "'source type is not polymorphic' means the base class has no virtual anything", lang: "txt" },
+      { p: "And `virtual ~Base()` is also needed for a second reason: `main` deletes objects through a `Base*` — without the virtual, A/B/C's destructors never run (as in Module 04). **One line, two benefits.**" },
+      { qa: [
+        { q: "Why does `Base` need `virtual ~Base()`?", a: "Two reasons: (1) it makes the class polymorphic, which `dynamic_cast` requires, and (2) deleting through a `Base*` must run the derived destructor." },
+        { q: "What does `source type is not polymorphic` mean?", a: "The base class has no virtual methods at all, so there's no RTTI for `dynamic_cast` to use. Adding a virtual destructor settles it." },
+      ]},
+      { h: "🔬 Deep dive C: formatting the floating-point output to match the subject" },
+      { p: "The subject wants `42.0f`, not `42f`, and `4.2f`, not `4.20000f`. `std::fixed` plus `setprecision` can't do it, because it pads every value with zeros." },
+      { code: String.raw`static std::string formatFloating(double d)
+{
+    std::stringstream ss;
+    std::string str;
+
+    ss << d;                     // default formatting: 4.2 stays "4.2", 42 becomes "42"
+    str = ss.str();
+    if (str.find('.') == std::string::npos
+        && str.find('e') == std::string::npos)   // guard against scientific notation
+        str += ".0";                              // ★ only append when there's no point
+    return (str);
+}
+
+// float:   formatFloating(static_cast<float>(d)) << "f"
+// double:  formatFloating(d)`, cap: "The real code — convert to float **before** formatting, so the float line reflects float precision", lang: "cpp" },
+      { table: { head: ["Input", "`ss << d` gives", "After appending", "Printed"], rows: [
+        ["`42.0f`", "`42`", "`42.0`", "`float: 42.0f`"],
+        ["`-4.2f`", "`-4.2`", "nothing added (it has a point)", "`float: -4.2f`"],
+        ["`0`", "`0`", "`0.0`", "`float: 0.0f`"],
+      ]}},
+      { note: "Seeing `4.20000f` means you used `std::fixed`/`setprecision`; seeing `42f` means the `.0` condition is missing." },
+      { qa: [
+        { q: "Why can't you use `std::fixed`?", a: "It always pads to the configured precision — `4.2` becomes `4.20000`, which doesn't match the subject's output." },
+        { q: "When do you append the `.0`?", a: "When default streaming produced no `.` and no `e` — i.e. a whole number like `42`, which must be shown as `42.0`." },
+        { q: "Why `static_cast<float>` before formatting the float line?", a: "So the printed number reflects actual `float` precision rather than the `double` the value is stored in." },
+      ]},
+      { h: "🔬 Deep dive D: the difference between `impossible` and `Non displayable`" },
+      { p: "These two are not the same thing and the subject checks it. The distinction: **cannot be converted at all** versus **converted fine, but not printable**." },
+      { code: String.raw`static void printChar(double d)
+{
+    std::cout << "char: ";
+    if (isNan(d) || isInf(d) || d < 0 || d > 127)
+        std::cout << "impossible" << std::endl;        // no char corresponds to this value
+    else if (!std::isprint(static_cast<int>(d)))
+        std::cout << "Non displayable" << std::endl;   // it exists, it just can't be shown
+    else
+        std::cout << "'" << static_cast<char>(d) << "'" << std::endl;
+}`, cap: "The real code — the order matters: check 'doesn't exist' before checking 'can't be printed'", lang: "cpp" },
+      { table: { head: ["Input", "char", "Why"], rows: [
+        ["`0`", "`Non displayable`", "0 is within 0–127 but isn't a printable character"],
+        ["`31`", "`Non displayable`", "a control character"],
+        ["`32`", "`' '`", "a space is printable"],
+        ["`126`", "`'~'`", "the last printable one"],
+        ["`127`", "`Non displayable`", "DEL"],
+        ["`nan`", "`impossible`", "not a number, so no conversion exists"],
+        ["`-1` / `200`", "`impossible`", "outside the range"],
+      ]}},
+      { note: "`std::isprint` must be given a `static_cast<int>` (or an `unsigned char`) — passing a negative `char` straight in is undefined behaviour." },
+      { qa: [
+        { q: "Why does `./convert 0` print `Non displayable` rather than `impossible` for char?", a: "Because 0 is inside the valid char range (0–127) — the conversion works, it just can't be shown. `impossible` is reserved for NaN/Inf and out-of-range values." },
+        { q: "What does `2147483648` produce?", a: "`int: impossible` (beyond INT_MAX), while `float`/`double` print normally — a double holds that value comfortably." },
+      ]},
+      { h: "🔬 Deep dive E: `std::isnan` / `std::isinf` don't exist in C++98" },
+      { p: "Both arrived in C++11. Under `-std=c++98` you get *'isnan' is not a member of 'std'*. You can write them yourself in two lines, using guarantees IEEE 754 already provides." },
+      { code: String.raw`static bool isNan(double d)
+{
+    return (d != d);                    // ★ NaN is the only value not equal to itself
+}
+
+static bool isInf(double d)
+{
+    return (d == std::numeric_limits<double>::infinity()
+        || d == -std::numeric_limits<double>::infinity());
+}`, cap: "The real code — `d != d` isn't a trick, it's a property the IEEE 754 standard specifies", lang: "cpp" },
+      { p: "**Why `d != d` detects NaN:** IEEE 754 says any comparison involving a NaN is false, including `NaN == NaN`. So `!=` is true, and that can only happen for a NaN." },
+      { qa: [
+        { q: "Why can't you use `std::isnan`?", a: "It arrived in C++11 — under `-std=c++98` it won't compile. Write your own with `d != d`." },
+        { q: "How does `d != d` work?", a: "IEEE 754 makes every comparison against NaN false, including `NaN == NaN`. So `!=` is true only for NaN." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — static_cast", url: "https://en.cppreference.com/w/cpp/language/static_cast", note: "the rules for converting between related types" },
+        { label: "cppreference — dynamic_cast", url: "https://en.cppreference.com/w/cpp/language/dynamic_cast", note: "NULL vs throw, and the polymorphism requirement" },
+        { label: "cppreference — reinterpret_cast", url: "https://en.cppreference.com/w/cpp/language/reinterpret_cast", note: "the guarantees around pointer ↔ uintptr_t" },
+        { label: "isocpp FAQ — Casting", url: "https://isocpp.org/wiki/faq/misc-technical-issues#static-typing", note: "why C++ splits casting into four operators" },
+        { label: "IEEE 754 — NaN", url: "https://en.wikipedia.org/wiki/NaN", note: "where `d != d` comes from" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — the order literal detection runs in" },
+      { code: String.raw`1. char literal      length 1 and not a digit ('c', '*')
+                     or the quoted form: length 3 with s[0]==s[2]=='\''
+                     ★ a lone '0' is an int, not a char — the "not a digit" test is why
+
+2. pseudo-literal    nan nanf +inf -inf inf +inff -inff inff  (exact matches)
+
+3. int               an optional sign followed by digits only
+
+4. float             ends in f, and the part before it is a valid double
+                     ★ 42f fails (no point) → it falls through to impossible
+
+5. double            an optional sign, digits, exactly one point, at least one digit
+
+6. anything else     → impossible on all four lines`, cap: "Checked in this order, first match wins — reorder them and the results change", lang: "txt" },
+      { code: String.raw`void ScalarConverter::convert(const std::string &literal)
+{
+    double d;
+
+    if (isCharLiteral(literal))       d = getCharValue(literal);
+    else if (isPseudoLiteral(literal)) d = getPseudoValue(literal);
+    else if (isIntLiteral(literal))
+        d = static_cast<double>(std::strtol(literal.c_str(), NULL, 10));
+    else if (isFloatLiteral(literal) || isDoubleLiteral(literal))
+        d = std::strtod(literal.c_str(), NULL);
+    else
+    {
+        std::cout << "char: impossible" << std::endl;
+        /* ... and three more lines ... */
+        return;
+    }
+    printChar(d);  printInt(d);  printFloat(d);  printDouble(d);
+}`, cap: "The real code — everything funnels through a single `double`, which makes all four print paths identical", lang: "cpp" },
+      { p: "**Why funnel through one `double` first:** instead of 4×4 = 16 conversion paths, you write 'string → double' once and 'double → X' four times. A `double` holds every int, float and char value without loss (except very large ints, which are checked separately anyway)." },
+      { note: "`static_cast` cannot turn a string into a number — so the subject permits a string-conversion function. This code uses `std::strtod` and `std::strtol` from `<cstdlib>`." },
+      { h: "ex01 — Serializer" },
+      { code: String.raw`// Data.hpp — the subject requires it to be "non-empty"
+struct Data
+{
+    int         id;
+    std::string name;
+    double      value;
+};
+
+// Serializer.cpp
+uintptr_t Serializer::serialize(Data *ptr)
+{
+    return (reinterpret_cast<uintptr_t>(ptr));
+}
+
+Data *Serializer::deserialize(uintptr_t raw)
+{
+    return (reinterpret_cast<Data *>(raw));
+}`, cap: "That's the whole exercise — the point is 'why reinterpret_cast', not the volume of code", lang: "cpp" },
+      { p: "**Why `static_cast` won't work here:** `Data*` and `uintptr_t` are entirely unrelated types — there is no conversion rule for the compiler to follow. Only `reinterpret_cast` says 'take these same bits and see them as another type'." },
+      { h: "ex02 — Base / A / B / C" },
+      { code: String.raw`class Base { public: virtual ~Base(); };
+class A : public Base {};
+class B : public Base {};
+class C : public Base {};
+
+Base *generate(void)
+{
+    int choice = std::rand() % 3;
+
+    if (choice == 0)      return (new A());
+    else if (choice == 1) return (new B());
+    return (new C());
+}`, cap: "The real code — `srand` must be seeded once in `main`, or every run picks the same class", lang: "cpp" },
+      { note: "A/B/C are deliberately empty — the exercise measures whether you know `dynamic_cast`, not whether you can write classes. Which is why the subject exempts all four from OCF." },
+    ],
+
+    architecture: [
+      { h: "Files per exercise" },
+      { table: { head: ["Exercise", "Files", "The key point"], rows: [
+        ["ex00", "ScalarConverter.{hpp,cpp}, main.cpp", "the helpers are file-level `static` in the `.cpp` — they never appear in the header"],
+        ["ex01", "Serializer.{hpp,cpp}, Data.hpp, main.cpp", "`Data` is a struct in its own file"],
+        ["ex02", "Base.{hpp,cpp}, A/B/C.hpp, Identify.{hpp,cpp}, main.cpp", "`generate`/`identify` are free functions, not methods"],
+      ]}},
+      { h: "The shape of ex00" },
+      { code: String.raw`convert(literal)
+   │
+   ├── detect the type ─── isCharLiteral / isPseudoLiteral / isIntLiteral
+   │                       isFloatLiteral / isDoubleLiteral
+   │
+   ├── extract the value ── getCharValue / getPseudoValue / strtol / strtod
+   │                        │
+   │                        ▼
+   │                   double d      ★ everything converges here
+   │                        │
+   └── print ────────── printChar(d) printInt(d) printFloat(d) printDouble(d)
+                            └── two of them share formatFloating()`, cap: "The single bottleneck is `double d` — before it, parsing; after it, printing", lang: "txt" },
+      { h: "The required output (from the subject)" },
+      { code: String.raw`$ ./convert 0
+char: Non displayable
+int: 0
+float: 0.0f
+double: 0.0
+
+$ ./convert nan
+char: impossible
+int: impossible
+float: nanf
+double: nan
+
+$ ./convert 42.0f
+char: '*'
+int: 42
+float: 42.0f
+double: 42.0`, cap: "Diff it against a peer's output — every character has to match", lang: "bash" },
+    ],
+
+    dataflow: [
+      { h: "ex00 — walking through real examples" },
+      { code: String.raw`./convert 'A'
+  isCharLiteral: length 3 with s[0]==s[2]=='\''  → yes
+  getCharValue:  s[1] = 'A' = 65                 → d = 65.0
+  printChar:     in range, isprint               → 'A'
+  printInt:      static_cast<int>(65.0)          → 65
+  printFloat:    "65" has no point → append .0   → 65.0f
+  printDouble:                                    → 65.0
+
+./convert -inff
+  isPseudoLiteral: exact match                    → yes
+  getPseudoValue:  s[0]=='-'                      → d = -infinity
+  printChar:       isInf                          → impossible
+  printInt:        isInf                          → impossible
+  printFloat:      isInf and d<0                  → -inff
+  printDouble:                                    → -inf
+
+./convert hello
+  matches nothing → prints impossible on all four lines and returns`, cap: "Three different routes: an ordinary value, a special value, and something unparseable", lang: "txt" },
+      { h: "ex01 — proving it comes back unchanged" },
+      { code: String.raw`Data data;
+data.id = 42;  data.name = "answer";  data.value = 4.2;
+
+uintptr_t raw     = Serializer::serialize(&data);
+Data      *back   = Serializer::deserialize(raw);
+
+std::cout << &data << std::endl;        // 0x7ffd1234abcd
+std::cout << raw << std::endl;          // 140725417558477   (the same bits)
+std::cout << back << std::endl;         // 0x7ffd1234abcd    ★ must be identical
+std::cout << (back == &data) << std::endl;   // 1
+std::cout << back->name << std::endl;   // "answer"  ★ readable through the restored pointer`, cap: "Equal addresses aren't quite enough — read a field through it to show it really is the same object", lang: "cpp" },
+      { note: "This exercise never calls `new`, so there is nothing to leak — but run valgrind anyway, out of habit." },
+      { h: "ex02 — both overloads must agree" },
+      { code: String.raw`std::srand(std::time(NULL));       // ★ once, in main
+
+for (int i = 0; i < 10; i++)
+{
+    Base *p = generate();
+    std::cout << "ptr: ";  identify(p);
+    std::cout << "ref: ";  identify(*p);      // ★ dereference to pass a reference
+    delete p;                                  // ★ needs virtual ~Base()
+}
+
+Correct result: every ptr: and ref: pair always agrees
+                a mismatch means one of the two overloads is wrong`, cap: "Running it repeatedly must give different sequences — identical ones mean srand isn't working", lang: "cpp" },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex01 first** — the shortest (two functions), and it gets you used to the non-instantiable class idiom before the much longer ex00",
+        "2. **ex02** — Base + A/B/C + the two overloads. Add `virtual ~Base()` on the first line",
+        "3. **ex00** — the longest. Build it in three layers: detect the type → extract a double → print four lines, and test each layer separately",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["`'isnan' is not a member of 'std'`", "it's C++11", "write your own: `d != d` and `numeric_limits::infinity()`"],
+        ["`42` prints as `42f`", "the `.0` was never appended", "append when the string has no `.` and no `e`"],
+        ["`4.2` prints as `4.20000f`", "using `std::fixed` / `setprecision`", "use default streaming"],
+        ["`./convert 0` gives `char: impossible`", "the two meanings got conflated", "out of range/NaN/Inf = impossible; in range but unprintable = Non displayable"],
+        ["`static_cast` rejected in ex01", "**that is correct**", "use `reinterpret_cast`"],
+        ["`source type is not polymorphic`", "`Base` has no virtual", "`virtual ~Base();`"],
+        ["`identify(Base&)` prints nothing", "forgetting that the reference form throws", "wrap each attempt in try/catch"],
+        ["`bad_cast` ... `<typeinfo>`", "trying to catch a type from a banned header", "catch `std::exception &` from `<exception>`"],
+        ["`generate()` returns the same class every run", "no `srand`", "`std::srand(std::time(NULL));` once, in `main`"],
+        ["leaks in ex02", "a missing `delete` or a missing virtual destructor", "both"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`cd ex00 && make re
+./convert 0 && ./convert nan && ./convert 42.0f && ./convert 'A'
+./convert "" ; ./convert abc ; ./convert 2147483648 ; ./convert +inff
+
+# the char boundaries
+for v in 31 32 126 127; do echo "--- $v"; ./convert $v; done
+
+# ex02 must differ between runs
+cd ../ex02 && make re && ./identify && ./identify
+
+# valgrind on all three
+valgrind --leak-check=full --error-exitcode=42 -q ./identify
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 06/ex00" && make re && ./convert 42.0f'
+
+# forbidden things (including typeinfo in ex02)
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp ex0*/*.hpp`, lang: "bash" },
+      { note: "ex00 must be diffed against the subject's examples line by line — this exercise is checked character for character, not 'roughly right'." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: remember the four casts in one sentence" },
+      { p: "`static` = convert a value the compiler knows how to convert · `dynamic` = ask the object at run time who it is · `const` = drop the const promise · `reinterpret` = see the same bits as another type" },
+      { h: "Trick 2: write ex01 before ex00" },
+      { p: "ex01 is two functions — finished in ten minutes, and it introduces the non-instantiable class idiom before you meet the much longer ex00." },
+      { h: "Trick 3: funnel everything through a single `double`" },
+      { p: "Instead of 4×4 conversion paths you get 'parse into a double' once and 'print from a double' four times — much less code and far easier to test." },
+      { h: "Trick 4: make the helpers file-level `static`" },
+      { p: "`isNan`, `isCharLiteral`, `printChar` and the rest never need to be in the header — declaring them `static` in the `.cpp` keeps the header clean and shows the evaluator there is one entry point, `convert`." },
+      { h: "Trick 5: test ex00 with a loop, not by hand" },
+      { p: "`for v in 0 31 32 126 127 nan -inff 42.0f abc \"\"; do ./convert \"$v\"; done` — every edge case in one command, rerunnable after every change." },
+      { h: "Trick 6: `virtual ~Base()` solves two problems at once" },
+      { p: "It makes the class polymorphic (so `dynamic_cast` works) and stops `delete` through a `Base*` from leaking — one line, both." },
+      { h: "Trick 7: `(void)` in front of the reference dynamic_cast" },
+      { p: "We only care that it didn't throw, not about the result — the `(void)` tells the compiler to stop warning about the unused value under `-Wextra -Werror`." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "How many casts does C++ have, and when do you use each?", a: "Four — `static_cast` between related types, `dynamic_cast` down an inheritance chain with a run-time check, `const_cast` to add or remove const, `reinterpret_cast` to reinterpret bits." },
+        { q: "Why not use a C-style `(type)x` cast?", a: "It silently tries all four, so reading the code tells you nothing and you can't grep for it. C++'s long names make it obvious that the type system is being bypassed here." },
+        { q: "Why does ex01 need `reinterpret_cast` rather than `static_cast`?", a: "`Data*` and `uintptr_t` are unrelated — there is no conversion rule for the compiler to apply. Only `reinterpret_cast` says to take the same bits and see them as another type." },
+        { q: "Why `uintptr_t` and not `int`?", a: "An `int` may be narrower than a pointer (64-bit: 4 bytes vs 8), so bits would be lost. `uintptr_t` is defined to be big enough to hold a pointer." },
+        { q: "What does `dynamic_cast` require of the class?", a: "The base must be polymorphic — at least one virtual method (usually the virtual destructor), because the run-time type information rides with the vtable." },
+        { q: "How do the pointer and reference forms of `dynamic_cast` differ?", a: "The pointer form returns `NULL` on failure; the reference form **throws `std::bad_cast`**, because a reference can't be null and so no value could signal failure." },
+        { q: "Why does ex02 catch `std::exception&` rather than `std::bad_cast`?", a: "`bad_cast` is declared in `<typeinfo>`, which the subject forbids. It derives from `std::exception`, so catching the base works and breaks no rule." },
+        { q: "What's the difference between `impossible` and `Non displayable`?", a: "`impossible` means no conversion to that type exists (NaN/Inf or out of range). `Non displayable` means the conversion works but the character isn't printable — 0 or 31, for instance." },
+        { q: "Why can't you use `std::isnan`?", a: "It arrived in C++11 and won't compile under `-std=c++98`. Write your own with `d != d`, which is true only for NaN under IEEE 754." },
+        { q: "How do you print `42.0f` without printing `4.20000f`?", a: "Stream with the default format (no `std::fixed`) and append `.0` only when the result contains no `.` and no `e`." },
+        { q: "Why convert the literal into a single `double` first?", a: "It reduces 16 paths (4 types × 4 types) to five — parse into a double once, then print from it four times. A double holds every char, int and float value." },
+        { q: "How do you make a class non-instantiable?", a: "Declare all four OCF members `private` — still complete as the subject requires, but users can't call them, leaving the static method as the only entry point." },
+        { q: "Why must `std::isprint` be given a cast?", a: "Functions in `<cctype>` require a value in `unsigned char` range — passing a negative `char` directly is undefined behaviour." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. all three compile under the strict flags
+for d in ex00 ex01 ex02; do (cd $d && make re) || echo "FAIL $d"; done
+
+# 2. ex00 matches the subject's examples character for character
+./convert 0 ; ./convert nan ; ./convert 42.0f
+
+# 3. ex00 edge cases
+for v in "" abc 2147483648 +inff -inff 31 32 126 127 "'A'"; do
+    echo "--- $v"; ./convert "$v"; done
+
+# 4. ex01: the pointer comes back identical, and its fields are readable
+# 5. ex02: every ptr:/ref: pair agrees, and repeated runs differ
+./identify && ./identify
+
+# 6. valgrind clean on all three
+valgrind --leak-check=full --error-exitcode=42 -q ./identify && echo "pass"
+
+# 7. no forbidden functions
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp ex0*/*.hpp`, lang: "bash" },
+    ],
+  },
+});
