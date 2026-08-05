@@ -305,7 +305,7 @@ int ft_atoi_base(char *str, int base) {
         ft_list_remove_if(begin, ref, cmp);    // เช็คตัวใหม่ที่เลื่อนมา
     } else
         ft_list_remove_if(&(*begin)->next, ref, cmp); // ไปตัวถัดไป
-}`, cap: "ใช้ t_list** (pointer-to-pointer) เพื่อแก้ตัว head ได้; recursive ทำให้สั้นและถูก", lang: "c" },
+}`, cap: "ใช้ `t_list **` (pointer-to-pointer) เพื่อแก้ตัว head ได้; recursive ทำให้สั้นและถูก", lang: "c" },
 
       { h: "🔬 rev_wstr / rostring — กลับ/หมุน 'คำ' ในประโยค" },
       { p: "**rev_wstr** = กลับลำดับคำ (`\"hi there\"` → `\"there hi\"`). **rostring** = หมุนคำแรกไปท้าย. ทั้งคู่ใช้ pattern แยกคำ + ประกอบใหม่ (ระวังช่องว่างเกิน → ผลลัพธ์เว้นวรรคเดียว)" },

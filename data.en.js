@@ -19,20 +19,24 @@ window.TEACHING_EN = {
         ["rev rotate", "rra / rrb / rrr", "bottom element → top"],
       ]}},
       { note: "Core idea: ss/rr/rrr act on both stacks at once but count as ONE operation — with good timing you save half the moves." },
-      { h: "Scoring" },
-      { table: { head: ["Count", "Full 100%", "Pass"], rows: [
-        ["100 numbers", "< 700 ops", "< 1100"],
-        ["500 numbers", "≤ 5500 ops", "< 8500"],
+      { h: "Scoring (tiered, not pass/fail)" },
+      { table: { head: ["Points", "100 numbers", "500 numbers"], rows: [
+        ["5 (full)", "< 700 ops", "< 5500 ops"],
+        ["4", "< 900", "< 7000"],
+        ["3", "< 1100", "< 8500"],
+        ["2", "< 1300", "< 10000"],
+        ["1", "< 1500", "< 11500"],
       ]}},
+      { note: "Fewer ops means more points — there is no single pass/fail line. Aim for tier 5; the lower tiers are your safety net." },
       { h: "Two ideas you must grasp" },
       { p: "**(a) Normalization** — turn raw values into 'ranks'. e.g. [-999, 0, 42, 1000000] → ranks [0,1,2,3]. The algorithm only cares who is bigger, so ranks make position math easy and dodge overflow." },
       { p: "**(b) Cost-based greedy (Turkish sort)** for n>5: push almost everything to B → each round pick the element that's 'cheapest' to push back into A → repeat until B is empty → rotate the smallest to the top." },
       { h: "Background: why this differs from normal sorting" },
       { p: "The sorts you learn in class (bubble, quick, merge) are judged by **time**. push_swap is judged by the **number of operations you print**, and you can only move data through 11 commands on 2 stacks (no random access). So it's a 'sort with your hands tied' puzzle — strategy matters, not just correctness." },
-      { p: "The real target is 'be correct' (easy) **plus** 'use few enough ops to pass <700 / ≤5500' (hard). That second part is where the choice of algorithm decides everything." },
+      { p: "The real target is 'be correct' (easy) **plus** 'use few enough ops to land in the top tier: <700 for 100, <5500 for 500' (hard). That second part is where the choice of algorithm decides everything." },
       { h: "Comparing algorithms (why Turkish sort won)" },
       { table: { head: ["Method", "Idea", "ops ~100", "Verdict"], rows: [
-        ["Selection (push the min each time)", "find min → rotate it to top → pb, later pa back", "~900–1500", "Easiest to write, but too many ops (try the demo button)"],
+        ["Selection (push the min each time)", "find min → rotate it to top → pb, later pa back", "~5000", "Easiest to write, but grows like n² — many times over budget (try the demo button)"],
         ["Radix / binary sort", "look at each bit of the rank, pb/pa per bit", "~700–1100", "Stable but borderline, and longer code"],
         ["Cost-based greedy (Turkish)", "compute a 'price' for every element in B, insert the cheapest", "~580", "Clearly passes + consistent → chosen"],
       ]}},
@@ -108,12 +112,10 @@ Using Stirling's approximation:
 So the worst case needs at least ~n*log2(n) comparisons.`, cap: "Tree height = number of questions on the longest path = comparisons in the worst case", lang: "txt" },
       { code: String.raw`Concrete at n = 100:
   100! ~= 9.33 x 10^157
-  log2(100!) ~= 524.8  -> at least ~525 comparisons
-  n*log2(n) = 100 x 6.64 ~= 664
-
--> this is the "theoretical floor" that explains why push_swap's
-   budget is < 700 ops for 100 numbers (very close to the floor!)`, cap: "The < 700 budget isn't arbitrary — it tracks the theoretical lower bound of sorting", lang: "txt" },
-      { note: "This explains why selection sort (O(n²) ops ≈ 5000+ for 100) loses badly, while Turkish sort (~580) sits very close to the ~525 floor." },
+  log2(100!) ~= 524.8  -> at least ~525 "comparisons"
+  n*log2(n) = 100 x 6.64 ~= 664   (an approximation of the same quantity)`, cap: "Tree height = questions asked on the longest path = worst-case comparisons", lang: "txt" },
+      { note: "⚠️ Don't conflate the two units: ~525 is a lower bound on the **number of comparisons**, while push_swap grades the **number of operations you print** (sa/ra/pb/...) — a different unit entirely. The theorem does not prove 'ops must be ≥ 525'. It says sorting has an inherent n log n difficulty, and we use n·log₂n as a *yardstick* for how close an algorithm gets to that level." },
+      { note: "By that yardstick: selection sort grows like ~n²/2 (n=100 → ~5000 ops), far above the n log n level, while Turkish sort (~580 ops) sits right at n·log₂n = 664." },
       { h: "🔬 Deep Dive C: how two's complement & overflow actually work" },
       { code: String.raw`Writing -5 in 8-bit:
    5        = 0000 0101
@@ -144,11 +146,11 @@ total = |3| + |1| = 4 rotations + pa = 5 ops`, cap: "Opposite directions: just a
       { code: String.raw`Compare with the "same direction" case -- ca = +3, cb = +2 :
   no rr -> ra x3 + rb x2 + pa = 6 ops
   with rr -> rr x2 (drops both together) leaving ca=+1
-           -> rr x2 + ra x1 + pa = 4 ops   * saves 2 ops!
+           -> rr x2 + ra x1 + pa = 4 ops   = saves 2 ops
 
 This is why pick_cost uses max(|ca|,|cb|) when directions match
 (the overlapping part is merged away by rr/rrr).`, cap: "The key reason the op count drops enough to pass the budget", lang: "txt" },
-      { note: "Theory takeaway: empirically Turkish sort grows like ~n·log n (100→~580, 500→~5233), close to the n·log₂n lower bound — that's why it beats radix/selection on op count." },
+      { note: "Theory takeaway: empirically Turkish sort grows like ~n·log n — 100→~580 (0.87× the n·log₂n yardstick of 664) and 500→~5233 (1.17× the yardstick of 4482). The ratio creeps up as n grows, but it stays in the n log n regime rather than n², which is exactly why it beats radix and selection on op count." },
       { h: "📖 Further reading (go deeper on the theory)" },
       { links: [
         { label: "Big-O notation — Wikipedia", url: "https://en.wikipedia.org/wiki/Big_O_notation", note: "Formal definition + growth-rate comparison table" },
@@ -486,7 +488,7 @@ The wait cycle (when everyone grabs left first at once):
       ]},
 
       { h: "🔬 Deep Dive B: Data race & atomicity — why last_meal must live under a mutex" },
-      { p: "**Picture it:** 2 threads touch the same variable 'at the same time' with nobody guarding it = like 2 people writing over each other on one whiteboard — the result depends on unpredictable CPU timing." },
+      { p: "2 threads touch the same variable 'at the same time' with nobody guarding it = like 2 people writing over each other on one whiteboard — the result depends on unpredictable CPU timing." },
       { p: "**Mechanism:** the problem is that an operation that looks like 'one line' is actually not atomic. `meals_eaten++` is 3 steps:" },
       { code: String.raw`philo->meals_eaten++  breaks into 3 steps (read-modify-write):
   1. load old value from memory -> register   (e.g. 4)
@@ -510,14 +512,21 @@ If the monitor reads last_meal in the middle:
    t5  │                    │ store R_B -> 5     │  5   <- overwrites!
 
   -> 2 meals eaten but meals_eaten = 5 (should be 6) -> must_eat breaks`, cap: "the load/compute/store of 2 threads 'interleave' — a mutex forces those 3 steps to finish before another thread starts", lang: "txt" },
-      { p: "**Why the monitor can mis-judge death (torn read):** a 64-bit `long last_meal` is written as 2 halves (hi/lo word) on some architectures. If the monitor reads right across a write:" },
-      { code: String.raw`owner: old last_meal = 1000, writing new value = 5000
-  store lo-word first ... (value is a transient mix, e.g. 4096)
-       ^ monitor reads exactly here -> gets 4096 (half old, half new)
+      { p: "**Why the monitor can mis-judge death even though `last_meal` is written in one go:** on x86-64, an aligned 64-bit `long` load or store really is atomic at the CPU level — you will not read 'half old, half new'. CPU-level atomicity is not enough though, because the trouble is the **compiler** and the **ordering of multiple reads**:" },
+      { code: String.raw`Problem 1 — the compiler keeps the value in a register
+  the monitor writes:  while (get_time() - philo->last_meal < t_die) ...
+  nothing in this function modifies last_meal, as far as the compiler can see
+  -> it loads once and reuses that value every iteration
+  -> the owner has eaten 10 meals, the monitor still sees the old value
+     and declares a death that never happened
 
-  now = 5200, time_to_die = 1000
-  since = now - last_meal = 5200 - 4096 = 1104  > 1000
-  -> monitor declares "died" though it just finished eating! (false positive)`, cap: "reading a 64-bit value across a write = garbage -> wrong death verdict; this is why BOTH the read and write side must sit under the same meal_lock", lang: "txt" },
+Problem 2 — reading several values that are not atomic together
+  the monitor reads last_meal (value A), then reads meals_eaten (value B)
+  between those two lines the owner finishes a meal
+  -> you get old A paired with new B = a state that never existed
+
+Problem 3 — by the C standard this is a data race = undefined behaviour
+  which means the compiler may do anything at all, not merely 'return a stale value'`, cap: "a lock is not only about preventing 'half-written values' — it forces the compiler to read real memory, and makes several reads add up to one consistent snapshot", lang: "txt" },
       { p: "**Fix:** wrap every read/write of shared data with the **same** mutex, forcing those 3 steps to be indivisible (atomic) from another thread's view:" },
       { code: String.raw`// write (the owner, when starting to eat)
 pthread_mutex_lock(&philo->meal_lock);
@@ -532,13 +541,13 @@ pthread_mutex_unlock(&philo->meal_lock);
 // then decide 'outside' the lock, from the copied value`, cap: "Iron rule: reading and writing the same shared value must use the same mutex, or they still collide", lang: "c" },
       { note: "Run it yourself: compile with `-fsanitize=thread`, or run `valgrind --tool=helgrind ./philo 4 410 200 200` — if there's a data race it points to the exact colliding read/write lines." },
       { qa: [
-        { q: "Why lock even when only 'reading' (the monitor doesn't write)?", a: "Because 'reading while another thread is writing' is also a data race — you may get a half-written value (especially a 64-bit variable on some machines). You must lock both the read and the write side." },
+        { q: "Why lock even when only 'reading' (the monitor doesn't write)?", a: "Because 'reading while another thread is writing' is a data race by the C standard = undefined behaviour. The failure you actually hit is the compiler caching the value in a register and reusing it every loop, so the monitor never sees that the owner just ate — it isn't about 'half values'." },
         { q: "Does using different mutexes for the read and write side prevent the race?", a: "No — a mutex only excludes those fighting over the 'same key'. If the reader uses key A and the writer uses key B, both can enter at once = still a race. It must be the same key." },
         { q: "Why does printing ('philo x is eating') need print_lock?", a: "If several threads call write at once, characters can interleave mid-line. print_lock forces one complete line at a time (and you must check stop under the same lock, so nothing prints after 'died' is announced)." },
       ]},
 
       { h: "🔬 Deep Dive C: Mutex vs Semaphore — why mandatory uses thread+mutex but bonus uses process+semaphore" },
-      { p: "**Picture it:** a mutex = a single bathroom key (one at a time, and the one who locked it must unlock it). A semaphore = a seat counter in a shop (k seats; each entry decrements it, when it hits 0 you wait — and anyone may release)." },
+      { p: "a mutex = a single bathroom key (one at a time, and the one who locked it must unlock it). A semaphore = a seat counter in a shop (k seats; each entry decrements it, when it hits 0 you wait — and anyone may release)." },
       { table: { head: ["", "Mutex", "Semaphore"], rows: [
         ["Value held", "binary (locked/unlocked)", "a counter (0..k)"],
         ["Ownership", "yes — the locker must unlock", "none — anyone can post/wait"],
@@ -926,7 +935,7 @@ close(fd);                  // now goes to the file instead
       { p: "Environment variables (like `PATH`, `HOME`) pass from parent to child via `envp`. minishell stores them as a linked list (key=value) so it can export/unset, then converts back to an array at execve time." },
 
       { h: "🔬 Deep Dive A: the lexer is a state machine — how quotes change the splitting rules" },
-      { p: "**Picture it:** splitting a line into words looks like 'just cut on spaces', but a quote changes the rule instantly — `'a b'` is **one word** (the inner space doesn't split). The right mental model is a **finite state machine**: the machine is in some state, and each character changes the state / decides whether to split." },
+      { p: "splitting a line into words looks like 'just cut on spaces', but a quote changes the rule instantly — `'a b'` is **one word** (the inner space doesn't split). The right mental model is a **finite state machine**: the machine is in some state, and each character changes the state / decides whether to split." },
       { code: String.raw`the lexer's 3 states:
   NORMAL  : space = split ; | < > = operator ; ' " = enter quote mode
   S_QUOTE : (after ') everything literal until the next ' — $ not expanded
@@ -946,7 +955,7 @@ state:  N N N N N D D D D N S S S N
   "a b" next to 'cd'     → WORD "a bcd"  (no ␣ between = one word!)
 → argv = ["echo", "a bcd"]  (not 3 words)`, cap: "the part people miss: adjacent tokens (no space between) = one word, even with different quote types", lang: "txt" },
       { p: "**Crucial order: expand $ first, then remove quotes (quote removal):** `$?` inside a double-quote must expand, but inside a single-quote must not — so you must remember which quote type each character was in 'during' the lex/expand step, and only strip the quotes as the last step. If you remove quotes first you can't tell which `$` should expand." },
-      { note: "Prove it yourself: `echo '$HOME'` must print `$HOME` literally, but `echo \"$HOME\"` must print the real path — because the first is in state S_QUOTE where `$` doesn't expand, while the second is in D_QUOTE where `$` does." },
+      { note: "Try it in a shell: `echo '$HOME'` must print `$HOME` literally, but `echo \"$HOME\"` must print the real path — because the first is in state S_QUOTE where `$` doesn't expand, while the second is in D_QUOTE where `$` does." },
       { qa: [
         { q: "Why remove quotes 'after' expanding $, not before?", a: "Because the `$`-expansion rule depends on which quote type you're in at the time. If you strip quotes first, you lose the info about whether `$x` was in single (no expand) or double (expand) → wrong expansion." },
         { q: "How many tokens is `a'b'c`?", a: "1 token = `abc`, because there's no space anywhere; the quote just changes state temporarily, it doesn't split words." },
@@ -954,7 +963,7 @@ state:  N N N N N D D D D N S S S N
       ]},
 
       { h: "🔬 Deep Dive B: fd-table inheritance after fork + dup2/close ordering across a multi-stage pipeline" },
-      { p: "**Picture it:** on fork the child gets a whole 'copy of the parent's fd table' — the same fd numbers point to the same things. Building `a | b | c` is 'wiring' a's stdout → into b, b's stdout → into c with dup2, then closing every unused end cleanly." },
+      { p: "on fork the child gets a whole 'copy of the parent's fd table' — the same fd numbers point to the same things. Building `a | b | c` is 'wiring' a's stdout → into b, b's stdout → into c with dup2, then closing every unused end cleanly." },
       { p: "**The rolling-pipe mechanism:** loop forking one command at a time, keeping 'the previous tube's read fd' as the next command's stdin:" },
       { code: String.raw`exec_pipeline(cmds):
   in = STDIN                 // the first command reads from real stdin
@@ -978,7 +987,7 @@ c:      child  stdin→5 (pipe2 read), stdout→real stdout ; close → exec c
 
 → every write end (4,6) is closed in the parent at once → only the using child keeps it
 → a ends → pipe1 write all closed → b sees EOF ; b ends → c sees EOF`, cap: "closing in the parent immediately each round stops the next fork from inheriting a stale write end", lang: "txt" },
-      { note: "Prove it yourself: if the parent 'defers' closing until the end (instead of right after each fork) → when forking b the parent still holds write end 4 → b inherits a copy of fd 4 too → pipe1's write end can never reach 0 → b waits for an EOF that never comes = hang. That's why you must close in the parent 'immediately' every round." },
+      { note: "Think it through: if the parent 'defers' closing until the end (instead of right after each fork) → when forking b the parent still holds write end 4 → b inherits a copy of fd 4 too → pipe1's write end can never reach 0 → b waits for an EOF that never comes = hang. That's why you must close in the parent 'immediately' every round." },
       { qa: [
         { q: "Why must you always dup2 'before' close?", a: "dup2(old,new) copies old to new — if you close(old) first there's nothing to copy. Correct order: dup2(fds[1],STDOUT) then close(fds[1])." },
         { q: "Why must the parent close the write end right after fork?", a: "Because every fork hands the child a copy of the write end; the more you fork the more copies linger. The parent closing its own immediately + the child closing what it doesn't use → the write-end refcount can reach 0 → EOF happens." },
@@ -986,7 +995,7 @@ c:      child  stdin→5 (pipe2 read), stdout→real stdout ; close → exec c
       ]},
 
       { h: "🔬 Deep Dive C: why a pipe hangs — pipe write-end reference counting" },
-      { p: "**Picture it:** a pipe's read end gets the 'end' signal (EOF, read returns 0) **only when every copy of the write end is closed** — not just the main write end. The kernel counts how many fds still have the write end open (a reference count)." },
+      { p: "a pipe's read end gets the 'end' signal (EOF, read returns 0) **only when every copy of the write end is closed** — not just the main write end. The kernel counts how many fds still have the write end open (a reference count)." },
       { p: "**Mechanism:** each fork copies the fd table → the write end gains a copy. EOF happens only when the refcount = 0:" },
       { code: String.raw`write-end refcount (single pipe in cmd1 | cmd2):
 
@@ -1002,7 +1011,7 @@ c:      child  stdin→5 (pipe2 read), stdout→real stdout ; close → exec c
 if the parent "forgets" close(fds[1]): refcount stays at 1 forever
   -> cmd2 reads stdin waiting for an EOF that never comes -> hang`, cap: "EOF is a function of the refcount: it must be 0 — forget one close, the refcount never hits 0 = hang", lang: "txt" },
       { p: "**heredoc uses the same principle:** `<< EOF` is a pipe where the parent writes the heredoc lines to the write end then **closes the write end** to send EOF so the reading command finishes — if you don't close it, the command waits for more input forever." },
-      { note: "Prove it yourself: write `cat | cat | cat` and deliberately comment out one of the parent's close(fds[1]) lines → it hangs. Run `ls -l /proc/<pid>/fd` and you'll see the write end still open, exactly as the refcount theory predicts." },
+      { note: "Try it: write `cat | cat | cat` and deliberately comment out one of the parent's close(fds[1]) lines → it hangs. Run `ls -l /proc/<pid>/fd` and you'll see the write end still open, exactly as the refcount theory predicts." },
       { qa: [
         { q: "Why isn't closing the main write end enough — why close every copy?", a: "Because EOF depends on the refcount = the number of write-end copies still open. Leave even one open (e.g. the parent forgot) and the refcount ≠ 0 → the read end never gets EOF → hang." },
         { q: "What do you get reading the read end while the write end is open with no data?", a: "read 'blocks' and waits (not EOF). EOF (read returns 0) only happens once all write ends are closed." },
@@ -1010,7 +1019,7 @@ if the parent "forgets" close(fds[1]): refcount stays at 1 forever
       ]},
 
       { h: "🔬 Deep Dive D: signals (interactive + heredoc) & $? (exit status) propagation" },
-      { p: "**Picture it:** pressing Ctrl-C at an empty prompt must 'show a fresh prompt on the next line' (not exit the shell), but pressing Ctrl-C while a command runs (e.g. `cat` waiting) must 'kill that command' and return to the prompt. The behavior differs by context." },
+      { p: "pressing Ctrl-C at an empty prompt must 'show a fresh prompt on the next line' (not exit the shell), but pressing Ctrl-C while a command runs (e.g. `cat` waiting) must 'kill that command' and return to the prompt. The behavior differs by context." },
       { code: String.raw`SIGINT (Ctrl-C) scenarios:
   empty prompt   -> handler: print \n, rl_replace_line(""),
                     rl_on_new_line(), rl_redisplay() -> new prompt ; $?=130
@@ -1032,7 +1041,7 @@ worked example:
   ./no_such         → $? = 127  (not found)
   cat then Ctrl-C   → $? = 130  (128 + SIGINT 2)
   a segfaulting cmd → $? = 139  (128 + SIGSEGV 11)`, cap: "reading exit status: WIFEXITED→WEXITSTATUS ; WIFSIGNALED→128+WTERMSIG", lang: "txt" },
-      { note: "Prove it yourself: in real bash type `sleep 5` then press Ctrl-C, then `echo $?` → 130. Then `ls /nope; echo $?` → 2 — minishell must match these exactly." },
+      { note: "Try it in a shell: in real bash type `sleep 5` then press Ctrl-C, then `echo $?` → 130. Then `ls /nope; echo $?` → 2 — minishell must match these exactly." },
       { qa: [
         { q: "Why must the child reset signals to default before execve?", a: "At the prompt the shell catches SIGINT/SIGQUIT (so it doesn't die itself). If the child inherits that handler, Ctrl-C won't kill the command — you must reset to SIG_DFL in the child so Ctrl-C kills the command normally." },
         { q: "Why does the handler only store the signal number and nothing else?", a: "async-signal-safety: a handler can interrupt at any moment; touching malloc/structs/print could break randomly. Storing the number in a sig_atomic_t and handling it later in the main loop is safe." },
@@ -1371,7 +1380,7 @@ each step:
   until the endpoint`, cap: "the error tells you which way the true line currently 'leans' → move the axis that keeps you nearest the true line", lang: "txt" },
 
       { h: "🔬 Deep Dive A: where the isometric formula comes from — built from rotating the axes" },
-      { p: "**Picture it:** isometric draws the world's 3 axes tilted 30° equally on screen. Instead of memorizing `(x−y)cos30`, let's see how it 'falls out' of where each axis points." },
+      { p: "isometric draws the world's 3 axes tilted 30° equally on screen. Instead of memorizing `(x−y)cos30`, let's see how it 'falls out' of where each axis points." },
       { code: String.raw`place each world axis onto the screen (screen y points down):
   step +1 along world x → screen moves (+cos30, +sin30)   (down-right 30°)
   step +1 along world y → screen moves (−cos30, +sin30)   (down-left 30°)
@@ -1396,10 +1405,10 @@ high point (x=0, y=0, z=3):
       ]},
 
       { h: "🔬 Deep Dive B: Bresenham — proof of why integer-only draws a smooth line" },
-      { p: "**Picture it:** a mathematical line is continuous (y = mx + c) but the screen has integer pixel cells. Bresenham picks the pixel 'nearest the true line' one step at a time using only integer add/subtract — fast and gap-free." },
+      { p: "a mathematical line is continuous (y = mx + c) but the screen has integer pixel cells. Bresenham picks the pixel 'nearest the true line' one step at a time using only integer add/subtract — fast and gap-free." },
       { p: "**The error-term mechanism:** keep an 'accumulated error' of how far the current pixel is from the true line, and when it builds past half a cell, step the other axis. The all-octant version (works in every direction) keeps err = dx + dy:" },
-      { code: String.raw`dx =  abs(x1-x0)      sx = (x0<x1) ? +1 : -1
-dy = -abs(y1-y0)      sy = (y0<y1) ? +1 : -1
+      { code: String.raw`dx =  abs(x1-x0)      sx = (x0 < x1) - (x0 > x1)   // +1 / -1 without ?:
+dy = -abs(y1-y0)      sy = (y0 < y1) - (y0 > y1)
 err = dx + dy
 loop:
   plot(x0, y0)
@@ -1425,7 +1434,7 @@ loop:
       ]},
 
       { h: "🔬 Deep Dive C: fading color along a line (lerp) — why split R/G/B before mixing" },
-      { p: "**Picture it:** one end of a line is red, the other blue, and you want the shades to fade in between. Do it with **linear interpolation**: at fraction t (0→1) along the line, the color = a mix of red and blue by t." },
+      { p: "one end of a line is red, the other blue, and you want the shades to fade in between. Do it with **linear interpolation**: at fraction t (0→1) along the line, the color = a mix of red and blue by t." },
       { p: "**Key pitfall:** never lerp the whole `0xRRGGBB` number directly — because R/G/B sit in different bit channels, mixing the whole thing overflows across channels. You must **unpack the 3 channels, interpolate each, then repack:**" },
       { code: String.raw`int lerp_color(int a, int b, double t)
 {
@@ -1449,7 +1458,7 @@ B: 0   + (255−0)·0.5 = 127
       ]},
 
       { h: "🔬 Deep Dive D: auto-fit (centering + zoom + z_scale) — why any map size fits the screen" },
-      { p: "**Picture it:** a 3×3 map and a 100×100 map should both fill the screen about equally. The trick is 3 steps: **(1) move the center to the origin** (centering) **(2) pick a fitting zoom** **(3) add an offset to the screen center**." },
+      { p: "a 3×3 map and a 100×100 map should both fill the screen about equally. The trick is 3 steps: **(1) move the center to the origin** (centering) **(2) pick a fitting zoom** **(3) add an offset to the screen center**." },
       { code: String.raw`step 1 centering — subtract the grid's center before projecting:
   xx = x − width/2 ;  yy = y − height/2 ;  zz = z − (z_min+z_max)/2
   → the map's center moves to (0,0,0) of the projection system
@@ -1462,7 +1471,7 @@ step 2 zoom — pick the "smaller" of the width/height fits:
 step 3 offset — push the image to the screen center:
   off_x = WIN_W/2 ;  off_y = WIN_H/2`, cap: "centering first makes zoom/rotate pivot around the center, not flee to a corner", lang: "txt" },
       { p: "**Why centering must precede zoom:** multiplying by zoom scales out from the origin (0,0). Without moving the center to the origin first, the image scales out from the top-left corner → the more you zoom the more it leaves the screen. Center first → zoom scales neatly around the image's middle." },
-      { note: "Prove it yourself: comment out the `− width/2` line and run — the image piles into the top-left corner and flies off-screen as soon as you zoom. That's the empirical proof of why centering is needed." },
+      { note: "Try it: comment out the `− width/2` line and run — the image piles into the top-left corner and flies off-screen as soon as you zoom. That's the empirical proof of why centering is needed." },
       { qa: [
         { q: "Why does auto-fit pick min(zoom_w, zoom_h), not max?", a: "The smaller one is the more 'constraining' → it guarantees neither width nor height overflows the screen. Picking max would let the longer side blow past the edges." },
         { q: "How does z_scale differ from zoom?", a: "zoom scales the whole image (x,y); z_scale adjusts only the height z so mountains don't poke off-screen even once zoom fits — a separate control for the height dimension." },
@@ -1605,7 +1614,9 @@ image buffer → mlx_put_image_to_window → screen`, cap: "text file → number
     init_bres(&d, a, b);
     while (1)
     {
-        t = (steps != 0) ? i/steps : 0;     // (concept) fraction along the line
+        t = 0.0;                            // (concept) fraction along the line
+        if (steps != 0)
+            t = (double)i / steps;
         put_pixel(f, a.x, a.y, lerp_color(a.color, b.color, t));
         if (a.x == b.x && a.y == b.y) break;
         bres_step(&d, &a);                   // step to the next pixel
@@ -1810,7 +1821,7 @@ for (size_t j = 0; j < s.length(); ++j)
     std::cout << (char)std::toupper(s[j]);`, cap: "ex00: loop every argv, convert every char to uppercase", lang: "cpp" },
 
       { h: "🔬 Deep Dive A: Static members — one shared copy for the whole class + lifecycle" },
-      { p: "**Picture it:** `_amount` is each account's own money (everyone has their own), but `_nbAccounts` is 'the bank's total account count' — one shared copy every object sees. static = a class-wide variable, not tied to any one object." },
+      { p: "`_amount` is each account's own money (everyone has their own), but `_nbAccounts` is 'the bank's total account count' — one shared copy every object sees. static = a class-wide variable, not tied to any one object." },
       { code: String.raw`where they live:
   normal member -> "inside" each object (a._amount, b._amount separate)
   static member -> in static storage, one copy (born before main, dies after)
@@ -1829,7 +1840,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
 
 -> index runs 0,1,2 automatically because it reads _nbAccounts "before" ++
 -> getNbAccounts() returns 3, getTotalAmount() returns 1053 (no object needed)`, cap: "the heart of ex02: _accountIndex comes from the static counter read-before-increment, so indices are unique and self-ordering", lang: "txt" },
-      { note: "Prove it yourself: a static member must be 'defined' outside the class once in the .cpp (`int Account::_nbAccounts = 0;`). Delete that line -> linker error 'undefined reference to Account::_nbAccounts', because the in-class declaration only 'declares', it doesn't 'allocate'." },
+      { note: "Delete it and see: a static member must be 'defined' outside the class once in the .cpp (`int Account::_nbAccounts = 0;`). Delete that line -> linker error 'undefined reference to Account::_nbAccounts', because the in-class declaration only 'declares', it doesn't 'allocate'." },
       { qa: [
         { q: "Why does a static member function have no `this`?", a: "Because it isn't tied to a particular object — you can call it via the class name (`Account::getNbAccounts()`) with no object at all. No object -> no this -> it can only touch static members." },
         { q: "Why must a static be defined outside the class?", a: "The in-class declaration only tells the compiler 'this exists' (no memory). You need one real definition (one-definition rule) in a .cpp to allocate it, or the linker can't find it." },
@@ -1837,7 +1848,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
       ]},
 
       { h: "🔬 Deep Dive B: Constructor/Destructor order — why Account's log reads that way" },
-      { p: "**Picture it:** an object is **born** -> the constructor runs (prints `;created`); an object **dies** -> the destructor runs (prints `;closed`). ex02's challenge is making the log order match exactly — which depends on the 'birth/death order'." },
+      { p: "an object is **born** -> the constructor runs (prints `;created`); an object **dies** -> the destructor runs (prints `;closed`). ex02's challenge is making the log order match exactly — which depends on the 'birth/death order'." },
       { code: String.raw`ordering rules:
   • the constructor runs when an object is created (in declaration order)
   • the destructor runs when an object expires:
@@ -1854,7 +1865,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
     // [ts] index:2;amount:957;closed   <- c dies first (born last)
     // [ts] index:1;amount:54;closed
     // [ts] index:0;amount:42;closed    <- a dies last`, cap: "LIFO: the last-born dies first — which is why the closed order is the reverse of created", lang: "txt" },
-      { note: "Prove it yourself: why store p_amount (money before deposit) 'before' changing _amount in makeDeposit? Because the log must print both the old (p_amount) and new (_amount) values — if you change first, the old value is gone. The 'read old -> change -> print both' order matters." },
+      { note: "Think it through: why store p_amount (money before deposit) 'before' changing _amount in makeDeposit? Because the log must print both the old (p_amount) and new (_amount) values — if you change first, the old value is gone. The 'read old -> change -> print both' order matters." },
       { qa: [
         { q: "Why is the `;closed` log the reverse of `;created`?", a: "Stack objects are destroyed LIFO (last-in-first-out) — the last-born expires first at end of scope, so closed comes out in reverse order." },
         { q: "In what order are an object's members constructed — init list or declaration?", a: "Always in 'declaration order in the class', not the order in the initializer list — a classic trap if one member depends on another declared later." },
@@ -1862,7 +1873,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
       ]},
 
       { h: "🔬 Deep Dive C: const-correctness — what `const` after a method really means" },
-      { p: "**Picture it:** putting `const` after a method = a promise to the compiler that 'this method only reads, it doesn't modify the object'. It's not just decoration — it lets you call that method on a **const object** and lets the compiler catch accidental writes." },
+      { p: "putting `const` after a method = a promise to the compiler that 'this method only reads, it doesn't modify the object'. It's not just decoration — it lets you call that method on a **const object** and lets the compiler catch accidental writes." },
       { code: String.raw`mechanism: const after a method changes the type of this
   normal method: this is  Account*        -> can modify members
   const method:  this is  const Account*  -> can't modify members (compile error)
@@ -1878,7 +1889,7 @@ void displayStatus( void ) const {
 
 -> if you forget const on displayStatus -> you can't call it on a const object at all
 -> const "propagates": to use const objects, mark every read-only method const`, cap: "const-correctness = designing so 'everything read-only' is marked const, so const objects are usable", lang: "txt" },
-      { note: "Prove it yourself: add `const Account a(42); a.makeWithdrawal(5);` and compile — it errors because makeWithdrawal modifies _amount (not const). Change to `a.checkAmount()` (const) and it compiles — confirming a const object can only call const methods." },
+      { note: "Compile it and see: add `const Account a(42); a.makeWithdrawal(5);` and compile — it errors because makeWithdrawal modifies _amount (not const). Change to `a.checkAmount()` (const) and it compiles — confirming a const object can only call const methods." },
       { qa: [
         { q: "What does the const in `int checkAmount() const` do?", a: "Says this method doesn't modify the object's members (this is const Account*). Result: you can call it on a const object, and if you accidentally write a member the compiler errors." },
         { q: "Why can't a const object call a non-const method?", a: "A non-const method might modify the object — but the object is const (can't be modified) -> the compiler refuses, to keep the const promise. So you must mark read-only methods const." },
@@ -1886,7 +1897,7 @@ void displayStatus( void ) const {
       ]},
 
       { h: "🔬 Deep Dive D: the this pointer — the hidden pointer that tells a method 'which object called it'" },
-      { p: "**Picture it:** one method (`makeDeposit`) works on every account — how does it know whether it's working on a or b right now? The answer is **`this`**, a hidden pointer to the object that called the method." },
+      { p: "one method (`makeDeposit`) works on every account — how does it know whether it's working on a or b right now? The answer is **`this`**, a hidden pointer to the object that called the method." },
       { code: String.raw`what really happens (desugared): the compiler adds this as a hidden first param
   a.makeDeposit(5);
   -> Account::makeDeposit(&a, 5);     // &a is passed as this
@@ -1895,7 +1906,7 @@ inside the method:
   _amount += deposit;          // really this->_amount += deposit
   -> this points to a -> modifies a._amount ; calling b.makeDeposit -> this points to b`, cap: "this = the address of the calling object — lets one body of code work on any object", lang: "cpp" },
       { p: "**When to use this directly:** (1) when a parameter name clashes with a member (`this->x = x`), (2) returning `*this` to chain methods, (3) in a const method `this` is `const Account*` (read-only)." },
-      { note: "Prove it yourself: in makeWithdrawal, writing `this->_amount` and `_amount` give the same result — because a bare `_amount` is implicitly `this->_amount`. Writing this-> explicitly makes it clear you're touching the object's member." },
+      { note: "Notice: in makeWithdrawal, writing `this->_amount` and `_amount` give the same result — because a bare `_amount` is implicitly `this->_amount`. Writing this-> explicitly makes it clear you're touching the object's member." },
       { qa: [
         { q: "What exactly is this?", a: "A pointer the compiler secretly passes as the first argument of every non-static method, pointing to the object that called it — a bare `_amount` is `this->_amount`." },
         { q: "Why does a static method have no this?", a: "A static method isn't tied to any object (callable via the class name) -> there's no object for this to point to -> it can't touch instance members, only static ones." },
@@ -2357,7 +2368,7 @@ execve(ls): everything above is "wiped" and replaced by ls's
     ],
     foundations: [
       { h: "0) Groundwork: what is char ** (argv, envp, the result of ft_split)" },
-      { p: "`char *` = a pointer to a string (really the address of the first char). **`char **` = a pointer to an array of strings** = 'a list of several strings' — argv, envp, and ft_split's result are all `char **`." },
+      { p: "`char *` = a pointer to a string (really the address of the first char). `char **` is **a pointer to an array of strings** = 'a list of several strings' — argv, envp, and ft_split's result are all `char **`." },
       { code: String.raw`argv -> [ "./pipex" ][ "infile" ][ "ls -l" ][ "wc -l" ][ "outfile" ][ NULL ]
           argv[0]     argv[1]    argv[2]   argv[3]    argv[4]
 each box = char*  (the address of a string) ; terminated by NULL`, cap: "argv is an array of char* ; the last is NULL to mark the end" },
@@ -2493,7 +2504,11 @@ waitpid(pid1, NULL, 0);
 waitpid(pid2, NULL, 0);`, cap: "if the parent doesn't close the pipe's write end -> cmd2 never gets EOF and hangs", lang: "c" },
       { h: "4) Find the command's path (path.c)" },
       { code: String.raw`if (ft_strchr(cmd, '/'))                 // has / -> absolute/relative
-    return (access(cmd, X_OK) == 0 ? ft_strdup(cmd) : NULL);
+{
+    if (access(cmd, X_OK) == 0)      // the norm forbids ?: -> use if
+        return (ft_strdup(cmd));
+    return (NULL);
+}
 path_env = get_env_path(envp);           // find "PATH=" in envp
 dirs = ft_split(path_env, ':');          // split each dir
 return (search_dirs(dirs, cmd));          // try dir/cmd + access(X_OK)`, cap: "if not found -> \"command not found\" -> exit(127)", lang: "c" },
@@ -2751,7 +2766,7 @@ src/free.c      free all memory
  \- mlx_loop ----------> wait for events...
 
 [event] handle_key(key) -> try_move(dx,dy) -> handle_tile (collect/win) -> render_map`, cap: "every function takes one &game (pointer) -> they share the same game state", lang: "txt" },
-      { note: "the main flow: the **grid (char**)** is born in build_grid -> scanned by count_chars -> copied for flood_fill in validate -> read by render -> edited (coin pickup) by try_move" },
+      { note: "the main flow: the **grid** (`char **`) is born in build_grid -> scanned by count_chars -> copied for flood_fill in validate -> read by render -> edited (coin pickup) by try_move" },
 
       { h: "🔗 Trace the life of the map (av[1] -> the image on screen)" },
       { code: String.raw`av[1] = "map.ber"
@@ -3115,12 +3130,17 @@ f->min_re = mouse_re + (f->min_re - mouse_re) * factor;   // shrink/grow around 
 f->max_re = mouse_re + (f->max_re - mouse_re) * factor;
 // ... same for im ; wheel up factor=0.8 (zoom in), down 1.25 (out)`, cap: "shift the frame to scale around the mouse point so zoom doesn't drift from the cursor", lang: "c" },
       { h: "5) Smooth-palette color (color.c)" },
-      { code: String.raw`if (iter >= f->max_iter) return (0x000000);     // in the set = black
+      { code: String.raw`int r;
+int g;
+int b;
+
+if (iter >= f->max_iter)
+    return (0x000000);                          // in the set = black
 t = (double)((iter + f->shift) % f->max_iter) / f->max_iter;
-r = 9.0  * (1-t) * t*t*t        * 255;
-g = 15.0 * (1-t)*(1-t) * t*t    * 255;
-b = 8.5  * (1-t)*(1-t)*(1-t)*t  * 255;
-return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth gradient; shift = cycle the hue (bonus)", lang: "c" },
+r = (int)(9.0  * (1-t) * t*t*t       * 255);    // cast to int before
+g = (int)(15.0 * (1-t)*(1-t) * t*t   * 255);    // any bit shifting
+b = (int)(8.5  * (1-t)*(1-t)*(1-t)*t * 255);
+return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth gradient; cast to int before shifting — shifting a double doesn't compile", lang: "c" },
     ],
     tricks: [
       { ul: [
@@ -3263,16 +3283,16 @@ try bit = 1:
 
 start c = 0000 0000
 
-USR2 (bit=1):  c = (0 << 1) | 1 = 0000 0001
-USR1 (bit=0):  c = (1 << 1) | 0 = 0000 0010
-USR1 (bit=0):  c = (2 << 1) | 0 = 0000 0100
-USR1 (bit=0):  c = (4 << 1) | 0 = 0000 1000
-USR1 (bit=0):  c = (8 << 1) | 0 = 0001 0000
-USR1 (bit=0):  c = (16<< 1) | 0 = 0010 0000
-USR1 (bit=0):  c = (32<< 1) | 0 = 0100 0000
-USR2 (bit=1):  c = (64<< 1) | 1 = 1000 0001
+USR1 (bit=0):  c = (0  << 1) | 0 = 0000 0000
+USR2 (bit=1):  c = (0  << 1) | 1 = 0000 0001
+USR1 (bit=0):  c = (1  << 1) | 0 = 0000 0010
+USR1 (bit=0):  c = (2  << 1) | 0 = 0000 0100
+USR1 (bit=0):  c = (4  << 1) | 0 = 0000 1000
+USR1 (bit=0):  c = (8  << 1) | 0 = 0001 0000
+USR1 (bit=0):  c = (16 << 1) | 0 = 0010 0000
+USR2 (bit=1):  c = (32 << 1) | 1 = 0100 0001
 
-result = 1000 0001 = 129 (0x81) — a full byte`, cap: "left shift = open a slot on the right, |1 fills the new bit — MSB-first makes the order correct automatically", lang: "txt" },
+result = 0100 0001 = 65 = 'A' — a full byte`, cap: "left shift = open a slot on the right, |1 fills the new bit — MSB-first makes the order correct automatically", lang: "txt" },
       { note: "why MSB-first: if you sent LSB-first the server would have to 'know' which bit position it's at to know where to `|` the value — more complex code. MSB-first + `<<1` means 'no counting positions' — each bit lands correctly on its own." },
 
       { h: "🔬 Deep Dive B: async-signal-safety — why most functions are forbidden in a handler" },
@@ -3658,7 +3678,7 @@ Input: "how to make noodles"
   v
 [Embed]     -> turn each token into a meaning vector (e.g. 768 dimensions)
   v
-[Transformer] -> through many Attention layers (Claude ~100+ layers)
+[Transformer] -> through tens to hundreds of Attention layers
   v
 [Output]    -> compute the probability of every possible token
   v
@@ -3742,8 +3762,9 @@ if a character isn't in the vocab (e.g. emoji 🎉 or special chars):
 -> the more 'unusual' the character, the more tokens it costs`, lang: "txt" },
 
       { h: "🔬 Deep Dive C: Context window — the LLM's 'working memory' + why position matters" },
-      { p: "**Picture it:** an LLM has no memory across calls — the only thing it 'knows' that round is every token in the context window (system + history + docs + question). The context window is its entire working memory; once full, you must trim/summarize." },
-      { code: String.raw`context window = the token ceiling per round (e.g. Claude ~200k tokens)
+      { p: "an LLM has no memory across calls — the only thing it 'knows' that round is every token in the context window (system + history + docs + question). The context window is its entire working memory; once full, you must trim/summarize." },
+      { code: String.raw`context window = the token ceiling per round
+  (Claude Opus 5 / Sonnet 5 = 1M tokens ; Haiku 4.5 = 200k)
 
   [ system prompt ] + [ chat history ] + [ docs (RAG) ] + [ question ]
   +------------------- must sum under the ceiling -------------------+
@@ -3761,7 +3782,7 @@ when it's about to overflow -> you must:
 
 -> practice: put 'important docs/instructions at the top' and 'the question at the bottom'
   RAG: order the most-relevant chunks near the edges (start/end), not in the middle of a pile`, cap: "put important things at the start or end, not the middle — matches the 'long docs at the top' tip in the Theory tab", lang: "txt" },
-      { note: "Prove it yourself: hide one important instruction line in the 'middle' of a 50-paragraph document and ask the model to follow it — vs putting the same line at the 'top'. The top version follows it noticeably better." },
+      { note: "Try it: hide one important instruction line in the 'middle' of a 50-paragraph document and ask the model to follow it — vs putting the same line at the 'top'. The top version follows it noticeably better." },
       { qa: [
         { q: "Does an LLM remember the previous conversation on its own?", a: "No — it has no state across calls. You must 'resend the whole history' every time (which is why tokens accumulate in a long chat)." },
         { q: "Why is stuffing lots of context bad even when the ceiling isn't full?", a: "(1) attention O(n²) -> quadratically slower+pricier, (2) lost in the middle -> too much info dilutes attention, recalling key info less accurately. Send only what's relevant rather than everything." },
@@ -3769,9 +3790,9 @@ when it's about to overflow -> you must:
       ]},
       { h: "📖 Further reading" },
       { links: [
-        { label: "Anthropic — Intro to Claude", url: "https://docs.anthropic.com/en/docs/intro-to-claude", note: "LLM overview + getting started with Claude" },
+        { label: "Anthropic — Intro to Claude", url: "https://platform.claude.com/docs/en/intro-to-claude", note: "LLM overview + getting started with Claude" },
         { label: "What are tokens? (OpenAI help)", url: "https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them", note: "what tokens are, how to count (any model)" },
-        { label: "Prompt engineering overview (Anthropic)", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview", note: "prompt-writing principles" },
+        { label: "Prompt engineering overview (Anthropic)", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview", note: "prompt-writing principles" },
         { label: "How GPT Tokenizers Work (tiktoken)", url: "https://github.com/openai/tiktoken", note: "OpenAI's BPE tokenizer — see the real code" },
         { label: "LLM Visualization (bbycroft.net)", url: "https://bbycroft.net/llm", note: "visualize attention, transformer layers step by step" },
       ]},
@@ -3981,7 +4002,14 @@ class Review(BaseModel):
         "limits: file ≤10MB/image, dimensions ≤8000px, images should be sharp; naming people/counting objects/exact spatial isn't accurate",
       ]},
       { h: "8) Extended thinking — let the model think before answering (from docs)" },
-      { p: "A mode where the model produces a **thinking block** (internal reasoning) before the real answer — enabled with `thinking: {type:'enabled', budget_tokens: N}` (N < max_tokens). **thinking tokens are billed as output.**" },
+      { p: "A mode where the model produces a **thinking block** (internal reasoning) before the real answer. Current models use **adaptive thinking** — the model decides how deep to think, and you steer the spend with `effort` instead of a fixed token budget. **Thinking tokens are billed as output.**" },
+      { code: String.raw`client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=16000,
+    thinking={"type": "adaptive", "display": "summarized"},
+    output_config={"effort": "high"},   # low | medium | high | xhigh | max
+    messages=[...],
+)`, cap: "adaptive + effort is the current API; the old thinking={'type':'enabled','budget_tokens':N} has been removed and returns a 400", lang: "py" },
       { ul: [
         "use for multi-step reasoning (maths/hard code/analysis); for easy questions it's overkill",
         "don't prefill/inject words into thinking; when using a tool you must send the original thinking block back unmodified; changing thinking values breaks the cache",
@@ -4022,15 +4050,17 @@ step 1 — LangChain converts a Pydantic model -> JSON Schema:
   }
 
 step 2 — send the schema to the API:
-  messages = [
-    {"role": "system", "content": "Analyze this review..."},
-    {"role": "user", "content": text}
-  ]
   response = client.messages.create(
-    model="claude-sonnet-4-20250514",
-    messages=messages,
-    **structured_output(schema)  # <- pass the schema too
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    system="Analyze this review...",     # Anthropic: system is separate from messages
+    messages=[{"role": "user", "content": text}],
+    output_config={"format": {           # <- the schema goes here
+      "type": "json_schema", "schema": schema
+    }},
   )
+  # Python SDK shortcut: client.messages.parse(..., output_format=Review)
+  #   -> response.parsed_output is an already-validated object
 
 step 3 — Constrained Decoding:
   the model is about to generate the next token...
@@ -4054,10 +4084,10 @@ with schema (structured):
   }
   -> matches the schema 100%, usable right away
 
-real impact:
-  - accuracy: structured output raises accuracy ~15-30%
-  - speed: faster because the model doesn't 'think' about format
-  - reliability: no hallucination in enum/Literal fields`, lang: "txt" },
+what you get:
+  - parsing never breaks: the output always matches the schema, no retry loop
+  - enum/Literal fields cannot be invented (out-of-list tokens are blocked)
+  - the model spends no tokens formatting the answer itself`, lang: "txt" },
       { note: "Limitation: structured output works with the major providers' APIs (Anthropic/OpenAI/Google) — with a local model you parse it yourself." },
 
       { h: "🔬 Deep Dive B: Prompt Caching — the mechanism and the real price" },
@@ -4080,7 +4110,8 @@ Round 2: send the same prompt + a new question
 # (not role:"system" inside messages like OpenAI)
 
 client.messages.create(
-    model="claude-3-5-sonnet-latest",
+    model="claude-sonnet-5",
+    max_tokens=1024,
     system=[
         {
             "type": "text",
@@ -4126,7 +4157,7 @@ save: $9.60 -> $1.51 = 84%!
   3. it isn't batch processing (batch is already 50% off)`, cap: "caching is truly worth it only when the prompt is long + reused many rounds — for a single send it isn't", lang: "txt" },
 
       { h: "🔬 Deep Dive C: Tool / Function Calling — how an LLM 'calls a function'" },
-      { p: "**Picture it:** an LLM can't run code or fetch live data itself — it only produces 'text'. Tool calling is the mechanism for it to **say 'please call function X with these args'**, and you (the code) actually run it and feed the result back. This is the foundation of every agent." },
+      { p: "an LLM can't run code or fetch live data itself — it only produces 'text'. Tool calling is the mechanism for it to **say 'please call function X with these args'**, and you (the code) actually run it and feed the result back. This is the foundation of every agent." },
       { p: "**Mechanism — a 4-beat cycle:**" },
       { code: String.raw`1. we describe a tool to the model (name + description + JSON schema of args):
    tools = [{
@@ -4163,19 +4194,19 @@ save: $9.60 -> $1.51 = 84%!
       ]},
       { h: "📖 Further reading" },
       { links: [
-        { label: "Anthropic — Messages API", url: "https://docs.anthropic.com/en/api/messages", note: "all parameters" },
-        { label: "Anthropic — Context windows", url: "https://docs.anthropic.com/en/docs/build-with-claude/context-windows", note: "how the context window works" },
+        { label: "Anthropic — Messages API", url: "https://platform.claude.com/docs/en/api/messages", note: "all parameters" },
+        { label: "Anthropic — Context windows", url: "https://platform.claude.com/docs/en/build-with-claude/context-windows", note: "how the context window works" },
         { label: "LangChain — structured output", url: "https://python.langchain.com/docs/concepts/structured_outputs/", note: "with_structured_output()" },
-        { label: "Anthropic — Prompt caching deep dive", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "caching mechanism + real prices + examples" },
+        { label: "Anthropic — Prompt caching deep dive", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "caching mechanism + real prices + examples" },
         { label: "OpenAI — Structured Outputs guide", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "constrained decoding, OpenAI side" },
       ]},
       { h: "📚 Provider docs (read it from the source)" },
       { links: [
-        { label: "Anthropic — Prompt caching", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "cache_control + cache prices" },
+        { label: "Anthropic — Prompt caching", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "cache_control + cache prices" },
         { label: "OpenAI — Structured Outputs", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "force a schema, OpenAI side" },
         { label: "OpenAI — Prompt caching", url: "https://platform.openai.com/docs/guides/prompt-caching", note: "caching, OpenAI side" },
         { label: "Google — Gemini context caching", url: "https://ai.google.dev/gemini-api/docs/caching", note: "caching, Gemini side" },
-        { label: "Anthropic — Models & pricing", url: "https://docs.anthropic.com/en/docs/about-claude/models", note: "compare Haiku/Sonnet/Opus, pick by task" },
+        { label: "Anthropic — Models & pricing", url: "https://platform.claude.com/docs/en/about-claude/models/overview", note: "compare Haiku/Sonnet/Opus, pick by task" },
       ]},
       { h: "🎬 Video lessons (deeper)" },
       { links: [
@@ -4426,10 +4457,16 @@ how it searches:
   2. each level: find the nearest neighbour then "descend" a level
   3. Level 0: find the truly nearest k points
 
-speed:
-  Exact kNN: O(n × d)         — 1M × 1536 = 1.5B operations
-  HNSW:      O(log(n) × d)   — 20 × 1536 = 30K operations
-  -> 50,000x faster!`, cap: "HNSW is like GPS: start on the highways (high levels) then descend into the side streets (low levels) to the destination", lang: "txt" },
+speed (in theory):
+  Exact kNN: O(n × d)        — compare against every single row
+  HNSW:      O(log n × d)    — walk the graph for a few dozen steps
+
+  at n = 1M: log2(1M) ~ 20 -> compare a few dozen points, not a million
+
+Real systems do not hit that ratio, because:
+  - each step compares a whole candidate list (ef_search), not one point
+  - walking graph pointers has its own overhead
+  -> measured speedups land in the hundreds (see the pgvector numbers below)`, cap: "HNSW is like GPS: start on the highways (high levels) then descend into the side streets (low levels) to the destination", lang: "txt" },
       { code: String.raw`HNSW parameters you should know:
 
 M = edges per node (default 16):
@@ -4477,7 +4514,7 @@ real impact:
   - HNSW index:     ~5ms (400x faster)`, cap: "pgvector + HNSW makes vector search fast enough for production without a separate DB", lang: "txt" },
 
       { h: "🔬 Deep Dive C: Dimensions & Quantization — why vectors eat storage and how to shrink them 4-32×" },
-      { p: "**Picture it:** a 1536-dim float32 vector = 6 KB each. 1 million rows = ~6 GB just for the vectors (excluding the index). Two ways to shrink: reduce dimensions, and reduce precision per number (quantization)." },
+      { p: "a 1536-dim float32 vector = 6 KB each. 1 million rows = ~6 GB just for the vectors (excluding the index). Two ways to shrink: reduce dimensions, and reduce precision per number (quantization)." },
       { code: String.raw`storage = rows × dimensions × bytes per number
 
 float32 (4 bytes): 1M × 1536 × 4  = 6.1 GB
@@ -4863,7 +4900,7 @@ ORDER BY combined_score DESC LIMIT 5;
 -- Hybrid = ~20-30% more accurate than vector-only`, cap: "Postgres does hybrid search in one DB with pgvector + tsvector", lang: "txt" },
 
       { h: "🔬 Deep Dive C: Evaluate RAG fully — Retrieval metrics + Generation metrics" },
-      { p: "**Picture it:** 'is RAG good' is measurable, and you must measure **2 layers separately** because they fail at different points: (1) did it retrieve the right thing (retrieval), (2) did it answer correctly from what it retrieved (generation). Without separating, you won't know whether to fix chunking/search or the prompt." },
+      { p: "'is RAG good' is measurable, and you must measure **2 layers separately** because they fail at different points: (1) did it retrieve the right thing (retrieval), (2) did it answer correctly from what it retrieved (generation). Without separating, you won't know whether to fix chunking/search or the prompt." },
       { code: String.raw`Layer 1 — Retrieval (accurate search) — needs a 'golden set': question -> correct source
   Recall@k    = % the correct source is in the top-k        <- RAG's primary metric
   Precision@k = of the k retrieved, what % are correct
@@ -5134,7 +5171,7 @@ from langgraph.prebuilt import create_react_agent
 
 # make an agent with tools
 agent = create_react_agent(
-    model=ChatAnthropic(model="claude-sonnet-4-20250514"),
+    model=ChatAnthropic(model="claude-sonnet-5"),
     tools=[search_docs, get_stock_price, send_email],
     prompt="You are an assistant that thinks before acting; when unsure, call a tool"
 )
@@ -5235,7 +5272,7 @@ Network:
 -> start with DAG -> add cycles when needed -> network when scaling`, lang: "txt" },
 
       { h: "🔬 Deep Dive C: Loop Termination & Error Recovery — why agents loop forever and how to prevent it" },
-      { p: "**Picture it:** a cyclic agent (Deep Dive B) is powerful because 'the agent decides when to stop' — but that's double-edged: if it decides 'not to stop' (e.g. a tool fails and it calls it again and again), the system loops forever, burning tokens/money endlessly. A production agent needs multiple 'brakes'." },
+      { p: "a cyclic agent (Deep Dive B) is powerful because 'the agent decides when to stop' — but that's double-edged: if it decides 'not to stop' (e.g. a tool fails and it calls it again and again), the system loops forever, burning tokens/money endlessly. A production agent needs multiple 'brakes'." },
       { p: "**3 ways a loop fails to terminate:**" },
       { code: String.raw`1. tool fails, called again: get_data() -> error -> agent calls get_data() again -> loop
 2. decision loop: agent calls A -> B -> A -> B ... never progressing
@@ -5637,47 +5674,46 @@ def output_guardrail(response):
 
       { h: "🔬 Deep Dive B: Cost Optimization — compute the real price and find savings" },
       { p: "Every token has a price — let's compute what your AI system really pays and how to cut it." },
-      { code: String.raw`real prices (Claude 3.5 Sonnet):
-  Input:  $3.00 / 1M tokens
-  Output: $15.00 / 1M tokens  <- 5x pricier than input!
-  Cache read: $0.30 / 1M tokens
+      { code: String.raw`real prices (per 1M tokens)
 
-real prices (Claude 3.5 Haiku):
-  Input:  $0.25 / 1M tokens
-  Output: $1.25 / 1M tokens
+  Claude Opus 5      input $5.00   output $25.00   cache read $0.50
+  Claude Sonnet 5    input $3.00   output $15.00   cache read $0.30
+  Claude Haiku 4.5   input $1.00   output  $5.00   cache read $0.10
 
-real prices (GPT-4o):
-  Input:  $2.50 / 1M tokens
-  Output: $10.00 / 1M tokens
+-> output is always 5x pricier than input -> controlling answer length is lever #1
+-> cache read is 0.1x of input on every model`, cap: "Prices move — check the pricing page before you budget for real.", lang: "txt" },
+      { code: String.raw`price analysis: a customer-support system, 1000 requests/day
+(assume system+context 3000 tokens, answer 500 tokens)
 
--> output is always 4-5x pricier than input -> you must control output length`, lang: "txt" },
-      { code: String.raw`price analysis: a customer-support system (1000 requests/day)
+Scenario 1 — Sonnet 5 on every request
+  input:  3000 × $3/M  = $0.0090
+  output:  500 × $15/M = $0.0075
+  $0.0165 per request  ->  $16.50/day
 
-Scenario 1: use Claude Sonnet every time
-  input:  3000 tokens (system + context) × $3/M = $0.009
-  output: 500 tokens × $15/M = $0.0075
-  per request: $0.0165
-  per day: $16.50
+Scenario 2 — Router: easy on Haiku 4.5 (70%), hard on Sonnet 5 (30%)
+  Haiku/req:  3000 × $1/M + 500 × $5/M = $0.0055  -> 700 req = $3.85
+  Sonnet/req: $0.0165                             -> 300 req = $4.95
+  total $8.80/day
 
-Scenario 2: Router — easy uses Haiku, hard uses Sonnet
-  easy (70%): Haiku = 700 × ($0.25+$1.25)/M = $0.00105
-  hard (30%):  Sonnet = 300 × ($3+$15)/M = $0.0054
-  average per request: $0.0023
-  per day: $2.30
+Scenario 3 — Sonnet 5 + prompt caching + short answers (max_tokens=200)
+  cache read: 3000 × $0.30/M = $0.0009
+  user input:  200 × $3/M    = $0.0006
+  output:      200 × $15/M   = $0.0030
+  $0.0045 per request  ->  $4.50/day
 
-Scenario 3: + Prompt caching + lean output
-  Cache hit (system 3000 tokens): 3000 × $0.30/M = $0.0009
-  User input: 200 tokens × $3/M = $0.0006
-  Output (max_tokens=200): 200 × $15/M = $0.003
-  per request: $0.0045
-  per day: $4.50
+Scenario 4 — both together (router + caching + short answers)
+  Haiku/req:  3000×$0.10/M + 200×$1/M + 200×$5/M = $0.0015 -> 700 req = $1.05
+  Sonnet/req: $0.0045                                      -> 300 req = $1.35
+  total $2.40/day
 
 comparison:
-  Scenario 1: $16.50/day ($495/month)
-  Scenario 2: $2.30/day ($69/month)   -> save 86%
-  Scenario 3: $4.50/day ($135/month)  -> save 73%
+  1 do nothing   $16.50/day  ($495/month)   —
+  2 routing       $8.80/day  ($264/month)   save 47%
+  3 caching       $4.50/day  ($135/month)   save 73%
+  4 both          $2.40/day   ($72/month)   save 85%
 
--> Model routing + caching = the most savings`, lang: "txt" },
+-> routing and caching cut cost along different axes (which model vs how many
+   billable tokens), so doing both multiplies rather than adds`, cap: "Don't ask whether routing beats caching — they stack.", lang: "txt" },
       { code: String.raw`break-even formula: caching vs no caching
 
 assume: system prompt = S tokens, user input = U tokens
@@ -5703,10 +5739,15 @@ example: S=3000, U=200, N=10 requests
 formula: N_breakeven ≈ (S × P_write) / (S × (P_input - P_read))
      = P_write / (P_input - P_read)
      = $3.75 / ($3.00 - $0.30) = 1.39 rounds
-     -> pays off from round 2!`, cap: "caching break-even = just 2 rounds and it pays off (cache read is 90% cheaper)", lang: "txt" },
+     -> pays off from round 2!
+
+With the 1-hour TTL the write costs 2x ($6.00), not 1.25x:
+     = $6.00 / ($3.00 - $0.30) = 2.22 rounds
+     -> you need at least 3 reuses before it pays off
+     pick 1h when traffic arrives in bursts more than 5 minutes apart`, cap: "5-minute TTL pays off on round 2; the 1-hour TTL needs round 3 because the write is pricier.", lang: "txt" },
 
       { h: "🔬 Deep Dive C: LLM-as-Judge — how to have an LLM grade an LLM reliably" },
-      { p: "**Picture it:** open-ended tasks (customer answers/summaries/translation) have no 'fixed answer key' to compare — grading thousands of cases by hand is pricey/slow. The solution is using **a second LLM as a judge** to score. But 'an LLM judging an LLM' has pitfalls you must know before you can trust the result." },
+      { p: "open-ended tasks (customer answers/summaries/translation) have no 'fixed answer key' to compare — grading thousands of cases by hand is pricey/slow. The solution is using **a second LLM as a judge** to score. But 'an LLM judging an LLM' has pitfalls you must know before you can trust the result." },
       { p: "**2 judging modes:**" },
       { code: String.raw`Pointwise (score one answer at a time):
   the judge reads 1 answer + rubric -> answers correct/incorrect or 1-5
@@ -5743,12 +5784,12 @@ Pairwise (compare 2 answers, which is better):
         { label: "Guardrails AI (overview)", url: "https://www.guardrailsai.com/docs", note: "the guardrail concept around an LLM" },
         { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "guardrails + when to use an agent" },
         { label: "OWASP — Top 10 for LLM Apps", url: "https://owasp.org/www-project-top-10-for-large-language-model-applications/", note: "OWASP's top 10 LLM threats" },
-        { label: "Anthropic — Prompt caching pricing", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "real cache read/write prices" },
+        { label: "Anthropic — Prompt caching pricing", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "real cache read/write prices" },
         { label: "LLM Price Calculator", url: "https://www.llm-price.com/", note: "compare every model's price in real time" },
       ]},
       { h: "📚 Provider docs (read it from the source)" },
       { links: [
-        { label: "Anthropic — Tool use overview", url: "https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview", note: "define a tool + let Claude call it (way A)" },
+        { label: "Anthropic — Tool use overview", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview", note: "define a tool + let Claude call it (way A)" },
         { label: "Anthropic — Advanced tool use", url: "https://www.anthropic.com/engineering/advanced-tool-use", note: "advanced tools + harness" },
         { label: "OpenAI — Function calling", url: "https://platform.openai.com/docs/guides/function-calling", note: "tool/function calling, OpenAI side" },
         { label: "Google — Gemini function calling", url: "https://ai.google.dev/gemini-api/docs/live-api/tools", note: "function calling, Gemini side" },
@@ -5971,7 +6012,7 @@ diffuse ∝ max(dot(N, L), 0)        # N=normal, L=direction toward the light`, 
       { p: "The camera has a position + view direction + FOV. You build an **orthonormal basis** (forward/right/up) from the view direction, then map pixel (x,y) → the ray's direction. FOV is **horizontal**." },
 
       { h: "🔬 Deep Dive A: Ray–Sphere Intersection — solving the quadratic for the hit" },
-      { p: "**Picture it:** a ray is a line, a sphere is 'all points at distance = radius r from the center'. Finding a 'hit' = finding t where the distance from P(t) to the center equals r exactly — substituting P(t) into the sphere equation gives a **quadratic**." },
+      { p: "a ray is a line, a sphere is 'all points at distance = radius r from the center'. Finding a 'hit' = finding t where the distance from P(t) to the center equals r exactly — substituting P(t) into the sphere equation gives a **quadratic**." },
       { code: String.raw`sphere: |P − center|² = r²
 ray:    P = O + t·D
 
@@ -5991,7 +6032,7 @@ let oc = O − center :
 t = (−b ± √disc) / (2a)
 → pick the root that's 'smallest but still > EPSILON' (the entry point in front of the camera)
   normal at the hit = norm(P − center)`, cap: "disc < 0 = no hit; pick the smallest t > EPSILON = the surface the camera sees first", lang: "txt" },
-      { note: "Prove it yourself: the subject gives a 'diameter', not a radius — you must **divide by 2** before using it as r. This is bug #1: forget the /2 and the sphere is 2× too big." },
+      { note: "Remember: the subject gives a 'diameter', not a radius — you must **divide by 2** before using it as r. This is bug #1: forget the /2 and the sphere is 2× too big." },
       { qa: [
         { q: "Why is ray-sphere a quadratic equation?", a: "Substituting P(t)=O+tD (linear in t) into the sphere definition |P−center|²=r² (which squares) gives a t² term = a quadratic." },
         { q: "What does the discriminant tell you?", a: "<0 no hit, =0 grazes 1 point, >0 hits 2 points (entry-exit). If ≥0 pick the smallest t > EPSILON = the surface point the camera sees first." },
@@ -5999,7 +6040,7 @@ t = (−b ± √disc) / (2a)
       ]},
 
       { h: "🔬 Deep Dive B: Phong Lighting — why the light angle brightens/darkens + flipping the normal" },
-      { p: "**Picture it:** a surface facing the light head-on is brightest, facing at an angle is dimmer, facing away is fully dark. Measured by **dot(N, L)** — the angle between the normal and the direction toward the light (Lambert's cosine law)." },
+      { p: "a surface facing the light head-on is brightest, facing at an angle is dimmer, facing away is fully dark. Measured by **dot(N, L)** — the angle between the normal and the direction toward the light (Lambert's cosine law)." },
       { code: String.raw`shade(P, N, obj):
   color = obj.color ⊙ (ambient.ratio · ambient.color)   # constant base
   for each light:
@@ -6009,7 +6050,7 @@ t = (−b ± √disc) / (2a)
     color += obj.color ⊙ light.color · diff
   return clamp(color, 0, 1)`, cap: "⊙ = per-channel multiply (R×R,G×G,B×B); dot(N,L) = cos(angle) = brightness by incidence angle", lang: "txt" },
       { p: "**Why max(dot,0):** if dot(N,L) < 0 the light is 'behind' the surface → shouldn't be lit → clamp to 0. **specular (bonus):** `pow(max(dot(reflect(−L,N), view),0), shininess)` = the shiny spot when the reflection angle aligns with the eye." },
-      { note: "Prove it yourself — half of the 'black' bugs: after computing N you must **flip the normal toward the camera** before using it: `if dot(N, D) > 0: N = −N`. Otherwise the inside of objects/cylinders shades backwards, wrongly dark." },
+      { note: "Half of the 'black' bugs: after computing N you must **flip the normal toward the camera** before using it: `if dot(N, D) > 0: N = −N`. Otherwise the inside of objects/cylinders shades backwards, wrongly dark." },
       { qa: [
         { q: "Why does diffuse use dot(N, L)?", a: "Lambert's law: brightness ∝ cos(angle between normal and light direction) = dot(N,L) when both are normalized. Head-on = brightest, glancing = dimmer." },
         { q: "Why max(dot(N,L), 0)?", a: "If dot<0 the light is behind the surface, shouldn't add brightness → clamp to 0 to avoid negative colors." },
@@ -6017,17 +6058,17 @@ t = (−b ± √disc) / (2a)
       ]},
 
       { h: "🔬 Deep Dive C: Shadows & Shadow Acne — why you must offset by epsilon" },
-      { p: "**Picture it:** is a surface point lit → cast a 'shadow ray' from it toward the light; if it hits another object before reaching the light = in shadow. But there's a classic problem: the point **shadows itself**." },
+      { p: "is a surface point lit → cast a 'shadow ray' from it toward the light; if it hits another object before reaching the light = in shadow. But there's a classic problem: the point **shadows itself**." },
       { code: String.raw`in_shadow(P, light):
   L = light.pos − P ; dist = length(L)
-  shadow_ray = { origin: P + N·EPSILON, dir: norm(L) }   # ★ offset!
+  shadow_ray = { origin: P + N·EPSILON, dir: norm(L) }   # <- offset it!
   hit = trace(shadow_ray)
   return (a hit occurred AND hit.t < dist)               # a blocker before the light
 
 problem without the offset (origin = exactly P):
   the shadow ray starts on the surface → hits itself at t≈0 → thinks 'in shadow'
   → every point goes black = "shadow acne" (scattered black speckles)`, cap: "offset the origin slightly along the normal (EPSILON ~1e-3) → doesn't hit itself", lang: "txt" },
-      { note: "Prove it yourself: set EPSILON = 0 and render — you'll see black speckles all over the surface (acne). Raise EPSILON to 1e-4..1e-3 and they vanish. And you must check `hit.t < dist`, or an object 'behind the light' would wrongly count as a blocker." },
+      { note: "Try it: set EPSILON = 0 and render — you'll see black speckles all over the surface (acne). Raise EPSILON to 1e-4..1e-3 and they vanish. And you must check `hit.t < dist`, or an object 'behind the light' would wrongly count as a blocker." },
       { qa: [
         { q: "What is shadow acne, what causes it?", a: "Black speckles all over a surface, caused by the shadow ray starting exactly on the surface (t=0) and 'hitting itself' → every point thinks it's shadowed." },
         { q: "How do you fix shadow acne?", a: "Offset the shadow ray's origin slightly along the normal (P + N·EPSILON, ~1e-3), or only accept hits with t > EPSILON." },
@@ -6035,7 +6076,7 @@ problem without the offset (origin = exactly P):
       ]},
 
       { h: "🔬 Deep Dive D: Camera & Ray Generation — mapping a pixel to a ray direction" },
-      { p: "**Picture it:** the camera has a position + view direction + FOV (horizontal angle). You build a 'virtual screen' in front of the camera then cast a ray from the camera through each pixel. First step: build an **orthonormal basis** (3 mutually perpendicular axes)." },
+      { p: "the camera has a position + view direction + FOV (horizontal angle). You build a 'virtual screen' in front of the camera then cast a ray from the camera through each pixel. First step: build an **orthonormal basis** (3 mutually perpendicular axes)." },
       { code: String.raw`build a basis from the view direction:
   forward = norm(C.dir)
   world_up = (0,1,0)   (if parallel to forward, use (0,0,1) instead)
@@ -6049,7 +6090,7 @@ per pixel (x,y) — with +0.5 (pixel center), flip y (screen y down, image y up)
   py = (1 − 2·(y+0.5)/H) · scale / aspect
   dir = norm(forward + px·right + py·up)`, cap: "the basis = 3 perpendicular axes; a pixel maps to offsets on right/up plus forward = the ray direction", lang: "txt" },
       { p: "**Why FOV is divided by aspect on the vertical axis:** FOV is horizontal → the horizontal axis (px) uses scale directly, the vertical axis (py) must divide by aspect (W/H) so the image isn't stretched. If the image is **upside-down** = you forgot the `(1 − …)` on py; if it's **stretched** = you applied aspect to the wrong axis." },
-      { note: "Prove it yourself: put camera C at (0,0,−30) looking +z, place a sphere at (0,0,12) — you should see a circle centered. If the screen is all black = the camera looks the wrong way (the object is off-frame) — frame the object in front of the camera first." },
+      { note: "Try staging it: put camera C at (0,0,−30) looking +z, place a sphere at (0,0,12) — you should see a circle centered. If the screen is all black = the camera looks the wrong way (the object is off-frame) — frame the object in front of the camera first." },
       { qa: [
         { q: "Why build an orthonormal basis for the camera?", a: "To map a 2D pixel → a 3D ray direction: right/up are the axes of the 'virtual screen', forward is straight ahead; the ray dir = forward + px·right + py·up." },
         { q: "Why does px use +0.5 and py flip with (1−…)?", a: "+0.5 = cast through the 'center' of the pixel, not the corner; flip y because screen coords increase downward but in the image +y is up." },
@@ -6144,16 +6185,24 @@ color [0,1] → color_to_int → image buffer → mlx_put_image`, cap: "scene fi
 }`, cap: "order: parse → mlx → camera basis → render → loop", lang: "c" },
       { h: "render() — loop pixels" },
       { code: String.raw`void render(t_scene *s) {
-    int x, y;
-    for (y = 0; y < HEIGHT; y++)
-      for (x = 0; x < WIDTH; x++) {
-        t_ray ray = gen_ray(&s->cam, x, y);       // pixel → ray
-        t_hit hit;
-        if (trace(s, ray, &hit))                  // did it hit anything
-            put_pixel(s, x, y, color_to_int(shade(s, &hit)));
-        else
-            put_pixel(s, x, y, 0);                // no hit = black
-      }
+    int x;
+    int y;
+
+    y = 0;
+    while (y < HEIGHT)                            // the norm forbids for -> while
+    {
+        x = 0;
+        while (x < WIDTH)
+        {
+            ray = gen_ray(&s->cam, x, y);         // pixel → ray
+            if (trace(s, ray, &hit))              // did it hit anything
+                put_pixel(s, x, y, color_to_int(shade(s, &hit)));
+            else
+                put_pixel(s, x, y, 0);            // no hit = black
+            x++;
+        }
+        y++;
+    }
     mlx_put_image_to_window(s->mlx, s->win, s->img, 0, 0);
 }`, cap: "1 pixel = 1 ray; hit→shade, miss→black", lang: "c" },
       { h: "trace() — find the nearest object" },
@@ -6319,7 +6368,7 @@ ray_dir  = dir + plane · camera_x  # center column = dir straight ahead`, cap: 
       { p: "The map is **not** rectangular and may contain spaces. Every walkable cell (`0`/player) must not touch the outer edge/a space (else it 'leaks'). Check the 4 neighbours: if a neighbour is off-grid **or** a space = the map is open = error." },
 
       { h: "🔬 Deep Dive A: Camera Plane & Ray Direction — raycasting's 2D camera model" },
-      { p: "**Picture it:** the player stands on a 2D grid looking 'ahead' (dir). To see a wide angle you need a 'virtual screen' standing perpendicular in front of the player = the **plane** vector. Each screen column = one point on the plane → cast a ray through it." },
+      { p: "the player stands on a 2D grid looking 'ahead' (dir). To see a wide angle you need a 'virtual screen' standing perpendicular in front of the player = the **plane** vector. Each screen column = one point on the plane → cast a ray through it." },
       { code: String.raw`dir ┃ plane (⊥ dir)
          │
     ╲    │    ╱   each column's ray
@@ -6344,7 +6393,7 @@ initial direction from the player letter (boolean arithmetic, avoid ?: per norm)
   'E': dir=(1, 0) plane=(0, 0.66)
   'W': dir=(−1,0) plane=(0,−0.66)
   → plane is always ⊥ dir (dir rotated 90°)`, cap: "longer plane = wider FOV (too much = fisheye); plane is always ⊥ dir", lang: "txt" },
-      { note: "Prove it yourself: set |plane| = 1.0 (FOV 90°) then 0.3 (FOV ~33°) — watch the view widen/narrow. When you turn, rotate **both dir and plane** with the same rotation matrix or the camera distorts." },
+      { note: "Try tuning it: set |plane| = 1.0 (FOV 90°) then 0.3 (FOV ~33°) — watch the view widen/narrow. When you turn, rotate **both dir and plane** with the same rotation matrix or the camera distorts." },
       { qa: [
         { q: "What is the plane vector, why is it needed?", a: "The plane = the 'virtual screen's' horizontal axis, perpendicular to dir; it spreads the rays into a wide angle (FOV). column x's ray = dir + plane·camera_x." },
         { q: "How is FOV set?", a: "From the ratio |plane|/|dir|: FOV = 2·atan(|plane|). |plane|=0.66 → ~66°. Longer = wider (too much = fisheye)." },
@@ -6352,7 +6401,7 @@ initial direction from the player letter (boolean arithmetic, avoid ?: per norm)
       ]},
 
       { h: "🔬 Deep Dive B: DDA — stepping the grid cell-by-cell to the wall" },
-      { p: "**Picture it:** instead of inching the ray forward (slow/can miss), DDA jumps straight to the **next grid line** (whichever of vertical/horizontal is nearer) then checks if that cell is a wall — guaranteed not to skip a wall." },
+      { p: "instead of inching the ray forward (slow/can miss), DDA jumps straight to the **next grid line** (whichever of vertical/horizontal is nearer) then checks if that cell is a wall — guaranteed not to skip a wall." },
       { code: String.raw`prep: delta_dist = the ray distance to cross 1 full cell
   delta_x = |1 / ray_dir_x|     (guard /0 with a big number 1e30)
   delta_y = |1 / ray_dir_y|
@@ -6368,7 +6417,7 @@ DDA loop:
         side_y += delta_y; map_y += step_y; side = 1   # hit a y-side
     if (map is '1' / space / off-grid): break   # found a wall`, cap: "pick the nearer grid line, step one cell → fast and can never pass through a wall", lang: "txt" },
       { p: "**Why it's fast:** DDA skips a whole empty cell in one step — no matter how big an open room, it reaches a wall in few steps (unlike ray marching's tiny fixed steps). The step count ≈ the number of grid cells the ray passes." },
-      { note: "Prove it yourself: you must treat **a space and off-grid = a wall** too, or a ray escaping the map makes DDA loop forever (segfault/hang). Guard delta with 1e30 when ray_dir = 0 (ray parallel to an axis)." },
+      { note: "Remember: you must treat **a space and off-grid = a wall** too, or a ray escaping the map makes DDA loop forever (segfault/hang). Guard delta with 1e30 when ray_dir = 0 (ray parallel to an axis)." },
       { qa: [
         { q: "How does DDA differ from inching the ray?", a: "DDA jumps to the next grid line immediately (picking the nearer vertical/horizontal) then checks cell by cell — far faster and can never skip a wall, unlike ray marching's fixed tiny steps (slow/can miss)." },
         { q: "What is delta_dist?", a: "The distance the ray travels crossing 1 full grid cell on that axis = |1/ray_dir|; accumulated to find the next grid line (guard /0 with a big 1e30)." },
@@ -6376,7 +6425,7 @@ DDA loop:
       ]},
 
       { h: "🔬 Deep Dive C: Fisheye Correction — why you use the perpendicular distance" },
-      { p: "**Picture it:** measuring the player-to-wall distance as Euclidean (the true straight distance) makes a flat wall look **bulged at center** because edge rays travel farther diagonally than center rays → the same wall looks near at center, far at the edges = distorted." },
+      { p: "measuring the player-to-wall distance as Euclidean (the true straight distance) makes a flat wall look **bulged at center** because edge rays travel farther diagonally than center rays → the same wall looks near at center, far at the edges = distorted." },
       { code: String.raw`a single flat wall, top view:
 
    edge ╲          ╱ edge
@@ -6395,7 +6444,7 @@ instead of √(dx²+dy²) use what DDA already has:
   else:          perp = (map_y − pos_y + (1−step_y)/2) / ray_dir_y
   line_h = WIN_H / perp`, cap: "perp = the distance perpendicular to the camera plane → a flat wall looks flat (removes fisheye)", lang: "txt" },
       { p: "**Why this formula is the perpendicular distance:** it's the distance along the ray axis divided by the ray's component on that axis, which equals projecting the distance onto dir — dropping the diagonal part, leaving the real 'depth into the screen'." },
-      { note: "Prove it yourself: try the Euclidean distance (√) instead of perp and render — walls curve and bulge at center like a fisheye lens. Switch back to perp and walls are instantly straight." },
+      { note: "Swap it and see: try the Euclidean distance (√) instead of perp and render — walls curve and bulge at center like a fisheye lens. Switch back to perp and walls are instantly straight." },
       { qa: [
         { q: "What causes fisheye?", a: "Using the Euclidean distance (true straight distance to the wall): edge rays travel farther diagonally than center rays → a single flat wall looks near at center, far at the edges = bulged." },
         { q: "How do you fix fisheye?", a: "Use the 'perpendicular to the camera plane' distance instead of Euclidean — project the distance onto dir → every point on a flat wall gets the same distance." },
@@ -6403,7 +6452,7 @@ instead of √(dx²+dy²) use what DDA already has:
       ]},
 
       { h: "🔬 Deep Dive D: Texture Mapping — pick the texture + map it to the right side" },
-      { p: "**Picture it:** knowing you hit a wall, you still answer 2 things: (1) **which side** of the wall (north/south/east/west → which texture) (2) **where** on the wall it hit → which texture column." },
+      { p: "knowing you hit a wall, you still answer 2 things: (1) **which side** of the wall (north/south/east/west → which texture) (2) **where** on the wall it hit → which texture column." },
       { code: String.raw`pick the texture from side + ray direction (write with if, not ?:):
   side == 0 (vertical wall):  ray_dir_x > 0 → EA   else → WE
   side == 1 (horizontal wall):  ray_dir_y > 0 → SO   else → NO
@@ -6425,7 +6474,7 @@ flip tex_x in 2 of 4 cases (else the texture is mirrored):
     tex_pos += step
     put_pixel(x, y, sample(tex, tex_x, tex_y))
   // above start = ceiling color, below end = floor color`, cap: "near wall (tall line_h) → small step = texture stretched; far → big step = compressed", lang: "txt" },
-      { note: "Prove it yourself: skip the tex_x flip — walking around a room some sides show the texture 'left-right reversed' (e.g. text on a wall mirrored). And you must `& (TEX−1)` clamp, or a wall right against you (line_h > screen) reads past the texture edge → segfault." },
+      { note: "Skip a step and see: drop the tex_x flip — walking around a room some sides show the texture 'left-right reversed' (e.g. text on a wall mirrored). And you must `& (TEX−1)` clamp, or a wall right against you (line_h > screen) reads past the texture edge → segfault." },
       { qa: [
         { q: "How do you pick 1 of 4 textures?", a: "From side (vertical wall=0 / horizontal=1) + ray direction: side0 → ray_dir_x>0?EA:WE; side1 → ray_dir_y>0?SO:NO (written with if per norm)." },
         { q: "What are wall_x and tex_x?", a: "wall_x = where the ray hit on the wall (fraction 0..1 of the cell); tex_x = wall_x·TEX_W = the texture column to draw for that stripe." },
@@ -6469,7 +6518,7 @@ typedef struct s_img {         // image buffer (draw the whole frame then put)
 typedef struct s_map {
     char **grid;               // the grid (rows can be different lengths!)
     int    height, width;
-} t_map;`, cap: "player holds dir+plane; ray is per-column scratch; map is char** with unequal row lengths", lang: "c" },
+} t_map;`, cap: "player holds dir+plane; ray is per-column scratch; map is `char **` with unequal row lengths", lang: "c" },
       { h: "image buffer — draw the whole frame then put once" },
       { p: "Don't use `mlx_pixel_put` per pixel (very slow — an X-server round-trip per dot). Write into your own image buffer via a pointer then `mlx_put_image_to_window` once per frame:" },
       { code: String.raw`void put_pixel(t_img *img, int x, int y, int color) {
@@ -6596,7 +6645,7 @@ init mlx + load 4 textures (xpm) as images
         ["DDA hangs/segfaults", "space/off-grid not treated as wall / map not closed", "is_wall treats space+OOB=wall + validate closed"],
         ["Texture left-right reversed", "no tex_x flip", "flip in 2 of 4 cases"],
         ["Sticks on a diagonal wall hit", "collision checked combined", "check X/Y separately (wall slide)"],
-        ["norm reports 0 OK though code is fine", "CRLF (\\r) / an 81-col header", "sed -i to strip \\r + copy a header from a passing file"],
+        ["norminette fails although the code looks correct", "the file has CRLF (\\r) / an 81-column header", "sed -i to strip \\r + copy a header from a passing file"],
       ]}},
       { h: "build / run / check" },
       { code: String.raw`make            # mandatory
@@ -6795,7 +6844,7 @@ signs of being 'stuck' → abort before the cap:
       { h: "📚 Provider docs (read it from the source)" },
       { links: [
         { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns + when to (not) use an agent" },
-        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://docs.anthropic.com/en/docs/claude-code/overview", note: "real loop/verify tooling in Claude Code" },
+        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://code.claude.com/docs/en/overview", note: "real loop/verify tooling in Claude Code" },
         { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "guardrails, stopping conditions, human-in-the-loop" },
       ]},
       { h: "🎬 Video lessons (go deeper)" },

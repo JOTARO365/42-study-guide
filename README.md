@@ -18,6 +18,7 @@
 
 | โปรเจกต์ | ลิงก์ | เนื้อหา |
 |----------|-------|---------|
+| **libft** | [libft.html](libft.html) | The ~46-function C toolbox + ft_printf + get_next_line: pointer ownership, memmove overlap, strlcpy/strlcat return values, calloc overflow, the get_next_line stash |
 | **push_swap** | [push_swap.html](push_swap.html) | Turkish sort, Big-O proof, decision tree lower bound, two's complement, cost calculation |
 | **pipex** | [pipex.html](pipex.html) | fork/pipe/dup2/execve, fd table trace, pipe reference counting, exec memory layout |
 | **so_long** | [so_long.html](so_long.html) | Flood fill, DFS/BFS complexity, camera formula derivation, formal FSM |
@@ -26,6 +27,15 @@
 | **fdf** | [fdf.html](fdf.html) | Isometric projection, Bresenham's line, centering derivation, color lerp |
 | **philosophers** | [philosophers.html](philosophers.html) | Dining philosophers, deadlock (Coffman conditions), mutex, precise_sleep |
 | **CPP Module 00** | [cpp_module_00.html](cpp_module_00.html) | C→C++ transition, class/object, encapsulation, static members, this pointer |
+| **CPP Module 01** | [cpp_module_01.html](cpp_module_01.html) | Stack vs heap, new/delete, references vs pointers, pointer-to-member, C++ file streams |
+| **CPP Module 02** | [cpp_module_02.html](cpp_module_02.html) | Orthodox Canonical Form, operator overloading, fixed-point arithmetic, BSP cross-product |
+| **CPP Module 03** | [cpp_module_03.html](cpp_module_03.html) | Inheritance chaining, ctor/dtor order, unsigned underflow, diamond problem, virtual inheritance |
+| **CPP Module 04** | [cpp_module_04.html](cpp_module_04.html) | Polymorphism, virtual destructor, deep copy, abstract classes, interfaces + pointer ownership |
+| **CPP Module 05** | [cpp_module_05.html](cpp_module_05.html) | Exceptions from constructors, const members vs OCF, template method, table dispatch |
+| **CPP Module 06** | [cpp_module_06.html](cpp_module_06.html) | static_cast / reinterpret_cast / dynamic_cast, literal detection, RTTI, IEEE 754 NaN |
+| **CPP Module 07** | [cpp_module_07.html](cpp_module_07.html) | Function & class templates, header-only linkage, Array<T> with deep copy + bounds exception |
+| **CPP Module 08** | [cpp_module_08.html](cpp_module_08.html) | STL containers/iterators/algorithms, dependent names (typename, this->), O(n log n) span |
+| **CPP Module 09** | [cpp_module_09.html](cpp_module_09.html) | std::map + lower_bound, RPN with std::stack, Ford-Johnson merge-insert + timing |
 | **minishell** | [minishell.html](minishell.html) | Shell architecture, lexer/parser pipeline, pipe EOF, signal handling |
 | **miniRT** | [minirt.html](minirt.html) | Ray tracer: ray-sphere quadratic, Phong lighting, shadows (acne), camera basis, .rt parsing |
 | **cub3D** | [cub3d.html](cub3d.html) | Raycasting FPS: camera plane, DDA grid traversal, fisheye correction, texture mapping, .cub parsing + closed-map validation |
@@ -72,6 +82,7 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | Project | จำนวน | หัวข้อ |
 |---------|:-----:|--------|
 | push_swap | **7** | Big-O formal def, comparison sort lower bound, two's complement, cost calculation, normalization proof, greedy optimality, scoring thresholds analysis |
+| libft | **6** | memcpy vs memmove (overlap direction), strlcpy/strlcat return semantics, calloc overflow, itoa & INT_MIN, ft_split count-then-fill + partial-failure cleanup, t_list del vs free |
 | pipex | 4 | fork returns twice, fd table trace, pipe reference counting, exec memory layout |
 | so_long | 4 | DFS/BFS O(V+E), recursion & stack overflow, camera formula, formal FSM |
 | fractol | 4 | Complex multiplication, escape radius proof, IEEE 754, pixel↔complex mapping |
@@ -79,6 +90,15 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 | fdf | **4** | Isometric formula derivation, Bresenham proof + trace, color lerp (channel split), auto-fit (centering+zoom+z_scale) |
 | philosophers | **4** | Deadlock & Coffman + RAG-graph proof, data race & atomicity, mutex vs semaphore (mandatory/bonus), usleep precision & detection latency |
 | cpp_module_00 | **4** | Static members & lifecycle, constructor/destructor order, const-correctness, this pointer |
+| cpp_module_01 | **4** | Stack vs heap lifetime, new[]/delete[] pairing, reference vs pointer, pointer-to-member functions |
+| cpp_module_02 | **4** | Fixed-point representation, OCF & why the compiler's version breaks, operator<< without friend, const/non-const overload pairs |
+| cpp_module_03 | **4** | Constructor/destructor chaining order, unsigned underflow in takeDamage, the diamond problem, name shadowing & scope resolution |
+| cpp_module_04 | **4** | Virtual destructor & the Brain leak, deep vs shallow copy, pointer ownership rules, circular include & forward declaration |
+| cpp_module_05 | **4** | const members vs OCF, throwing from a constructor, check-in-base/act-in-child, table dispatch instead of if/else |
+| cpp_module_06 | **5** | dynamic_cast NULL vs throw, polymorphic-class requirement, float formatting, impossible vs Non displayable, C++98 isnan/isinf |
+| cpp_module_07 | **5** | Why templates live in headers, the tie-goes-to-second rule, templating the function parameter, Array deep copy, signed→unsigned index wrap |
+| cpp_module_08 | **5** | typename for dependent types, O(n log n) shortestSpan, this->c in dependent bases, why std::stack has no iterators, addRange as an STL idiom |
+| cpp_module_09 | **4** | map::lower_bound for the closest earlier date, RPN operand order, Ford-Johnson + Jacobsthal, gettimeofday vs clock() |
 | minishell | **4** | Lexer as a state machine + quotes, fd inheritance + dup2/close pipeline, pipe EOF reference counting, signals (interactive/heredoc) + $? propagation |
 | miniRT | **4** | Ray-sphere intersection (quadratic + discriminant), Phong lighting + normal flip, shadows & shadow acne (epsilon), camera & ray generation (basis + FOV/aspect) |
 | cub3D | **4** | Camera plane & ray direction (FOV), DDA grid traversal, fisheye correction (perpendicular distance), texture mapping (side select + wall_x + flip) |
@@ -107,14 +127,15 @@ push_swap, pipex, so_long, fractol, minitalk, fdf, philosophers
 ```
 _teaching/
   index.html          # หน้ารวมลิงก์
-  push_swap.html      # หน้าโปรเจกต์ (set window.PROJECT_ID)
+  libft.html          # หน้าโปรเจกต์ (set window.PROJECT_ID)
+  push_swap.html
   pipex.html
   so_long.html
   fractol.html
   minitalk.html
   fdf.html
   philosophers.html
-  cpp_module_00.html
+  cpp_module_00.html … cpp_module_09.html   # CPP Modules 00–09
   minishell.html
   ai_foundations.html
   ai_llm.html
@@ -130,5 +151,6 @@ _teaching/
   data.exam.js        # สื่อติวสอบ Exam Rank 02–06
   style.css           # Dark theme
 ```
- 
+
+ 
  

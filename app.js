@@ -851,6 +851,7 @@
     var proj = props.proj;
     var isAI = proj.id.indexOf("ai_") === 0;
     var isExam = proj.id.indexOf("exam_") === 0;
+    var isCPP  = proj.id.indexOf("cpp_module_") === 0;
     var st = useState("principle"), tab = st[0], setTab = st[1];
     document.documentElement.style.setProperty("--accent", proj.accent);
     var enSec = (LANG === "en" && window.TEACHING_EN && window.TEACHING_EN[proj.id])
@@ -876,7 +877,8 @@
       ),
       h("div", { className: "tabs" },
         TABS.filter(function (tb) {
-          if (isExam) return tb[0] !== "demo" && tb[0] !== "flowviz";
+          if (isExam || isCPP || proj.id === "libft")
+            return tb[0] !== "demo" && tb[0] !== "flowviz";
           return !(isAI && tb[0] === "demo");
         })
           .map(function (tb) {

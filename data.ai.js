@@ -87,7 +87,7 @@ Input: "วิธีทำก๋วยเตี๋ยว"
   ↓
 [Embed]     → แปลงแต่ละ token เป็น vector ความหมาย (เช่น 768 มิติ)
   ↓
-[Transformer] → ผ่าน Attention layers หลายชั้น (Claude ~100+ ชั้น)
+[Transformer] → ผ่าน Attention layers หลายสิบถึงหลายร้อยชั้น
   ↓
 [Output]    → คำนวณความน่าจะเป็นของทุก token ที่เป็นไปได้
   ↓
@@ -104,7 +104,7 @@ Output: "น้ำ"   (ความน่าจะเป็นสูงสุด
 output logits (คะแนนดิบของทุก token):
   "น้ำ": 8.2    "ต้ม": 7.9    "ตัว": 2.1    "Hello": -3.4  ...
 
-_softmax(logits, temperature=1.0) → ความน่าจะเป็น:
+softmax(logits, temperature=1.0) → ความน่าจะเป็น:
   "น้ำ": 0.35   "ต้ม": 0.28   "ตัว": 0.01   "Hello": 0.00001
 
 ถ้า temperature=0.7 (ลดความสุ่ม):
@@ -112,7 +112,7 @@ _softmax(logits, temperature=1.0) → ความน่าจะเป็น:
 
 ถ้า temperature=1.5 (เพิ่มความสุ่ม):
   "น้ำ": 0.22   "ต้ม": 0.19   "ตัว": 0.08   ... (กระจาย)`, cap: "softmax แปลงคะแนนเป็นความน่าจะเป็น, temperature คุมความกระจุก/กระจาย", lang: "txt" },
-      { note: "top_p (nucleus sampling) = อีกวิธีคุมความสุ่ม: เลือกเฉพาะ token ที่ cumulative probability ≤ p. top_p=0.9 หมายถึง 'ตัดทิ้ง 10% ท้ายที่ไม่น่าจะเป็น' → ลดโอกาสตอบเพี้ยน", lang: "txt" },
+      { note: "top_p (nucleus sampling) = อีกวิธีคุมความสุ่ม: เลือกเฉพาะ token ที่ cumulative probability ≤ p. top_p=0.9 หมายถึง 'ตัดทิ้ง 10% ท้ายที่ไม่น่าจะเป็น' → ลดโอกาสตอบเพี้ยน" },
       { code: String.raw`ความแตกต่างของ output ตาม temperature:
 
 ข้อความเดียวกัน: "จะเกิดอะไรขึ้นถ้าแมวหายไป?"
@@ -132,7 +132,7 @@ temperature=1.2 (creative):
   เขียนนิยาย/ไอเดีย: 0.7-1.2`, lang: "txt" },
 
       { h: "🔬 เจาะลึก B: Tokenizer ทำงานยังไง — BPE algorithm" },
-      { p: "LLM ไม่ได้อ่านเป็นตัวอักษร แต่อ่านเป็น **token** (ชิ้นส่วนของคำ). Tokenizer คือตัวแปลงข้อความ → หมายเลข token. วิธีที่ใช้กัน widest คือ **BPE (Byte Pair Encoding)**" },
+      { p: "LLM ไม่ได้อ่านเป็นตัวอักษร แต่อ่านเป็น **token** (ชิ้นส่วนของคำ). Tokenizer คือตัวแปลงข้อความ → หมายเลข token. วิธีที่ใช้กันแพร่หลายที่สุดคือ **BPE (Byte Pair Encoding)**" },
       { code: String.raw`BPE: ฝึกจากข้อความมหาศาล → หา "ชิ้นคำที่เจอบ่อย" แล้วแยกเป็น token
 
 ตัวอย่าง BPE vocabulary (ย่อ):
@@ -149,31 +149,39 @@ temperature=1.2 (creative):
 ผลลัพธ์ = [token_id_of("cat"), token_id_of("ing")]`, cap: "BPE เริ่มจากตัวอักษรทีละตัว แล้ว merge คู่ที่เจอบ่อยที่สุดซ้ำ ๆ จนได้ vocabulary ที่ครอบคลุม", lang: "txt" },
       { code: String.raw`ทำไม token ภาษาไทยแพงกว่าภาษาอังกฤษ:
 
-ภาษาอังกฤษ: "hello" = 1 token (word-level vocabulary มี "hello")
-ภาษาไทย:    "สวัสดี" = 3 tokens (ไม่มีใน vocabulary → ถูก split เป็นชิ้นเล็ก)
+vocabulary ของ tokenizer ถูกฝึกจากข้อความอังกฤษเป็นหลัก
+  "hello"  → เจอบ่อยมากจน merge เป็น token เดียวได้
+  "สวัสดี"  → เจอน้อยกว่ามาก จึงถูกหั่นเป็นหลายชิ้น
 
-→ ภาษาไทย 1 ประโยค = ประมาณ 2-3 เท่า ของภาษาอังกฤษ
+→ ข้อความไทยที่สื่อความเท่ากัน มัก กิน token มากกว่าอังกฤษ ~1.5-3 เท่า
 → ราคา = จำนวน token × ราคาต่อ token
-→ ภาษาไทยจึงแพงกว่าประมาณ 2-3 เท่า (ถ้าเนื้อหาเท่ากัน)
+→ ค่าใช้จ่ายจึงต่างกันตามสัดส่วนนั้น
 
-ตัวอย่างจริง (Claude 3.5):
-  English: "Hello, how are you?" = 8 tokens
-  Thai:    "สวัสดี สบายดีไหม"    = 14 tokens
-  → Thai แพงกว่า 75%`, cap: "Tokenizer ถูกฝึกจากข้อความอังกฤษเป็นหลัก → ภาษาอื่น split เป็นชิ้นเล็ก → แพงกว่า", lang: "txt" },
+ตัวเลขเป๊ะ ๆ ต่างกันตามรุ่นของโมเดล (tokenizer เปลี่ยนได้)
+อย่าเดา — นับจริงด้วย endpoint นับ token:
+
+  client.messages.count_tokens(
+      model="claude-sonnet-5",
+      messages=[{"role": "user", "content": ข้อความ}],
+  ).input_tokens`, cap: "อย่าใช้ tiktoken นับ token ของ Claude — คนละ tokenizer นับได้ไม่ตรง", lang: "txt" },
       { code: String.raw`Byte fallback — วิธีจัดการอักขระแปลก:
 
 ถ้าเจออักขระที่ไม่มีใน vocabulary (เช่น emoji 🎉 หรืออักษรพิเศษ):
   → split เป็น byte ดิบ (0-255) แล้ว encode แต่ละ byte
 
-"🎉" = [byte_0xF0, byte_0x9F, byte_0x8E, byte_0x89] = 4 tokens
-"ก"  = [byte_0xE0, byte_0xB8, byte_0x81] = 3 tokens
-"A"  = [token "A"] = 1 token
+"🎉" = [byte_0xF0, byte_0x9F, byte_0x8E, byte_0x89] → มากสุด 4 tokens
+"A"  = [token "A"]                                → 1 token
+
+จำนวนจริงขึ้นกับว่า vocabulary merge byte พวกนั้นไว้แล้วหรือยัง
+อักขระที่เจอบ่อย (เช่นตัวอักษรไทยทั่วไป) มักถูก merge แล้ว จึงน้อยกว่า
+จำนวน byte ; อักขระหายากถึงจะตกไปเป็น byte ล้วน
 
 → ยิ่งอักขระ 'แปลก' ยิ่งกิน token เยอะ`, lang: "txt" },
 
       { h: "🔬 เจาะลึก C: Context window — 'ความจำใช้งาน' ของ LLM + ทำไมตำแหน่งข้อมูลสำคัญ" },
-      { p: "**ภาพในหัว:** LLM ไม่มีความจำข้ามการเรียก — สิ่งเดียวที่มัน 'รู้' ในรอบนั้นคือทุก token ที่อยู่ใน context window (system + ประวัติ + เอกสาร + คำถาม). context window คือ 'ความจำใช้งาน' ทั้งหมดของมัน พอเต็มต้องตัด/สรุปทิ้ง" },
-      { code: String.raw`context window = เพดาน token ต่อ 1 รอบ (เช่น Claude ~200k tokens)
+      { p: "LLM ไม่มีความจำข้ามการเรียก — สิ่งเดียวที่มัน 'รู้' ในรอบนั้นคือทุก token ที่อยู่ใน context window (system + ประวัติ + เอกสาร + คำถาม). context window คือ 'ความจำใช้งาน' ทั้งหมดของมัน พอเต็มต้องตัด/สรุปทิ้ง" },
+      { code: String.raw`context window = เพดาน token ต่อ 1 รอบ
+  (Claude Opus 5 / Sonnet 5 = 1M tokens ; Haiku 4.5 = 200k)
 
   [ system prompt ] + [ ประวัติแชต ] + [ docs (RAG) ] + [ คำถาม ]
   └──────────────── ต้องรวมกันไม่เกินเพดาน ────────────────┘
@@ -191,7 +199,7 @@ temperature=1.2 (creative):
 
 → practice: วาง 'เอกสาร/คำสั่งสำคัญไว้บนสุด' แล้ว 'คำถามไว้ล่างสุด'
   RAG: เรียง chunk ที่เกี่ยวสุดไว้ใกล้ขอบ (ต้น/ท้าย) ไม่ใช่กลางกอง`, cap: "วางของสำคัญไว้ต้นหรือท้าย ไม่ใช่กลาง — ตรงกับทริค 'เอกสารยาวไว้บนสุด' ในแท็บทฤษฎี", lang: "txt" },
-      { note: "ลองพิสูจน์เอง: เอาคำสั่งสำคัญ 1 บรรทัดซ่อนไว้ 'กลาง' เอกสารยาว 50 ย่อหน้า แล้วถามให้ทำตาม — เทียบกับวางบรรทัดเดิมไว้ 'บนสุด'. แบบบนสุดจะทำตามแม่นกว่าชัดเจน" },
+      { note: "ลองเอง: เอาคำสั่งสำคัญ 1 บรรทัดซ่อนไว้ 'กลาง' เอกสารยาว 50 ย่อหน้า แล้วถามให้ทำตาม — เทียบกับวางบรรทัดเดิมไว้ 'บนสุด'. แบบบนสุดจะทำตามแม่นกว่าชัดเจน" },
       { qa: [
         { q: "LLM จำบทสนทนาก่อนหน้าได้เองไหม?", a: "ไม่ — มันไม่มี state ข้ามการเรียก. เราต้อง 'ส่งประวัติทั้งหมดกลับเข้าไป' ทุกครั้ง (เป็นเหตุที่ token สะสมขึ้นเรื่อย ๆ ในแชตยาว)" },
         { q: "ทำไมยัด context เยอะ ๆ ไม่ดี ทั้งที่เพดานยังไม่เต็ม?", a: "(1) attention O(n²) → ช้า+แพงแบบกำลังสอง, (2) lost in the middle → ข้อมูลเยอะเจือจางความสนใจ ดึงของสำคัญแม่นน้อยลง. ส่งเฉพาะที่เกี่ยวดีกว่ายัดทั้งหมด" },
@@ -200,9 +208,9 @@ temperature=1.2 (creative):
 
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
-        { label: "Anthropic — Intro to Claude", url: "https://docs.anthropic.com/en/docs/intro-to-claude", note: "ภาพรวม LLM + เริ่มต้นใช้ Claude" },
+        { label: "Anthropic — Intro to Claude", url: "https://platform.claude.com/docs/en/intro-to-claude", note: "ภาพรวม LLM + เริ่มต้นใช้ Claude" },
         { label: "What are tokens? (OpenAI help)", url: "https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them", note: "token คืออะไร นับยังไง (ใช้ได้ทุกโมเดล)" },
-        { label: "Prompt engineering overview (Anthropic)", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview", note: "หลักการเขียน prompt" },
+        { label: "Prompt engineering overview (Anthropic)", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview", note: "หลักการเขียน prompt" },
         { label: "How GPT Tokenizers Work (tiktoken)", url: "https://github.com/openai/tiktoken", note: "BPE tokenizer ของ OpenAI — ดูโค้ดจริง" },
         { label: "LLM Visualization (bbycroft.net)", url: "https://bbycroft.net/llm", note: "visualize attention, transformer layers ทีละขั้น" },
       ]},
@@ -308,7 +316,7 @@ print("ผล :", verdict)`, cap: "แอป AI ตัวแรก — เรี
         "`client` — ตัวเชื่อมกับโมเดล สร้างครั้งเดียว",
         "`ask()` — ห่อ 1 LLM call ให้เรียกซ้ำง่าย",
         "step 1→2 — ส่งผลสเตปแรกเป็น input สเตปถัดไป = แนวคิด pipeline",
-        "อยากฉลาดขึ้นเปลี่ยน model เป็น `claude-sonnet-4-6`",
+        "อยากฉลาดขึ้นเปลี่ยน model เป็น `claude-sonnet-5` (หรือ `claude-opus-5` สำหรับงานยากจริง ๆ)",
       ]},
       { h: "เส้นทางการเรียนสาย AI Engineer (แนะนำลำดับ)" },
       { ul: [
@@ -433,9 +441,17 @@ class Review(BaseModel):
         "ลิมิต: ไฟล์ ≤10MB/รูป, มิติ ≤8000px, ภาพควรคม; ระบุชื่อคน/นับวัตถุ/spatial เป๊ะ ๆ ไม่แม่น",
       ]},
       { h: "8) Extended thinking — ให้โมเดลคิดก่อนตอบ (จาก docs)" },
-      { p: "โหมดที่โมเดลสร้าง **thinking block** (ให้เหตุผลภายใน) ก่อนคำตอบจริง — เปิดด้วย `thinking: {type:'enabled', budget_tokens: N}` (N < max_tokens). **thinking token คิดเงินเป็น output**" },
+      { p: "โหมดที่โมเดลสร้าง **thinking block** (ให้เหตุผลภายใน) ก่อนคำตอบจริง. รุ่นใหม่ใช้ **adaptive thinking** — โมเดลตัดสินใจเองว่าจะคิดลึกแค่ไหน แล้วเราคุมงบด้วย `effort` แทนการกำหนดจำนวน token. **thinking token คิดเงินเป็น output**" },
+      { code: String.raw`client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=16000,
+    thinking={"type": "adaptive", "display": "summarized"},
+    output_config={"effort": "high"},   # low | medium | high | xhigh | max
+    messages=[...],
+)`, cap: "adaptive + effort คือ API ปัจจุบัน; แบบเก่า thinking={'type':'enabled','budget_tokens':N} ถูกถอดแล้ว — ส่งไปได้ 400", lang: "py" },
       { ul: [
         "ใช้กับงาน reasoning หลายขั้น (คณิต/โค้ดยาก/วิเคราะห์); คำถามง่าย ๆ = overkill",
+        "`display` ปริยายคือ `omitted` — ได้ thinking block ที่เนื้อหาว่าง. ถ้าจะโชว์เหตุผลให้ผู้ใช้ต้องสั่ง `\"summarized\"` เอง",
         "อย่า prefill/ยัดคำใส่ thinking; ตอนใช้ tool ต้องส่ง thinking block เดิมกลับไปไม่ดัดแปลง; เปลี่ยนค่า thinking ทำ cache หลุด",
       ]},
       { h: "9) Batch API — งาน bulk ลด cost 50% (จาก docs)" },
@@ -448,12 +464,12 @@ class Review(BaseModel):
       { p: "โมเดลอ่าน **PDF** ได้ทั้ง text + ภาพ/ชาร์ตในหน้า (แต่ละหน้าแปลงเป็นรูป + สกัด text). ส่งเป็น content block `document` ผ่าน url / base64 / file_id" },
       { ul: [
         "**Files API**: อัปไฟล์ครั้งเดียวได้ `file_id` แล้วอ้างซ้ำหลาย request — ไม่ต้องส่งไฟล์ซ้ำ (เหมาะเอกสารใหญ่/ใช้บ่อย)",
-        "ลิมิต PDF: ≤32MB, ≤100 หน้า (โมเดล context 200k); แต่ละหน้ากิน ~1.5-3k text token + image token (คิดเป็น input ปกติ)",
+        "ลิมิต PDF: ≤32MB, ≤600 หน้า (เหลือ 100 หน้าถ้าเป็นโมเดล context 200k); แต่ละหน้ากิน ~1.5-3k text token + image token (คิดเป็น input ปกติ)",
         "use cases: วิเคราะห์รายงาน/อ่านชาร์ต, สกัดข้อมูลจากฟอร์ม/เอกสารกฎหมาย; ใช้ prompt caching ลด cost เมื่อวิเคราะห์ซ้ำ",
       ]},
       { h: "🔬 เจาะลึก A: Structured Output ทำงานจริงยังไง — จาก Schema สู่ JSON ที่ถูกต้อง" },
       { p: "Structured output ไม่ใช่แค่ 'ขอ JSON กลับมา' — มันเป็น **กลไกบังคับ (constrained decoding)** ที่โมเดลถูกจำกัดให้สร้าง token ที่ตรงกับ schema เท่านั้น" },
-      { code: String.raw`เบื้องหลัง when คุณใช้ with_structured_output():
+      { code: String.raw`เบื้องหลังตอนที่คุณใช้ with_structured_output():
 
 ขั้นที่ 1 — LangChain แปลง Pydantic model → JSON Schema:
   class Review(BaseModel):
@@ -473,15 +489,17 @@ class Review(BaseModel):
   }
 
 ขั้นที่ 2 — ส่ง schema ให้ API:
-  messages = [
-    {"role": "system", "content": "วิเคราะห์รีวิวนี้..."},
-    {"role": "user", "content": text}
-  ]
   response = client.messages.create(
-    model="claude-sonnet-4-20250514",
-    messages=messages,
-    **structured_output(schema)  # ← ส่ง schema เข้าไปด้วย
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    system="วิเคราะห์รีวิวนี้...",        # Anthropic: system แยกจาก messages
+    messages=[{"role": "user", "content": text}],
+    output_config={"format": {           # ← ส่ง schema เข้าไปตรงนี้
+      "type": "json_schema", "schema": schema
+    }},
   )
+  # Python SDK มีทางลัด: client.messages.parse(..., output_format=Review)
+  #   → ได้ response.parsed_output เป็น object ที่ validate แล้ว
 
 ขั้นที่ 3 — Constrained Decoding:
   โมเดลกำลังจะสร้าง token ถัดไป...
@@ -505,11 +523,11 @@ class Review(BaseModel):
   }
   → ตรง schema 100%, ใช้ได้เลย
 
-ผลจริง:
-  - ความถูกต้อง: structured output เพิ่ม accuracy ~15-30%
-  - ความเร็ว: เร็วกว่าเพราะโมเดลไม่ต้อง "คิด" format
-  - ความน่าเชื่อถือ: ไม่มี hallucinate ใน field ที่เป็น enum/Literal`, lang: "txt" },
-      { note: "ข้อจำกัด: structured output ใช้ได้กับ API ของผู้ให้บริการหลัก (Anthropic/OpenAI/Google) — ถ้าใช้ local model ต้อง parse เอง", lang: "txt" },
+ได้อะไร:
+  - parse ไม่พัง: ผลออกมาตรง schema เสมอ ไม่ต้องเขียน retry loop
+  - field ที่เป็น enum/Literal มั่วค่าไม่ได้ (token นอกรายการถูกบล็อก)
+  - โมเดลไม่ต้องเสีย token ไปกับการจัดรูปแบบเอง`, lang: "txt" },
+      { note: "ข้อจำกัด: structured output ใช้ได้กับ API ของผู้ให้บริการหลัก (Anthropic/OpenAI/Google) — ถ้าใช้ local model ต้อง parse เอง" },
 
       { h: "🔬 เจาะลึก B: Prompt Caching — กลไกและราคาจริง" },
       { p: "Prompt caching ไม่ใช่แค่ 'จำ prompt เดิม' — มันเป็น **API-level optimization** ที่ผู้ให้บริการเก็บ prefix ของ prompt ไว้ใน cache แล้วคิดราคาถูกลงเมื่อส่งซ้ำ" },
@@ -531,7 +549,8 @@ Round 2: ส่ง prompt เดิม + คำถามใหม่
 # (ไม่ใช่ใส่ role:"system" ใน messages แบบ OpenAI)
 
 client.messages.create(
-    model="claude-3-5-sonnet-latest",
+    model="claude-sonnet-5",
+    max_tokens=1024,
     system=[
         {
             "type": "text",
@@ -545,16 +564,35 @@ client.messages.create(
 )
 
 # cache_control: ephemeral = เก็บ cache 5 นาที (ถ้าไม่ใช้จะหมดอายุ)
-# ใช้ได้กับ content block ที่เป็น text หรือ image
+# อยากได้ยาวกว่านั้น: {"type":"ephemeral","ttl":"1h"} แต่ write แพงเป็น 2 เท่า
+# ใช้ได้กับ content block ที่เป็น text หรือ image ; สูงสุด 4 breakpoint ต่อ request
 
-ราคาจริง (Claude 3.5 Sonnet):
+ราคาจริง (Claude Sonnet 5):
   Input ปกติ:     $3.00  / 1M tokens
-  Cache write:    $3.75  / 1M tokens (แพงกว่า 25% รอบแรก)
-  Cache read:     $0.30  / 1M tokens (ถูกกว่า 90%!)
+  Cache write:    $3.75  / 1M tokens (1.25 เท่าของ input, TTL 5 นาที)
+  Cache read:     $0.30  / 1M tokens (0.1 เท่า = ถูกกว่า 90%!)
 
 → ถ้าใช้ system prompt ซ้ำทุกรอบ:
   Round 1: จ่าย cache write ($3.75)
   Round 2+: จ่าย cache read ($0.30) = ประหยัด 92%`, lang: "txt" },
+      { code: String.raw`3 กับดักที่ทำให้ caching "ไม่ติด" โดยไม่มี error ฟ้อง:
+
+1. prefix สั้นเกินขั้นต่ำ → ไม่แคชเลย เงียบ ๆ
+     Opus 5           512 tokens
+     Sonnet 5 / Opus 4.8  1024 tokens
+     Opus 4.6 / Haiku 4.5 4096 tokens
+   prompt 800 token แคชติดบน Opus 5 แต่ไม่ติดบน Haiku 4.5
+
+2. มีของที่เปลี่ยนทุก request อยู่ "ก่อน" จุด cache
+   datetime.now() / uuid4() / ชื่อ user ใน system prompt
+   → prefix เปลี่ยน 1 byte = cache พังทั้งก้อนที่อยู่หลังจากนั้น
+   (ลำดับที่ระบบมองคือ tools → system → messages)
+
+3. เปลี่ยน tools หรือเปลี่ยนโมเดลกลางบทสนทนา → cache หลุดทั้งหมด
+
+วิธีเช็คว่าติดจริง:
+   response.usage.cache_read_input_tokens
+   ถ้าเป็น 0 ตลอดทั้งที่ส่ง prompt เดิม = โดนข้อใดข้อหนึ่งข้างบน`, cap: "caching ไม่เคยขึ้น error เวลาไม่ติด — ต้องอ่าน usage เอาเองถึงจะรู้", lang: "txt" },
       { code: String.raw`วิเคราะห์: คุ้มไหม? (ตัวอย่างระบบตอบลูกค้า)
 
 สมมติ: system prompt 3000 tokens, คำถามเฉลี่ย 200 tokens
@@ -577,7 +615,7 @@ client.messages.create(
   3. ไม่ใช่ batch processing (batch ลดราคา 50% อยู่แล้ว)`, cap: "Caching คุ้มจริงเฉพาะเมื่อ prompt ยาว + ใช้ซ้ำหลายรอบ — ถ้าส่งครั้งเดียวไม่คุ้ม", lang: "txt" },
 
       { h: "🔬 เจาะลึก C: Tool / Function Calling — ให้ LLM 'เรียกฟังก์ชัน' ได้ยังไง" },
-      { p: "**ภาพในหัว:** LLM รันโค้ดเองหรือดึงข้อมูลสดเองไม่ได้ — มันสร้างได้แค่ 'ข้อความ'. tool calling คือกลไกให้มัน **บอกว่า 'ช่วยเรียกฟังก์ชัน X ด้วย args นี้ที'** แล้วเรา (โค้ด) เป็นคนรันจริงและป้อนผลกลับ. นี่คือพื้นฐานของ agent ทุกตัว" },
+      { p: "LLM รันโค้ดเองหรือดึงข้อมูลสดเองไม่ได้ — มันสร้างได้แค่ 'ข้อความ'. tool calling คือกลไกให้มัน **บอกว่า 'ช่วยเรียกฟังก์ชัน X ด้วย args นี้ที'** แล้วเรา (โค้ด) เป็นคนรันจริงและป้อนผลกลับ. นี่คือพื้นฐานของ agent ทุกตัว" },
       { p: "**กลไก — วงจร 4 จังหวะ:**" },
       { code: String.raw`1. เราอธิบาย tool ให้โมเดล (ชื่อ + คำอธิบาย + JSON schema ของ args):
    tools = [{
@@ -615,19 +653,19 @@ client.messages.create(
 
       { h: "📖 อ่านเพิ่มเติม (อยากเจาะทฤษฎีต่อ)" },
       { links: [
-        { label: "Anthropic — Messages API", url: "https://docs.anthropic.com/en/api/messages", note: "พารามิเตอร์ทั้งหมด" },
-        { label: "Anthropic — Context windows", url: "https://docs.anthropic.com/en/docs/build-with-claude/context-windows", note: "context window ทำงานยังไง" },
+        { label: "Anthropic — Messages API", url: "https://platform.claude.com/docs/en/api/messages", note: "พารามิเตอร์ทั้งหมด" },
+        { label: "Anthropic — Context windows", url: "https://platform.claude.com/docs/en/build-with-claude/context-windows", note: "context window ทำงานยังไง" },
         { label: "LangChain — structured output", url: "https://python.langchain.com/docs/concepts/structured_outputs/", note: "with_structured_output()" },
-        { label: "Anthropic — Prompt caching deep dive", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "กลไก caching + ราคาจริง + ตัวอย่าง" },
+        { label: "Anthropic — Prompt caching deep dive", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "กลไก caching + ราคาจริง + ตัวอย่าง" },
         { label: "OpenAI — Structured Outputs guide", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "constrained decoding ฝั่ง OpenAI" },
       ]},
       { h: "📚 เอกสารผู้ให้บริการ (อ่านของจริงจากค่าย)" },
       { links: [
-        { label: "Anthropic — Prompt caching", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "cache_control + ราคา cache" },
+        { label: "Anthropic — Prompt caching", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "cache_control + ราคา cache" },
         { label: "OpenAI — Structured Outputs", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "บังคับ schema ฝั่ง OpenAI" },
         { label: "OpenAI — Prompt caching", url: "https://platform.openai.com/docs/guides/prompt-caching", note: "caching ฝั่ง OpenAI" },
         { label: "Google — Gemini context caching", url: "https://ai.google.dev/gemini-api/docs/caching", note: "caching ฝั่ง Gemini" },
-        { label: "Anthropic — Models & pricing", url: "https://docs.anthropic.com/en/docs/about-claude/models", note: "เทียบ Haiku/Sonnet/Opus เลือกตามงาน" },
+        { label: "Anthropic — Models & pricing", url: "https://platform.claude.com/docs/en/about-claude/models/overview", note: "เทียบ Haiku/Sonnet/Opus เลือกตามงาน" },
       ]},
       { h: "🎬 วิดีโอสอน (เจาะลึก)" },
       { links: [
@@ -869,7 +907,7 @@ cos(A, B) = (A · B) / (1 × 1) = A · B
 Cosine Similarity (แนะนำ):
   + ไม่สนความยาว (ข้อความสั้น/ยาววัดได้เท่ากัน)
   + เร็ว (normalized = dot product)
-  + ใช้กัน widest ใน RAG/search
+  + ใช้กันแพร่หลายที่สุดใน RAG/search
 
 Euclidean Distance (L2):
   d(A,B) = √(Σ(Ai-Bi)²)
@@ -898,10 +936,16 @@ Level 0 (dense):      A-B-C-D-E-F-G-H-I-J-K-L-M  (เชื่อมทุกจ
   2. ทุก level: หาเพื่อนบ้านที่ใกล้สุด แล้ว "ลง" ไป level ต่ำ
   3. Level 0: หา k จุดที่ใกล้สุดจริง ๆ
 
-ความเร็ว:
-  Exact kNN: O(n × d)         — 1M × 1536 = 1.5B operations
-  HNSW:      O(log(n) × d)   — 20 × 1536 = 30K operations
-  → เร็วขึ้น 50,000 เท่า!`, cap: "HNSW เหมือน GPS: เริ่มจากถนนใหญ่ (level สูง) แล้วค่อย ๆ ลงซอย (level ต่ำ) จนเจอจุดหมาย", lang: "txt" },
+ความเร็ว (ตามทฤษฎี):
+  Exact kNN: O(n × d)        — เทียบครบทุกแถว
+  HNSW:      O(log n × d)    — เดินกราฟไม่กี่สิบก้าว
+
+  ที่ n = 1M: log₂(1M) ≈ 20 → เทียบไม่กี่สิบจุดแทน 1 ล้านจุด
+
+ของจริงไม่ได้เร็วขึ้นตามอัตราส่วนนั้นตรง ๆ เพราะ:
+  - แต่ละก้าวต้องเทียบ candidate ทั้ง list (ef_search ตัวไม่ใช่ตัวเดียว)
+  - มี overhead ของการเดิน pointer ในกราฟ
+  → ในทางปฏิบัติวัดได้ราวหลักร้อยเท่า (ดูตัวเลข pgvector ข้างล่าง)`, cap: "HNSW เหมือน GPS: เริ่มจากถนนใหญ่ (level สูง) แล้วค่อย ๆ ลงซอย (level ต่ำ) จนเจอจุดหมาย", lang: "txt" },
       { code: String.raw`HNSW parameters ที่ต้องรู้:
 
 M = จำนวน edges ต่อจุด (default 16):
@@ -949,7 +993,7 @@ SET hnsw.ef_search = 100;    -- มากกว่า default = แม่นก�
   - HNSW index:     ~5ms (400x เร็วขึ้น)`, cap: "pgvector + HNSW ทำให้ vector search เร็วพอสำหรับ production โดยไม่ต้องมี DB แยก", lang: "txt" },
 
       { h: "🔬 เจาะลึก C: มิติ & Quantization — ทำไมเวกเตอร์กิน storage และย่อยังไงให้เล็กลง 4-32 เท่า" },
-      { p: "**ภาพในหัว:** เวกเตอร์ 1536 มิติแบบ float32 = 6 KB ต่อชิ้น. ข้อมูล 1 ล้านแถว = ~6 GB แค่เวกเตอร์อย่างเดียว (ยังไม่รวม index). ย่อให้เล็กลงได้ 2 ทาง: ลดมิติ และลดความละเอียดต่อตัวเลข (quantization)" },
+      { p: "เวกเตอร์ 1536 มิติแบบ float32 = 6 KB ต่อชิ้น. ข้อมูล 1 ล้านแถว = ~6 GB แค่เวกเตอร์อย่างเดียว (ยังไม่รวม index). ย่อให้เล็กลงได้ 2 ทาง: ลดมิติ และลดความละเอียดต่อตัวเลข (quantization)" },
       { code: String.raw`storage = จำนวนแถว × มิติ × bytes ต่อตัวเลข
 
 float32 (4 bytes): 1M × 1536 × 4  = 6.1 GB
@@ -1225,7 +1269,7 @@ prompt = (f"ใช้ข้อมูลต่อไปนี้ตอบคำ�
 
 3. Semantic (แม่นสุด):
    ใช้ embedding model หาจุดที่ "ความหมายเปลี่ยน" แล้วตัดตรงนั้น
-   + chunk =  idea ครบ 1 ชิ้น
+   + chunk = idea ครบ 1 ชิ้น
    - ช้า, แพง (ต้องเรียก embedding ตอน chunk ด้วย)
 
 4. Document-based (สำหรับ PDF/Markdown):
@@ -1253,10 +1297,10 @@ Overlap (ซ้อนทับ 10-20%):
   chunk 2: [token 450-950]  ← ซ้อนทับ 50 tokens
   → กันปัญหาตัดกลางประโยค
 
-ผลจริง (จาก Pinecone benchmark):
-  300 tokens + 20% overlap → Recall@5 = 0.78
-  500 tokens + 0% overlap  → Recall@5 = 0.72
-  100 tokens + 0% overlap  → Recall@5 = 0.65`, cap: "300-500 tokens + 10-20% overlap = sweet spot สำหรับ RAG ทั่วไป", lang: "txt" },
+→ ไม่มีเลข "ที่ถูกต้อง" สำหรับทุกงาน: ขนาดที่ดีที่สุดขึ้นกับ
+  ว่าเอกสารคุณหน่วยความหมายใหญ่แค่ไหน (ย่อหน้าสั้น vs มาตราสัญญายาว)
+  เริ่มที่ 300-500 + overlap 10-20% แล้ววัด Recall@k ของคุณเอง
+  เทียบ 2-3 ขนาด — นั่นคือวิธีเดียวที่รู้จริง`, cap: "300-500 tokens + 10-20% overlap เป็นจุดตั้งต้นที่ดี ไม่ใช่คำตอบสำเร็จรูป — ต้องวัดกับข้อมูลตัวเอง", lang: "txt" },
       { code: String.raw`ตัวอย่าง RecursiveCharacterTextSplitter (LangChain):
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -1270,9 +1314,10 @@ splitter = RecursiveCharacterTextSplitter(
 chunks = splitter.split_text(document)
 # ["ข้อ 1. บริษัท ABC จัดตั้งเมื่อ...", "ข้อ 2. พนักงานมีสิทธิ์..."]
 
-ผลจริง:
-  เอกสาร 10,000 tokens → ~25 chunks (500 tokens แต่ละตัว)
-  เอกสาร 100,000 tokens → ~250 chunks
+จำนวน chunk ที่ได้ (chunk_size=500, overlap=50 → ก้าวจริง 450 token):
+  เอกสาร 10,000 tokens  → ~22 chunks
+  เอกสาร 100,000 tokens → ~222 chunks
+  (overlap ทำให้จำนวน chunk มากกว่า ขนาด/chunk_size เล็กน้อยเสมอ)
 
 → chunk ที่ 1 อาจมี "ข้อ 1" ครบ, chunk ที่ 2 อาจมี "ข้อ 2" ครบ
    → LLM ได้บริบทที่ถูกต้อง`, cap: "Recursive = หั่นตาม separator ตามลำดับความสำคัญ → รักษาโครงสร้างประโยค/ย่อหน้า", lang: "txt" },
@@ -1315,12 +1360,19 @@ Hybrid (ทั้งคู่ + rank fusion):
   ✓ เจอทั้ง: "Refund Policy" + "นโยบายการคืนเงิน"
   → ครอบคลุมทุกกรณี
 
-Rank Fusion (วิธีรวมผล):
-  1. ค้น vector → เรียงตาม cosine similarity
-  2. ค้น BM25 → เรียงตาม BM25 score
-  3. รวม: score = α × vector_rank + (1-α) × bm25_rank
-     (α = น้ำหนัก, ปกติ 0.5-0.7 ให้ vector หนักกว่า)
-  4. เรียงรวม → top-k
+วิธีรวมผล 2 แบบ (อย่าสับสน — คนละสูตร):
+
+  A. Weighted score fusion — รวมที่ "คะแนน"
+     ต้อง normalize คะแนนของทั้งสองฝั่งให้อยู่สเกลเดียวกันก่อน
+     (cosine อยู่ 0-1 แต่ BM25 ไม่มีเพดาน)
+     score = α × v_norm + (1-α) × bm25_norm    (α ปกติ 0.5-0.7)
+
+  B. RRF (Reciprocal Rank Fusion) — รวมที่ "อันดับ"
+     ใช้เมื่อคะแนนเทียบกันไม่ได้ ก็เลยดูแค่ลำดับ
+     score = Σ 1/(k + rank_i)                  (k ปกติ 60)
+     อันดับ 1 ได้ 1/61, อันดับ 2 ได้ 1/62 ... ยิ่งบนยิ่งได้เยอะ
+
+  → RRF นิยมกว่าเพราะไม่ต้อง normalize และไม่ต้องจูน α
 
 ผลจริง (จาก Anthropic Contextual Retrieval):
   Vector only:        retrieval error = 100% (baseline)
@@ -1352,11 +1404,16 @@ JOIN vector_results v ON d.id = v.id
 JOIN bm25_results b ON d.id = b.id
 ORDER BY combined_score DESC LIMIT 5;
 
--- ผลจริง:
--- Hybrid = แม่นกว่า vector-only ~20-30%`, cap: "Postgres ทำ hybrid search ได้ใน DB เดียว pgvector + tsvector", lang: "txt" },
+-- หมายเหตุ: ตัวอย่างนี้รวมที่ "คะแนน" (weighted score fusion)
+-- v_score เป็น cosine 0-1 แต่ k_score ของ ts_rank_cd ไม่มีเพดาน
+-- ของจริงต้อง normalize k_score ก่อน ไม่งั้นน้ำหนัก 0.7/0.3 ไม่มีความหมาย
+--
+-- JOIN แบบนี้เก็บเฉพาะ id ที่ "ติดทั้งสองฝั่ง" — เอกสารที่ vector เจอ
+-- แต่ BM25 ไม่เจอจะหลุดหายไป ทั้งที่นั่นคือกรณีที่ hybrid ควรช่วย
+-- ถ้าจะทำจริงใช้ FULL OUTER JOIN แล้วเติม 0 ให้ฝั่งที่ขาด (หรือใช้ RRF)`, cap: "Postgres ทำ hybrid search ได้ใน DB เดียว pgvector + tsvector — แต่การรวมคะแนนต้องระวังสเกลกับ JOIN", lang: "txt" },
 
       { h: "🔬 เจาะลึก C: วัดผล RAG ให้ครบ — Retrieval metrics + Generation metrics" },
-      { p: "**ภาพในหัว:** 'RAG ดีไหม' วัดเป็นตัวเลขได้ และต้องวัด **2 ชั้นแยกกัน** เพราะมันพังคนละจุด: (1) ค้นเจอของถูกไหม (retrieval) (2) เอาของที่ค้นมาตอบถูกไหม (generation). ถ้าไม่แยก จะไม่รู้ว่าควรแก้ chunk/search หรือแก้ prompt" },
+      { p: "'RAG ดีไหม' วัดเป็นตัวเลขได้ และต้องวัด **2 ชั้นแยกกัน** เพราะมันพังคนละจุด: (1) ค้นเจอของถูกไหม (retrieval) (2) เอาของที่ค้นมาตอบถูกไหม (generation). ถ้าไม่แยก จะไม่รู้ว่าควรแก้ chunk/search หรือแก้ prompt" },
       { code: String.raw`ชั้น 1 — Retrieval (ค้นแม่นไหม) — ต้องมี 'golden set': คำถาม → source ที่ถูก
   Recall@k    = % ที่ source ถูกอยู่ใน top-k         ← ตัวหลักของ RAG
   Precision@k = ใน k อันที่ค้นมา เป็นของถูกกี่ %
@@ -1422,7 +1479,7 @@ ORDER BY combined_score DESC LIMIT 5;
       { code: String.raw`def index_docs(raw_text, store):
     chunks = chunk(raw_text, size=500, overlap=50)   # 1) หั่น
     store.add(chunks)                                # 2) embed + เก็บ (ดูหน้า Vector DB)`, cap: "เตรียมข้อมูลก่อนใช้งานจริง", lang: "py" },
-      { note: "ถ้าฐานความรู้เล็ก (< ~200k token) Anthropic แนะนำว่า **ยัดทั้งหมดเข้า prompt ได้เลย** ไม่ต้องทำ RAG — ใช้ prompt caching แทน" },
+      { note: "ถ้าฐานความรู้เล็กพอจะยัดเข้า context ได้ทั้งก้อน Anthropic แนะนำว่า **ไม่ต้องทำ RAG** — ใส่ทั้งหมดใน prompt แล้วใช้ prompt caching แทน (ตัวเลข ~200k token มาจากยุคที่ context เท่านั้น; ตอนนี้ Opus 5 / Sonnet 5 มี 1M แล้ว เพดานนี้จึงขยับขึ้นมาก). แต่ระวัง lost-in-the-middle — ยัดเยอะไม่ได้แปลว่าโมเดลใช้ครบ" },
     ],
     architecture: [
       { h: "รูปแบบซ้ำ: ค้น → format → แปะ prompt" },
@@ -1652,7 +1709,7 @@ from langgraph.prebuilt import create_react_agent
 
 # สร้าง agent ที่มี tools
 agent = create_react_agent(
-    model=ChatAnthropic(model="claude-sonnet-4-20250514"),
+    model=ChatAnthropic(model="claude-sonnet-5"),
     tools=[search_docs, get_stock_price, send_email],
     prompt="คุณคือผู้ช่วยที่คิดก่อนทำ ทุกครั้งที่ไม่แน่ใจ ให้เรียก tool"
 )
@@ -1697,7 +1754,7 @@ result = agent.invoke({"messages": [
    Agent_A ←→ Agent_C
    Agent_B ←→ Agent_C
 
-   +  agents คุยกันเองได้
+   + agents คุยกันเองได้
    - ซับซ้อนมาก, debug ยาก, เสี่ยง infinite loop
    เหมาะกับ: multi-agent debate, swarm intelligence`, lang: "txt" },
       { code: String.raw`ตัวอย่าง Cyclic Graph (ReAct agent ใน LangGraph):
@@ -1753,7 +1810,7 @@ Network:
 → เริ่มจาก DAG → เพิ่ม cycle เมื่อจำเป็น → network เมื่อ scale`, lang: "txt" },
 
       { h: "🔬 เจาะลึก C: Loop Termination & Error Recovery — ทำไม agent วนไม่จบ และกันยังไง" },
-      { p: "**ภาพในหัว:** Cyclic agent (เจาะลึก B) ทรงพลังเพราะ 'agent ตัดสินใจหยุดเอง' — แต่นั่นคือดาบสองคม: ถ้ามันตัดสินใจ 'ไม่หยุด' (เช่น tool พังแล้วเรียกซ้ำเรื่อย ๆ) ระบบจะวน loop ไม่จบ เผา token/เงินไม่หยุด. agent production ต้องมี 'เบรก' หลายชั้น" },
+      { p: "Cyclic agent (เจาะลึก B) ทรงพลังเพราะ 'agent ตัดสินใจหยุดเอง' — แต่นั่นคือดาบสองคม: ถ้ามันตัดสินใจ 'ไม่หยุด' (เช่น tool พังแล้วเรียกซ้ำเรื่อย ๆ) ระบบจะวน loop ไม่จบ เผา token/เงินไม่หยุด. agent production ต้องมี 'เบรก' หลายชั้น" },
       { p: "**ปัญหา 3 แบบที่ทำให้ loop ไม่จบ:**" },
       { code: String.raw`1. tool พังแล้วเรียกซ้ำ: get_data() → error → agent เรียก get_data() อีก → วน
 2. ตัดสินใจวน: agent เรียก A → B → A → B ... สลับไม่จบ (ไม่คืบหน้า)
@@ -2181,47 +2238,46 @@ def output_guardrail(response):
 
       { h: "🔬 เจาะลึก B: Cost Optimization — คำนวณราคาจริงและหาทางลด" },
       { p: "ทุก token มีราคา — มาคำนวณกันว่าระบบ AI ของคุณจ่ายเท่าไรจริง ๆ และลดได้ยังไง" },
-      { code: String.raw`ราคาจริง (Claude 3.5 Sonnet):
-  Input:  $3.00 / 1M tokens
-  Output: $15.00 / 1M tokens  ← แพงกว่า input 5 เท่า!
-  Cache read: $0.30 / 1M tokens
+      { code: String.raw`ราคาจริง (ต่อ 1M tokens)
 
-ราคาจริง (Claude 3.5 Haiku):
-  Input:  $0.25 / 1M tokens
-  Output: $1.25 / 1M tokens
+  Claude Opus 5      input $5.00   output $25.00   cache read $0.50
+  Claude Sonnet 5    input $3.00   output $15.00   cache read $0.30
+  Claude Haiku 4.5   input $1.00   output  $5.00   cache read $0.10
 
-ราคาจริง (GPT-4o):
-  Input:  $2.50 / 1M tokens
-  Output: $10.00 / 1M tokens
+→ output แพงกว่า input 5 เท่าเสมอ → คุมความยาวคำตอบคือ lever แรก
+→ cache read = 0.1 เท่าของ input ทุกรุ่น`, cap: "ราคาขยับได้ — เช็คหน้า pricing ก่อนคิดงบจริงเสมอ", lang: "txt" },
+      { code: String.raw`วิเคราะห์ราคา: ระบบตอบลูกค้า 1000 requests/วัน
+(สมมติ system+context 3000 tokens, คำตอบ 500 tokens)
 
-→ Output แพงกว่า input 4-5 เท่าเสมอ → ต้อง control output length`, lang: "txt" },
-      { code: String.raw`วิเคราะห์ราคา: ระบบตอบลูกค้า (1000 requests/วัน)
+Scenario 1 — Sonnet 5 ทุก request
+  input:  3000 × $3/M  = $0.0090
+  output:  500 × $15/M = $0.0075
+  ต่อ request $0.0165  →  $16.50/วัน
 
-Scenario 1: ใช้ Claude Sonnet ทุกครั้ง
-  input:  3000 tokens (system + context) × $3/M = $0.009
-  output: 500 tokens × $15/M = $0.0075
-  ต่อ request: $0.0165
-  ต่อวัน: $16.50
+Scenario 2 — Router: ง่ายใช้ Haiku 4.5 (70%), ยากใช้ Sonnet 5 (30%)
+  Haiku/req:  3000 × $1/M + 500 × $5/M = $0.0055  → 700 req = $3.85
+  Sonnet/req: $0.0165                             → 300 req = $4.95
+  รวม $8.80/วัน
 
-Scenario 2: Router — ง่ายใช้ Haiku, ยากใช้ Sonnet
-  ง่าย (70%): Haiku = 700 × ($0.25+$1.25)/M = $0.00105
-  ยาก (30%):  Sonnet = 300 × ($3+$15)/M = $0.0054
-  ต่อ request เฉลี่ย: $0.0023
-  ต่อวัน: $2.30
+Scenario 3 — Sonnet 5 + prompt caching + คำตอบสั้น (max_tokens=200)
+  cache read: 3000 × $0.30/M = $0.0009
+  user input:  200 × $3/M    = $0.0006
+  output:      200 × $15/M   = $0.0030
+  ต่อ request $0.0045  →  $4.50/วัน
 
-Scenario 3: + Prompt caching + lean output
-  Cache hit (system 3000 tokens): 3000 × $0.30/M = $0.0009
-  User input: 200 tokens × $3/M = $0.0006
-  Output (max_tokens=200): 200 × $15/M = $0.003
-  ต่อ request: $0.0045
-  ต่อวัน: $4.50
+Scenario 4 — รวมทั้งสองอย่าง (router + caching + คำตอบสั้น)
+  Haiku/req:  3000×$0.10/M + 200×$1/M + 200×$5/M = $0.0015 → 700 req = $1.05
+  Sonnet/req: $0.0045                                      → 300 req = $1.35
+  รวม $2.40/วัน
 
 เปรียบเทียบ:
-  Scenario 1: $16.50/วัน ($495/เดือน)
-  Scenario 2: $2.30/วัน ($69/เดือน)   → ประหยัด 86%
-  Scenario 3: $4.50/วัน ($135/เดือน)  → ประหยัด 73%
+  1 ไม่ทำอะไร   $16.50/วัน  ($495/เดือน)   —
+  2 routing     $8.80/วัน   ($264/เดือน)   ประหยัด 47%
+  3 caching     $4.50/วัน   ($135/เดือน)   ประหยัด 73%
+  4 ทั้งคู่      $2.40/วัน   ($72/เดือน)    ประหยัด 85%
 
-→ Model routing + caching = ประหยัดสูงสุด`, lang: "txt" },
+→ routing กับ caching ลดคนละทาง (เลือกโมเดล vs ลด token ที่คิดเงิน)
+  ทำพร้อมกันจึงคูณผลกัน ไม่ใช่บวกกัน`, cap: "อย่าเทียบ routing กับ caching ว่าอันไหนดีกว่า — มันซ้อนกันได้", lang: "txt" },
       { code: String.raw`สูตรคำนวณ break-even: caching vs ไม่ caching
 
 สมมติ: system prompt = S tokens, user input = U tokens
@@ -2247,10 +2303,15 @@ Break-even: ราคาเท่ากันเมื่อ N = ?
 สูตร: N_breakeven ≈ (S × P_write) / (S × (P_input - P_read))
      = P_write / (P_input - P_read)
      = $3.75 / ($3.00 - $0.30) = 1.39 rounds
-     → เริ่มคุ้มตั้งแต่ round ที่ 2!`, cap: "Caching break-even = แค่ 2 rounds ก็คุ้มแล้ว (เพราะ cache read ถูกกว่า 90%)", lang: "txt" },
+     → เริ่มคุ้มตั้งแต่ round ที่ 2!
+
+ถ้าใช้ TTL 1 ชั่วโมง: write เป็น 2 เท่า ($6.00) ไม่ใช่ 1.25 เท่า
+     = $6.00 / ($3.00 - $0.30) = 2.22 rounds
+     → ต้องใช้ซ้ำอย่างน้อย 3 รอบถึงคุ้ม
+     เลือก 1h เมื่อ traffic มาเป็นช่วง ๆ ห่างเกิน 5 นาที`, cap: "TTL 5 นาที คุ้มตั้งแต่รอบ 2 · TTL 1 ชั่วโมง ต้องรอถึงรอบ 3 เพราะ write แพงกว่า", lang: "txt" },
 
       { h: "🔬 เจาะลึก C: LLM-as-Judge — ใช้ LLM ให้คะแนน LLM ยังไงให้เชื่อถือได้" },
-      { p: "**ภาพในหัว:** งานปลายเปิด (ตอบลูกค้า/สรุป/แปล) ไม่มี 'เฉลยตายตัว' ให้เทียบ — จะวัดคุณภาพหลายพันเคสด้วยคนก็แพง/ช้า. ทางออกคือใช้ **LLM อีกตัวเป็นกรรมการ** ให้คะแนน. แต่ 'ให้ LLM ตัดสิน LLM' มีกับดักที่ต้องรู้ก่อนถึงจะเชื่อผลได้" },
+      { p: "งานปลายเปิด (ตอบลูกค้า/สรุป/แปล) ไม่มี 'เฉลยตายตัว' ให้เทียบ — จะวัดคุณภาพหลายพันเคสด้วยคนก็แพง/ช้า. ทางออกคือใช้ **LLM อีกตัวเป็นกรรมการ** ให้คะแนน. แต่ 'ให้ LLM ตัดสิน LLM' มีกับดักที่ต้องรู้ก่อนถึงจะเชื่อผลได้" },
       { p: "**2 รูปแบบของการตัดสิน:**" },
       { code: String.raw`Pointwise (ให้คะแนนทีละคำตอบ):
   judge อ่าน 1 คำตอบ + rubric → ตอบ correct/incorrect หรือ 1-5
@@ -2288,12 +2349,12 @@ Pairwise (เทียบ 2 คำตอบ ไหนดีกว่า):
         { label: "Guardrails AI (overview)", url: "https://www.guardrailsai.com/docs", note: "แนวคิด guardrail รอบ LLM" },
         { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "guardrail + เมื่อไรควรใช้ agent" },
         { label: "OWASP — Top 10 for LLM Apps", url: "https://owasp.org/www-project-top-10-for-large-language-model-applications/", note: "ภัยคุกคาม LLM 10 อันดับจาก OWASP" },
-        { label: "Anthropic — Prompt caching pricing", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching", note: "ราคา cache read/write จริง" },
+        { label: "Anthropic — Prompt caching pricing", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", note: "ราคา cache read/write จริง" },
         { label: "LLM Price Calculator", url: "https://www.llm-price.com/", note: "เทียบราคาทุก model แบบ real-time" },
       ]},
       { h: "📚 เอกสารผู้ให้บริการ (อ่านของจริงจากค่าย)" },
       { links: [
-        { label: "Anthropic — Tool use overview", url: "https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview", note: "นิยาม tool + ให้ Claude เรียก (แบบ A)" },
+        { label: "Anthropic — Tool use overview", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview", note: "นิยาม tool + ให้ Claude เรียก (แบบ A)" },
         { label: "Anthropic — Advanced tool use", url: "https://www.anthropic.com/engineering/advanced-tool-use", note: "tool ขั้นสูง + harness" },
         { label: "OpenAI — Function calling", url: "https://platform.openai.com/docs/guides/function-calling", note: "tool/function calling ฝั่ง OpenAI" },
         { label: "Google — Gemini function calling", url: "https://ai.google.dev/gemini-api/docs/live-api/tools", note: "function calling ฝั่ง Gemini" },
@@ -2634,7 +2695,7 @@ ReAct — แต่ละขั้นยึดผลจริงก่อนค�
       { h: "📚 เอกสารผู้ให้บริการ (อ่านของจริงจากค่าย)" },
       { links: [
         { label: "Anthropic — Building effective agents", url: "https://www.anthropic.com/research/building-effective-agents", note: "loop/agent patterns + เมื่อไหร่ควร/ไม่ควรใช้ agent" },
-        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://docs.anthropic.com/en/docs/claude-code/overview", note: "เครื่องมือ loop/verify ใน Claude Code จริง" },
+        { label: "Anthropic — Claude Code (overview & /loop, sub-agents)", url: "https://code.claude.com/docs/en/overview", note: "เครื่องมือ loop/verify ใน Claude Code จริง" },
         { label: "OpenAI — A Practical Guide to Building Agents (PDF)", url: "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf", note: "guardrail, stopping condition, human-in-the-loop" },
       ]},
       { h: "🎬 วิดีโอสอน (เจาะลึก)" },
