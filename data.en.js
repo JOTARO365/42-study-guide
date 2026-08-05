@@ -11346,3 +11346,1285 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp e
     ],
   },
 });
+
+/* ===================== EN: CPP Module 07 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_07": {
+    principle: [
+      { h: "What Module 07 teaches" },
+      { p: "**A template is a recipe, not code.** You write it once and the compiler stamps out one copy per type actually used — `swap<int>` and `swap<std::string>` are two different functions built from the same recipe." },
+      { code: String.raw`Written once:
+
+    template <typename T>
+    void swap(T &a, T &b) { T tmp = a; a = b; b = tmp; }
+
+Used as:                        The compiler generates:
+
+    int x, y;  swap(x, y);      void swap(int &, int &)
+    std::string s, t;           void swap(std::string &, std::string &)
+    swap(s, t);
+    Fixed f, g;  swap(f, g);    void swap(Fixed &, Fixed &)
+
+A type nobody uses = no code generated for it`, cap: "Unlike C's `void*`, every type is still fully checked at compile time", lang: "cpp" },
+      { h: "Three exercises" },
+      { table: { head: ["Exercise", "Binary", "What it teaches"], rows: [
+        ["ex00", "`whatever`", "function templates (`swap`, `min`, `max`) + the tie-goes-to-the-second rule"],
+        ["ex01", "`iter`", "a template taking both a **type** and a **function**"],
+        ["ex02", "`Array`", "a class template + OCF + deep copy + exceptions"],
+      ]}},
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend` · no STL containers",
+        "**Templates must live in headers** — the 'no function bodies in headers' rule doesn't apply to them, and the subject states this exception itself",
+        "So the whole module has almost no `.cpp` files beyond `main.cpp`",
+        "ex02 forbids modifying the `main.cpp` the subject provides",
+      ]},
+      { note: "**Templates are not Java/C# generics** — Java erases the type at run time and uses one body. C++ generates a separate real body per type, which is as fast as writing it by hand but makes the binary larger." },
+    ],
+
+    theory: [
+      { h: "🔬 Deep dive A: why templates must live in headers — the number one linker trap" },
+      { p: "Bring the habit from ordinary classes (declare in the `.hpp`, define in the `.cpp`) and you get an error at **link** time rather than compile time, which is much harder to trace." },
+      { code: String.raw`whatever.cpp:                     main.cpp:
+    template <typename T>             #include "whatever.hpp"
+    void swap(T &a, T &b) { ... }     int main() { swap(x, y); }
+
+compiling whatever.cpp:
+    the compiler sees the recipe but nobody calling swap<int>
+    → it emits nothing at all → whatever.o is empty
+
+compiling main.cpp:
+    it sees the call to swap<int> but only a declaration, no body
+    → it leaves the symbol for the linker to find
+
+linking:
+    undefined reference to 'void swap<int>(int&, int&)'   ★`, cap: "The cause: a template is stamped out where it is called, not where it is written", lang: "txt" },
+      { p: "**The fix:** put the full definition in the `.hpp` (or a `.tpp` that the `.hpp` `#include`s at its end), so every file that uses it sees the whole recipe and can stamp it out itself." },
+      { table: { head: ["", "Ordinary function/class", "Template"], rows: [
+        ["Declared in", "`.hpp`", "`.hpp`"],
+        ["Defined in", "`.cpp`", "**`.hpp`**"],
+        ["Compiled how many times", "once", "once **per type actually used**"],
+        ["Getting it wrong fails at", "compile time", "**link** time (`undefined reference`)"],
+      ]}},
+      { note: "Splitting into a `.tpp` and `#include \"Array.tpp\"` before the `#endif` works too — that's purely cosmetic, since the `.tpp` still counts as header content. Both layouts pass." },
+      { qa: [
+        { q: "Why must templates live in headers?", a: "Because the compiler stamps out the code where it's called, not where the recipe is written. With the recipe in a separate `.cpp`, the calling file sees only a declaration and you get `undefined reference` at link time." },
+        { q: "How do you fix `undefined reference to 'void swap<int>(int&, int&)'`?", a: "Move the template's definition into the header — or into a `.tpp` included at the end of the header." },
+        { q: "Doesn't that contradict 42's 'no function bodies in headers' rule?", a: "No — the subject states the exception for templates explicitly, because the language leaves no alternative." },
+      ]},
+      { h: "🔬 Deep dive B: the tie must return the second argument" },
+      { p: "The subject specifies that when the two values are equal, `min`/`max` must return the **second** argument. Which comparison operator you pick decides the whole thing." },
+      { code: String.raw`template <typename T>
+const T &min(const T &a, const T &b)
+{
+    if (a < b)
+        return (a);
+    return (b);       // ★ a == b falls through to here → returns b
+}
+
+Writing  if (a <= b) return (a);  →  a == b returns a  ✗ wrong per the subject
+
+max works the same way:
+    if (a > b) return (a);  →  a == b falls through and returns b  ✓`, cap: "The real code — write it as 'is it actually smaller? if not, return the second' and the tie rule is automatic", lang: "cpp" },
+      { p: "**Why return `const T &` and not `T`:** returning a reference avoids copying the object — which matters when `T` is something large like a `std::string`. The `const` says the result isn't meant to be modified." },
+      { note: "Call it as `::min(a, b)` (with the leading `::`) so it doesn't collide with `std::min`/`std::swap`, which can be pulled in indirectly through `<string>` — which is why the subject's examples are written that way." },
+      { qa: [
+        { q: "Why must `min` return the second argument when the values are equal?", a: "The subject requires it. Writing `if (a < b) return a; return b;` gets it right automatically — using `<=` would return the first, which is wrong." },
+        { q: "Why return `const T &`?", a: "To avoid copying a potentially large object (a `std::string`, say), and the `const` signals the result isn't there to be modified." },
+        { q: "Why call it as `::swap` rather than `swap`?", a: "To avoid colliding with `std::swap`, which may be pulled in indirectly — the `::` forces the one in global scope." },
+      ]},
+      { h: "🔬 Deep dive C: why `iter` must template the function too" },
+      { code: String.raw`template <typename T, typename F>       // ★ F is the function's type
+void iter(T *array, size_t length, F f)
+{
+    size_t i;
+
+    if (array == NULL)
+        return ;
+    i = 0;
+    while (i < length)
+    {
+        f(array[i]);
+        i++;
+    }
+}`, cap: "The real code — `F` instead of a fixed `void (*f)(T &)`", lang: "cpp" },
+      { p: "**Where the fixed version breaks:**" },
+      { code: String.raw`Written as:  void iter(T *array, size_t length, void (*f)(T &))
+
+Called with a const array:
+    const int arr[] = {1, 2, 3};
+    iter(arr, 3, printInt);
+
+    T is deduced as const int
+    → the parameter f must then be void (*)(const int &)
+    → but printInt is void (*)(int &)
+    → they don't match; it won't compile
+
+Written as F f:
+    the compiler accepts anything for which "f(array[i])" compiles
+    → a function taking T&, const T&, T by value, or even a functor
+    → all of them work`, cap: "The subject wants iter to handle every element type, const included — `F` is what actually delivers that", lang: "txt" },
+      { note: "The real code checks `array == NULL` first — the subject doesn't require it, but it costs nothing and it answers the evaluator's question about edge cases." },
+      { qa: [
+        { q: "Why must `iter` template its function parameter too?", a: "So it accepts functions taking `T&`, `const T&`, by value, or functors — and so it works with `const` arrays, which a fixed signature cannot." },
+        { q: "How does `iter` work with a `const int[]`?", a: "`T` is deduced as `const int` and the compiler picks a compatible `f` — possible only because the function parameter is a template rather than a fixed type." },
+      ]},
+      { h: "🔬 Deep dive D: `Array` — a class template that must deep copy" },
+      { code: String.raw`template <typename T>
+class Array
+{
+    private:
+        T            *_data;
+        unsigned int _size;
+
+    public:
+        Array(void) : _data(new T[0]), _size(0) {}
+        Array(unsigned int n) : _data(new T[n]), _size(n) {}
+
+        Array(Array const &other) : _data(new T[other._size]), _size(other._size)
+        {
+            for (unsigned int i = 0; i < _size; i++)
+                _data[i] = other._data[i];
+        }
+
+        Array &operator=(Array const &other)
+        {
+            if (this != &other)
+            {
+                delete [] _data;
+                _size = other._size;
+                _data = new T[_size];
+                for (unsigned int i = 0; i < _size; i++)
+                    _data[i] = other._data[i];
+            }
+            return (*this);
+        }
+
+        ~Array(void) { delete [] _data; }
+};`, cap: "The real code — the same deep-copy principle as Brain in Module 04, but now for a whole buffer", lang: "cpp" },
+      { p: "**The subject's `main.cpp` catches a shallow copy directly** — it makes copies inside an inner scope and then, after the scope ends, checks the original is unchanged. If `_data` were shared, the copies' destructors would `delete []` the original's buffer and the line *\"didn't save the same value!!\"* appears." },
+      { p: "**`new T[0]` is legal** — it returns a non-NULL pointer you can still `delete []`. The benefit is a single uniform destructor with no `if (_data)` clutter." },
+      { qa: [
+        { q: "Why does `Array` need a deep copy?", a: "Because it holds a `T *_data` it allocated with `new[]`. Copying the pointer alone would leave the copy and the original sharing one buffer — changes affect both, and both destructors `delete []` it." },
+        { q: "Is `new T[0]` legal?", a: "Yes — the standard guarantees a non-NULL pointer that can be `delete []`d, which keeps the destructor uniform with no special case for an empty array." },
+        { q: "What must Array's `operator=` be careful about?", a: "Check for self-assignment first, then `delete []` the old buffer, allocate a new one and copy element by element. Skip the self-check and `a = a` frees its own buffer before copying from it." },
+      ]},
+      { h: "🔬 Deep dive E: `numbers[-2]` is caught by a single check" },
+      { p: "`operator[]` takes an `unsigned int`. When `main` writes `numbers[-2]`, the `-2` is converted to unsigned as it is passed in — becoming an enormous number." },
+      { code: String.raw`numbers[-2]
+
+   -2 (int, 32 bits)     =  1111 1111 1111 1111 1111 1111 1111 1110
+   read as unsigned      =  4294967294
+
+   if (index >= _size)     ←  4294967294 >= size, certainly
+       throw OutOfBoundsException();
+
+One check covers both cases:
+   a negative index  → becomes an enormous number → caught
+   index >= size     → caught directly (valid slots are 0 to size-1)`, cap: "Writing a separate `if (index < 0)` is impossible and unnecessary — the value can no longer be negative by the time it arrives", lang: "cpp" },
+      { note: "It's the same behaviour as the `unsigned` underflow in Module 03's `takeDamage` — except that here we're putting it to use instead of suffering from it." },
+      { qa: [
+        { q: "How is `numbers[-2]` caught when the index is unsigned?", a: "`-2` is converted to unsigned as it's passed in, becoming 4294967294, which is certainly `>= _size` — one check catches both 'negative' and 'out of range'." },
+        { q: "Do you need a separate `if (index < 0)`?", a: "You can't and you don't — the parameter is an `unsigned int`, so it can never be negative. The compiler will even warn that the condition is always false." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Templates", url: "https://en.cppreference.com/w/cpp/language/templates", note: "an overview of function and class templates" },
+        { label: "cppreference — Template argument deduction", url: "https://en.cppreference.com/w/cpp/language/template_argument_deduction", note: "how the compiler works out `T` from the arguments" },
+        { label: "isocpp FAQ — Templates", url: "https://isocpp.org/wiki/faq/templates", note: "the 'why can't I separate template definition' entry is exactly this module's trap" },
+        { label: "learncpp — Class templates", url: "https://www.learncpp.com/cpp-tutorial/class-templates/", note: "Array<T> explained step by step" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — whatever.hpp" },
+      { code: String.raw`template <typename T>
+void swap(T &a, T &b)
+{
+    T tmp;
+
+    tmp = a;
+    a = b;
+    b = tmp;
+}
+
+What T is required to support:
+    swap → must be copyable/assignable
+    min  → must have operator<
+    max  → must have operator>
+
+std::string has all three → works immediately, unchanged
+Module 02's Fixed has them too → equally usable`, cap: "A template never demands that T inherit from anything — only that it can do what the code inside asks of it", lang: "cpp" },
+      { h: "The exact output required (ex00)" },
+      { code: String.raw`a = 3, b = 2
+min( a, b ) = 2
+max( a, b ) = 3
+c = chaine2, d = chaine1
+min( c, d ) = chaine1
+max( c, d ) = chaine2`, cap: "The lower half uses `std::string` to prove the same template really works on a completely different type", lang: "txt" },
+      { h: "ex02 — the members you must provide" },
+      { table: { head: ["Member", "Behaviour"], rows: [
+        ["`Array()`", "an empty array — `_size = 0`, `_data = new T[0]`"],
+        ["`Array(unsigned int n)`", "`n` slots, each **default-initialised** (`new T[n]`)"],
+        ["`Array(const Array &)`", "**deep copy**"],
+        ["`operator=`", "**deep copy**, and safe against self-assignment"],
+        ["`~Array()`", "`delete [] _data`"],
+        ["`T &operator[](unsigned int)`", "throws when out of range"],
+        ["`const T &operator[](unsigned int) const`", "the const version, for const objects"],
+        ["`unsigned int size() const`", "the element count, taking no argument"],
+      ]}},
+      { code: String.raw`class OutOfBoundsException : public std::exception
+{
+    public:
+        virtual const char *what(void) const throw()
+        {
+            return ("Array: index out of bounds");
+        }
+};`, cap: "Nested inside Array — and the body can live in the class, since the whole file is a template anyway", lang: "cpp" },
+      { p: "**Why two versions of `operator[]`:** `const Array<int> a(5);` can only call `const` methods. With only the non-const version you couldn't read from a const array at all — the two always come as a pair (the same principle as Point's `min`/`max` in Module 02)." },
+    ],
+
+    architecture: [
+      { h: "Files per exercise — almost no .cpp at all" },
+      { table: { head: ["Exercise", "Files", "Notes"], rows: [
+        ["ex00", "`whatever.hpp`, `main.cpp`", "three function templates and nothing else"],
+        ["ex01", "`iter.hpp`, `main.cpp`", "one function template plus demo functions in main"],
+        ["ex02", "`Array.hpp`, `main.cpp`", "the whole class template — **the provided main must not be modified**"],
+      ]}},
+      { p: "So the Makefile compiles only `main.cpp` — there is no object file for the templates, because they are stamped into `main.o` at compile time." },
+      { h: "Two Makefile traps in ex02" },
+      { code: String.raw`# 1. the provided main.cpp writes  #include <Array.hpp>  (angle brackets, not quotes)
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -I.
+                                             ^^^
+    without -I.  →  fatal error: Array.hpp: No such file or directory`, cap: "Angle brackets search the include path only, never the current directory", lang: "make" },
+      { code: String.raw`# 2. the provided main.cpp calls srand/rand/time but includes only <iostream> and <Array.hpp>
+error: 'srand' was not declared in this scope
+error: 'rand'  was not declared in this scope
+
+You can't edit main (the subject forbids it) → supply the declarations
+through the header it already includes:
+
+// Array.hpp
+#include <cstddef>     // size_t
+#include <cstdlib>     // rand, srand   ★ makes the provided main compile
+#include <ctime>       // time          ★
+#include <exception>   // std::exception`, cap: "It is odd for a container header to pull in `<cstdlib>` — but it's the cleanest route when main can't be touched, and it's widely accepted", lang: "cpp" },
+      { note: "These two are why ex02 fails to compile for most people — not because the Array logic is wrong." },
+    ],
+
+    dataflow: [
+      { h: "ex02 — what the subject's main tests" },
+      { code: String.raw`Array<int> numbers(MAX_VAL);
+int *mirror = new int[MAX_VAL];
+srand(time(NULL));
+for (int i = 0; i < MAX_VAL; i++) { int v = rand(); numbers[i] = v; mirror[i] = v; }
+
+{
+    Array<int> tmp = numbers;      // copy constructor
+    Array<int> test(tmp);          // and again
+}                                  // ★ both tmp and test are destroyed here
+
+for (int i = 0; i < MAX_VAL; i++)
+    if (mirror[i] != numbers[i])
+        std::cerr << "didn't save the same value!!" << std::endl;   // ★ must not appear
+
+  shallow copy: tmp/test share numbers' buffer
+                → their destructors delete[] numbers' buffer
+                → reading on gives corrupt values or a crash
+
+  deep copy:    each has its own buffer → numbers is never touched ✓`, cap: "This main is built specifically to catch a shallow copy — the inner scope and the mirror exist for that", lang: "cpp" },
+      { code: String.raw`try { numbers[-2] = 0; }
+catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
+try { numbers[MAX_VAL] = 0; }
+catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
+
+Two lines must appear:
+    Array: index out of bounds
+    Array: index out of bounds
+
+  [-2]       → becomes 4294967294 → >= size → throws
+  [MAX_VAL]  → valid slots are 0..MAX_VAL-1 → >= size → throws`, cap: "Caught as `const std::exception &` — which is why it must derive from `std::exception`", lang: "cpp" },
+      { h: "Cases the subject's main doesn't cover (test them yourself)" },
+      { table: { head: ["Case", "Required result"], rows: [
+        ["`Array<int> e;` then `e.size()`", "`0`"],
+        ["`e[0]`", "throws `OutOfBoundsException`"],
+        ["copy then modify the copy", "the original must be unchanged"],
+        ["`a = b` when `a` already holds data", "the old buffer is released, nothing leaks"],
+        ["`a = a`", "no crash, the data survives"],
+        ["`const Array<int> c(5); c[0]`", "the const `operator[]` is usable"],
+        ["`Array<std::string>`", "works identically"],
+      ]}},
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — three functions in one header. Test the tie rule (`::min(5,5)` must return the second) before moving on",
+        "2. **ex01** — `iter.hpp` plus demo functions in `main.cpp`. Test with `int[]`, `std::string[]` and **`const int[]`**",
+        "3. **ex02** — get `-I.` and the includes right so the provided main compiles first, then write Array member by member",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["`undefined reference to 'swap<int>'`", "the template body is in a `.cpp`", "move it into the `.hpp` (or a `.tpp` included at the end)"],
+        ["`min(5,5)` returns the first", "using `<=` instead of `<`", "`if (a < b) return (a); return (b);`"],
+        ["`iter` won't compile with a `const int[]`", "a hard-coded `void (*f)(T &)`", "use `typename F` as the third parameter"],
+        ["`fatal error: Array.hpp: No such file`", "main uses angle brackets", "`-I.` in CXXFLAGS"],
+        ["`'srand' was not declared in this scope`", "the provided main doesn't include it and can't be edited", "`#include <cstdlib>` and `<ctime>` in `Array.hpp`"],
+        ["`didn't save the same value!!`", "a shallow copy", "the copy ctor and `operator=` must allocate a new buffer and copy element by element"],
+        ["double free at exit", "the same shallow copy", "the same fix"],
+        ["`numbers[-2]` doesn't throw", "checking with `>` instead of `>=`, or taking an `int`", "take an `unsigned int` and check `if (index >= _size)`"],
+        ["can't read from a `const Array`", "no const `operator[]`", "add the `const T &operator[](unsigned int) const` overload"],
+        ["`make` relinks on the second run", "the Makefile's dependencies are wrong", "make the `.o` depend on the header too"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`for d in ex00 ex01 ex02; do (cd $d && make re) || echo "FAIL $d"; done
+cd ex00 && ./whatever
+cd ../ex01 && ./iter
+cd ../ex02 && ./Array
+
+# this line must never appear
+./Array 2>&1 | grep -q "didn't save" && echo "shallow copy!" || echo "deep copy OK"
+
+# two out-of-bounds lines are required
+./Array 2>&1 | grep -c "index out of bounds"
+
+# a second make must not relink
+make && make
+
+# valgrind
+valgrind --leak-check=full --error-exitcode=42 -q ./Array && echo "pass"
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 07/ex02" && make re && ./Array'
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|algorithm' ex0*/*.hpp ex0*/*.cpp`, lang: "bash" },
+      { note: "valgrind must be clean on all three — ex02 is the one to watch, with one `new[]` per array plus the temporaries created by copying and assigning." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: remember that templates always live in the header" },
+      { p: "The single exception to 'no function bodies in headers', and the most time-consuming error to diagnose, because it surfaces at link time rather than compile time." },
+      { h: "Trick 2: write `if (a < b) return a; return b;` rather than a ternary with `<=`" },
+      { p: "That shape makes the 'tie returns the second' rule automatic — no need to reason about whether it should be `<` or `<=`." },
+      { h: "Trick 3: always template the function parameter" },
+      { p: "`typename F` rather than a fixed function pointer — it accepts plain functions, overloaded ones and functors, and it makes `const` arrays work, all without guessing a signature." },
+      { h: "Trick 4: get the subject's main compiling before writing any logic" },
+      { p: "In ex02, settle `-I.` and the `<cstdlib>`/`<ctime>` includes first — otherwise you spend a long time chasing errors that have nothing to do with your code." },
+      { h: "Trick 5: `operator[]` always comes as a const/non-const pair" },
+      { p: "Whenever you write an accessor returning a reference, write both versions immediately — otherwise anyone holding the object as `const` can't use it at all." },
+      { h: "Trick 6: test a template with two maximally different types" },
+      { p: "`int` and `std::string` — one is a POD, the other manages its own memory. Passing both means you haven't quietly assumed anything about `T`." },
+      { h: "Trick 7: put `unsigned` to work for you" },
+      { p: "Take the index as an `unsigned int` and one `>= size` check catches both negatives and overruns — less code and no gap." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is a template?", a: "A recipe the compiler uses to stamp out one real body per type used — written once, usable with every type, and still fully type-checked at compile time." },
+        { q: "Why must templates live in headers?", a: "The compiler stamps out the code where it is called; if the recipe sits in a file that isn't visible there, you get `undefined reference` at link time." },
+        { q: "How do templates differ from Java's generics?", a: "Java erases the type at run time and uses a single body; C++ generates a separate real body per type — as fast as hand-written code, but with a larger binary and longer error messages." },
+        { q: "How does the compiler know what `T` is?", a: "It deduces it from the argument types (template argument deduction). You can also state it explicitly, e.g. `::min<int>(a, b)`." },
+        { q: "What does `T` have to support?", a: "Only what the code inside the template asks of it — `swap` needs assignment, `min` needs `operator<`. It never has to inherit from anything." },
+        { q: "Why must `min`/`max` return the second argument on a tie?", a: "The subject requires it. `if (a < b) return a; return b;` produces that behaviour naturally — `<=` would return the first, which is wrong." },
+        { q: "Why must `iter` template its function parameter?", a: "So it can take functions accepting `T&`, `const T&`, by value, or functors — and so it works with `const` arrays, which a fixed function pointer cannot." },
+        { q: "Why does `Array` need a deep copy?", a: "It holds a buffer it allocated with `new[]` — copying the pointer alone leaves two objects sharing it, so changes affect both and both `delete []` it on destruction." },
+        { q: "Is `new T[0]` legal?", a: "Yes — it returns a non-NULL pointer that can be `delete []`d, keeping the destructor uniform with no special case for an empty array." },
+        { q: "How does `numbers[-2]` end up throwing?", a: "The parameter is an `unsigned int`, so `-2` becomes 4294967294 as it is passed in, which is `>= _size` — one check covers both cases." },
+        { q: "Why two versions of `operator[]`?", a: "A `const` object can only call `const` methods; without the const version you couldn't read from a `const Array` at all." },
+        { q: "Why must `OutOfBoundsException` derive from `std::exception`?", a: "Because the subject's main catches `const std::exception &` and calls `e.what()` — without the inheritance it isn't caught." },
+        { q: "What is `-I.` in the Makefile for?", a: "The provided main writes `#include <Array.hpp>` with angle brackets, which searches only the include path — `-I.` adds the current directory to it." },
+        { q: "Why does `Array.hpp` include `<cstdlib>`?", a: "The provided main calls `srand`/`rand`/`time` but includes only `<iostream>` and `<Array.hpp>`, and it can't be edited — so the declarations have to arrive through the header it does see." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. all three compile, and a second make doesn't relink
+for d in ex00 ex01 ex02; do (cd $d && make re && make) ; done
+
+# 2. ex00 matches the subject's output line for line, tie rule included
+cd ex00 && ./whatever
+
+# 3. ex01 works with int[] / std::string[] / const int[]
+cd ../ex01 && ./iter
+
+# 4. ex02 must never print "didn't save the same value!!" and must print two out-of-bounds lines
+cd ../ex02 && ./Array 2>&1 | grep -c "index out of bounds"
+
+# 5. the cases main doesn't cover: empty array, self-assignment, const Array, Array<std::string>
+
+# 6. valgrind clean on all three
+valgrind --leak-check=full --error-exitcode=42 -q ./Array && echo "pass"
+
+# 7. no forbidden functions
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector' ex0*/*.hpp ex0*/*.cpp`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: CPP Module 08 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_08": {
+    principle: [
+      { h: "What Module 08 teaches" },
+      { p: "This is where **the STL is finally unlocked** after being banned since Module 00. And the subject is explicit: *using it is the entire point of the module* — **hand-rolling the loop scores badly even when the result is correct**." },
+      { table: { head: ["Exercise", "Binary", "What it teaches"], rows: [
+        ["ex00", "`easyfind`", "a function template over a container + `std::find`"],
+        ["ex01", "`span`", "a class wrapping `std::vector` + `<algorithm>` + filling from an iterator range"],
+        ["ex02", "`mutantstack`", "inheriting a container adaptor to expose its iterators"],
+      ]}},
+      { h: "The three parts of the STL this module uses" },
+      { code: String.raw`container   holds things       vector list deque stack map
+     │
+iterator    marks a position   begin() ... end()
+     │
+algorithm   works on ranges    find sort min_element max_element
+
+The joint = the iterator
+  algorithms know nothing about containers, only about "a range of iterators"
+  → one std::find serves vector, list and deque alike
+  → add M new containers and N new algorithms
+     and you get M×N combinations for free`, cap: "This is why the STL is shaped the way it is — the iterator is the contract both sides agree on", lang: "txt" },
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend`",
+        "**Writing your own loop instead of an algorithm scores badly, even when correct** — this rule is specific to this module",
+        "OCF is mandatory for `Span` and `MutantStack` (`easyfind` is a free function and needs none)",
+        "Function templates go in headers · **a template member of a non-template class (`addRange`) has to live there too**",
+      ]},
+    ],
+
+    theory: [
+      { h: "1) What an iterator is" },
+      { code: String.raw`std::vector<int> v;
+std::vector<int>::iterator it;
+
+for (it = v.begin(); it != v.end(); ++it)
+    std::cout << *it;
+
+  begin()  points at the first element
+  end()    points "one past the last" — not at the last ★
+  *it      reads the value it points at
+  ++it     moves to the next
+
+Why end() points past the end:
+  it makes an empty container behave identically — begin() == end() straight away
+  with no special case needed`, cap: "An iterator imitates a pointer — and for a vector it often literally is one", lang: "cpp" },
+      { table: { head: ["Iterator kind", "Used with", "Read/write"], rows: [
+        ["`iterator`", "a non-const container", "read and write"],
+        ["`const_iterator`", "a const container", "read only"],
+        ["`reverse_iterator`", "walking backwards (`rbegin`/`rend`)", "read and write"],
+        ["`const_reverse_iterator`", "both of the above", "read only"],
+      ]}},
+      { h: "🔬 Deep dive A: `typename` in front of a dependent type" },
+      { p: "Write `T::iterator` inside a template and the compiler refuses — because it **doesn't yet know whether `T::iterator` is a type or a variable**." },
+      { code: String.raw`template <typename T>
+T::iterator easyfind(T &container, int value)      // ✗
+{ ... }
+
+error: need 'typename' before 'T::iterator' because 'T' is a dependent scope
+
+The cause: while reading the recipe the compiler doesn't know what T is
+        T::iterator could be...
+            a type          (a typedef inside T)
+            a static member (int T::iterator;)
+        the two parse completely differently, so you must say which
+
+template <typename T>
+typename T::iterator easyfind(T &container, int value)     // ✓
+         ^^^^^^^^ "this one is a type"`, cap: "The rule: a name that depends on a template parameter and is a type must always be prefixed with `typename`", lang: "cpp" },
+      { qa: [
+        { q: "What is the `typename` in `typename T::iterator` for?", a: "It tells the compiler that `T::iterator` names a type — while reading the recipe it doesn't know `T` yet and can't tell a type from a static member on its own." },
+        { q: "How do you fix `need 'typename' before ... dependent scope`?", a: "Prefix the type name with `typename` wherever a template parameter appears in its path." },
+      ]},
+      { h: "🔬 Deep dive B: why shortestSpan must be O(n log n)" },
+      { p: "The subject requires testing with **10,000 numbers or more**. The obvious approach (compare every pair) is O(n²), which is slow enough to see." },
+      { code: String.raw`Comparing every pair:                 n²/2 operations
+    10,000 numbers   →  50,000,000       tolerable, but slow
+    100,000 numbers  →  5,000,000,000    minutes of hanging ★
+
+Sorting first:                        n log n + n operations
+    100,000 numbers  →  ~1,700,000       instant
+
+The principle that lets you cut it:
+    once sorted, the smallest gap MUST lie between two adjacent values
+
+    3    6    9    11    17
+      3    3    2     6        ← only these four pairs matter; the answer is 2
+    3 never needs comparing against 17, because something always sits between them`, cap: "Sorting turns n²/2 comparisons into n−1", lang: "txt" },
+      { code: String.raw`int Span::shortestSpan() const
+{
+    if (_numbers.size() < 2)
+        throw Span::NotEnoughNumbersException();
+
+    std::vector<int> sorted(_numbers);
+    std::sort(sorted.begin(), sorted.end());
+
+    int shortest = INT_MAX;
+    for (std::vector<int>::size_type i = 1; i < sorted.size(); ++i)
+    {
+        long gap = static_cast<long>(sorted[i]) - sorted[i - 1];   // ★ long
+        if (gap < shortest)
+            shortest = static_cast<int>(gap);
+    }
+    return (shortest);
+}`, cap: "The real code — it sorts a **copy**, because a `const` method can't modify `_numbers` (and shouldn't want to)", lang: "cpp" },
+      { note: "**Why compute in `long`:** `INT_MAX - INT_MIN` is 4,294,967,295, which doesn't fit in an `int` — it would silently overflow into a negative number. Compute in `long` and narrow afterwards." },
+      { qa: [
+        { q: "Why does `shortestSpan` sort first?", a: "Once sorted, the smallest gap must lie between two adjacent values — reducing n²/2 comparisons to n−1. The subject tests with 10,000+ numbers, where the n² version is visibly slow." },
+        { q: "Why compute the gap in a `long`?", a: "`INT_MAX - INT_MIN` exceeds `int` range and would overflow into a negative value with no warning. Compute in `long` and convert back." },
+        { q: "Why sort a copy rather than the real data?", a: "The method is `const`, so it can't modify `_numbers` — and a caller shouldn't find their insertion order rearranged by a read-only function." },
+      ]},
+      { h: "🔬 Deep dive C: `this->c` in MutantStack — name lookup in a dependent base" },
+      { p: "`std::stack` keeps its real storage in a `protected` member called `c`. A derived class can reach it — **but only by writing `this->c`**." },
+      { code: String.raw`template <typename T, typename Container = std::deque<T> >
+class MutantStack : public std::stack<T, Container>
+{
+    public:
+        iterator begin(void) { return (c.begin()); }        // ✗
+        iterator begin(void) { return (this->c.begin()); }  // ✓
+};
+
+error: 'c' was not declared in this scope
+
+The cause: std::stack<T, Container> depends on T and Container
+        while reading the recipe the compiler doesn't know what the base looks like
+        → the standard says "do not look up names in a base you don't yet know"
+        → so a bare c simply isn't found
+
+this->c  defers the lookup to instantiation time, when the base IS known`, cap: "The same family of reason as `typename` — both are rules about names that depend on a template", lang: "cpp" },
+      { p: "**Why the standard works this way:** if names were looked up in the base while reading the recipe, someone specialising `std::stack<MyType>` without a `c` afterwards would retroactively change what the code means. Deferring the lookup is safer." },
+      { qa: [
+        { q: "Why write `this->c` rather than `c`?", a: "`c` lives in a base class that depends on a template parameter, and C++ doesn't look names up in such a base while reading the recipe. `this->` defers the lookup to instantiation, when the base is known." },
+        { q: "What is `c`?", a: "A `protected` member of `std::stack` holding the real container (a `std::deque<T>` by default) — the only way to reach the data inside." },
+        { q: "How do you fix `'c' was not declared in this scope`?", a: "Prefix it with `this->`." },
+      ]},
+      { h: "🔬 Deep dive D: why `std::stack` has no iterators in the first place" },
+      { p: "`std::stack` isn't a container, it's a **container adaptor** — it wraps a real container and deliberately *restricts* access to push/pop/top." },
+      { table: { head: ["", "container (`vector`, `deque`)", "adaptor (`stack`, `queue`)"], rows: [
+        ["Holds the data itself", "yes", "no — it wraps another one in `c`"],
+        ["Iterators", "yes", "**deliberately none**"],
+        ["Purpose", "access it any way you like", "**force LIFO access only**"],
+      ]}},
+      { p: "**Having no iterators is a feature, not a defect** — a stack promises LIFO access only, and being able to walk through the middle would break that promise. Which is why the exercise is called *'mutated abomination'*: you are undoing what the designer deliberately prevented." },
+      { code: String.raw`What public inheritance gives us for free:
+    push() pop() top() size() empty()   ← none of them rewritten
+
+What we add:
+    typedefs for all four iterator kinds
+    begin() end() rbegin() rend()  in both const and non-const forms
+
+And because the inheritance is public:
+    std::stack<int> s(mstack);      ← it can be copied back into a plain stack`, cap: "Inheritance is the shortest route here — rewriting the whole class works too, but every method would have to be copied", lang: "cpp" },
+      { qa: [
+        { q: "Why does `std::stack` have no iterators?", a: "It's a container adaptor that deliberately limits access to LIFO. Being able to iterate through the middle would mean it no longer guarantees stack semantics." },
+        { q: "How does MutantStack make it iterable?", a: "It inherits `std::stack` publicly and reaches the protected member `c` through `this->c` to return the underlying container's iterators." },
+        { q: "Why `typedef` all four iterator kinds?", a: "So that `MutantStack<int>::iterator it = ...;` compiles — without the typedef that type name simply doesn't exist." },
+      ]},
+      { h: "🔬 Deep dive E: `addRange` — imitating the STL's own idiom" },
+      { code: String.raw`template <typename InputIterator>
+void addRange(InputIterator begin, InputIterator end)
+{
+    if (_numbers.size() + static_cast<unsigned int>(std::distance(begin, end))
+        > _maxSize)
+        throw Span::FullException();
+    _numbers.insert(_numbers.end(), begin, end);
+}`, cap: "The real code — a template member of a non-template class, so it has to live in the header", lang: "cpp" },
+      { p: "**Why take an iterator range instead of a `std::vector<int>`:** the `(first, last)` shape is the idiom the whole STL uses — the caller can pass a `vector`, a `list`, a `deque`, or even a plain C array (`arr`, `arr + n`), and we never need to know where it came from." },
+      { p: "**Check the capacity before inserting:** `std::distance(begin, end)` gives the count up front, so you can throw before `_numbers` is touched at all — checking after inserting would leave the object half-updated." },
+      { qa: [
+        { q: "Why does `addRange` take two iterators rather than a container?", a: "It's the STL idiom — it accepts input from any source, including C arrays, and can take just part of a container, all without knowing the source type." },
+        { q: "Why must `addRange` live in the header?", a: "It's a template member — even though the class isn't a template, the method is still stamped out at the call site and needs the full recipe visible." },
+        { q: "What is `std::distance` doing here?", a: "Counting the elements in the range so the capacity can be checked **before** inserting — so nothing is left half-inserted when it throws." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Containers library", url: "https://en.cppreference.com/w/cpp/container", note: "every container and how they differ" },
+        { label: "cppreference — Iterator library", url: "https://en.cppreference.com/w/cpp/iterator", note: "iterator categories and `std::distance`" },
+        { label: "cppreference — std::find", url: "https://en.cppreference.com/w/cpp/algorithm/find", note: "the central algorithm of ex00" },
+        { label: "cppreference — std::stack", url: "https://en.cppreference.com/w/cpp/container/stack", note: "look at the protected member `c`" },
+        { label: "isocpp FAQ — dependent names", url: "https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-types", note: "the source of both `typename` and `this->`" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — easyfind" },
+      { code: String.raw`template <typename T>
+typename T::iterator easyfind(T &container, int value)
+{
+    typename T::iterator it;
+
+    it = std::find(container.begin(), container.end(), value);
+    if (it == container.end())
+        throw std::runtime_error("easyfind: value not found");
+    return (it);
+}
+
+// the overload for const containers
+template <typename T>
+typename T::const_iterator easyfind(const T &container, int value)
+{
+    typename T::const_iterator it;
+
+    it = std::find(container.begin(), container.end(), value);
+    if (it == container.end())
+        throw std::runtime_error("easyfind: value not found");
+    return (it);
+}`, cap: "The real code — two overloads, because a `const` container can only yield a `const_iterator`", lang: "cpp" },
+      { p: "**Why return an iterator rather than an index:** `std::find` hands you one anyway, and an iterator works with `std::list`, which has no index to speak of. Returning one is what makes a single function genuinely work with every container." },
+      { note: "The subject says to assume `T` is a sequence container of `int` — there's no need to support `map` or `set`." },
+      { h: "ex01 — Span" },
+      { table: { head: ["Member", "Behaviour"], rows: [
+        ["`Span(unsigned int n)`", "capacity N"],
+        ["all four OCF members", "mandatory since Module 02"],
+        ["`addNumber(int)`", "append one — **throws when already full**"],
+        ["`shortestSpan() const`", "the smallest distance between any two — throws with fewer than 2 numbers"],
+        ["`longestSpan() const`", "the distance between the largest and smallest — throws with fewer than 2"],
+        ["`addRange(begin, end)`", "a template member — fills from an iterator range in one call"],
+      ]}},
+      { code: String.raw`int Span::longestSpan() const
+{
+    if (_numbers.size() < 2)
+        throw Span::NotEnoughNumbersException();
+
+    int mn = *std::min_element(_numbers.begin(), _numbers.end());
+    int mx = *std::max_element(_numbers.begin(), _numbers.end());
+
+    return (static_cast<int>(static_cast<long>(mx) - mn));   // ★ overflow guard
+}`, cap: "`min_element`/`max_element` return **iterators** — you need the `*` to get the value", lang: "cpp" },
+      { code: String.raw`The subject's example: Span(5) filled with 6, 3, 17, 9, 11
+
+    sorted:      3   6   9   11   17
+    the gaps:      3   3    2    6    →  shortestSpan = 2
+    max - min = 17 - 3                →  longestSpan  = 14
+
+Required output:
+    2
+    14`, cap: "Those two numbers are what the evaluator diffs", lang: "txt" },
+      { h: "ex02 — MutantStack" },
+      { code: String.raw`template <typename T, typename Container = std::deque<T> >
+class MutantStack : public std::stack<T, Container>
+{
+    public:
+        MutantStack(void) {}
+        MutantStack(const MutantStack &o) : std::stack<T, Container>(o) {}
+        MutantStack &operator=(const MutantStack &o)
+        { std::stack<T, Container>::operator=(o); return (*this); }
+        ~MutantStack(void) {}
+
+        typedef typename Container::iterator               iterator;
+        typedef typename Container::const_iterator         const_iterator;
+        typedef typename Container::reverse_iterator       reverse_iterator;
+        typedef typename Container::const_reverse_iterator const_reverse_iterator;
+
+        iterator begin(void) { return (this->c.begin()); }
+        iterator end(void)   { return (this->c.end()); }
+        reverse_iterator rbegin(void) { return (this->c.rbegin()); }
+        reverse_iterator rend(void)   { return (this->c.rend()); }
+
+        const_iterator begin(void) const { return (this->c.begin()); }
+        const_iterator end(void)   const { return (this->c.end()); }
+        const_reverse_iterator rbegin(void) const { return (this->c.rbegin()); }
+        const_reverse_iterator rend(void)   const { return (this->c.rend()); }
+};`, cap: "`typename` on every typedef and `this->` on every begin/end — the same two rules, over and over", lang: "cpp" },
+      { note: "The space in `std::deque<T> >` is required in C++98 — written as `>>` the compiler reads it as the right-shift operator. C++11 fixed this, but this module is C++98." },
+    ],
+
+    architecture: [
+      { h: "Files per exercise" },
+      { table: { head: ["Exercise", "Files", "Header or cpp"], rows: [
+        ["ex00", "`easyfind.hpp`, `main.cpp`", "pure template — header only"],
+        ["ex01", "`Span.{hpp,cpp}`, `main.cpp`", "ordinary methods in the `.cpp` · **`addRange` in the `.hpp`**, being a template"],
+        ["ex02", "`MutantStack.hpp`, `main.cpp`", "a class template — header only"],
+      ]}},
+      { p: "ex01 is the only exercise with a real `.cpp` — and it's a good illustration of the *'templates in the header, everything else in the cpp'* rule inside one class." },
+      { h: "The test the subject designed for ex02" },
+      { code: String.raw`Run the same test twice:
+
+  run 1:  MutantStack<int> s;
+          s.push(5); s.top(); s.pop(); ... iterate with an iterator
+
+  run 2:  std::list<int> s;              ← only the type changed
+          s.push_back(5); s.back(); s.pop_back(); ... iterate with an iterator
+
+  ★ the two outputs must be identical, character for character
+
+What it means: our iterators behave exactly like a real sequence container's`, cap: "Put both in your main and diff them — it's evidence you can show the evaluator directly", lang: "txt" },
+    ],
+
+    dataflow: [
+      { h: "ex01 — the performance test the subject requires" },
+      { code: String.raw`Span sp(100000);
+std::vector<int> v;
+
+for (int i = 0; i < 100000; i++)
+    v.push_back(std::rand());
+sp.addRange(v.begin(), v.end());          // all 100,000 in one call
+
+std::cout << sp.shortestSpan() << std::endl;
+std::cout << sp.longestSpan() << std::endl;
+
+  the sorting version (n log n): instant
+  the every-pair version (n²): 5,000,000,000 operations → minutes of hanging ★
+
+If the program hangs here, shortestSpan is still O(n²)`, cap: "Timing is the most direct test there is — you don't have to read the code to know which approach was taken", lang: "cpp" },
+      { h: "ex01 — the cases that must throw" },
+      { table: { head: ["Situation", "Correct result"], rows: [
+        ["`addNumber` when already full", "`FullException`"],
+        ["`addRange` that would exceed capacity", "`FullException`, and **nothing inserted at all**"],
+        ["`shortestSpan()` with 0 or 1 numbers", "`NotEnoughNumbersException`"],
+        ["`longestSpan()` with 0 or 1 numbers", "`NotEnoughNumbersException`"],
+        ["`Span(5)` holding `INT_MIN` and `INT_MAX`", "`longestSpan` must not overflow into a negative"],
+      ]}},
+      { h: "ex02 — everything that must be tested" },
+      { code: String.raw`MutantStack<int> ms;
+ms.push(5); ms.push(17);
+ms.top();       // 17
+ms.pop();
+ms.size();      // 1
+
+MutantStack<int>::iterator it = ms.begin();
+while (it != ms.end()) { std::cout << *it; ++it; }        // forwards
+
+MutantStack<int>::reverse_iterator rit = ms.rbegin();     // backwards
+
+const MutantStack<int> cms(ms);                           // copy ctor
+MutantStack<int>::const_iterator cit = cms.begin();       // const_iterator
+
+std::stack<int> s(ms);      // ★ copies back into a plain stack (public inheritance)
+
+MutantStack<int> empty;
+empty.begin() == empty.end();     // ★ must be true`, cap: "Five things to pass: the inherited methods, forward iteration, reverse iteration, const, and an empty stack", lang: "cpp" },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — the shortest, and it introduces the `typename` rule before ex02 needs it repeatedly",
+        "2. **ex02** — the class itself is tiny; the substance is `this->c` and the typedefs. Write the two-run test (MutantStack vs `std::list`) and diff it",
+        "3. **ex01** — the longest. Get `addNumber` and the exceptions matching the subject's example first, then add `addRange` and the 100,000-element test",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["`need 'typename' before 'T::iterator'`", "a type name that depends on a template", "prefix it with `typename`"],
+        ["`'c' was not declared in this scope`", "a name in a dependent base class", "`this->c`"],
+        ["`MutantStack<int>::iterator does not name a type`", "missing `typedef`", "typedef all four kinds from `Container`"],
+        ["`>>` read as an operator", "writing `std::deque<T>>` closed up", "add a space: `std::deque<T> >`"],
+        ["the program hangs at 100,000 numbers", "`shortestSpan` is O(n²)", "sort a copy and walk adjacent pairs"],
+        ["`longestSpan` returns a negative", "`int` overflow", "compute in `long`, then convert back"],
+        ["`min_element` gives strange values", "forgetting the `*` — it returns an iterator", "`*std::min_element(...)`"],
+        ["`addRange` throws after inserting", "checking after insertion", "check first with `std::distance`"],
+        ["a poor score despite correct output", "hand-rolled loops instead of algorithms", "use `std::find` / `std::sort` / `min_element` / `max_element`"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`for d in ex00 ex01 ex02; do (cd $d && make re && make) ; done
+
+cd ex01 && ./span            # must print 2 then 14
+time ./span                  # the 100,000-element test must finish instantly
+
+cd ../ex02 && ./mutantstack  # the two output blocks must be identical
+
+# valgrind on all three
+valgrind --leak-check=full --error-exitcode=42 -q ./span && echo "pass"
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 08/ex01" && make re && time ./span'
+
+# confirm the algorithms are really used and nothing was hand-rolled
+grep -nE 'std::(find|sort|min_element|max_element|distance)' ex0*/*.hpp ex0*/*.cpp
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp`, lang: "bash" },
+      { note: "Grepping for `std::find`/`std::sort` is how you check yourself against this module's specific rule — finding none means you're about to lose marks even though the program works." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: remember the two dependent-name rules together" },
+      { p: "`typename` in front of a type that depends on `T` · `this->` in front of a base member that depends on `T`. Same underlying issue — the compiler doesn't know `T` while reading the recipe, so you have to be explicit." },
+      { h: "Trick 2: sorting first is the standard shortcut" },
+      { p: "Whenever a problem asks for 'the closest pair', try sorting first — the answer almost always lies between adjacent values, cutting O(n²) to O(n log n) immediately." },
+      { h: "Trick 3: always compute distances in `long`" },
+      { p: "The difference of two `int`s need not fit in an `int` — a quiet bug that ordinary tests never catch, visible only with `INT_MIN` and `INT_MAX`." },
+      { h: "Trick 4: test ex02 by diffing against `std::list`" },
+      { p: "It's the test the subject already designed — write one test suite, run it twice with different types, and matching output means it's right." },
+      { h: "Trick 5: `min_element` / `max_element` return iterators" },
+      { p: "You need the `*` to get the value — forget it and you get a long error about not being able to convert an iterator to an int." },
+      { h: "Trick 6: always check before modifying" },
+      { p: "`addRange` uses `std::distance` to check capacity before inserting — throwing halfway through would leave the object in a state the caller never expected." },
+      { h: "Trick 7: grep your own algorithms before submitting" },
+      { p: "This module deducts marks for hand-rolled loops even when the output is right — `grep -nE 'std::(find|sort|min_element)'` takes two seconds and tells you immediately whether you followed the rule." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What are the STL's three parts, and how do they connect?", a: "Containers hold data, algorithms do work, iterators join them. Algorithms know nothing about containers, only about ranges of iterators — which is why one `std::find` serves vector, list and deque." },
+        { q: "Why does this module forbid hand-written loops?", a: "The subject says using the STL is the point of the module — writing your own loop scores badly even when the result is correct." },
+        { q: "Where does `end()` point?", a: "One past the last element, not at it. That makes an empty container behave identically (`begin() == end()`) with no special case." },
+        { q: "What is `typename` for in `typename T::iterator`?", a: "It states that this is a type name — while reading the recipe the compiler doesn't know `T` and can't tell whether `T::iterator` is a type or a static member." },
+        { q: "Why does `easyfind` return an iterator rather than an index?", a: "`std::find` gives you one anyway, and `std::list` has no index at all — returning an iterator is what makes it work with every container." },
+        { q: "How does `shortestSpan` work, and why is it fast?", a: "It copies and sorts (`std::sort`), then walks the gaps between adjacent values — because after sorting the smallest gap must be between neighbours. O(n log n) rather than O(n²)." },
+        { q: "Why compute the distance in a `long`?", a: "`INT_MAX - INT_MIN` exceeds `int` range and would quietly overflow into a negative value." },
+        { q: "Why does `addRange` take two iterators?", a: "It's the STL's `(first, last)` idiom — it accepts vectors, lists, C arrays or just part of a container, with no knowledge of the source type." },
+        { q: "Why must `addRange` live in the header?", a: "It's a template member — even in a non-template class, the method is stamped out at the call site and needs the whole recipe visible." },
+        { q: "How does `std::stack` differ from `std::vector`?", a: "`stack` is a container adaptor — it doesn't hold the data itself but wraps a real container (`c`, a `std::deque` by default) and restricts access to LIFO." },
+        { q: "Why does `std::stack` have no iterators?", a: "By design — a stack guarantees LIFO access, and iterating through the middle would break that guarantee. Hence the exercise's name, mutated abomination." },
+        { q: "How does MutantStack become iterable?", a: "It inherits `std::stack` publicly, typedefs the iterators from `Container`, and returns `this->c.begin()` / `this->c.end()`." },
+        { q: "Why must you write `this->c`?", a: "`c` lives in a base class that depends on a template parameter, and C++ doesn't look names up in such a base while reading the recipe. `this->` defers the lookup to instantiation." },
+        { q: "How do you prove MutantStack is correct?", a: "Run the same test suite twice — once with MutantStack and once with `std::list` — and the outputs must be identical, character for character." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. all three compile, and a second make doesn't relink
+for d in ex00 ex01 ex02; do (cd $d && make re && make) ; done
+
+# 2. ex00: found / not found throws / works with vector, list and deque
+# 3. ex01: the subject's example prints 2 then 14
+cd ex01 && ./span
+
+# 4. ex01: 100,000 numbers must finish instantly
+time ./span
+
+# 5. ex01: every throwing case — full, addRange over capacity, fewer than 2 numbers
+# 6. ex02: the two output blocks identical, plus rbegin/rend, const, and an empty stack
+cd ../ex02 && ./mutantstack
+
+# 7. the algorithms really are used
+grep -nE 'std::(find|sort|min_element|max_element|distance)' ex0*/*.hpp ex0*/*.cpp
+
+# 8. valgrind clean on all three
+valgrind --leak-check=full --error-exitcode=42 -q ./span && echo "pass"`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: CPP Module 09 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_09": {
+    principle: [
+      { h: "What Module 09 teaches" },
+      { p: "The last module of the CPP track. Module 08 showed what the STL contains — this one puts it to work on problems with dirty data, plenty of edge cases and real performance requirements. **Each exercise mandates a different container, and none may be reused across exercises.**" },
+      { table: { head: ["Exercise", "Program", "Container", "The problem"], rows: [
+        ["ex00", "`btc`", "`std::map`", "convert an amount using the rate of the closest **earlier** date"],
+        ["ex01", "`RPN`", "`std::stack`", "evaluate a Reverse Polish expression"],
+        ["ex02", "`PmergeMe`", "**two different ones**", "sort with Ford-Johnson and compare the timings"],
+      ]}},
+      { h: "Why each exercise mandates a different container" },
+      { p: "To show that **the data structure you pick is the answer to the problem**, not an incidental detail — a `map` keeps its keys sorted, so finding the previous date takes logarithmic time; a `stack` is the definition of RPN; and ex02 shows that different containers give different timings even with the same algorithm." },
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` · no `using namespace` / `friend`",
+        "**No container may be reused across exercises** — use `map` in ex00 and it is off-limits in ex01 and ex02",
+        "OCF is mandatory for every class",
+        "**Leaks are checked strictly** — this module awards marks for a clean valgrind",
+        "ex02 must handle **3000 numbers or more** and must genuinely sort with **Ford-Johnson**",
+      ]},
+    ],
+
+    theory: [
+      { h: "1) `std::map` — keys sorted automatically" },
+      { code: String.raw`std::map<std::string, double> db;
+
+db["2011-01-03"] = 0.3;
+db["2011-01-09"] = 0.32;
+
+  always stored sorted by key (normally a red-black tree)
+  insert/find/erase  =  O(log n)
+  iterating always yields sorted order
+
+Why a "2011-01-03" string key sorts correctly:
+  the YYYY-MM-DD format sorts lexicographically exactly as it sorts chronologically
+  (because months and days are zero-padded to a fixed width)
+  → no need to convert to a date struct at all`, cap: "ISO 8601 was designed so lexicographic order is chronological order — this exploits that", lang: "cpp" },
+      { h: "🔬 Deep dive A: `lower_bound` — finding the closest earlier date" },
+      { p: "ex00's rule: when the exact date isn't in the database, use the **closest earlier one** — never the next one. `map::lower_bound` does that in O(log n)." },
+      { code: String.raw`lower_bound(k) = the first iterator whose key is >= k
+
+Database:    2011-01-03   2011-01-09   2012-01-11
+                  │            │            │
+
+look up "2011-01-09"  → lower_bound lands exactly on it   → use it directly
+look up "2011-01-05"  → lower_bound gives 2011-01-09      → too far → --it → 2011-01-03 ★
+look up "2010-01-01"  → lower_bound gives 2011-01-03 (= begin) → no earlier date → error
+look up "2020-01-01"  → lower_bound gives end()           → --it → 2012-01-11 (the last)`, cap: "Three cases to separate: an exact hit, stepping back one, and having nothing earlier at all", lang: "txt" },
+      { code: String.raw`double BitcoinExchange::getRate(const std::string &date) const
+{
+    std::map<std::string, double>::const_iterator it;
+
+    it = this->_db.lower_bound(date);
+    if (it != this->_db.end() && it->first == date)
+        return (it->second);              // an exact hit
+    if (it == this->_db.begin())
+        throw BitcoinExchange::FileError();  // there is nothing earlier
+    --it;                                  // ★ one step back = the closest earlier date
+    return (it->second);
+}`, cap: "Always check `it == begin()` **before** `--it` — stepping back from begin is undefined behaviour", lang: "cpp" },
+      { note: "You could scan for it by hand, but that is O(n) per input line — `lower_bound` is O(log n), and that is why the subject mandates a `map`." },
+      { qa: [
+        { q: "What is `lower_bound`?", a: "It returns the first iterator whose key is `>=` the value you're looking for, or `end()` if there is none." },
+        { q: "How do you find the rate for a date that isn't in the database?", a: "`lower_bound(date)`, and if it isn't an exact hit, `--it` to get the closest earlier date — after checking you aren't already at `begin()`, where stepping back isn't possible." },
+        { q: "Why a `map` rather than a `vector` of pairs?", a: "A `map` keeps its keys sorted and already provides an O(log n) `lower_bound` — a vector would have to be sorted by hand and scanned in O(n) every time." },
+        { q: "Why can the dates be stored as plain strings?", a: "The `YYYY-MM-DD` format sorts lexicographically exactly as it sorts chronologically, because every part is zero-padded to a fixed width." },
+      ]},
+      { h: "🔬 Deep dive B: RPN — why a stack is the direct answer" },
+      { p: "Reverse Polish Notation puts the operator **after** its operands: `3 4 +` rather than `3 + 4`. That form needs no parentheses and no precedence rules whatsoever." },
+      { code: String.raw`"8 9 * 9 - 9 - 9 - 4 - 1 +"
+
+token   action                        stack (bottom → top)
+  8     push                          8
+  9     push                          8 9
+  *     pop 9, pop 8 → 8*9=72 → push  72
+  9     push                          72 9
+  -     pop 9, pop 72 → 72-9=63       63
+  9     push                          63 9
+  -     → 54                          54
+  9     -                             45
+  4     -                             41
+  1     +                             42     ★ one value left = the answer`, cap: "Pop order matters: the top is the right-hand operand — for `a - b` you pop b first, then a", lang: "txt" },
+      { code: String.raw`void RPN::applyOperator(char op)
+{
+    if (this->_stack.size() < 2)
+        throw RPN::RPNError();
+
+    long b = this->_stack.top(); this->_stack.pop();   // ★ the top = the right operand
+    long a = this->_stack.top(); this->_stack.pop();
+
+    if (op == '/' && b == 0)
+        throw RPN::RPNError();
+    /* compute a op b and push it back */
+}`, cap: "Swap a and b and `+`/`*` still look right while `-`/`/` are all wrong — a bug simple tests never catch", lang: "cpp" },
+      { p: "**Why `long` rather than `int`:** the subject says the *input numbers* are below 10 — it says nothing about the intermediate results. `9 9 * 9 * 9 *` grows without bound." },
+      { table: { head: ["Case that must be an Error", "Why"], rows: [
+        ["`(1 + 1)`", "parentheses are not accepted tokens"],
+        ["`1 +`", "fewer than two operands when an operator appears"],
+        ["`1 2`", "more than one value left on the stack at the end"],
+        ["`1 0 /`", "division by zero"],
+        ["`12 3 +`", "`12` is not a single digit"],
+        ["argc other than 2", "the expression is taken as exactly one argument"],
+      ]}},
+      { note: "`Error` goes to **stderr** and the program exits non-zero — unlike ex00, which prints per-line errors to stdout and carries on." },
+      { qa: [
+        { q: "How does RPN work, and why a stack?", a: "Push numbers; on an operator, pop two, compute, push the result. A stack is exactly the structure RPN's definition implies — no parentheses, no precedence." },
+        { q: "In what order do the two popped values go?", a: "The first popped (the top) is the right-hand operand. For `a - b` you pop `b` first, then `a` — swap them and `+`/`*` still work while `-`/`/` break." },
+        { q: "Why store `long` rather than `int`?", a: "The subject only bounds the **input** numbers below 10 — the intermediate results have no bound." },
+        { q: "What happens on an error?", a: "Print `Error` to stderr and exit with a non-zero status." },
+      ]},
+      { h: "🔬 Deep dive C: Ford-Johnson — sorting with as few comparisons as possible" },
+      { p: "Ford-Johnson (merge-insert sort) was designed to **minimise the number of comparisons**, approaching the theoretical limit — not to minimise wall-clock time. It is more complex and moves more data around than quicksort." },
+      { code: String.raw`The main steps:
+
+1. pair up   compare within each pair and put the larger on the right
+     (3,9) (1,7) (5,4)  →  (3,9) (1,7) (4,5)
+
+2. recurse   sort the "pairs" by each pair's larger element
+     → giving a sorted sequence of the larger ones = the main chain
+
+3. insert    binary-insert the remaining smaller ones (the pend) back in
+     the first pair's smaller element goes straight to the front
+     (no comparison needed — it is certainly below the first pair's larger)
+
+4. insertion order   follow the Jacobsthal sequence: 1, 3, 5, 11, 21, 43, ...
+     J(k) = J(k-1) + 2*J(k-2)`, cap: "Jacobsthal affects only the comparison count — inserting in plain order is still correct, just with more comparisons", lang: "txt" },
+      { p: "**Why the Jacobsthal sequence:** you want each element inserted while the main chain is exactly 2ᵏ−1 long, because a binary search over that size uses a whole number of comparisons with nothing wasted. Jacobsthal is the sequence that makes that true as often as possible." },
+      { code: String.raw`template <typename C>
+void fordJohnson(C &v, std::size_t unit)
+{
+    std::size_t n = v.size();
+    std::size_t unitCount = n / unit;
+
+    if (unitCount < 2)
+        return ;
+    /* 1. order each pair so the larger key sits on the right */
+    for (std::size_t i = 0; i + 1 < unitCount; i += 2)
+    {
+        std::size_t l = i * unit;
+        std::size_t r = (i + 1) * unit;
+        if (fjKey(v, l, unit) > fjKey(v, r, unit))
+            fjSwapUnits(v, l, r, unit);
+    }
+    /* 2. recurse with units twice the size */
+    fordJohnson(v, unit * 2);
+    /* 3-5. build the main chain and the pend, then insert in Jacobsthal order */
+}`, cap: "The real code — call `fordJohnson(v, 1)` from outside; at unit = 1 every element is its own unit, so the result is fully sorted", lang: "cpp" },
+      { p: "**The trick in this implementation:** instead of building nested `pair<pair<int,int>, ...>` types (whose type names explode at compile time), it treats the data as **blocks of `unit` elements whose comparison key is the last one**, doubling `unit` at each level — so one templated body serves both `vector` and `deque`." },
+      { qa: [
+        { q: "What is Ford-Johnson, and how does it differ from merge sort?", a: "It's a merge-insert sort designed to use as few comparisons as possible — pair up, recursively sort the larger ones, then binary-insert the smaller ones in Jacobsthal order." },
+        { q: "What is the Jacobsthal sequence for?", a: "It arranges for each element to be inserted while the search range is exactly 2ᵏ−1, where a binary search uses a whole number of comparisons with nothing wasted. Any other order is still correct, just costlier." },
+        { q: "Why isn't Ford-Johnson faster than quicksort?", a: "It reduces **comparisons**, not data movement — and it spends a lot of time managing structure. It only pays off when comparisons are expensive." },
+      ]},
+      { h: "🔬 Deep dive D: timing it so the difference is visible" },
+      { p: "ex02 must report a separate time for each container, and the resolution has to be fine enough to see a difference." },
+      { code: String.raw`clock()  typically has a resolution of 10 milliseconds
+         → sorting 3000 numbers finishes in about 1 millisecond
+         → both containers report 0 and look identical  ✗
+
+gettimeofday()  microsecond resolution
+         → the difference is actually visible  ✓
+
+struct timeval start, end;
+gettimeofday(&start, NULL);
+    /* data handling + the sort */
+gettimeofday(&end, NULL);
+long us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);`, cap: "The subject says to time **the data handling** as well, not just the sort", lang: "cpp" },
+      { code: String.raw`Before: 3 5 9 7 4
+After: 3 4 5 7 9
+Time to process a range of 5 elements with std::vector : 10 us
+Time to process a range of 5 elements with std::deque  : 6 us`, cap: "Four lines, in the subject's format", lang: "txt" },
+      { note: "`vector` is usually faster than `deque` at small sizes because its data sits in one contiguous block and caches well — but the real result depends on the machine, so never tell an evaluator that one 'must' win." },
+      { qa: [
+        { q: "Why can't you use `clock()`?", a: "Its resolution is around 10 milliseconds, while sorting 3000 numbers finishes faster than that — both containers report 0 and there is nothing to compare." },
+        { q: "What does the timing have to cover?", a: "Both the data handling and the sort, as the subject specifies — not the sorting function alone." },
+        { q: "Why is `vector` usually faster than `deque` at small sizes?", a: "Its data is one contiguous block, so caches work better. But the real result depends on the machine — don't assert to an evaluator that one must win." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — std::map::lower_bound", url: "https://en.cppreference.com/w/cpp/container/map/lower_bound", note: "the heart of ex00" },
+        { label: "cppreference — std::stack", url: "https://en.cppreference.com/w/cpp/container/stack", note: "ex01's container" },
+        { label: "Ford-Johnson algorithm", url: "https://en.wikipedia.org/wiki/Merge-insertion_sort", note: "where the algorithm and its comparison counts come from" },
+        { label: "Jacobsthal number", url: "https://en.wikipedia.org/wiki/Jacobsthal_number", note: "J(k) = J(k-1) + 2·J(k-2)" },
+        { label: "Reverse Polish notation", url: "https://en.wikipedia.org/wiki/Reverse_Polish_notation", note: "its origin and why it needs no parentheses" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — BitcoinExchange" },
+      { code: String.raw`class BitcoinExchange
+{
+    private:
+        std::map<std::string, double> _db;
+
+    public:
+        /* all four OCF members */
+        void   loadDatabase(const std::string &filename);
+        void   processInput(const std::string &filename);
+        double getRate(const std::string &date) const;
+
+        class FileError : public std::exception
+        { public: virtual const char *what() const throw(); };
+};
+
+bool isValidDate(const std::string &date);
+bool parseValue(const std::string &str, double &out, std::string &err);`, cap: "The real code — the validators are free functions, since they need none of the object's state", lang: "cpp" },
+      { h: "Messages that must match exactly (ex00)" },
+      { code: String.raw`Error: could not open file.        → stderr, the file couldn't be opened
+Error: bad input => <token>        → a malformed date, or no '|'
+Error: not a positive number.      → a negative value
+Error: too large a number.         → a value above 1000
+<date> => <value> = <result>       → success`, cap: "Per-line errors go to stdout and processing continues — the program does not stop", lang: "txt" },
+      { code: String.raw`2011-01-03 => 3 = 0.9
+2011-01-03 => 2 = 0.6
+2011-01-03 => 1 = 0.3
+2011-01-03 => 1.2 = 0.36
+2011-01-09 => 1 = 0.32
+Error: not a positive number.
+Error: bad input => 2001-42-42
+2012-01-11 => 1 = 7.1
+Error: too large a number.`, cap: "The output for the subject's sample file — it prints `3`, not `3.0`, and keeps `1.2`, which is just default stream behaviour", lang: "txt" },
+      { p: "**Date validation must check the actual calendar**, not just the format — `2001-42-42` must fail, and so must `2011-02-30`. A leap year is divisible by 4 **and** (not divisible by 100 **or** divisible by 400)." },
+      { h: "ex01 — RPN" },
+      { code: String.raw`class RPN
+{
+    private:
+        std::stack<long> _stack;         // ★ long, not int
+        void applyOperator(char op);
+
+    public:
+        /* all four OCF members */
+        long evaluate(const std::string &expr);
+
+        class RPNError : public std::exception
+        { public: virtual const char *what() const throw(); };
+};`, cap: "The real code — `applyOperator` is private, being an internal detail", lang: "cpp" },
+      { code: String.raw`./RPN "8 9 * 9 - 9 - 9 - 4 - 1 +"   →  42
+./RPN "7 7 * 7 -"                    →  42
+./RPN "1 2 * 2 / 2 * 2 4 - +"        →  0
+./RPN "(1 + 1)"                      →  Error`, cap: "The subject's examples — turn them straight into a test script", lang: "bash" },
+      { h: "ex02 — PmergeMe" },
+      { code: String.raw`class PmergeMe
+{
+    private:
+        std::vector<int> _vec;           // ★ container one
+        std::deque<int>  _deq;           // ★ container two
+        bool parseToken(const std::string &tok, long &out) const;
+
+    public:
+        /* all four OCF members */
+        bool parse(int argc, char **argv);
+        void run();
+};
+
+template <typename C> void fordJohnson(C &v, std::size_t unit);   // in the header`, cap: "The real code — the sorter is a template, so one body serves both containers", lang: "cpp" },
+      { p: "**Input validation:** accept only positive integers — reject negatives, non-digits and anything above `INT_MAX`. Duplicates are allowed (the subject leaves that to you)." },
+    ],
+
+    architecture: [
+      { h: "File layout" },
+      { code: String.raw`ex00/  Makefile  main.cpp  BitcoinExchange.{hpp,cpp}  data.csv
+ex01/  Makefile  main.cpp  RPN.{hpp,cpp}
+ex02/  Makefile  main.cpp  PmergeMe.{hpp,cpp}
+                                      └── fordJohnson is a template, so it lives in the .hpp`, cap: "`data.csv` has to be submitted too, and `btc` must be run from the directory containing it", lang: "txt" },
+      { h: "ex00 — how the data flows" },
+      { code: String.raw`data.csv  ──loadDatabase──►  std::map<string, double> _db
+                              (skip the header line, split on ',')
+
+input.txt ──processInput──►  line by line
+                              │
+                              ├─ split on '|'    missing → "Error: bad input => <line>"
+                              ├─ isValidDate     invalid → "Error: bad input => <date>"
+                              ├─ parseValue      negative → "Error: not a positive number."
+                              │                   >1000   → "Error: too large a number."
+                              └─ getRate(date)   ──►  lower_bound
+                                                      exact hit / step back one
+                                 print  <date> => <value> = <value * rate>`, cap: "An error on one line never stops the next — this is a file processor, not a validator", lang: "txt" },
+      { h: "ex02 — the shape of the run" },
+      { code: String.raw`parse(argc, argv)
+    validate every token → fill both _vec and _deq (the same data)
+
+run()
+    print "Before: " + _vec
+
+    gettimeofday  →  fordJohnson(_vec, 1)  →  gettimeofday   = the vector's time
+    gettimeofday  →  fordJohnson(_deq, 1)  →  gettimeofday   = the deque's time
+
+    print "After: " + _vec
+    print the two timing lines
+
+★ both containers sort the same data with the same algorithm
+  the only variable is the data structure — which is what's being measured`, cap: "A controlled experiment: change only the container and see how much the time differs", lang: "txt" },
+    ],
+
+    dataflow: [
+      { h: "ex00 — the edge cases to test" },
+      { table: { head: ["Input", "Correct result"], rows: [
+        ["`2011-01-03 | 3`", "`2011-01-03 => 3 = 0.9`"],
+        ["`2011-01-05 | 1`", "uses the rate from `2011-01-03` (the closest earlier date)"],
+        ["a date before the first one in the database", "an error — there is no rate to use"],
+        ["`2001-42-42 | 1`", "`Error: bad input => 2001-42-42`"],
+        ["`2011-02-30 | 1`", "an error — February has no 30th"],
+        ["`2012-02-29 | 1`", "**valid** — 2012 is a leap year"],
+        ["`2011-01-03 | -1`", "`Error: not a positive number.`"],
+        ["`2011-01-03 | 2000`", "`Error: too large a number.`"],
+        ["a line with no `|`", "`Error: bad input => <that line>`"],
+        ["the input file can't be opened", "`Error: could not open file.` on stderr"],
+      ]}},
+      { h: "ex02 — fuzz testing it" },
+      { code: String.raw`#!/bin/sh
+# compare against sort -n over hundreds of rounds: random sizes, odd and even, with duplicates
+i=0
+while [ $i -lt 300 ]; do
+    n=$(( (RANDOM % 200) + 1 ))
+    nums=$(shuf -i 1-100 -n $n -r | tr '\n' ' ')
+    got=$(./PmergeMe $nums | grep '^After:' | cut -d' ' -f2-)
+    want=$(echo $nums | tr ' ' '\n' | sort -n | tr '\n' ' ')
+    [ "$got " = "$want" ] || { echo "FAIL: $nums"; break; }
+    i=$((i + 1))
+done
+echo "fuzzing done"
+
+# 3000 numbers must sort correctly and without noticeable delay
+./PmergeMe $(shuf -i 1-100000 -n 3000 | tr '\n' ' ') | grep '^After:' \
+    | cut -d' ' -f2- | tr ' ' '\n' | sort -nc && echo "3000 passed"`, cap: "Don't trust your eyes with Ford-Johnson — odd counts and duplicates are where most implementations break", lang: "bash" },
+      { note: "Test odd element counts heavily — the element left over from pairing (the stray) is the single most common mistake." },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex01** — short and direct; get every error case right first",
+        "2. **ex00** — most of the work is file reading and validation, not the `lower_bound` itself",
+        "3. **ex02** — the hardest. Get the sorting correct first (fuzz against `sort -n`), then add the timing",
+      ]},
+      { h: "Symptom → cause" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["ex00 uses the next day's rate", "`lower_bound` without stepping back", "`--it` whenever the key isn't an exact match"],
+        ["ex00 crashes on a very old date", "`--it` from `begin()`", "always check `it == begin()` before stepping back"],
+        ["ex00 accepts `2011-02-30`", "checking the format but not the calendar", "validate the month's real day count and leap years"],
+        ["ex01 `1 2 -` gives `1`", "the operands are swapped", "the first popped is the right-hand one"],
+        ["ex01 results overflow", "using `int`", "use `long`"],
+        ["ex01 `1 2` isn't an error", "not checking there's exactly one value left", "at the end `_stack.size()` must be 1"],
+        ["ex02 sorts wrongly with an odd count", "the stray isn't handled", "append the stray to the pend"],
+        ["ex02 sorts wrongly with duplicates", "using `>=` when inserting", "use `>` alone, so equal values stay together"],
+        ["ex02 reports 0 for both containers", "using `clock()`", "use `gettimeofday` for microseconds"],
+        ["ex02 is very slow at 3000", "inserting linearly instead of binary searching", "binary search when inserting into the main chain"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`for d in ex00 ex01 ex02; do (cd $d && make re && make) ; done
+
+cd ex00 && ./btc input.txt          # must be run from the directory holding data.csv
+cd ../ex01 && ./RPN "8 9 * 9 - 9 - 9 - 4 - 1 +"     # 42
+./RPN "(1 + 1)"                                      # Error (stderr)
+cd ../ex02 && ./PmergeMe $(shuf -i 1-100000 -n 3000 | tr '\n' ' ')
+
+# fuzz against sort -n (the script is in the dataflow section)
+
+# valgrind on all three — this module awards marks for leak = 0
+valgrind --leak-check=full --error-exitcode=42 -q ./PmergeMe 3 5 9 7 4 && echo "pass"
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 09/ex02" && make re && ./PmergeMe 3 5 9 7 4'
+
+# check no container is reused across exercises
+grep -nE 'std::(map|stack|vector|deque|list|set)' ex0*/*.hpp
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp`, lang: "bash" },
+      { note: "`make fclean` and delete your test scripts before submitting — a directory left holding binaries or `.o` files is free marks lost." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: let the `map` do the sorting" },
+      { p: "A `YYYY-MM-DD` key sorts lexicographically into chronological order — there is no need to write a date struct or a comparator." },
+      { h: "Trick 2: always check `begin()` before `--it`" },
+      { p: "Stepping an iterator back from `begin()` is undefined behaviour — sometimes it doesn't crash immediately and breaks somewhere else instead, which is very hard to trace." },
+      { h: "Trick 3: RPN — the first popped is the right-hand operand" },
+      { p: "One sentence to remember. A swapped-operand bug passes every `+`/`*` test and only surfaces with `-` and `/`." },
+      { h: "Trick 4: fuzz ex02 against `sort -n`" },
+      { p: "Ford-Johnson can't be verified by eye — a ten-line script comparing against `sort -n` over hundreds of rounds is far more trustworthy than rereading the code ten times." },
+      { h: "Trick 5: test odd element counts heavily" },
+      { p: "The element left over from pairing is where most implementations go wrong, and testing only even counts will never find it." },
+      { h: "Trick 6: `gettimeofday`, not `clock()`" },
+      { p: "`clock()` is coarse at around 10 milliseconds — 3000 numbers finish faster, so both containers report 0 and there is nothing to compare." },
+      { h: "Trick 7: be clear about which errors go to stdout and which to stderr" },
+      { p: "ex00 prints per-line errors to stdout and carries on; `could not open file` goes to stderr. ex01 prints `Error` to stderr and exits. The difference is deliberate." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "Why does each exercise mandate a different container?", a: "To show that choosing the data structure is the answer to the problem — a `map` keeps keys sorted so the earlier date is fast to find, a `stack` matches RPN's definition, and ex02 uses two so the timings can be compared." },
+        { q: "How does `std::map` store its data?", a: "Always sorted by key (normally a red-black tree) — insert, find and erase are O(log n), and iterating yields sorted order." },
+        { q: "What is `lower_bound`, and how does ex00 use it?", a: "It returns the first iterator with a key `>=` the target. Use it directly on an exact hit; otherwise `--it` for the closest earlier date — after checking you aren't at `begin()`." },
+        { q: "Why can the dates be stored as `std::string`?", a: "The `YYYY-MM-DD` format sorts lexicographically into chronological order, because every part is zero-padded to the same width." },
+        { q: "What does date validation have to check?", a: "The `YYYY-MM-DD` format, a month in 1–12, and a day within that month's real length, including February in leap years (divisible by 4 and (not divisible by 100 or divisible by 400))." },
+        { q: "What is RPN, and why does a stack suit it?", a: "The operator comes after its operands, so no parentheses or precedence are needed. Push numbers; on an operator, pop two, compute and push back — exactly what a stack does." },
+        { q: "In what order do the two popped values go?", a: "The first popped (the top) is the right-hand operand — swap them and `+`/`*` still work while `-`/`/` break." },
+        { q: "What error cases does ex01 have?", a: "A token that isn't a single digit or one of `+-*/`, fewer than two operands, division by zero, more than one value left at the end, parentheses, and a wrong argc — all printing `Error` to stderr." },
+        { q: "Why does RPN use `long` rather than `int`?", a: "The subject only bounds the input numbers below 10 — the intermediate results have no bound." },
+        { q: "How does Ford-Johnson work?", a: "Pair up and put the larger on the right, recurse to sort the pairs by their larger element (giving the main chain), then binary-insert the remaining smaller ones in Jacobsthal order." },
+        { q: "What is the Jacobsthal sequence, and why use it?", a: "`J(k) = J(k-1) + 2·J(k-2)` = 1, 3, 5, 11, 21, 43… It arranges for each insertion to happen while the search range is exactly 2ᵏ−1, where a binary search wastes no comparison. Other orders are still correct, just costlier." },
+        { q: "Is Ford-Johnson faster than std::sort?", a: "No — it reduces **comparisons**, not data movement, and carries a lot of structural overhead. It only pays off when comparisons are very expensive." },
+        { q: "Why does ex02 need two containers?", a: "To measure how the same algorithm performs on different data structures — a controlled experiment where every other variable is held fixed." },
+        { q: "Why `gettimeofday` rather than `clock()`?", a: "`clock()` is coarse at around 10 milliseconds, while 3000 numbers sort faster than that — both containers would report 0 and nothing could be compared." },
+      ]},
+      { h: "Pre-submission checklist" },
+      { code: String.raw`# 1. all three compile, and a second make doesn't relink
+for d in ex00 ex01 ex02; do (cd $d && make re && make) ; done
+
+# 2. ex00 matches the subject's sample output line for line, bad dates and large values included
+cd ex00 && ./btc input.txt
+
+# 3. ex01 all four examples plus every error case
+cd ../ex01 && ./RPN "8 9 * 9 - 9 - 9 - 4 - 1 +"
+
+# 4. ex02 fuzzed against sort -n over hundreds of rounds (even/odd/duplicates) plus 3000 numbers
+cd ../ex02 && ./PmergeMe $(shuf -i 1-100000 -n 3000 | tr '\n' ' ') \
+    | grep '^After:' | cut -d' ' -f2- | tr ' ' '\n' | sort -nc && echo "sorted correctly"
+
+# 5. the two containers really report different times, not 0 for both
+
+# 6. valgrind clean on all three (this module awards marks for leak = 0)
+valgrind --leak-check=full --error-exitcode=42 -q ./PmergeMe 3 5 9 7 4 && echo "pass"
+
+# 7. no container reused across exercises, and no forbidden functions
+grep -nE 'std::(map|stack|vector|deque|list|set)' ex0*/*.hpp
+
+# 8. tidy directories
+for d in ex00 ex01 ex02; do (cd $d && make fclean) ; done`, lang: "bash" },
+    ],
+  },
+});
