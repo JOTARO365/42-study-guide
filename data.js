@@ -1,5 +1,5 @@
 /* ============================================================
-   data.js — เนื้อหาสื่อการสอน 42 (อิงจากโค้ดจริงของ wiaon-in)
+   data.js — เนื้อหาสื่อการสอน 42 (อิงจากโค้ดจริงในเวิร์กสเปซ)
    โครงสร้าง: window.TEACHING_DATA = [ project, ... ]
    แต่ละ project มี sections 5 หมวด: principle / architecture /
    implementation / tricks / eval

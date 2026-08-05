@@ -896,8 +896,7 @@
       ),
       h("div", { className: "section", key: tab }, body),
       h("footer", null,
-        t({ th: "สื่อการสอน 42 · ", en: "42 Study Guide · " }) + proj.name +
-        t({ th: " · อิงจากโค้ดจริงของ wiaon-in", en: " · based on real code by wiaon-in" }))
+        t({ th: "สื่อการสอน 42 · ", en: "42 Study Guide · " }) + proj.name)
     );
   }
 
@@ -924,8 +923,8 @@
         })
       ),
       h("footer", null, t({
-        th: "สื่อการสอน 42 · อิงจากโค้ดจริงของ wiaon-in",
-        en: "42 Study Guide · based on real code by wiaon-in"
+        th: "สื่อการสอน 42",
+        en: "42 Study Guide"
       }))
     );
   }

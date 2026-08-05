@@ -1,5 +1,5 @@
 /* ===================== ft_printf ===================== */
-/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/ft_printf*.c ของ wiaon-in */
+/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/ft_printf*.c */
 window.TEACHING_DATA.unshift({
   id: "ft_printf",
   name: "ft_printf",

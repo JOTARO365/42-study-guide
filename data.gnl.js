@@ -1,5 +1,5 @@
 /* ===================== get_next_line ===================== */
-/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/get_next_line*.c ของ wiaon-in */
+/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/get_next_line*.c */
 window.TEACHING_DATA.unshift({
   id: "get_next_line",
   name: "get_next_line",

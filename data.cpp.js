@@ -1,7 +1,7 @@
 /* ============================================================
    data.cpp.js — CPP Module 01–09 (สาย C++ ต่อจาก Module 00)
    ต่อท้าย window.TEACHING_DATA (id ขึ้นต้นด้วย cpp_module_)
-   อิงจากโค้ดจริงของ wiaon-in ในโฟลเดอร์ "CPP Module NN/"
+   อิงจากโค้ดจริงในโฟลเดอร์ "CPP Module NN/"
    โครง block เหมือน data.js ทุกอย่าง
    ============================================================ */
 window.TEACHING_DATA = window.TEACHING_DATA || [];

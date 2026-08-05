@@ -1,5 +1,5 @@
 /* ===================== libft ===================== */
-/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/ ของ wiaon-in
+/* window.TEACHING_DATA — อิงจากโค้ดจริงใน push_swap/libft/
    ft_printf และ get_next_line แยกเป็นหน้าของตัวเอง (data.printf.js, data.gnl.js) */
 window.TEACHING_DATA.unshift({
   id: "libft",
