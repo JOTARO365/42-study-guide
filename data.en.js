@@ -13373,6 +13373,7 @@ Object.assign(window.TEACHING_EN, {
         ["**2**", "backtracking algorithms", "n_queens, permutations, powerset, rip, tsp"],
       ]}},
       { note: "Rank 03 comes down to **backtracking** (nearly every level 2 exercise) plus **a get_next_line you really know** (level 1). Prepare those two thoroughly and you have covered almost everything." },
+      { note: "**Failing ends the exam — there is no retry.** Press grademe on an exercise that does not pass and the exam stops there, scored at the level you had already cleared, with no fresh exercise to redeem it. Always test every case locally before you press it." },
       { h: "Why it's harder" },
       { ul: [
         "level 1 is tested with a **randomised buffer size** and custom reads → the code must survive every buffer size",
@@ -13592,6 +13593,7 @@ Object.assign(window.TEACHING_EN, {
         ["**2**", "recursive-descent parsers", "vbc (arithmetic expressions), argo (JSON)"],
       ]}},
       { note: "Level 1 builds directly on pipex and minishell (having done those two, it will feel familiar). Level 2 uses one grammar shape for both vbc and argo — understand recursive descent once and both follow." },
+      { note: "**Failing ends the exam — there is no retry.** Press grademe on an exercise that does not pass and the exam stops there, scored at the level you had already cleared, with no fresh exercise to redeem it. Always test every case locally before you press it." },
       { h: "Why it's hard" },
       { ul: [
         "level 1 requires **closing every fd** and **leaking no processes** (zombies) — one slip and it hangs or fails",
@@ -13829,6 +13831,7 @@ Object.assign(window.TEACHING_EN, {
         ["**2**", "C algorithms", "bsq (biggest square / DP), life (game of life)"],
       ]}},
       { note: "Level 1 demands a solid grasp of **Orthodox Canonical Form** (constructor, copy constructor, copy assignment, destructor), operator overloading and const correctness. vect2 is the gentlest; polyset is the hardest (inheritance plus abstract classes)." },
+      { note: "**Failing ends the exam — there is no retry.** Press grademe on an exercise that does not pass and the exam stops there, scored at the level you had already cleared, with no fresh exercise to redeem it. Always test every case locally before you press it." },
     ],
 
     theory: [
@@ -14021,6 +14024,7 @@ Object.assign(window.TEACHING_EN, {
         ["`mini_db`", "C++", "a key-value store: POST/GET/DELETE over TCP"],
       ]}},
       { note: "One idea covers both exercises: the **select() event loop** — watch many fds at once, never block, and handle accept/recv/send with no threads at all. Understand that pattern and both follow." },
+      { note: "**Failing ends the exam — there is no retry.** Press grademe on an exercise that does not pass and the exam stops there, scored at the level you had already cleared, with no fresh exercise to redeem it. Always test every case locally before you press it." },
       { h: "The rules that fail you" },
       { ul: [
         "**Never block** — select before every recv and send; and **never check EAGAIN** (the subject forbids it)",

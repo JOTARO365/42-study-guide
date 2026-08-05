@@ -408,6 +408,7 @@ window.TEACHING_DATA.push({
         ["**2**", "อัลกอริทึม backtracking", "n_queens, permutations, powerset, rip, tsp"],
       ]}},
       { note: "หัวใจ Rank 03 คือ **backtracking** (level 2 เกือบทุกข้อ) + **get_next_line ที่ต้องแม่นจริง** (level 1). เตรียม 2 อย่างนี้ให้แน่น = ครอบคลุมเกือบหมด" },
+      { note: "**ตกคือจบการสอบ ไม่มี retry** — กด grademe แล้วไม่ผ่าน = จบทันที ได้คะแนนเท่าระดับที่ผ่านมาแล้ว ไม่มีโจทย์ใหม่ให้แก้ตัว. เทสต์ทุกเคสในเครื่องให้ครบก่อนกดเสมอ" },
       { h: "ทำไมยากกว่า" },
       { ul: [
         "level 1 ทดสอบด้วย **buffer size สุ่ม** / read แบบ custom → โค้ดต้องทนทุกขนาด buffer",
@@ -630,6 +631,7 @@ window.TEACHING_DATA.push({
         ["**2**", "Recursive-descent parser", "vbc (นิพจน์เลข), argo (JSON)"],
       ]}},
       { note: "level 1 = ต่อยอดจาก pipex/minishell โดยตรง (ถ้าทำ 2 โปรเจกต์นั้นมาแล้วจะคุ้น). level 2 = grammar เดียวกันทั้ง vbc/argo — เข้าใจ recursive descent ครั้งเดียวทำได้ทั้งคู่" },
+      { note: "**ตกคือจบการสอบ ไม่มี retry** — กด grademe แล้วไม่ผ่าน = จบทันที ได้คะแนนเท่าระดับที่ผ่านมาแล้ว ไม่มีโจทย์ใหม่ให้แก้ตัว. เทสต์ทุกเคสในเครื่องให้ครบก่อนกดเสมอ" },
       { h: "ทำไมยาก" },
       { ul: [
         "level 1 ต้อง **ปิด fd ครบ** และ **ไม่ leak process** (zombie) — พลาดจุดเดียว = ค้าง/ตก",
@@ -870,6 +872,7 @@ window.TEACHING_DATA.push({
         ["**2**", "อัลกอริทึม C", "bsq (biggest square / DP), life (game of life)"],
       ]}},
       { note: "level 1 ต้องแม่น **Orthodox Canonical Form** (ctor, copy ctor, copy assign, dtor) + operator overloading + const correctness. vect2 ง่ายสุด, polyset ยากสุด (inheritance + abstract)" },
+      { note: "**ตกคือจบการสอบ ไม่มี retry** — กด grademe แล้วไม่ผ่าน = จบทันที ได้คะแนนเท่าระดับที่ผ่านมาแล้ว ไม่มีโจทย์ใหม่ให้แก้ตัว. เทสต์ทุกเคสในเครื่องให้ครบก่อนกดเสมอ" },
     ],
     theory: [
       { p: "Pool โจทย์จริง Rank 05" },
@@ -1065,6 +1068,7 @@ window.TEACHING_DATA.push({
         ["`mini_db`", "C++", "key-value store: POST/GET/DELETE ผ่าน TCP"],
       ]}},
       { note: "หัวใจเดียวที่ครอบทั้ง 2 ข้อ: **select() event loop** — เฝ้า fd หลายตัวพร้อมกัน, ไม่บล็อก, จัดการ accept/recv/ส่ง โดยไม่มี thread. เข้าใจ pattern นี้ = ทำได้ทั้งคู่" },
+      { note: "**ตกคือจบการสอบ ไม่มี retry** — กด grademe แล้วไม่ผ่าน = จบทันที ได้คะแนนเท่าระดับที่ผ่านมาแล้ว ไม่มีโจทย์ใหม่ให้แก้ตัว. เทสต์ทุกเคสในเครื่องให้ครบก่อนกดเสมอ" },
       { h: "กฎเหล็กที่ทำให้ตก" },
       { ul: [
         "**ห้ามบล็อก** — ใช้ select ก่อนทุก recv/send; **ห้ามเช็ค EAGAIN** (subject สั่งห้าม)",
