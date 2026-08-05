@@ -9558,3 +9558,885 @@ grep -rn 'friend' ex0*/ && echo "found friend = -42"`, lang: "bash" },
     ],
   },
 });
+
+/* ===================== EN: CPP Module 03 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_03": {
+    principle: [
+      { h: "What Module 03 teaches" },
+      { p: "This module is about one thing, **inheritance** — one class taking what another has and building on it. But what is actually being assessed isn't 'can you write `: public ClapTrap`', it's **do you understand construction and destruction order** and **do you know why inheriting along two paths at once breaks**." },
+      { h: "The shape of the whole module" },
+      { code: String.raw`              ClapTrap                 ex00   HP 10 / EP 10 / AD 0
+             /        \
+        ScavTrap     FragTrap          ex01   Scav 100 / 50  / 20  + guardGate()
+             \        /                ex02   Frag 100 / 100 / 30  + highFivesGuys()
+            DiamondTrap                ex03   inherits both paths → the diamond`, cap: "One robot splits into three and comes back together in ex03 — the coming-together is where the problem lives", lang: "txt" },
+      { h: "Four exercises" },
+      { table: { head: ["Exercise", "Class", "The point"], rows: [
+        ["ex00", "ClapTrap", "OCF + refusing to act at 0 HP/EP + `unsigned` underflow"],
+        ["ex01", "ScavTrap", "inheritance + ctor/dtor order + turning `private` into `protected`"],
+        ["ex02", "FragTrap", "a second branch from the same base (setting up ex03)"],
+        ["ex03", "DiamondTrap", "**the diamond problem** + `virtual` inheritance + name shadowing"],
+      ]}},
+      { h: "Hard rules" },
+      { ul: [
+        "**OCF is mandatory for every class** — and a derived class must forward to its base, not merely have all four",
+        "No `printf` / `malloc` / `free` / `using namespace` / `friend`",
+        "No STL containers or algorithms",
+        "Every header must stand alone (include what it needs, plus an include guard)",
+        "Each `exNN/` is a complete self-contained copy — ex03 holds all four classes. **Copy from the previous exercise** rather than rewriting",
+      ]},
+      { note: "ex03 is optional per the subject, but the diamond problem is the heart of the module — skipping it means not learning it." },
+    ],
+
+    theory: [
+      { h: "1) What inheritance actually gives you" },
+      { code: String.raw`class ScavTrap : public ClapTrap { ... };
+                ^^^^^^
+    public = the base's public members stay public
+             its protected members stay protected
+             its private members are unreachable (whatever the inheritance kind)
+
+What a ScavTrap contains:
+  - every member of ClapTrap (whether you can touch it depends on access)
+  - every method of ClapTrap
+  - whatever new it declares itself (guardGate)`, cap: "Inheritance means 'there is a ClapTrap inside me', not 'the code was copied over'", lang: "cpp" },
+      { h: "2) `private` → `protected` (where people get stuck in ex01)" },
+      { p: "ex00 says the attributes are `private`. ex01 says *ScavTrap will use ClapTrap's attributes (adapt ClapTrap accordingly)* — which is the subject's way of saying **change them to `protected`**." },
+      { table: { head: ["Access", "The class itself", "Derived classes", "The outside world"], rows: [
+        ["`private`", "✓", "✗", "✗"],
+        ["`protected`", "✓", "✓", "✗"],
+        ["`public`", "✓", "✓", "✓"],
+      ]}},
+      { note: "If the compiler says **`_hitPoints is private`** while you're writing ScavTrap, this is why. Fix it in the ClapTrap copies of ex01/02/03 (ex00 stays private, as the subject wrote it)." },
+      { h: "3) Construction / destruction order — what's really being assessed" },
+      { code: String.raw`ScavTrap s("Bob");
+
+  construction:  ClapTrap ctor  →  ScavTrap ctor        (base first, derived after)
+  destruction:   ScavTrap dtor  →  ClapTrap dtor        (reversed)
+
+Why that order:
+  - while constructing, the derived part may use what the base set up → base must be ready first
+  - while destructing, the derived part may still need the base to clean up → derived finishes first`, cap: "The same principle as 'lay the foundation before the house, but take the roof off before the foundation'", lang: "txt" },
+      { h: "4) A derived constructor must call the base's" },
+      { code: String.raw`ScavTrap::ScavTrap(const std::string &name) : ClapTrap(name)
+{                                                 ^^^^^^^^^^^^^^
+    this->_hitPoints    = 100;    //  without that call, the compiler
+    this->_energyPoints = 50;     //  invokes the default ClapTrap() instead
+    this->_attackDamage = 20;     //  → the robot's name disappears
+    std::cout << "ScavTrap " << this->_name << " constructed" << std::endl;
+}`, cap: "The base runs first with 10/10/0, then the derived body overwrites them with 100/50/20", lang: "cpp" },
+      { h: "5) Copy and assignment must forward too" },
+      { code: String.raw`ScavTrap::ScavTrap(const ScavTrap &o) : ClapTrap(o)   // ← copy the base part too
+{
+    *this = o;
+}
+
+ScavTrap &ScavTrap::operator=(const ScavTrap &o)
+{
+    ClapTrap::operator=(o);        // ← assign the base part too
+    return (*this);
+}`, cap: "Forget the arrowed lines and the base part is default-constructed instead of copied — a very quiet bug", lang: "cpp" },
+      { h: "6) The stats of each robot" },
+      { table: { head: ["Robot", "HP", "EP", "AD", "Extra", "Overrides attack?"], rows: [
+        ["ClapTrap", "10", "10", "0", "—", "—"],
+        ["ScavTrap", "100", "50", "20", "`guardGate()`", "**yes** (its own message)"],
+        ["FragTrap", "100", "100", "30", "`highFivesGuys()`", "no (uses ClapTrap's)"],
+        ["DiamondTrap", "100", "50", "30", "`whoAmI()`", "yes (borrows ScavTrap's)"],
+      ]}},
+      { h: "🔬 Deep dive A: `unsigned` underflow — the bug hiding inside takeDamage" },
+      { p: "All three stats are `unsigned int`, because negative hit points are meaningless. But `unsigned` does not mean 'subtracting stops at 0' — it means **'subtracting wraps around to an enormous number'**." },
+      { code: String.raw`unsigned int hp = 10;
+hp -= 30;              // this is NOT -20
+
+  10 - 30 in the 32-bit unsigned world:
+  = 2^32 - 20
+  = 4294967276          ← the robot that should be dead has four billion HP
+
+The wrong code:
+  void ClapTrap::takeDamage(unsigned int amount)
+  {
+      this->_hitPoints -= amount;      // ✗ underflow
+  }
+
+The right code:
+  void ClapTrap::takeDamage(unsigned int amount)
+  {
+      if (amount >= this->_hitPoints)
+          this->_hitPoints = 0;        // clamp at 0
+      else
+          this->_hitPoints -= amount;
+  }`, cap: "Check before subtracting, not after — once it has wrapped there is no way to tell it ever went negative", lang: "cpp" },
+      { note: "This is a different matter from `int` overflow in push_swap: signed overflow is undefined behaviour, while unsigned overflow **wraps in a way the standard guarantees** — not UB, but still logically wrong." },
+      { qa: [
+        { q: "Why store HP as an `unsigned int`?", a: "Negative hit points are meaningless, and `unsigned` says so in the type itself. The price is that you have to guard the subtraction yourself." },
+        { q: "What happens when an `unsigned` subtraction goes too far?", a: "It wraps to a huge positive number (10 − 30 = 4294967276 on 32 bits) — defined behaviour by the standard, but wrong for the game, so check `amount >= _hitPoints` first." },
+      ]},
+      { h: "🔬 Deep dive B: the diamond problem — why inheriting twice breaks" },
+      { p: "`DiamondTrap` inherits both `ScavTrap` and `FragTrap`, and both of those inherit `ClapTrap`. Without special measures, DiamondTrap ends up containing **two separate ClapTraps**." },
+      { code: String.raw`Without virtual — DiamondTrap's memory looks like this:
+
+  ┌─ DiamondTrap ────────────────────┐
+  │ ┌─ ScavTrap ──┐  ┌─ FragTrap ──┐ │
+  │ │ ┌ClapTrap┐  │  │ ┌ClapTrap┐  │ │   ← two of them!
+  │ │ │_name   │  │  │ │_name   │  │ │
+  │ │ │_hitPts │  │  │ │_hitPts │  │ │
+  │ │ └────────┘  │  │ └────────┘  │ │
+  │ └─────────────┘  └─────────────┘ │
+  │ _name (DiamondTrap's own)        │
+  └──────────────────────────────────┘
+
+The consequences:
+  1. writing plain _hitPoints → error: request for member is ambiguous
+     (the compiler can't tell whether you mean Scav's copy or Frag's)
+  2. ClapTrap's ctor runs twice / its dtor runs twice
+  3. wasted memory, and the robot's state exists as two copies that disagree`, cap: "The subject says 'ClapTrap will be constructed only once. Yes, there is a trick' — that trick is virtual inheritance", lang: "txt" },
+      { code: String.raw`Add virtual to "both middle branches" (only in the ex03 copy):
+
+  class ScavTrap : virtual public ClapTrap { ... };
+  class FragTrap : virtual public ClapTrap { ... };
+  class DiamondTrap : public ScavTrap, public FragTrap { ... };
+
+  ┌─ DiamondTrap ────────────────────┐
+  │ ┌─ ScavTrap ──┐  ┌─ FragTrap ──┐ │
+  │ └─────────────┘  └─────────────┘ │
+  │ ┌─ ClapTrap (one, shared) ──────┐│   ← fixed
+  │ └──────────────────────────────┘ │
+  │ _name (DiamondTrap's own)        │
+  └──────────────────────────────────┘`, cap: "`virtual` means 'if anyone inherits me along several paths, share a single ClapTrap between them'", lang: "cpp" },
+      { p: "**Two consequences you must know:**" },
+      { ul: [
+        "**The most-derived class constructs the virtual base itself** — the `: ClapTrap(name)` written inside ScavTrap and FragTrap is **ignored** when they are part of a DiamondTrap. DiamondTrap therefore has to call `ClapTrap(...)` in its own initialiser list",
+        "**The construction order changes** — the virtual base always comes first: ClapTrap → ScavTrap → FragTrap → DiamondTrap, with ClapTrap running exactly once. Destruction reverses it, also exactly once",
+      ]},
+      { qa: [
+        { q: "What is the diamond problem?", a: "When a class inherits two classes that share a base, it receives two copies of that base — making references to the base's members ambiguous and running its ctor and dtor twice." },
+        { q: "How does virtual inheritance fix it?", a: "Put `virtual` on the middle branches' inheritance (`class ScavTrap : virtual public ClapTrap`) and the most-derived class then gets a single ClapTrap shared by both paths." },
+        { q: "Who constructs the virtual base?", a: "The most-derived class (DiamondTrap) — with only one ClapTrap, there can be only one party responsible. The `: ClapTrap(...)` written in ScavTrap/FragTrap is ignored in this context." },
+        { q: "Why is the virtual base always constructed first?", a: "Because both middle branches need it — it has to be ready before anything else." },
+      ]},
+      { h: "🔬 Deep dive C: shadowing — two `_name`s inside DiamondTrap" },
+      { p: "The subject deliberately gives DiamondTrap a private `_name` **with the same name as ClapTrap's**. The nearer name hides the further one, and reaching the hidden one requires the qualified name." },
+      { code: String.raw`Inside a DiamondTrap method:
+
+  _name              → DiamondTrap's own (the nearer one hides the other)
+  ClapTrap::_name    → ClapTrap's (must be named explicitly)
+  this->ClapTrap::_name   ← also valid, and clearer
+
+void DiamondTrap::whoAmI(void)
+{
+    std::cout << "I am DiamondTrap " << this->_name
+              << ", and my ClapTrap name is " << this->ClapTrap::_name
+              << "!" << std::endl;
+}`, cap: "The clash is intentional — it forces you to meet scope resolution", lang: "cpp" },
+      { code: String.raw`Our real code — DiamondTrap's constructor:
+
+DiamondTrap::DiamondTrap(const std::string &name) :
+    ClapTrap(name + "_clap_name"),   // ★ the virtual base is built here, with the suffix
+    ScavTrap(name),
+    FragTrap(name),
+    _name(name)                       // DiamondTrap's own (no suffix)
+{
+    this->_hitPoints    = FragTrap::_hitPoints;      // 100
+    this->_energyPoints = ScavTrap::_energyPoints;   //  50
+    this->_attackDamage = FragTrap::_attackDamage;   //  30
+    std::cout << "DiamondTrap " << this->_name << " constructed" << std::endl;
+}`, cap: "Set the three stats in the body rather than relying on base order — FragTrap runs last, so without this EP would end up 100 instead of 50", lang: "cpp" },
+      { note: "**Don't add `-Wshadow` to the Makefile** — the required flags are only `-Wall -Wextra -Werror`, which don't include it. The subject mentions shadowing so you know it's real and must be resolved with `ClapTrap::`, not so you turn the warning on (with `-Werror` it would become an error)." },
+      { qa: [
+        { q: "DiamondTrap has two `_name`s — how do you tell them apart?", a: "Plain `_name` is DiamondTrap's (the nearer name hides the further); ClapTrap's requires `ClapTrap::_name` or `this->ClapTrap::_name`." },
+        { q: "Why set the stats in the body rather than letting the bases do it?", a: "FragTrap runs after ScavTrap, so its 100/100/30 would overwrite ScavTrap's EP of 50. Setting them explicitly guarantees the 100/50/30 the subject specifies." },
+        { q: "Should you add `-Wshadow`?", a: "No — the required flags are only `-Wall -Wextra -Werror`. Adding `-Wshadow` turns the deliberate shadowing into an error, because `-Werror` is on." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — Derived classes", url: "https://en.cppreference.com/w/cpp/language/derived_class", note: "virtual bases and construction order" },
+        { label: "cppreference — Access specifiers", url: "https://en.cppreference.com/w/cpp/language/access", note: "how private / protected / public differ" },
+        { label: "Multiple inheritance — Wikipedia", url: "https://en.wikipedia.org/wiki/Multiple_inheritance#The_diamond_problem", note: "the diamond problem across languages" },
+        { label: "learncpp — Virtual base classes", url: "https://www.learncpp.com/cpp-tutorial/virtual-base-classes/", note: "virtual inheritance step by step" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ClapTrap — the base class" },
+      { code: String.raw`class ClapTrap
+{
+    protected:                      // private in ex00 → protected from ex01 on
+        std::string  _name;
+        unsigned int _hitPoints;    // 10
+        unsigned int _energyPoints; // 10
+        unsigned int _attackDamage; //  0
+
+    public:
+        ClapTrap(void);
+        ClapTrap(const std::string &name);
+        ClapTrap(const ClapTrap &other);
+        ClapTrap &operator=(const ClapTrap &other);
+        virtual ~ClapTrap(void);           // a virtual dtor, ready for derived classes
+
+        void attack(const std::string &target);
+        void takeDamage(unsigned int amount);
+        void beRepaired(unsigned int amount);
+};`, cap: "Three actions, four stats and OCF — the whole module builds on this class", lang: "cpp" },
+      { p: "**The gating is the behaviour being assessed:** a robot at 0 HP or 0 EP must be unable to do anything. `attack` and `beRepaired` must check both before acting, print a refusal and `return` — and both consume one point of energy per use." },
+      { code: String.raw`void ClapTrap::attack(const std::string &target)
+{
+    if (this->_hitPoints == 0 || this->_energyPoints == 0)
+    {
+        std::cout << "ClapTrap " << this->_name
+                  << " cannot attack (no HP or EP left)" << std::endl;
+        return ;
+    }
+    this->_energyPoints--;
+    std::cout << "ClapTrap " << this->_name << " attacks " << target
+              << ", causing " << this->_attackDamage
+              << " points of damage!" << std::endl;
+}`, cap: "Check, then spend energy, then act — the other order spends EP on something that couldn't happen", lang: "cpp" },
+      { note: "The robots never interact — `attack` takes only a `std::string` and never another object. Don't try to make takeDamage get called automatically." },
+      { h: "ScavTrap / FragTrap — the two branches" },
+      { code: String.raw`class ScavTrap : public ClapTrap        // ex01 (ex03 adds virtual)
+{
+    public:
+        ScavTrap(void);
+        ScavTrap(const std::string &name);
+        ScavTrap(const ScavTrap &other);
+        ScavTrap &operator=(const ScavTrap &other);
+        ~ScavTrap(void);
+
+        void attack(const std::string &target);   // its own message
+        void guardGate(void);                     // new
+};
+
+class FragTrap : public ClapTrap        // ex02
+{
+    public:
+        /* the same OCF */
+        void highFivesGuys(void);       // new (does not override attack)
+};`, cap: "The subject asks only that ScavTrap change the attack message — FragTrap only differs in its ctor/dtor messages, so don't overreach", lang: "cpp" },
+      { h: "DiamondTrap — the finale" },
+      { code: String.raw`// ★ in the ex03 copy only: add virtual on both branches
+class ScavTrap : virtual public ClapTrap { ... };
+class FragTrap : virtual public ClapTrap { ... };
+
+class DiamondTrap : public ScavTrap, public FragTrap
+{
+    private:
+        std::string _name;          // ★ deliberately clashes with ClapTrap::_name
+
+    public:
+        DiamondTrap(void);
+        DiamondTrap(const std::string &name);
+        DiamondTrap(const DiamondTrap &other);
+        DiamondTrap &operator=(const DiamondTrap &other);
+        ~DiamondTrap(void);
+
+        void attack(const std::string &target);   // borrowed from ScavTrap
+        void whoAmI(void);
+};`, cap: "Our real code — `attack` forwards to `ScavTrap::attack(target)` rather than reimplementing it", lang: "cpp" },
+    ],
+
+    architecture: [
+      { h: "Files per exercise (each folder is self-contained)" },
+      { table: { head: ["Exercise", "Classes present", "How to build it"], rows: [
+        ["ex00", "ClapTrap", "written from scratch"],
+        ["ex01", "ClapTrap + ScavTrap", "copy ex00 → private becomes protected → add ScavTrap"],
+        ["ex02", "+ FragTrap", "copy ex01 → add FragTrap"],
+        ["ex03", "+ DiamondTrap", "copy ex02 → add `virtual` on both branches → add DiamondTrap"],
+      ]}},
+      { h: "The order you'll see when running ex01" },
+      { code: String.raw`{
+    ScavTrap s("Bob");
+}
+
+  ClapTrap Bob constructed          ← base first
+  ScavTrap Bob constructed          ← derived after
+  ScavTrap Bob destructed           ← derived first
+  ClapTrap Bob destructed           ← base after`, cap: "This is what evaluators look at — your main should make the order obvious", lang: "txt" },
+      { h: "The order you'll see when running ex03 (virtual base)" },
+      { code: String.raw`{
+    DiamondTrap d("Rex");
+}
+
+  ClapTrap Rex_clap_name constructed   ← the virtual base comes first, and only once
+  ScavTrap Rex constructed
+  FragTrap Rex constructed
+  DiamondTrap Rex constructed
+  DiamondTrap Rex destructed           ← everything reversed
+  FragTrap Rex destructed
+  ScavTrap Rex destructed
+  ClapTrap Rex_clap_name destructed    ← once, likewise
+
+Forget the virtual and you'll see ClapTrap's ctor and dtor twice ← the failure signal`, cap: "Counting the ClapTrap lines is the fastest way to verify virtual inheritance", lang: "txt" },
+    ],
+
+    dataflow: [
+      { h: "Walking through a fight in ex00" },
+      { code: String.raw`ClapTrap a("A");         // HP 10, EP 10, AD 0
+
+a.attack("B");           // EP 10→9, deals 0 damage (AD starts at 0 per the subject)
+a.takeDamage(4);         // HP 10→6
+a.beRepaired(3);         // EP 9→8, HP 6→9
+a.takeDamage(100);       // amount >= HP → HP = 0 (no underflow)
+a.attack("B");           // HP == 0 → refused, no EP spent
+a.beRepaired(5);         // HP == 0 → refused as well`, cap: "Two things being checked: HP clamps at 0, and a dead robot can do nothing", lang: "cpp" },
+      { h: "Walking through a derived-class copy" },
+      { code: String.raw`ScavTrap a("A");
+ScavTrap b(a);           // copy ctor
+
+  What happens, in order:
+    1. ScavTrap::ScavTrap(const ScavTrap &o) : ClapTrap(o)
+                                               ^^^^^^^^^^^  ← copy the base part first
+    2. enter the body → *this = o  → calls ScavTrap::operator=
+    3. ScavTrap::operator= → ClapTrap::operator=(o) → copies all four stats
+
+  If you forget ": ClapTrap(o)" on line 1:
+    → the compiler calls the default ClapTrap() instead
+    → b gets an empty name and 10/10/0, only fixed up later by operator=
+    → forget both and b is a blank robot with nothing in common with a`, cap: "Copying a derived class always has two layers — the base part and its own — and both need handling", lang: "txt" },
+      { h: "DiamondTrap::whoAmI — where shadowing shows" },
+      { code: String.raw`DiamondTrap d("Rex");
+d.whoAmI();
+
+  → "I am DiamondTrap Rex, and my ClapTrap name is Rex_clap_name!"
+                        ^^^                          ^^^^^^^^^^^^^
+                    its own _name                ClapTrap::_name
+
+  They differ because the constructor passes different values:
+    ClapTrap(name + "_clap_name")   → the base gets "Rex_clap_name"
+    _name(name)                     → it keeps "Rex"`, cap: "A tangible demonstration of what 'same name, different variable' means", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — ClapTrap with full OCF, the three actions, the gating and the underflow guard; print a message in every ctor and dtor",
+        "2. **ex01** — copy the whole folder → `private` becomes `protected` → add ScavTrap (don't forget `: ClapTrap(name)`)",
+        "3. **ex02** — copy ex01 → FragTrap the same way (no attack override needed)",
+        "4. **ex03** — copy ex02 → add `virtual` on ScavTrap/FragTrap → add DiamondTrap → run it and count the ClapTrap lines: exactly one each",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["a dead robot has billions of HP", "`_hitPoints -= amount` on an `unsigned`", "check `amount >= _hitPoints` and clamp at 0"],
+        ["`_hitPoints is private`", "still `private` in ex01 and later", "change it to `protected`"],
+        ["the robot's name disappears in a derived class", "missing `: ClapTrap(name)`", "call the base ctor in the initialiser list"],
+        ["copying produces a blank robot", "the copy ctor / operator= don't forward to the base", "`: ClapTrap(o)` and `ClapTrap::operator=(o)`"],
+        ["`request for member is ambiguous`", "a diamond with no virtual", "`virtual public ClapTrap` on both branches"],
+        ["ClapTrap's ctor/dtor run twice in ex03", "same cause", "same fix"],
+        ["DiamondTrap's base name has no suffix", "it never calls `ClapTrap()` itself", "DiamondTrap needs `ClapTrap(name + \"_clap_name\")` in its list"],
+        ["DiamondTrap's EP is 100 instead of 50", "letting FragTrap (which runs later) overwrite it", "set the three stats in the body yourself"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`cd ex03 && make re && ./diamondtrap
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 03/ex03" && make re && ./diamondtrap'
+
+# verify virtual inheritance — each must be exactly 1
+./diamondtrap | grep -c 'ClapTrap.*constructed'
+./diamondtrap | grep -c 'ClapTrap.*destructed'
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp
+
+# leaks (this module never calls new — it should be clean)
+valgrind --leak-check=full --error-exitcode=42 -q ./diamondtrap`, lang: "bash" },
+    ],
+
+    tricks: [
+      { h: "Trick 1: copy the previous exercise's whole folder" },
+      { p: "Each exercise must stand alone — `cp -r ex01/* ex02/` and then add what's new is faster and can't introduce typos. ex03 ends up with all four classes." },
+      { h: "Trick 2: count ClapTrap lines to verify virtual" },
+      { p: "`./diamondtrap | grep -c 'ClapTrap.*constructed'` must give 1. Getting 2 means the `virtual` is missing — a faster and clearer test than rereading the code." },
+      { h: "Trick 3: set the stats in the body, don't rely on base order" },
+      { p: "Set HP/EP/AD explicitly in DiamondTrap's constructor body — then you never have to reason about which base ran first, and the values are guaranteed." },
+      { h: "Trick 4: put `virtual` on ClapTrap's destructor" },
+      { p: "Write `virtual ~ClapTrap()` from ex00 — it isn't needed in this module (nothing is deleted through a base pointer yet), but it's the habit Module 04 will require for real." },
+      { h: "Trick 5: check before spending energy" },
+      { p: "In `attack` and `beRepaired`, pass the HP/EP checks first and only then do `_energyPoints--`. The other order costs a robot energy for something it couldn't do." },
+      { h: "Trick 6: don't add `-Wshadow`" },
+      { p: "The required flags are only `-Wall -Wextra -Werror`. The two `_name`s in DiamondTrap are deliberate shadowing — enable `-Wshadow` and it becomes an error immediately, because `-Werror` is on." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is inheritance and what do you get from it?", a: "The derived class contains the base's members and methods (subject to access) and adds its own — it isn't copied code, it's 'there is a base object inside me'." },
+        { q: "How do `private` and `protected` differ?", a: "Derived classes cannot touch `private`; they can touch `protected`, while the outside world still can't. ex01 requires changing ClapTrap's attributes to protected so ScavTrap can use them." },
+        { q: "What is the construction and destruction order?", a: "Construction: base first, derived after (the derived part may use what the base prepared). Destruction: derived first, base after (the derived part may still need the base while cleaning up)." },
+        { q: "Why must a derived constructor call the base's?", a: "Without it the compiler calls the base's default constructor instead — and whatever should have been passed through (the name) is lost." },
+        { q: "What extra does a derived copy constructor have to do?", a: "Call the base's copy constructor in the initialiser list (`: ClapTrap(o)`), and `operator=` must call `ClapTrap::operator=(o)` — otherwise the base part is never copied." },
+        { q: "Why is `unsigned` HP dangerous?", a: "Subtracting too much wraps to a huge positive number instead of going negative — a robot that should be dead ends up with four billion HP. Check `amount >= _hitPoints` and clamp at 0." },
+        { q: "What is the diamond problem?", a: "DiamondTrap inherits ScavTrap and FragTrap, which both inherit ClapTrap → it gets two ClapTraps → base members become ambiguous and the base's ctor and dtor each run twice." },
+        { q: "How does virtual inheritance fix it?", a: "Write `class ScavTrap : virtual public ClapTrap` on both middle branches → the most-derived class gets a single shared ClapTrap, constructed once and destroyed once." },
+        { q: "Who constructs the virtual base, and in what order?", a: "The most-derived class (DiamondTrap) calls `ClapTrap(...)` itself — what ScavTrap/FragTrap wrote is ignored. Order: ClapTrap → ScavTrap → FragTrap → DiamondTrap." },
+        { q: "DiamondTrap has two `_name`s — how do you reach each?", a: "Plain `_name` is its own; the base's needs `ClapTrap::_name`, because the nearer name hides the further one." },
+        { q: "Where do DiamondTrap's stats come from?", a: "HP from FragTrap (100), EP from ScavTrap (50), AD from FragTrap (30), and `attack()` from ScavTrap — and they must be set explicitly in the body rather than relying on base order." },
+        { q: "Why should ClapTrap have a virtual destructor?", a: "So that deleting an object through a base-class pointer also runs the derived destructor. This module never does that, but Module 04 requires it for real." },
+      ]},
+      { h: "Test before submitting" },
+      { code: String.raw`# ex00: a dead robot must be unable to act, and HP must not wrap
+# takeDamage(100) from HP 10 → must give 0, not 4294967206
+
+# ex01/ex02: the ctor/dtor order must be visible
+./scavtrap    # ClapTrap ctor → ScavTrap ctor → ScavTrap dtor → ClapTrap dtor
+
+# ex03: ClapTrap must run exactly once each way
+./diamondtrap | grep -c 'ClapTrap.*constructed'   # must be 1
+./diamondtrap | grep -c 'ClapTrap.*destructed'    # must be 1
+
+# ex03: whoAmI must show two different names
+# "I am DiamondTrap Rex, and my ClapTrap name is Rex_clap_name!"
+
+# ex03: the stats must be 100 / 50 / 30`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: CPP Module 04 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "cpp_module_04": {
+    principle: [
+      { h: "What Module 04 teaches" },
+      { p: "This module is the heart of all OOP: **hold objects of several types in one kind of variable, call the same method, and have each behave according to what it actually is**. The whole module turns on one keyword, `virtual`, and the two traps that come with it: the **virtual destructor** and **deep copy**." },
+      { h: "The one idea to understand" },
+      { code: String.raw`const Animal *j = new Dog();
+j->makeSound();
+
+  the declared type (static type)  = Animal*
+  the object's real type (dynamic) = Dog
+
+  makeSound is virtual       →  Dog's version runs   → "Woof!"
+  makeSound is not virtual   →  Animal's version     → a generic noise`, cap: "virtual = decided at run time from the real type; non-virtual = decided at compile time from the declared type", lang: "cpp" },
+      { p: "ex00 asks for a `WrongAnimal` / `WrongCat` family identical in every way **except the missing `virtual`** — so you can see with your own eyes what that one keyword changes." },
+      { h: "Four exercises" },
+      { table: { head: ["Exercise", "Adds", "The point"], rows: [
+        ["ex00", "Animal/Dog/Cat + WrongAnimal/WrongCat", "what `virtual` does, and what happens without it"],
+        ["ex01", "Brain + a `Brain *` inside Dog/Cat", "**virtual destructor** + **deep copy** (the two traps being assessed)"],
+        ["ex02", "make Animal abstract", "pure virtual (`= 0`) → the base class can no longer be instantiated"],
+        ["ex03", "AMateria/Ice/Cure/Character/MateriaSource", "interfaces in C++98 + pointer ownership"],
+      ]}},
+      { h: "Hard rules" },
+      { ul: [
+        "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend` (−42)",
+        "**No STL until Module 08** — ex03's inventory is therefore a plain `AMateria *[4]` array, not a `std::vector`",
+        "OCF is mandatory for every instantiable class",
+        "**Every class's ctor and dtor must print, and no two classes may print the same thing** — so evaluators can see the chaining",
+        "ex03 is optional per the subject — but interfaces plus deep copy are what the module adds up to",
+      ]},
+    ],
+
+    theory: [
+      { h: "1) Static type vs dynamic type" },
+      { table: { head: ["", "Static type", "Dynamic type"], rows: [
+        ["What it is", "the type written in the code", "the type of the actual object at run time"],
+        ["Example", "`Animal *j`  → Animal", "`new Dog()` → Dog"],
+        ["Who uses it", "the compiler (deciding what you may call)", "the running program (deciding which one runs)"],
+      ]}},
+      { p: "**Ordinary methods** are picked at compile time from the static type. **`virtual` methods** are picked at run time from the dynamic type — that sentence is the whole of subtype polymorphism." },
+      { h: "2) How `virtual` works underneath" },
+      { code: String.raw`A class with any virtual method gets one hidden table (a vtable)
+Each object stores a pointer to the table of its "real" type
+
+  Animal vtable:  makeSound → Animal::makeSound
+  Dog    vtable:  makeSound → Dog::makeSound
+  Cat    vtable:  makeSound → Cat::makeSound
+
+  Animal *j = new Dog();
+  j->makeSound();
+    → look at the object's vptr → find Dog's vtable → call Dog::makeSound
+
+No virtual = no table; the compiler hard-codes the address at compile time
+  → it sees j is an Animal* and calls Animal::makeSound, end of story`, cap: "You don't need the vtable details — just remember that virtual means 'ask the object who it is' before calling", lang: "txt" },
+      { note: "A virtual call costs a little more (it goes through the table) — which is why C++ doesn't make every method virtual automatically the way some languages do." },
+      { h: "3) Pure virtual and abstract classes" },
+      { code: String.raw`class AAnimal
+{
+    public:
+        virtual void makeSound(void) const = 0;   // ← the = 0 makes it pure virtual
+        virtual ~AAnimal(void);                   // ★ still needs a real definition
+};
+
+The consequences:
+  AAnimal a;              // ✗ error: cannot declare variable to be of abstract type
+  new AAnimal();          // ✗ likewise
+  AAnimal *p = new Dog(); // ✓ perfectly fine as a pointer type
+
+An abstract class still HAS a constructor/destructor/operator= as usual
+  — pure virtual only says "this method has no body; derived classes must supply one"`, cap: "Abstract = a template you can't instantiate, which forces every derived class to provide this method", lang: "cpp" },
+      { p: "ex02 makes `Animal` abstract because *'an animal in the abstract has no sound, so it shouldn't be creatable'*. The subject invites renaming it to **`AAnimal`** (A for abstract) — if you do, rename the files, the include guards and every `: public Animal` as well." },
+      { h: "4) Interfaces in C++98" },
+      { p: "C++98 has no `interface` keyword. What stands in for one is **a class where every method is pure virtual and only the destructor has a body**." },
+      { code: String.raw`class ICharacter
+{
+    public:
+        virtual ~ICharacter(void) {}                        // has a body (empty)
+        virtual std::string const &getName(void) const = 0; // everything else = 0
+        virtual void equip(AMateria *m) = 0;
+        virtual void unequip(int idx) = 0;
+        virtual void use(int idx, ICharacter &target) = 0;
+};`, cap: "The subject gives the interfaces exactly like this — copy them verbatim, empty destructor braces included", lang: "cpp" },
+      { note: "An interface's destructor needs a real body (even an empty one), because deleting through an `ICharacter*` has to have something to call. This is the one place in the module where a function body may live in a header." },
+      { h: "🔬 Deep dive A: the virtual destructor — the single most important line in the module" },
+      { p: "ex01 gives Dog/Cat a `Brain *` allocated in the constructor and released in the destructor. When the subject writes `delete j;` where `j` is an `Animal*` pointing at a Dog, the question is **which destructor runs**." },
+      { code: String.raw`Animal *j = new Dog();     // the Dog contains a new'd Brain
+delete j;
+
+  ~Animal not virtual:
+    → only ~Animal() runs
+    → ~Dog() never runs → delete brain never happens
+    → the Brain leaks every time  ★ the subject's own comment says "should not create a leak"
+
+  ~Animal virtual:
+    → ~Dog() runs first (releasing the Brain)
+    → then on to ~Animal()
+    → clean`, cap: "The general C++ rule: any class meant to be inherited from and deleted through a base pointer needs a virtual destructor", lang: "cpp" },
+      { code: String.raw`virtual ~Animal(void);      // ← put it in from ex00
+
+Why add it in ex00 when there's no Brain yet:
+  - ex00 has nothing to leak, so it costs nothing
+  - when ex01 copies the files and adds a Brain, it is already correct
+  - it is the right habit for a base class anyway`, cap: "The cost of adding it early = 0 · the cost of forgetting = a leak that's hard to find", lang: "cpp" },
+      { note: "The fastest check: run valgrind on a main that `delete`s through an `Animal*` — with the `virtual` missing, valgrind reports definitely-lost blocks matching the number of Brains created." },
+      { qa: [
+        { q: "Why must a base class's destructor be virtual?", a: "Because deleting through a base pointer without it runs only the base destructor — the derived one never runs, so whatever the derived class allocated leaks." },
+        { q: "How exactly does the Brain leak without it?", a: "`delete j;` where j is an `Animal*` runs only `~Animal()` → `~Dog()` never runs → `delete brain` never happens → one Brain leaked per Dog." },
+        { q: "Does the derived destructor also need `virtual`?", a: "No — if the base's is virtual, the derived one is automatically virtual too. Writing it is fine for clarity." },
+      ]},
+      { h: "🔬 Deep dive B: deep vs shallow copy — why the default breaks" },
+      { p: "`Dog` holds a `Brain *brain;`. Let the compiler generate the copy constructor and it copies **the value in the pointer**, which is an address — leaving two Dogs pointing at one Brain." },
+      { code: String.raw`shallow copy (what the compiler generates):
+
+   Dog a;              a.brain ──┐
+   Dog b(a);                     ├──► [ Brain ]   ← just one
+                       b.brain ──┘
+
+   problem 1: change a's ideas → b's change too (it isn't really a copy)
+   problem 2: a dies → delete brain
+              b dies → delete brain again → double free → crash
+
+deep copy (what we have to write):
+
+   Dog a;              a.brain ──► [ Brain #1 ]
+   Dog b(a);           b.brain ──► [ Brain #2 ]   ← a new block with the same content`, cap: "This is the real reason 42 makes OCF mandatory from Module 02 — once a class holds a pointer, the generated version is unusable", lang: "txt" },
+      { code: String.raw`Dog::Dog(const Dog &o) : Animal(o)
+{
+    this->brain = new Brain(*o.brain);      // ★ a new block
+}
+
+Dog &Dog::operator=(const Dog &o)
+{
+    if (this != &o)
+    {
+        this->type = o.type;
+        delete this->brain;                 // ★ release the old one first
+        this->brain = new Brain(*o.brain);  // ★ then allocate a new one
+    }
+    return (*this);
+}`, cap: "operator= differs from the copy ctor in that something already exists — release it first, or it leaks", lang: "cpp" },
+      { p: "**This is where `if (this != &o)` earns its keep:** write `a = a;` without it → `delete this->brain` frees the Brain → then `new Brain(*o.brain)` reads from what was just freed = use-after-free." },
+      { note: "How to prove the copy is really deep: copy a Dog, change one's `ideas[0]` — the other must be unchanged **and** the addresses returned by `getBrain()` must differ." },
+      { qa: [
+        { q: "What is the difference between shallow and deep copy?", a: "Shallow copies the pointer value (two objects pointing at one block); deep allocates a new block and copies the content into it (fully independent)." },
+        { q: "What does a shallow copy actually cause?", a: "Changing one changes the other, and on destruction both `delete` the same block — a double free and a crash." },
+        { q: "Why must operator= `delete` before `new`?", a: "Because the left-hand object already has a Brain of its own — overwriting the pointer without releasing it leaks the old block." },
+        { q: "Why does `if (this != &o)` matter here specifically?", a: "`a = a;` without it would `delete brain` and then read from `*o.brain` — the block that was just freed. That's a use-after-free." },
+      ]},
+      { h: "🔬 Deep dive C: pointer ownership in ex03 — who deletes what" },
+      { p: "ex03 isn't hard logically; it's hard because of **agreeing who owns which pointer**. The subject sets out three clear rules, and skimming them earns you both leaks and double frees." },
+      { table: { head: ["Action", "Who owns it afterwards", "Must it be deleted?"], rows: [
+        ["`equip(m)` succeeds", "the Character", "deleted when the Character dies"],
+        ["`equip(m)` with a full inventory", "**the caller** (nothing happened)", "the Character **doesn't touch** m at all"],
+        ["`unequip(i)`", "**the caller**", "the Character **must not delete** — it just empties the slot"],
+        ["`learnMateria(m)`", "the MateriaSource", "deleted when the source dies; `delete m` if it was already full"],
+        ["`createMateria(t)`", "the caller", "it returns a fresh `clone()` every time"],
+      ]}},
+      { note: "The non-deleting `unequip` is the point the subject stresses — the unequipped item still exists in the world and the caller has to take care of it. Writing `delete` there is an immediate double free the moment the caller frees it too." },
+      { code: String.raw`AMateria *Ice::clone(void) const
+{
+    return (new Ice(*this));       // make a new one "of the same type as me"
+}`, cap: "clone is how you copy an object without knowing its type — code holding only an AMateria* can still copy it correctly", lang: "cpp" },
+      { p: "**Why `clone()` is needed when there is already a copy constructor:** a copy constructor needs the type at compile time (`Ice b(a);`). But `MateriaSource` holds only `AMateria *templates[4]` — it has no idea whether a slot is an Ice or a Cure. Being virtual, `clone()` asks the object to copy itself." },
+      { note: "**`AMateria::operator=` must not copy `type`** — the subject says copying the type on assignment is meaningless, since the type is fixed at construction by the derived class." },
+      { qa: [
+        { q: "Why does `clone()` exist alongside the copy constructor?", a: "A copy constructor needs the concrete type at compile time, and code holding only an `AMateria*` doesn't have it. Being virtual, `clone()` lets the object copy itself correctly without the caller knowing." },
+        { q: "Must `unequip` delete the Materia?", a: "No — the subject forbids it explicitly. Just set the slot to NULL and let the caller take over that pointer." },
+        { q: "What must `equip` do when the inventory is full?", a: "Nothing at all — and it must **not** delete m either, because the caller still owns it." },
+        { q: "What does `createMateria` return for an unknown type?", a: "0 (NULL) — the caller has to check before using it." },
+      ]},
+      { h: "🔬 Deep dive D: circular includes — solved by forward declaration" },
+      { p: "`AMateria::use(ICharacter&)` needs to know `ICharacter`, and `ICharacter::equip(AMateria*)` needs to know `AMateria` — have each `#include` the other and it never terminates." },
+      { code: String.raw`// AMateria.hpp
+#ifndef AMATERIA_HPP
+# define AMATERIA_HPP
+# include <string>
+
+class ICharacter;        // ★ forward declaration — enough for a pointer/reference
+
+class AMateria
+{
+    protected:
+        std::string type;
+    public:
+        virtual void use(ICharacter &target);   // fine, it's a reference
+        virtual AMateria *clone(void) const = 0;
+};
+#endif
+
+// AMateria.cpp
+#include "AMateria.hpp"
+#include "ICharacter.hpp"      // ★ here the full type is needed, to call getName()`, cap: "A simple rule: pointers and references need only a forward declaration; calling a method needs the full include", lang: "cpp" },
+      { p: "**Why a forward declaration suffices:** the compiler already knows the size of a pointer or reference (identical for every type) and doesn't need to know what's inside. It only needs the whole type to call a method or to hold one by value as a member." },
+      { qa: [
+        { q: "What causes a circular include, and how do you fix it?", a: "Two headers including each other. Fix it with a forward declaration (`class ICharacter;`) in the header and a real `#include` in the `.cpp`." },
+        { q: "What can a forward declaration be used for?", a: "Pointers and references to that type — the compiler doesn't need the internal layout. Calling a method or holding the type by value requires the full include." },
+      ]},
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "cppreference — virtual function", url: "https://en.cppreference.com/w/cpp/language/virtual", note: "virtual dispatch and pure virtual" },
+        { label: "cppreference — Abstract class", url: "https://en.cppreference.com/w/cpp/language/abstract_class", note: "how `= 0` makes a class uninstantiable" },
+        { label: "cppreference — Destructor", url: "https://en.cppreference.com/w/cpp/language/destructor", note: "why a base class needs a virtual destructor" },
+        { label: "learncpp — Virtual destructors", url: "https://www.learncpp.com/cpp-tutorial/virtual-destructors-virtual-assignment-and-overriding-virtualization/", note: "explained with a leak example" },
+        { label: "learncpp — Shallow vs deep copying", url: "https://www.learncpp.com/cpp-tutorial/shallow-vs-deep-copying/", note: "where the double free comes from" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "ex00 — Animal / Dog / Cat and the 'wrong' pair" },
+      { code: String.raw`class Animal
+{
+    protected:
+        std::string type;
+
+    public:
+        Animal(void);
+        Animal(const Animal &other);
+        Animal &operator=(const Animal &other);
+        virtual ~Animal(void);                      // ★ virtual from ex00 onwards
+
+        virtual void makeSound(void) const;         // ★ virtual
+        const std::string &getType(void) const;
+};
+
+class WrongAnimal
+{
+    /* identical in every respect except: */
+    ~WrongAnimal(void);                 // not virtual
+    void makeSound(void) const;         // not virtual  ← the lesson lives here
+};`, cap: "These two families differ only in the `virtual` keyword — so you can see what it changes", lang: "cpp" },
+      { p: "`Dog`/`Cat` set `type` **in the constructor body**, not in the initialiser list — `Animal`'s constructor runs first and sets a default, which the derived one then overwrites." },
+      { h: "ex01 — Brain, and a Dog that holds a pointer" },
+      { code: String.raw`class Brain
+{
+    private:
+        std::string ideas[100];     // an array by value — Brain allocates nothing itself
+    public:
+        /* full OCF */
+        void setIdea(int i, const std::string &idea);
+        std::string getIdea(int i) const;
+};
+
+class Dog : public Animal
+{
+    private:
+        Brain *brain;               // ★ a pointer → deep copy required
+    public:
+        Dog(void);                  // brain = new Brain();
+        Dog(const Dog &other);      // brain = new Brain(*other.brain);
+        Dog &operator=(const Dog &other);
+        ~Dog(void);                 // delete brain;
+
+        void makeSound(void) const;
+        Brain *getBrain(void) const;   // for proving the addresses differ
+};`, cap: "Brain holds its array by value, so it copies fine on its own — the care is needed in Dog, which holds a pointer to a Brain", lang: "cpp" },
+      { h: "ex03 — five classes and two interfaces" },
+      { code: String.raw`ICharacter (interface)          IMateriaSource (interface)
+      ▲                                ▲
+      │                                │
+  Character                       MateriaSource
+  AMateria *inventory[4]          AMateria *templates[4]
+
+AMateria (abstract: clone() = 0)
+      ▲
+   ┌──┴──┐
+  Ice   Cure     ← clone() returns new Ice(*this) / new Cure(*this)`, cap: "An interface says 'what you must be able to do'; an abstract class also hands down shared substance (type + getType)", lang: "txt" },
+      { p: "**Why `AMateria` is an abstract class rather than an interface:** it carries real shared substance for its children (`std::string type;` and `getType()`) — a true interface would be pure virtual throughout." },
+    ],
+
+    architecture: [
+      { h: "Files per exercise (each folder is self-contained)" },
+      { table: { head: ["Exercise", "Classes", "How to build it"], rows: [
+        ["ex00", "Animal, Dog, Cat, WrongAnimal, WrongCat", "from scratch; add `virtual ~Animal()` right away"],
+        ["ex01", "+ Brain, Dog/Cat holding a `Brain *`", "copy ex00 → add Brain → implement deep copy"],
+        ["ex02", "Animal → AAnimal (abstract)", "copy ex01 → `makeSound() const = 0` → rename"],
+        ["ex03", "AMateria, Ice, Cure, Character, MateriaSource, 2 interfaces", "written fresh (a different problem)"],
+      ]}},
+      { h: "What ex00 must show" },
+      { code: String.raw`const Animal *meta = new Animal();
+const Animal *j    = new Dog();
+const Animal *i    = new Cat();
+
+i->makeSound();       // a cat noise    ← virtual → follows the real type
+j->makeSound();       // a dog noise
+meta->makeSound();    // a generic noise
+
+const WrongAnimal *w = new WrongCat();
+w->makeSound();       // WrongAnimal's noise!  ← not virtual → follows the declared type
+                      //   even though the object really is a WrongCat`, cap: "That last line is everything ex00 wants you to see", lang: "cpp" },
+      { h: "What ex02 must show" },
+      { code: String.raw`AAnimal a;              // ✗ must fail to compile
+new AAnimal();          // ✗ likewise
+
+  error: cannot declare variable 'a' to be of abstract type 'AAnimal'
+
+→ "it doesn't compile" is the correct result for ex02
+   not a failure — show it to the evaluator as it is`, cap: "This exercise proves itself with a compile error rather than with output", lang: "txt" },
+    ],
+
+    dataflow: [
+      { h: "ex01 — tracing what leaks without the virtual" },
+      { code: String.raw`Animal *animals[4];
+animals[0] = new Dog();     // Dog ctor → new Brain
+animals[1] = new Dog();
+animals[2] = new Cat();     // Cat ctor → new Brain
+animals[3] = new Cat();
+
+for (int k = 0; k < 4; k++)
+    delete animals[k];      // deleted through Animal*
+
+  with virtual ~Animal:
+    ~Dog → delete brain → ~Animal      (× 4)
+    valgrind: 0 leaks
+
+  without virtual ~Animal:
+    only ~Animal                        (× 4)
+    valgrind: definitely lost 4 blocks  ← four Brains`, cap: "This test is exactly what the subject designed you to hit — only valgrind reveals it", lang: "cpp" },
+      { h: "ex01 — proving the copy is deep" },
+      { code: String.raw`Dog a;
+a.getBrain()->setIdea(0, "bone");
+
+Dog b(a);                              // copy constructor
+b.getBrain()->setIdea(0, "cat");       // modify b
+
+std::cout << a.getBrain()->getIdea(0); // must print "bone"  ← unaffected
+std::cout << b.getBrain()->getIdea(0); // "cat"
+std::cout << (a.getBrain() != b.getBrain());  // must print 1 (different addresses)`, cap: "Two conditions have to hold at once: the contents are independent, and the addresses differ", lang: "cpp" },
+      { h: "ex03 — following the subject's main" },
+      { code: String.raw`IMateriaSource *src = new MateriaSource();
+src->learnMateria(new Ice());      // the source now owns the template
+src->learnMateria(new Cure());
+
+ICharacter *me = new Character("me");
+AMateria *tmp;
+
+tmp = src->createMateria("ice");   // a fresh clone → the caller holds it
+me->equip(tmp);                    // ownership passes to the Character
+tmp = src->createMateria("cure");
+me->equip(tmp);
+
+ICharacter *bob = new Character("bob");
+me->use(0, *bob);   // * shoots an ice bolt at bob *
+me->use(1, *bob);   // * heals bob's wounds *
+
+delete bob;
+delete me;      // the Character dtor deletes every materia in the inventory
+delete src;     // the MateriaSource dtor deletes every template`, cap: "Every new has a clearly named owner — that is what ex03 is really assessing", lang: "cpp" },
+      { code: String.raw`Cases that must not break (the subject says "nothing should happen, but no bugs either"):
+
+  me->use(-1, *bob);      // negative index  → do nothing
+  me->use(9, *bob);       // index too large → do nothing
+  me->use(2, *bob);       // an empty slot   → do nothing
+  me->unequip(3);         // an empty slot   → do nothing
+
+  Character full;
+  for (int k = 0; k < 5; k++) full.equip(new Ice());
+                          // the fifth has nowhere to go → don't delete, don't overwrite
+                          // (that fifth one leaks in the subject's own test — expected)`, cap: "Bounds-check every place an index arrives from outside", lang: "cpp" },
+    ],
+
+    implementation: [
+      { h: "The order to write it in" },
+      { ul: [
+        "1. **ex00** — Animal/Dog/Cat first (add `virtual ~Animal()` immediately), then copy them into WrongAnimal/WrongCat with the `virtual` removed",
+        "2. **ex01** — copy ex00 → Brain → give Dog/Cat a `Brain*` → write the deep copy → **run valgrind**",
+        "3. **ex02** — copy ex01 → `= 0` on makeSound → rename to AAnimal → verify `AAnimal a;` fails to compile",
+        "4. **ex03** — copy the two interfaces from the subject verbatim → AMateria/Ice/Cure → Character → MateriaSource",
+      ]},
+      { h: "Common bugs and how to avoid them" },
+      { table: { head: ["Symptom", "Cause", "Fix"], rows: [
+        ["valgrind reports a leak in ex01", "`~Animal` isn't virtual", "`virtual ~Animal(void);`"],
+        ["double free / crash when copying", "a shallow copy of `Brain*`", "the copy ctor and operator= must `new Brain(*o.brain)`"],
+        ["changing one copy changes the other", "same cause", "same fix"],
+        ["the old Brain leaks on assignment", "overwriting the pointer without releasing it", "`delete brain;` before the `new`"],
+        ["use-after-free on `a = a`", "no self-assignment check", "`if (this != &o)`"],
+        ["WrongCat makes a WrongAnimal noise", "**that is correct**", "it's the result ex00 is designed to show"],
+        ["`cannot declare variable to be of abstract type`", "**that is correct** (ex02)", "this is the passing result"],
+        ["endless includes in ex03", "two headers including each other", "forward declaration in the `.hpp`, real include in the `.cpp`"],
+        ["double free in ex03", "`unequip` deleting the Materia", "`unequip` must not delete — just NULL the slot"],
+      ]}},
+      { h: "Build and test" },
+      { code: String.raw`cd ex01 && make re && valgrind --leak-check=full --error-exitcode=42 -q ./animal
+
+# on Windows via WSL
+wsl --exec bash -lc 'cd "/mnt/d/Projects/42/CPP Module 04/ex01" && make re && valgrind -q --leak-check=full ./animal'
+
+# ex02: confirm the abstract class can't be instantiated (a FAIL is expected)
+echo 'int main(){ AAnimal a; }' > /tmp/t.cpp
+c++ -std=c++98 -I. /tmp/t.cpp 2>&1 | grep -q 'abstract' && echo "pass: it really can't be built"
+
+# forbidden things
+grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|algorithm' ex0*/*.cpp ex0*/*.hpp`, lang: "bash" },
+      { note: "This module **requires valgrind** on every exercise that uses `new` — its two central bugs (the virtual destructor and deep copy) are invisible to the eye and visible only to valgrind." },
+    ],
+
+    tricks: [
+      { h: "Trick 1: add `virtual ~Base()` before it is needed" },
+      { p: "ex00 has nothing to leak, but put it in anyway — when ex01 copies the files and adds a Brain, it is already correct and there's no leak to chase later." },
+      { h: "Trick 2: a pointer member means writing OCF yourself" },
+      { p: "The simple rule: any class holding a raw pointer it allocated cannot use the compiler's generated versions — write the copy ctor, operator= and destructor yourself (the rule of three)." },
+      { h: "Trick 3: prove deep copy with addresses" },
+      { p: "Add `getBrain()` from the start and compare the two addresses — faster and clearer than comparing ideas one by one." },
+      { h: "Trick 4: a compile error is the passing result in ex02" },
+      { p: "Keep a short test file containing `AAnimal a;` to show the evaluator — it must fail to compile, and that failure is the proof that abstract works." },
+      { h: "Trick 5: forward declare in the header, include in the cpp" },
+      { p: "A general rule, not just a fix for circular includes — headers that include less compile faster and tangle less." },
+      { h: "Trick 6: write the ownership table before writing ex03" },
+      { p: "Note down who owns the pointer after equip / unequip / learnMateria / createMateria, then write the code straight from that table instead of guessing." },
+      { h: "Trick 7: run valgrind after each exercise, not at the end" },
+      { p: "Every important bug in this module is symptomless at run time — the program runs beautifully while leaking. Running valgrind exercise by exercise tells you immediately where it went wrong." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "What is polymorphism?", a: "Calling the same method through a base-class variable and getting behaviour that follows the object's real type — possible because the method is `virtual`." },
+        { q: "What does `virtual` do?", a: "It moves method selection from compile time (static type) to run time (dynamic type). Internally it uses a table (the vtable) each object points at." },
+        { q: "What are WrongAnimal/WrongCat for?", a: "To show the effect of **omitting** virtual — a `WrongAnimal*` pointing at a WrongCat calls WrongAnimal's makeSound, because selection follows the declared type." },
+        { q: "Why must a base class's destructor be virtual?", a: "Because `delete` through a base pointer runs only the base destructor — the derived one never runs, so whatever it allocated (a Brain) leaks." },
+        { q: "What is the difference between deep and shallow copy?", a: "Shallow copies the pointer (two objects on one block → double free); deep allocates a new block and copies the contents (genuinely separate)." },
+        { q: "What must operator= do in a class holding a pointer?", a: "Check for self-assignment → release the old block → allocate a new one and copy into it → return `*this`. Skip any step and you get a leak or a use-after-free." },
+        { q: "What does pure virtual (`= 0`) do?", a: "It leaves the method without a body and makes the class abstract — you cannot instantiate it directly, though it works fine as a pointer or reference type." },
+        { q: "Does an abstract class still have a constructor?", a: "Yes — and OCF requires one. Derived classes call it during construction; the only thing you cannot create is an object of the abstract class itself." },
+        { q: "How do you write an interface in C++98?", a: "A class where every method is pure virtual, with only a virtual destructor carrying a body (usually empty) — C++98 has no `interface` keyword." },
+        { q: "Why does `AMateria` need a `clone()`?", a: "Because code holding only an `AMateria*` doesn't know the real type and cannot call a copy constructor. Being virtual, `clone()` lets the object copy itself correctly." },
+        { q: "Must `unequip` delete the Materia?", a: "No — the subject forbids it. Set the slot to NULL and the caller takes the pointer over." },
+        { q: "Does `learnMateria` take ownership?", a: "Yes — MateriaSource deletes every template when it dies. If its slots are full it must `delete` what it was handed, or that leaks." },
+        { q: "How do you fix a circular include?", a: "A forward declaration (`class ICharacter;`) in the header, because only a pointer or reference is used there, and the real `#include` in the `.cpp` where methods are called." },
+        { q: "Why is the inventory an array rather than a `std::vector`?", a: "Because 42 forbids STL containers until Module 08 — it has to be a plain `AMateria *inventory[4]`." },
+      ]},
+      { h: "Test before submitting" },
+      { code: String.raw`# ex00: WrongCat must make WrongAnimal's noise (that is the correct result)
+./animal
+
+# ex01: zero leaks when deleting through Animal*
+valgrind --leak-check=full --error-exitcode=42 -q ./animal && echo "pass"
+
+# ex01: deep copy — addresses must differ and contents must be independent
+# a.getBrain() != b.getBrain()
+
+# ex02: must fail to compile
+# error: cannot declare variable to be of abstract type 'AAnimal'
+
+# ex03: the subject's main plus the edge cases
+# use(-1) / use(9) / empty slot / full inventory → must not crash
+valgrind --leak-check=full -q ./materia`, lang: "bash" },
+    ],
+  },
+});
