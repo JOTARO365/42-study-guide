@@ -14,6 +14,7 @@ window.TEACHING_DATA.push({
   id: "ai_foundations",
   name: "AI Engineer — ปูพื้นฐานจากศูนย์",
   nameEn: "AI Engineer — Groundwork from Zero",
+  titleShort: { th: "AI Engineer ปูพื้นฐาน", en: "AI Engineer Foundations" },
   tag: { th: "เริ่มจากไม่รู้อะไรเลย: LLM คืออะไร, AI Engineer ทำอะไร, ระบบ AI จริงประกอบด้วยอะไรบ้าง — พร้อมตัวอย่างโค้ดที่คัดลอกไปรันได้", en: "From zero: what an LLM is, what an AI engineer does, the anatomy of a real AI system — with copy-paste runnable examples" },
   accent: "#34d399",
   sections: {

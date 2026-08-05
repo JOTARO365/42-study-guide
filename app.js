@@ -945,7 +945,9 @@
       if (id.indexOf(prefix) === 0) site = SITE_NAMES[prefix];
     });
     if (!proj) return t(site);
-    return projName(proj).split(" — ")[0] + " — " + t(site);   // ตัดคำอธิบายท้ายชื่อออก
+    // ชื่อ AI ยาว ตัดคำอธิบายท้ายออก เว้นแต่หน้านั้นตั้ง titleShort ไว้เอง
+    var short = proj.titleShort ? t(proj.titleShort) : projName(proj).split(" — ")[0];
+    return short + " — " + t(site);
   }
 
   /* ---- Root: ถือ state ภาษา + ปุ่มสลับ TH/EN ---- */
