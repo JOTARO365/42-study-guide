@@ -932,6 +932,22 @@
     );
   }
 
+  /* ---- title ของแท็บ: <title> ใน .html เป็นไทยตายตัว ต้องเซ็ตซ้ำเมื่อสลับภาษา ---- */
+  var SITE_NAMES = {
+    ai_:   { th: "สื่อการสอน AI Engineer", en: "AI Engineer Study Guide" },
+    exam_: { th: "สื่อติวสอบ 42", en: "42 Exam Prep" }
+  };
+
+  function pageTitle(proj) {
+    var id = proj ? proj.id : "";
+    var site = { th: "สื่อการสอน 42", en: "42 Study Guide" };
+    Object.keys(SITE_NAMES).forEach(function (prefix) {
+      if (id.indexOf(prefix) === 0) site = SITE_NAMES[prefix];
+    });
+    if (!proj) return t(site);
+    return projName(proj).split(" — ")[0] + " — " + t(site);   // ตัดคำอธิบายท้ายชื่อออก
+  }
+
   /* ---- Root: ถือ state ภาษา + ปุ่มสลับ TH/EN ---- */
   function Root() {
     var s = useState(LANG);
@@ -950,6 +966,7 @@
     } else {
       page = h(Home, { projects: data });
     }
+    document.title = pageTitle(proj);
     return h(React.Fragment, null,
       h("div", { className: "lang-switch" },
         h("button", { className: "lang-btn" + (s[0] === "th" ? " on" : ""), onClick: function () { setLang("th"); } }, "TH"),
