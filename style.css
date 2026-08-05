@@ -64,13 +64,6 @@ a:hover { text-decoration: underline; }
   width: 64px; height: 5px; border-radius: 3px;
   background: var(--accent); margin-bottom: 22px;
 }
-.gh-btn {
-  display: inline-block; margin-top: 16px; padding: 9px 18px;
-  background: var(--bg2); border: 1px solid var(--accent); color: var(--accent);
-  border-radius: 999px; font-size: 14px; font-weight: 600; transition: .12s;
-}
-.gh-btn:hover { background: var(--accent); color: #0b0e13; text-decoration: none; }
-
 /* ---------- home grid ---------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 18px; margin-top: 30px; }
 .card {

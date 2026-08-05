@@ -910,11 +910,7 @@
         h("p", { className: "tag" }, t({
           th: "คู่มือ 42 ฉบับจับมือทำ — เล่าตั้งแต่ทฤษฎี ไล่โค้ดทีละฟังก์ชัน ยันคำถามตอน eval แบบที่อ่านแล้วเก็ตจริง",
           en: "A hands-on 42 guide — from the theory, through every function, to the evaluation Q&A, all in plain language"
-        })),
-        h("a", {
-          className: "gh-btn", href: "https://github.com/JOTARO365",
-          target: "_blank", rel: "noopener noreferrer"
-        }, "GitHub: JOTARO365 ↗")
+        }))
       ),
       h("div", { className: "grid" },
         props.projects.map(function (p) {
