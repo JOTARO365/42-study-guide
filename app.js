@@ -846,6 +846,9 @@
     eval:           { th: "เช็กความพร้อม", en: "Readiness Q&A" }
   };
 
+  /* ชื่อโปรเจกต์: สาย 42 เป็นอังกฤษอยู่แล้ว มีแค่สาย AI ที่ตั้งชื่อไทย */
+  function projName(p) { return t({ th: p.name, en: p.nameEn || p.name }); }
+
   /* ---- หน้าโปรเจกต์ ---- */
   function ProjectPage(props) {
     var proj = props.proj;
@@ -871,7 +874,7 @@
     return h("div", { className: "wrap" },
       h("div", { className: "hero" },
         h("div", { className: "accent-bar" }),
-        h("h1", null, proj.name),
+        h("h1", null, projName(proj)),
         h("p", { className: "tag" }, t(proj.tag)),
         null
       ),
@@ -896,7 +899,7 @@
       ),
       h("div", { className: "section", key: tab }, body),
       h("footer", null,
-        t({ th: "สื่อการสอน 42 · ", en: "42 Study Guide · " }) + proj.name)
+        t({ th: "สื่อการสอน 42 · ", en: "42 Study Guide · " }) + projName(proj))
     );
   }
 
@@ -917,7 +920,7 @@
             className: "card", key: p.id, href: p.id + ".html",
             style: { borderLeftColor: p.accent }
           },
-            h("h3", null, p.name),
+            h("h3", null, projName(p)),
             h("p", null, t(p.tag))
           );
         })

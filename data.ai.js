@@ -13,6 +13,7 @@ window.EXTRA_FLOWS   = window.EXTRA_FLOWS   || {};
 window.TEACHING_DATA.push({
   id: "ai_foundations",
   name: "AI Engineer — ปูพื้นฐานจากศูนย์",
+  nameEn: "AI Engineer — Groundwork from Zero",
   tag: { th: "เริ่มจากไม่รู้อะไรเลย: LLM คืออะไร, AI Engineer ทำอะไร, ระบบ AI จริงประกอบด้วยอะไรบ้าง — พร้อมตัวอย่างโค้ดที่คัดลอกไปรันได้", en: "From zero: what an LLM is, what an AI engineer does, the anatomy of a real AI system — with copy-paste runnable examples" },
   accent: "#34d399",
   sections: {
@@ -393,6 +394,7 @@ window.EXTRA_FLOWS.ai_foundations = {
 window.TEACHING_DATA.push({
   id: "ai_llm",
   name: "LLM & API — เรียกโมเดล + คุม token/context",
+  nameEn: "LLMs & APIs — Calling Models, Budgeting Tokens",
   tag: { th: "เรียกโมเดลให้ได้ผลที่เอาไปใช้ต่อได้จริง: structured output, prompt caching, เลือกโมเดลตามงาน, ออกแบบ context window และ token budget ให้เหมาะกับงาน", en: "Calling LLMs for production: structured output, prompt caching, model selection, and designing context windows / token budgets" },
   accent: "#60a5fa",
   sections: {
@@ -864,6 +866,7 @@ window.EXTRA_FLOWS.ai_llm = {
 window.TEACHING_DATA.push({
   id: "ai_vector",
   name: "Embeddings & Vector DB — ค้นด้วยความหมาย",
+  nameEn: "Embeddings & Vector DBs — Search by Meaning",
   tag: { th: "เปลี่ยนข้อความเป็นเวกเตอร์ตัวเลข แล้วค้นด้วย 'ความหมาย' ไม่ใช่คำตรงตัว: embedding, cosine similarity, มิติของเวกเตอร์, pgvector และ ANN search", en: "Turn text into number vectors and search by meaning, not keywords: embeddings, cosine similarity, dimensions, pgvector and ANN search" },
   accent: "#c084fc",
   sections: {
@@ -1230,6 +1233,7 @@ window.EXTRA_FLOWS.ai_vector = {
 window.TEACHING_DATA.push({
   id: "ai_rag",
   name: "RAG — ดึงข้อมูลจริงมาเสริมก่อนตอบ",
+  nameEn: "RAG — Retrieve Real Data Before Answering",
   tag: { th: "Retrieval-Augmented Generation: ค้นข้อมูลที่เกี่ยว (vector) → ยัดเข้า prompt → ให้ LLM ตอบจากข้อมูลจริง ลด hallucination. มี chunking, การ inject context และวัดผล Recall@k", en: "Retrieval-Augmented Generation: retrieve relevant data (vector) → inject into the prompt → answer from real facts. Covers chunking, context injection and Recall@k" },
   accent: "#fbbf24",
   sections: {
@@ -1653,6 +1657,7 @@ window.EXTRA_FLOWS.ai_rag = {
 window.TEACHING_DATA.push({
   id: "ai_agents",
   name: "Agents & LangGraph — ต่อ AI หลายขั้นเป็นระบบ",
+  nameEn: "Agents & LangGraph — Chaining AI Steps into a System",
   tag: { th: "จากเรียก LLM ทีละครั้ง สู่ระบบ multi-step ที่ต่อกันด้วย state machine: StateGraph, node/edge, conditional routing, การส่งต่อ state และ degrade เมื่อขั้นใดล้ม", en: "From single LLM calls to a multi-step system wired as a state machine: StateGraph, nodes/edges, conditional routing, shared state and graceful degradation" },
   accent: "#f472b6",
   sections: {
@@ -2077,6 +2082,7 @@ window.EXTRA_FLOWS.ai_agents = {
 window.TEACHING_DATA.push({
   id: "ai_harness",
   name: "Harness — โครงรอบ LLM: guardrail · tool · system prompt · cost",
+  nameEn: "Harness — Around the LLM: guardrails · tools · system prompt · cost",
   tag: { th: "ของจริงรอบ ๆ LLM ที่ทำให้ production-ready: ออกแบบ harness (gate/guardrail), สร้าง tool ให้ LLM, ดีไซน์ system prompt, และวัด cost/eval", en: "The scaffolding around an LLM that makes it production-ready: harness/guardrail design, building tools, system-prompt design, and cost/eval" },
   accent: "#22d3ee",
   sections: {
@@ -2638,6 +2644,7 @@ window.EXTRA_FLOWS.ai_harness = {
 window.TEACHING_DATA.push({
   id: "ai_loop_engineering",
   name: "Loop Engineering — agent ที่วน reason→act→ตรวจ เอง",
+  nameEn: "Loop Engineering — Agents That Reason, Act and Self-Check",
   tag: { th: "ขั้นถัดจาก prompt/context engineering: เลิกสั่งทีละ step แล้วตั้ง 'เป้าหมาย + เกณฑ์ตรวจ (gate)' ให้ agent สร้าง prompt และวนทำเองจนผ่าน — พร้อมกฎกัน loop วนไม่จบ/เผา token/หลอกว่าเสร็จ", en: "The step after prompt/context engineering: stop scripting steps, set a goal + feedback gate and let the agent loop until it passes — with rules against runaway loops, token burn, and false 'done'" },
   accent: "#a78bfa",
   sections: {
