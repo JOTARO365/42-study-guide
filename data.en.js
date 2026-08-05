@@ -12628,3 +12628,592 @@ for d in ex00 ex01 ex02; do (cd $d && make fclean) ; done`, lang: "bash" },
     ],
   },
 });
+
+/* ===================== EN: Exam Rank 02 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "exam_rank02": {
+    principle: [
+      { h: "What Exam Rank 02 is" },
+      { p: "The first on-site exam you have to pass in the Common Core (after libft). You sit it on an **isolated** machine (no internet, no Discord, no Google) for about **three hours**. The exam system is **examshell**: it hands you one randomly chosen exercise at a time, you write your answer into the `rendu/` folder and press **grademe** to have the Moulinette check it." },
+      { note: "The part that surprises people: the exam **does not check the norm!** It checks only 'does it compile' and 'is the output identical'. `for` loops, mid-block declarations and functions longer than 25 lines are all fine → just write something correct as fast as you can." },
+      { h: "The four levels (0 → 3)" },
+      { table: { head: ["Level", "Difficulty", "Kind of exercise", "Points"], rows: [
+        ["**0**", "warm-up", "basic string/IO (strlen, putstr, rot13)", "few"],
+        ["**1**", "easy–medium", "atoi, strcmp, bitwise, word transforms", "moderate"],
+        ["**2**", "medium", "base conversion, linked-list size, string ops", "many"],
+        ["**3**", "hard", "ft_split, ft_itoa, flood_fill, sort_list", "most"],
+      ]}},
+      { p: "Passing a level unlocks the next one (harder, worth more). **Failing a level ends you at that level's score**, so the goal is to climb as high as the clock allows." },
+      { h: "Scoring and the pass mark" },
+      { ul: [
+        "Compiled with `cc -Wall -Wextra -Werror` — any warning is a **fail** (an unused variable, a signed/unsigned comparison)",
+        "**The output must match exactly** (checked with diff) — one `\\n` too many or too few fails",
+        "**A segfault or memory error scores 0** for that exercise immediately",
+        "Some exercises check for leaks (depending on the Moulinette version) — close your fds and free everything",
+        "Passing Rank 02 usually means reaching **level 2** or beyond (it varies by year and campus)",
+      ]},
+      { h: "What a subject looks like" },
+      { code: String.raw`Assignment name  : ft_strlen
+Expected files   : ft_strlen.c
+Allowed functions:                  ← empty = no external functions at all!
+--------------------------------------------------------------------------------
+Write a function that returns the length of a string.
+Your function must be declared as follows:
+int    ft_strlen(char *str);`, cap: "Read the top three lines properly: the file to submit, the functions you may use, and the exact prototype", lang: "txt" },
+      { note: "An empty 'Allowed functions' means only what you write yourself (no printf, no malloc). If it says `malloc`, then malloc is the only one you get. Using anything outside the list is a fail." },
+    ],
+
+    theory: [
+      { p: "The real Rank 02 exercise pool (from examshell) — each slot draws one exercise at random from that level. Knowing them all means recognising the route the moment you see the name." },
+      { h: "Level 0 — warm-up (string/IO)" },
+      { table: { head: ["Exercise", "What it does"], rows: [
+        ["`ft_strlen`", "return a string's length"],
+        ["`ft_strcpy`", "copy a string"],
+        ["`ft_putstr`", "print a string with write"],
+        ["`ft_swap`", "swap two values through pointers"],
+        ["`rot_13` / `rotone`", "shift letters by 13 / by 1 (wrapping a–z)"],
+        ["`rev_print`", "print a string backwards"],
+        ["`ulstr`", "swap the case of every letter"],
+        ["`first_word` / `last_word`", "print the first / last word"],
+        ["`fizzbuzz`", "1..100 with fizz/buzz"],
+        ["`repeat_alpha`", "repeat each letter by its position (a, bb, ccc)"],
+        ["`search_and_replace`", "replace a character"],
+      ]}},
+      { h: "Level 1 — easy to medium" },
+      { table: { head: ["Exercise", "What it does"], rows: [
+        ["`ft_atoi`", "string → int (handling +/− and leading whitespace)"],
+        ["`ft_strcmp`", "compare strings"],
+        ["`ft_strdup`", "duplicate a string (malloc)"],
+        ["`ft_strrev`", "reverse a string in place"],
+        ["`do_op`", "a calculator over argv: `a op b`"],
+        ["`max`", "find the largest value in an int array"],
+        ["`inter` / `union`", "the shared / combined characters of two strings"],
+        ["`wdmatch`", "check whether s1 is a subsequence of s2"],
+        ["`print_bits`", "print a byte as 8 bits"],
+        ["`swap_bits`", "swap a byte's upper and lower halves"],
+        ["`reverse_bits`", "reverse the bit order within a byte"],
+        ["`is_power_of_2`", "check whether a number is a power of two"],
+        ["`camel_to_snake` / `snake_to_camel`", "convert identifier styles"],
+        ["`alpha_mirror`", "mirror the letters (a↔z, b↔y)"],
+      ]}},
+      { h: "Level 2 — medium" },
+      { table: { head: ["Exercise", "What it does"], rows: [
+        ["`ft_atoi_base`", "convert a string in any base → int"],
+        ["`print_hex`", "print a number in hexadecimal"],
+        ["`ft_list_size`", "count the nodes in a linked list"],
+        ["`ft_range`", "build an int array from start..end"],
+        ["`ft_rrange`", "the same, in reverse order"],
+        ["`str_capitalizer` / `rstr_capitalizer`", "capitalise the start of each word"],
+        ["`epur_str`", "collapse repeated whitespace to a single space"],
+        ["`expand_str`", "put three spaces between words"],
+        ["`tab_mult`", "a multiplication table"],
+        ["`pgcd` / `lcm`", "greatest common divisor / least common multiple"],
+        ["`add_prime_sum`", "the sum of the primes ≤ n"],
+        ["`paramsum`", "count the arguments"],
+        ["`hidenp`", "is s1 a subsequence of s2 (1/0)"],
+      ]}},
+      { h: "Level 3 — hard (frequent ones, dug into in the next tab)" },
+      { table: { head: ["Exercise", "What it does", "Skill"], rows: [
+        ["`ft_split`", "cut a string into an array of words", "strings + malloc"],
+        ["`ft_itoa`", "int → string (handling INT_MIN)", "strings + malloc"],
+        ["`flood_fill`", "fill a connected region", "recursion"],
+        ["`sort_int_tab`", "sort an int array", "sorting"],
+        ["`sort_list`", "sort a linked list with a cmp function", "linked lists"],
+        ["`ft_list_foreach`", "apply a function to every node", "function pointers"],
+        ["`ft_list_remove_if`", "remove matching nodes (and free them)", "linked lists"],
+        ["`rev_wstr`", "reverse the order of the words in a sentence", "strings"],
+        ["`rostring`", "rotate the first word to the end", "strings"],
+        ["`fprime`", "prime factorisation", "maths"],
+      ]}},
+      { note: "Seeing an exercise name and not knowing what it wants is dangerous. Read this pool until every name is familiar — during the exam you don't want to spend time working out the question." },
+    ],
+
+    foundations: [
+      { p: "The skills and snippets you must be able to type from memory — most Rank 02 exercises are assembled from these building blocks." },
+      { h: "1) Printing without printf, using write" },
+      { code: String.raw`#include <unistd.h>
+void ft_putchar(char c) { write(1, &c, 1); }
+void ft_putstr(char *s)  { while (*s) write(1, s++, 1); }
+
+// printing an int (handling the minus sign and INT_MIN)
+void ft_putnbr(int n) {
+    if (n == -2147483648) { ft_putstr("-2147483648"); return; }
+    if (n < 0) { ft_putchar('-'); n = -n; }
+    if (n >= 10) ft_putnbr(n / 10);
+    ft_putchar(n % 10 + '0');
+}`, cap: "Many exercises forbid printf → keep putchar/putstr/putnbr at your fingertips", lang: "c" },
+      { h: "2) Allocating len+1 for a string and terminating it" },
+      { code: String.raw`char *dst = malloc(sizeof(char) * (len + 1));
+if (!dst) return (NULL);     // always check malloc
+dst[len] = '\0';             // terminate before filling
+// ... fill dst[0..len-1] ...`, cap: "Forgetting the +1 or the '\\0' is the classic bug behind corrupted output and segfaults", lang: "c" },
+      { h: "3) Skipping separators / finding word boundaries (used in split and word ops)" },
+      { code: String.raw`int is_sep(char c) { return (c == ' ' || c == '\t' || c == '\n'); }
+
+while (*s && is_sep(*s)) s++;        // skip leading separators
+while (*s && !is_sep(*s)) s++;       // walk to the end of the word`, cap: "The 'skip separators → walk the word → skip separators' pattern is the heart of split, last_word and epur_str", lang: "c" },
+      { h: "4) Walking a linked list, and the standard prototype" },
+      { code: String.raw`typedef struct s_list {
+    void           *data;     // or int data, depending on the ft_list.h you're given
+    struct s_list  *next;
+} t_list;
+
+t_list *cur = lst;
+while (cur) { /* use cur->data */ cur = cur->next; }`, cap: "List exercises come with an `ft_list.h` — open it and see whether data is a void* or an int", lang: "c" },
+      { h: "5) The recursion template (flood_fill and friends)" },
+      { code: String.raw`void rec(grid, x, y) {
+    if (out_of_bounds || condition_not_met) return;   // base case first!
+    mark(x, y);                                        // stop it looping
+    rec(x+1,y); rec(x-1,y); rec(x,y+1); rec(x,y-1);    // branch four ways
+}`, cap: "The base case (bounds + already visited) must come first, or you get a stack overflow", lang: "c" },
+      { h: "6) Read the main.c the system gives you" },
+      { p: "Many exercises come with a `main.c` that calls your function — **read it before writing anything**, to learn the exact prototype, how the function is called, and what output is expected. The list and flood_fill exercises usually supply both a struct and a main." },
+    ],
+
+    architecture: [
+      { h: "How examshell works (the exam cycle)" },
+      { code: String.raw`1. choose Rank 02 → the system draws a level 0 exercise at random
+2. it creates a rendu/ folder and copies the subject in (plus main.c if there is one)
+3. you write the files named in "Expected files" into rendu/
+4. press grademe → the Moulinette compiles and diffs the output
+5. pass → the next level unlocks (a new random exercise)
+   fail → you can retry (you may get the same one or a new one)`, cap: "Everything happens inside rendu/ — a file with the wrong name or in the wrong place is never found, and that's a fail", lang: "txt" },
+      { h: "The compile-and-test loop on your own machine (before pressing grademe)" },
+      { code: String.raw`# for exercises that come with a main.c:
+cc -Wall -Wextra -Werror *.c && ./a.out | cat -e
+
+# for exercises that give only a function (no main) → write a temporary test main
+# (don't forget to delete it, or don't submit it, if main.c isn't in Expected files)
+
+# compare the output exactly with cat -e (shows $ at line ends and ^I for tabs)
+./a.out | cat -e`, cap: "`cat -e` is your best friend — it shows the newlines ($) and tabs (^I) your eyes can't see", lang: "bash" },
+      { h: "The rules about what you submit" },
+      { ul: [
+        "Submit **only** the files in 'Expected files' — if it says `ft_split.c` alone, there must be no main()",
+        "If Expected files says `*.c *.h`, you may split it however you like (a main is allowed)",
+        "The function must match the prototype exactly (name, return type, parameters)",
+        "Don't `#include` anything you don't need (`-Werror` may not complain, but it doesn't read well)",
+      ]},
+      { note: "A trick: put your test main in a separate file (say test.c) and compile them together with `cc ft_split.c test.c` — then you submit only ft_split.c and can't forget to remove the main." },
+    ],
+
+    dataflow: [
+      { p: "A closer look at Rank 02's frequent and difficult exercises — understanding these patterns covers most of levels 2 and 3." },
+      { h: "🔬 ft_split — cutting a string into an array of words (allowed: malloc)" },
+      { p: "**The three-function strategy:** count the words → extract one word at a time → assemble the array. The key is that 'skip separators → walk the word' pattern, reused both while counting and while extracting." },
+      { code: String.raw`int is_sep(char c) { return (c==' '||c=='\t'||c=='\n'); }
+
+int count_words(char *s) {
+    int n = 0;
+    while (*s) {
+        while (*s && is_sep(*s)) s++;          // skip separators
+        if (*s) n++;                            // found a word start → count it
+        while (*s && !is_sep(*s)) s++;          // walk to the end of the word
+    }
+    return (n);
+}
+char *word_dup(char *s) {
+    int len = 0;
+    while (s[len] && !is_sep(s[len])) len++;
+    char *w = malloc(len + 1);
+    w[len] = '\0';
+    for (int i = 0; i < len; i++) w[i] = s[i];
+    return (w);
+}
+char **ft_split(char *str) {
+    char **arr = malloc(sizeof(char*) * (count_words(str) + 1));
+    int i = 0;
+    while (*str) {
+        while (*str && is_sep(*str)) str++;
+        if (*str) arr[i++] = word_dup(str);
+        while (*str && !is_sep(*str)) str++;
+    }
+    arr[i] = NULL;                              // terminate with NULL
+    return (arr);
+}`, cap: "The +1 in the array malloc is the slot for the NULL terminator — leave it out and the caller runs past the end", lang: "c" },
+      { note: "ft_split's traps: (1) forgetting the NULL terminator, (2) empty words when separators repeat, (3) a string of nothing but spaces → must give an array containing only NULL." },
+      { h: "🔬 ft_itoa — int → string, and the INT_MIN trap (allowed: malloc)" },
+      { p: "**The INT_MIN problem (−2147483648):** you cannot write `n = -n`, because +2147483648 overflows an int. The trick is to take `% 10` first and make each **digit** positive individually (a single digit can't overflow)." },
+      { code: String.raw`int get_len(int n) {
+    int len = (n <= 0) ? 1 : 0;     // room for a '-' or for the digit 0
+    while (n) { len++; n /= 10; }
+    return (len);
+}
+char *ft_itoa(int n) {
+    int len = get_len(n);
+    char *r = malloc(len + 1);
+    r[len] = '\0';
+    if (n == 0) r[0] = '0';
+    if (n < 0) r[0] = '-';
+    while (n) {
+        int digit = n % 10;          // INT_MIN: digit = -8 (no overflow)
+        if (digit < 0) digit = -digit;
+        r[--len] = digit + '0';      // fill from the back
+        n /= 10;
+    }
+    return (r);
+}`, cap: "Never `n = -n` on INT_MIN — take the absolute value one digit at a time (n%10) instead", lang: "c" },
+      { h: "🔬 flood_fill — recursive region filling (allowed: none; a main and struct are provided)" },
+      { p: "Fill every cell matching the starting cell's value with `'F'`, spreading in four directions. **The base case must come first**: out of bounds, or a cell that isn't the target colour → return immediately." },
+      { code: String.raw`typedef struct s_point { int x; int y; } t_point;
+
+void fill(char **tab, t_point size, t_point c, char target) {
+    if (c.y < 0 || c.y >= size.y || c.x < 0 || c.x >= size.x
+        || tab[c.y][c.x] != target)
+        return;                                  // every stopping condition, together
+    tab[c.y][c.x] = 'F';                          // mark it, to stop looping
+    fill(tab, size, (t_point){c.x - 1, c.y}, target);
+    fill(tab, size, (t_point){c.x + 1, c.y}, target);
+    fill(tab, size, (t_point){c.x, c.y - 1}, target);
+    fill(tab, size, (t_point){c.x, c.y + 1}, target);
+}
+void flood_fill(char **tab, t_point size, t_point begin) {
+    fill(tab, size, begin, tab[begin.y][begin.x]); // capture the target before changing it
+}`, cap: "You must capture the target colour (tab[begin]) and pass it into the recursion — reading it live goes wrong after the first mark", lang: "c" },
+      { h: "🔬 ft_atoi_base — a string in any base → int (allowed: none)" },
+      { code: String.raw`int get_digit(char c, int base) {
+    if (c >= '0' && c <= '9') c -= '0';
+    else if (c >= 'a' && c <= 'f') c = c - 'a' + 10;
+    else if (c >= 'A' && c <= 'F') c = c - 'A' + 10;
+    else return (-1);
+    return (c < base ? c : -1);        // -1 = stop (beyond the base)
+}
+int ft_atoi_base(char *str, int base) {
+    int res = 0, sign = 1, d;
+    while (*str == ' ' || *str == '\t') str++;
+    if (*str == '-') { sign = -1; str++; }
+    while ((d = get_digit(*str, base)) >= 0) {
+        res = res * base + d;
+        str++;
+    }
+    return (res * sign);
+}`, cap: "The core: map a character to its value (0-9, a-f), then accumulate res = res*base + digit", lang: "c" },
+      { h: "🔬 sort_list — sorting a linked list with a cmp function (in-place bubble)" },
+      { code: String.raw`t_list *sort_list(t_list *lst, int (*cmp)(int, int)) {
+    int swapped = 1;
+    while (swapped) {
+        swapped = 0;
+        t_list *cur = lst;
+        while (cur->next) {
+            if (!cmp(cur->data, cur->next->data)) {   // out of order → swap
+                int tmp = cur->data;
+                cur->data = cur->next->data;
+                cur->next->data = tmp;
+                swapped = 1;
+            }
+            cur = cur->next;
+        }
+    }
+    return (lst);
+}`, cap: "Swapping the data is easier than swapping nodes; loop until a pass makes no swaps (swapped=0) and it's sorted", lang: "c" },
+      { h: "🔬 ft_list_remove_if — removing matching nodes and freeing them (allowed: free)" },
+      { code: String.raw`void ft_list_remove_if(t_list **begin, void *ref,
+                       int (*cmp)(void *, void *)) {
+    if (!begin || !*begin) return;
+    if (cmp((*begin)->data, ref) == 0) {       // a match → remove the current head
+        t_list *del = *begin;
+        *begin = (*begin)->next;               // move the head past it
+        free(del);
+        ft_list_remove_if(begin, ref, cmp);    // check the one that moved up
+    } else
+        ft_list_remove_if(&(*begin)->next, ref, cmp); // move on to the next
+}`, cap: "A `t_list **` lets it change the head; the recursion keeps it short and handles every position correctly", lang: "c" },
+      { h: "🔬 rev_wstr / rostring — reversing or rotating the words of a sentence" },
+      { p: "**rev_wstr** reverses the word order (`\"hi there\"` → `\"there hi\"`). **rostring** rotates the first word to the end. Both use the split-and-reassemble pattern (mind the extra whitespace — the output uses a single space)." },
+      { code: String.raw`// rev_wstr: walk from the END of the string, finding one word at a time and printing it
+int i = len - 1;
+while (i >= 0) {
+    while (i >= 0 && is_sep(s[i])) i--;          // skip trailing separators
+    int end = i;
+    while (i >= 0 && !is_sep(s[i])) i--;          // find the start of the word
+    for (int j = i + 1; j <= end; j++) write(1, &s[j], 1);
+    if (i >= 0) write(1, " ", 1);                 // one space between words
+}`, cap: "Walk backwards, find each word, print it immediately — no malloc needed when the exercise asks you to print", lang: "c" },
+    ],
+
+    implementation: [
+      { h: "A time strategy for the three hours" },
+      { table: { head: ["Window", "What to do"], rows: [
+        ["0:00–0:10", "read the level 0 subject fully and open the main.c you were given"],
+        ["level 0", "clear it fast (15–20 min) — these are free points, don't lose them"],
+        ["level 1", "more care (20–30 min) — the bitwise and atoi ones must be exact"],
+        ["level 2", "this is where most people's pass mark sits — give it the time"],
+        ["level 3", "a bonus — attempt ft_split/itoa only if time is left"],
+      ]}},
+      { h: "The order to work through one exercise" },
+      { ul: [
+        "1. read the subject's top three lines (filename, allowed functions, prototype) properly",
+        "2. open main.c (if there is one) to see how your function is called and what output is expected",
+        "3. get the ordinary case working first, then collect the edge cases",
+        "4. compile with `cc -Wall -Wextra -Werror` — clear every warning",
+        "5. compare the output with `| cat -e` against the subject's example",
+        "6. think about the edges: empty, NULL, a single element, INT_MIN, repeated whitespace",
+        "7. press grademe",
+      ]},
+      { note: "If one exercise has eaten more than about 25 minutes, consider submitting whatever works or retrying (you may draw a different one). Don't sink the whole exam into a single question." },
+      { h: "How to practise beforehand" },
+      { ul: [
+        "clone `github.com/terminal-42s/42_examshell` and run `bash exam.sh` for a real rehearsal",
+        "time yourself — aim to finish levels 0–2 in about an hour",
+        "practise writing putstr/putnbr/split/itoa from memory, with no reference open",
+        "practise finding your own edge cases: run `./a.out` against strange input",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trap 1: the norm isn't checked — write freely" },
+      { p: "The exam checks only 'compiles' and 'output matches'. It **does not run norminette**. Use `for`, mid-block declarations, ternaries and long functions — write something correct as fast as possible rather than spending time on formatting." },
+      { h: "Trap 2: -Werror catches the smallest warnings" },
+      { p: "A declared-but-unused variable, a signed/unsigned comparison, a missing return — all become **errors** immediately. Compile often while writing rather than waiting until the end." },
+      { h: "Trap 3: one newline too many or too few" },
+      { p: "The Moulinette compares with diff — a single extra or missing `\\n` fails. Use `| cat -e` and match the `$` at each line end against the subject's example exactly." },
+      { h: "Trap 4: forgetting empty / NULL / single-element cases" },
+      { p: "`ft_split(\"\")`, `ft_strlen` on an empty string, an empty (NULL) list, a one-element array — these are exactly what the tester aims at. Check before returning, every time." },
+      { h: "Trap 5: INT_MIN in itoa / atoi / putnbr" },
+      { p: "`-2147483648` overflows when you negate it. Have putnbr special-case it directly; have itoa take the absolute value digit by digit (`n%10`). Forget it and you get a segfault or a wrong result on that one input." },
+      { h: "Trap 6: forgetting the +1 in a malloc, or the NULL terminator" },
+      { p: "`ft_split` needs `malloc(... * (n+1))` for the NULL; a string needs `len+1` for the `\\0`. Forget either and the caller walks past the end into a segfault." },
+      { h: "Trap 7: submitting extra files (a main when it's forbidden)" },
+      { p: "If Expected files says only `ft_split.c` and you leave an `int main()` in for testing, it collides with the Moulinette's own main and won't compile. Test in a separate file and submit only what was asked for." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "Does the Rank 02 exam check the norm?", a: "No — it checks only that it compiles (`-Wall -Wextra -Werror`) and that the output matches exactly. `for` loops, ternaries and long functions are all fine." },
+        { q: "Why does INT_MIN break itoa/putnbr, and how do you fix it?", a: "Negating −2147483648 overflows, because +2147483648 exceeds INT_MAX. Have putnbr print the string directly for that case; have itoa work on `n%10` one digit at a time and take the absolute value there (a single digit can't overflow)." },
+        { q: "How many slots must ft_split allocate, and why?", a: "count_words + 1 — the extra one is the NULL terminator; each word gets len+1 for its `\\0`. Leave out the +1 and the caller runs past the end into a segfault." },
+        { q: "What is the word-splitting pattern used in split and last_word?", a: "Loop: skip separators (space/tab/newline) → walk to the end of the word → skip separators; repeat to the end of the string. The same pattern serves both counting and extracting." },
+        { q: "What needs special care in flood_fill?", a: "(1) the base case (out of bounds / not the target colour) must be checked before marking, and (2) the target colour (tab[begin]) has to be captured and passed into the recursion — reading it live after marking goes wrong." },
+        { q: "In sort_list, is it better to swap the data or the nodes?", a: "Swapping the data is simpler and quite sufficient for Rank 02 (bubble: loop until a pass makes no swaps); swapping nodes means fiddly pointer work and more risk under time pressure." },
+        { q: "Why does ft_list_remove_if take a `t_list **`?", a: "So it can change the list's head when the first node is removed; recursion plus a pointer-to-pointer keeps the code short and correct at every position." },
+        { q: "What does an empty 'Allowed functions' mean?", a: "Only functions you write yourself — no printf, no malloc, nothing from libc. If it lists `malloc`, then malloc is the only one you get." },
+        { q: "What do you use to compare output exactly?", a: "`./a.out | cat -e` — it shows `$` for newlines and `^I` for tabs, revealing the extra or missing `\\n` your eyes miss, so you can match the subject's example." },
+        { q: "What should you do when one exercise has taken too long?", a: "Don't sink more than about 25 minutes into it — submit whatever works, or retry (you may draw a different exercise at the same level). The goal is climbing as high as possible, not perfecting one question." },
+      ]},
+      { h: "A real rehearsal before the exam" },
+      { code: String.raw`git clone https://github.com/terminal-42s/42_examshell
+cd 42_examshell && bash exam.sh
+# pick Rank 02 → time yourself → finish levels 0-2 within an hour
+# practise typing putnbr / ft_split / ft_itoa from memory`, lang: "bash" },
+    ],
+  },
+});
+
+/* ===================== EN: Exam Rank 03 ===================== */
+Object.assign(window.TEACHING_EN, {
+  "exam_rank03": {
+    principle: [
+      { h: "How Exam Rank 03 differs from Rank 02" },
+      { p: "The rules and examshell are unchanged (isolated machine, `rendu/`, grademe, no norm check), but the exercises are **larger and require more thought** — only two levels, yet each exercise takes far longer than a Rank 02 one. Several of them **hand you starting code** to complete or repair." },
+      { h: "Rank 03's two levels" },
+      { table: { head: ["Level", "Theme", "Exercises"], rows: [
+        ["**1**", "repairing or imitating I/O functions", "broken_gnl, filter, ft_scanf"],
+        ["**2**", "backtracking algorithms", "n_queens, permutations, powerset, rip, tsp"],
+      ]}},
+      { note: "Rank 03 comes down to **backtracking** (nearly every level 2 exercise) plus **a get_next_line you really know** (level 1). Prepare those two thoroughly and you have covered almost everything." },
+      { h: "Why it's harder" },
+      { ul: [
+        "level 1 is tested with a **randomised buffer size** and custom reads → the code must survive every buffer size",
+        "level 2 is recursion plus backtracking, which is hard to debug under time pressure",
+        "the output must be **sorted or duplicate-free** to the letter (permutations in alphabetical order, powerset with no repeats)",
+      ]},
+    ],
+
+    theory: [
+      { p: "The real Rank 03 exercise pool — two levels." },
+      { h: "Level 1 — advanced I/O functions" },
+      { table: { head: ["Exercise", "What it does", "Allowed"], rows: [
+        ["`broken_gnl`", "repair a broken get_next_line so it returns one line at a time (with a BUFFER_SIZE)", "read, malloc, free"],
+        ["`filter`", "read stdin and replace every occurrence of the argument with '*' (matching its length)", "read, write, memmem, memmove, malloc..."],
+        ["`ft_scanf`", "imitate scanf for %s %d %c only (starting code provided)", "fgetc, ungetc, va_arg..."],
+      ]}},
+      { h: "Level 2 — backtracking and algorithms" },
+      { table: { head: ["Exercise", "What it does", "Technique"], rows: [
+        ["`n_queens`", "place n non-attacking queens and print every solution (a row index per column)", "backtracking + a safety check"],
+        ["`permutations`", "print every permutation of a string in alphabetical order", "backtracking + a used set"],
+        ["`powerset`", "print the subsets summing to n", "include/exclude backtracking + a running sum"],
+        ["`rip`", "balance the parentheses by removing as few as possible; print every solution", "count the excess → enumerate"],
+        ["`tsp`", "the shortest closed route through every city (coordinates from stdin)", "permute + minimum distance"],
+      ]}},
+      { note: "permutations, powerset and n_queens are nearly the same backtracking pattern (choose → recurse → undo). Understand one properly and the whole group follows." },
+    ],
+
+    foundations: [
+      { p: "Rank 03's two pillars: the shape of get_next_line, and the backtracking template." },
+      { h: "1) The shape of get_next_line (every line has to make sense to you)" },
+      { code: String.raw`char *get_next_line(int fd) {
+    static char *stash = NULL;            // holds whatever was read past the line
+    char buf[BUFFER_SIZE + 1];
+    int  n;
+
+    while (!has_newline(stash)) {          // no \n yet → read more
+        n = read(fd, buf, BUFFER_SIZE);
+        if (n <= 0) break;                 // EOF or an error
+        buf[n] = '\0';
+        stash = join_free(stash, buf);     // append buf to stash (freeing the old one)
+    }
+    if (!stash || !*stash) return (NULL);
+    return (extract_line(&stash));         // cut one line (including the \n) out of stash
+}`, cap: "The static stash is the heart of it: it keeps the bytes read past the line for next time; loop reading until a \\n or EOF", lang: "c" },
+      { note: "broken_gnl usually breaks in one of these places — a missing `static`, a leaked old stash, mishandled `\\n`, or an off-by-one in the buffer. Read the given code and check each of those." },
+      { h: "2) The backtracking template (it serves all of level 2)" },
+      { code: String.raw`void solve(state, int depth) {
+    if (depth == n) {                      // complete → one solution
+        print_solution(state);
+        return;
+    }
+    for (each choice c at this depth) {
+        if (!valid(c)) continue;           // prune the impossible branches
+        apply(c, state);                   // choose
+        solve(state, depth + 1);           // go deeper
+        undo(c, state);                    // ★ back out (backtrack)
+    }
+}`, cap: "Three beats: choose → recurse → undo. The 'undo' is what people forget, and it corrupts the state", lang: "c" },
+      { h: "3) Reading arguments and printing without printf" },
+      { p: "Several exercises allow only `write`/`puts` — keep putstr and putnbr ready. powerset and tsp do give you printf and malloc. Check 'Allowed functions' every time before deciding how to print." },
+    ],
+
+    architecture: [
+      { h: "examshell as in Rank 02, except..." },
+      { ul: [
+        "several exercises **give you starting code** (broken_gnl gives a broken GNL, ft_scanf gives a skeleton, the vbc-style ones give a partial parser) → read all of it before touching anything",
+        "filter can be compared against the `filter.sh` provided, which is the reference behaviour",
+        "Expected files is usually `*.c *.h` → split the files as you like, and a main is allowed",
+      ]},
+      { h: "The compile-and-test loop" },
+      { code: String.raw`# broken_gnl (with -D BUFFER_SIZE):
+cc -Wall -Wextra -Werror -D BUFFER_SIZE=42 *.c && ./a.out
+# try several BUFFER_SIZEs: 1, 9999, 42 — all of them must pass
+
+# filter against sed/filter.sh:
+echo "hello bonjour" | ./filter bonjour    # → hello *******
+diff <(./filter abc < in) <(sed 's/abc/***/g' in)
+
+# permutations/powerset — check the output order:
+./permutations abc | cat -e`, cap: "broken_gnl must be tested at several BUFFER_SIZEs; filter against sed; the backtracking ones on output order", lang: "bash" },
+    ],
+
+    dataflow: [
+      { p: "A closer look at Rank 03's main exercises — focused on GNL and the backtracking family." },
+      { h: "🔬 broken_gnl — the failure points to hunt down" },
+      { p: "You're given a get_next_line that is 'almost right' and asked to find the bug. The usual suspects:" },
+      { ul: [
+        "**a missing `static`** on the stash → the carried-over data is lost and only one line ever reads",
+        "**a memory leak** → the old stash isn't freed on join, or isn't freed at EOF",
+        "**mishandled `\\n`** → the returned line either omits the newline or takes too much",
+        "**an off-by-one** → `buf[BUFFER_SIZE]` needs room for the `'\\0'` (allocate +1)",
+        "**no check for `read <= 0`** → an endless loop at EOF or on error",
+      ]},
+      { code: String.raw`// the repair checklist:
+static char *stash;                 // ✓ is it static?
+char buf[BUFFER_SIZE + 1];          // ✓ +1 for the '\0'
+n = read(fd, buf, BUFFER_SIZE);
+if (n <= 0) { /* handle EOF: return what's left in stash, then free */ }
+buf[n] = '\0';
+// join: tmp = strjoin(stash, buf); free(stash); stash = tmp;  ← free the old one!`, cap: "Work through it point by point: static? +1? old one freed? read<=0 checked? newline handled correctly?", lang: "c" },
+      { h: "🔬 permutations — backtracking in alphabetical order" },
+      { p: "**The key:** sort the string first (a bubble sort will do), then generate in that order → the output comes out alphabetical by itself. A `used[]` array stops a character being placed twice." },
+      { code: String.raw`void permute(char *s, char *out, int *used, int len, int depth) {
+    if (depth == len) { write(1, out, len); write(1, "\n", 1); return; }
+    for (int i = 0; i < len; i++) {
+        if (used[i]) continue;             // already placed at an earlier position
+        used[i] = 1;
+        out[depth] = s[i];
+        permute(s, out, used, len, depth + 1);
+        used[i] = 0;                        // back out
+    }
+}
+// call: sort(s); permute(s, out, used, len, 0);`, cap: "Sort the input, then iterate in order — the output is alphabetical automatically", lang: "c" },
+      { h: "🔬 powerset — include/exclude with a running sum" },
+      { p: "Every element is either taken or skipped. At the end (index == n), print the subset if the sum matches the target. Keeping the original order is what stops duplicates." },
+      { code: String.raw`void bt(int *set, int n, int idx, int *pick, int cnt,
+        int sum, int target) {
+    if (idx == n) {
+        if (sum == target) print_subset(pick, cnt);
+        return;
+    }
+    pick[cnt] = set[idx];                              // take set[idx]
+    bt(set, n, idx + 1, pick, cnt + 1, sum + set[idx], target);
+    bt(set, n, idx + 1, pick, cnt, sum, target);       // skip it
+}`, cap: "Two branches per element: take it (sum+, cnt+) or skip it — keeping the original order means no duplicates", lang: "c" },
+      { h: "🔬 n_queens — placing a queen per column" },
+      { p: "Place one queen per column, trying every row that is 'safe' (no clash on the row or either diagonal with what's already placed). Filling all n columns is one solution." },
+      { code: String.raw`int safe(int *pos, int col, int row) {
+    for (int c = 0; c < col; c++)
+        if (pos[c] == row                      // same row
+            || pos[c] - c == row - col          // the / diagonal
+            || pos[c] + c == row + col)         // the \ diagonal
+            return (0);
+    return (1);
+}
+void solve(int *pos, int col, int n) {
+    if (col == n) { print_solution(pos, n); return; }
+    for (int row = 0; row < n; row++)
+        if (safe(pos, col, row)) {
+            pos[col] = row;
+            solve(pos, col + 1, n);             // no undo needed (the next round overwrites)
+        }
+}`, cap: "pos[col] is that column's queen row; safe checks the row plus both diagonals via index differences and sums", lang: "c" },
+      { h: "🔬 rip — balancing the parentheses with the fewest removals" },
+      { p: "Two stages: (1) count how many must go (excess closers plus excess openers), and (2) enumerate every way of removing that many, checking each result for balance → print it (with the removed characters replaced by spaces)." },
+      { code: String.raw`// stage 1: work out how many must be removed
+int open = 0, rm = 0;
+for each c in s:
+    if (c=='(') open++;
+    else if (c==')') { if (open) open--; else rm++; } // an excess ')'
+rm += open;                                            // the '(' left unclosed
+
+// stage 2: try removing rm characters (backtrack over the positions)
+// → print whenever the result is balanced (replacing the removed ones with ' ')`, cap: "The minimum is the excess ')' plus the unclosed '(' — then brute-force which positions to remove", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "A strategy for Rank 03" },
+      { ul: [
+        "**level 1 first** — broken_gnl and filter are concrete points, and they go fast if your GNL is solid",
+        "drawing broken_gnl means reading the given code and walking the checklist (static / +1 / free / newline / read<=0)",
+        "**for level 2**, pick whichever backtracking exercise suits you — permutations is usually the gentlest of the group",
+        "know the backtracking template by heart, then adapt `valid()` and `print()` to the exercise",
+      ]},
+      { h: "Practising beforehand" },
+      { ul: [
+        "write get_next_line from scratch within 20 minutes (testing BUFFER_SIZE=1 and 9999)",
+        "write permutations, powerset and n_queens from the same template",
+        "practise finding bugs in a GNL you broke on purpose (remove the static, remove a free) and repairing it",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trap 1: broken_gnl with a missing static or a leak" },
+      { p: "The stash must be `static` (otherwise only one line ever reads), and the join must free the old one (otherwise it leaks on every line — and some Moulinettes check for leaks)." },
+      { h: "Trap 2: a randomised buffer size (filter/gnl)" },
+      { p: "The tester uses a read that returns an unpredictable number of bytes — your code must accumulate into a growable buffer and never assume one read equals one line or one word." },
+      { h: "Trap 3: filter — a pattern straddling two reads" },
+      { p: "If the argument is 'abc' but one read gives 'ab' and the next gives 'c', you must buffer before matching rather than printing immediately. Accumulate, find with memmem, and shift with memmove." },
+      { h: "Trap 4: output order (permutations/powerset)" },
+      { p: "permutations must be alphabetical (sort the input first); powerset must have no duplicates (keep the original order, never reorder). Wrong order fails even when the logic is right." },
+      { h: "Trap 5: forgetting the undo in backtracking" },
+      { p: "`used[i]=0` and undoing state after the recursive call — forget it and state leaks into the next branch, giving wrong or duplicated answers. (n_queens overwrites `pos` anyway so it needs no undo, but permutations does.)" },
+      { h: "Trap 6: not reading the code you were given" },
+      { p: "ft_scanf and broken_gnl come with starting code — rewriting it from scratch wastes time and risks the wrong prototype. Fill in the gaps they left." },
+    ],
+
+    eval: [
+      { qa: [
+        { q: "Why must the stash in get_next_line be static?", a: "Because the bytes read past the current line have to survive until the next call; `static` keeps the value across calls — as a local it would be lost each time and you'd only ever read one line." },
+        { q: "What are broken_gnl's usual failure points?", a: "A missing `static`, not freeing the old stash (a leak), a buffer without the +1 for `'\\0'`, mishandled newlines, and no check for `read<=0` (an endless loop)." },
+        { q: "What are the three beats of the backtracking template?", a: "Choose (apply) → go deeper (recurse at depth+1) → back out (undo). At the bottom (depth==n) you record or print the solution; `valid()` prunes impossible branches first." },
+        { q: "How does permutations produce alphabetical output?", a: "Sort the input string first (a bubble sort), then iterate the indices in order using `used[]` — the permutations come out alphabetical by themselves." },
+        { q: "How does powerset avoid duplicates?", a: "Include/exclude in the original index order (never reordering) — so '1 2' and '2 1' can't both occur, because the order is always preserved." },
+        { q: "How does n_queens check safety?", a: "A new queen at (col,row) is safe if no earlier one shares its row (pos[c]==row), its / diagonal (pos[c]-c==row-col) or its \\ diagonal (pos[c]+c==row+col)." },
+        { q: "What is rip's minimum number of removals?", a: "The number of excess ')' (with no matching '(') plus the number of '(' left unclosed; then enumerate which positions to remove so the result balances." },
+        { q: "Why can filter's pattern straddle a buffer?", a: "read returns an unpredictable number of bytes, so a pattern can be split across two reads. You must accumulate into a buffer before matching (memmem) rather than matching and printing per read." },
+        { q: "What two things should you prepare for Rank 03?", a: "(1) a get_next_line you can write or repair fluently (level 1), and (2) the backtracking template (n_queens/permutations/powerset — level 2). Those two cover almost all of it." },
+      ]},
+      { h: "A real rehearsal" },
+      { code: String.raw`bash exam.sh   # choose Rank 03
+# level 1: rewrite gnl within 20 minutes, testing BUFFER_SIZE=1 and 9999
+# level 2: permutations → powerset → n_queens, all from the same template`, lang: "bash" },
+    ],
+  },
+});
