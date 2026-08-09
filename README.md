@@ -33,7 +33,7 @@
 | [libft](https://jotaro365.github.io/42-study-guide/libft.html) | กล่องเครื่องมือ 46 ฟังก์ชัน: ความเป็นเจ้าของ pointer, memmove ซ้อนทับ, ค่าคืนของ strlcpy/strlcat, calloc overflow, ft_split, t_list, libft.a ลิงก์ยังไง | 9 |
 | [ft_printf](https://jotaro365.github.io/42-study-guide/ft_printf.html) | variadic: กลไก va_list, default argument promotion, ทำไมต้องส่ง va_list เป็น pointer, แปลงฐานแบบ recursive, นับค่าคืนให้เป๊ะ | 6 |
 | [get_next_line](https://jotaro365.github.io/42-study-guide/get_next_line.html) | static storage, stash ที่เหลือค้าง, read คืนได้ 3 แบบ, node ต่อ fd, BUFFER_SIZE จากภายนอก | 6 |
-| [Born2beRoot](https://jotaro365.github.io/42-study-guide/born2beroot.html) | เซิร์ฟเวอร์ Debian ไร้ GUI: LUKS ใต้ LVM, SSH 4242 ห้าม root, UFW, PAM/pwquality, sudoers ที่บันทึก I/O, monitoring.sh + cron และกับดักลายเซ็น .vdi | 7 |
+| [Born2beRoot](https://jotaro365.github.io/42-study-guide/born2beroot.html) | ติดตั้ง VM ทีละหน้าจอ (VirtualBox + Debian installer + แบ่ง LUKS/LVM), อธิบายทุกคำสั่งทีละธง, LUKS ใต้ LVM, SSH 4242 ห้าม root, UFW, PAM/pwquality, sudoers ที่บันทึก I/O, monitoring.sh ประกอบทีละบรรทัด + cron, ชุดคำสั่งที่ผู้ตรวจพิมพ์จริง | 10 |
 | [push_swap](https://jotaro365.github.io/42-study-guide/push_swap.html) | Turkish sort, พิสูจน์ Big-O, ขอบล่างของ decision tree, two's complement, การคิด cost | 7 |
 | [pipex](https://jotaro365.github.io/42-study-guide/pipex.html) | fork/pipe/dup2/execve, ไล่ตาราง fd, pipe reference counting, exec เปลี่ยน memory ยังไง | 4 |
 | [so_long](https://jotaro365.github.io/42-study-guide/so_long.html) | flood fill, ความซับซ้อน DFS/BFS, ที่มาสูตร camera, FSM แบบเป็นทางการ | 4 |

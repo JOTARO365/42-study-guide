@@ -1113,3 +1113,594 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
     ]
   }
 });
+
+/* ============================================================
+   คำสั่งทั้งหมดที่ต้องพิมพ์จริง + วิธีประกอบ monitoring.sh ทีละบรรทัด
+   อ้างอิงลำดับและตัวสคริปต์จากคู่มือ noreply.gitbook.io/born2beroot
+   ต่อท้ายทั้งฝั่งไทยและอังกฤษพร้อมกัน จำนวนบล็อกจึงยังตรงกัน
+   ============================================================ */
+(function () {
+  var TH = {}, EN = {};
+
+  TH.implementation = [
+    { h: "อธิบายทีละคำสั่ง — ทุกตัวที่ต้องพิมพ์จริง" },
+    { p: "ตารางนี้คือคำสั่งทั้งหมดของโปรเจกต์ เรียงตามที่ได้ใช้จริง **ธงแต่ละตัวมีเหตุผล** และผู้ตรวจถามได้ทุกตัว — จำคำสั่งอย่างเดียวไม่พอ ต้องรู้ว่าธงนั้นเปลี่ยนอะไร" },
+    { table: { head: ["คำสั่ง", "ทำอะไร", "ธงที่ต้องอธิบายได้"], rows: [
+      ["`apt update`", "ดึง **รายการแพ็กเกจ** เวอร์ชันล่าสุดจาก repository", "ยังไม่ติดตั้งอะไรเลย แค่รีเฟรชสารบัญ"],
+      ["`apt upgrade`", "อัปเกรดแพ็กเกจที่ติดตั้งไว้แล้ว", "`-y` ตอบ yes ล่วงหน้า"],
+      ["`apt install <pkg>`", "ติดตั้งแพ็กเกจใหม่", "`--no-install-recommends` ไม่ลากของที่แค่ 'แนะนำ' มาด้วย เครื่องจะเบากว่า"],
+      ["`adduser <name>`", "สร้างผู้ใช้ + home + ตั้งรหัสผ่านแบบถาม-ตอบ", "เป็นสคริปต์ห่อ `useradd` ที่ทำงานให้ครบกว่า"],
+      ["`groupadd <group>`", "สร้างกลุ่มใหม่", "`user42` ที่ subject บังคับ"],
+      ["`usermod -aG <g> <user>`", "เพิ่มผู้ใช้เข้ากลุ่มเสริม", "**`-a` = append** ลืมแล้วกลุ่มเดิมหายหมดรวม `sudo`"],
+      ["`groups <user>`", "ดูว่าผู้ใช้อยู่กลุ่มไหนบ้าง", "มีผลหลัง login ใหม่เท่านั้น"],
+      ["`hostnamectl set-hostname <name>`", "เปลี่ยนชื่อเครื่องแบบถาวร", "ต้องแก้ `/etc/hosts` ตามด้วย"],
+      ["`systemctl restart <svc>`", "รีสตาร์ตบริการ", "อ่านคอนฟิกใหม่"],
+      ["`systemctl enable <svc>`", "ให้บริการขึ้นเองตอนบูต", "`--now` = enable แล้วสตาร์ตเลย"],
+      ["`systemctl is-enabled <svc>`", "ถามว่าจะขึ้นเองตอนบูตไหม", "**ต่างจาก `is-active`** ที่ถามว่าตอนนี้รันอยู่ไหม"],
+      ["`ss -tlnp`", "ดูพอร์ตที่มีโปรแกรมฟังอยู่", "`t` tcp · `l` listening · `n` ไม่แปลงเลขพอร์ตเป็นชื่อ · `p` บอกว่าโปรเซสไหน (ต้อง sudo)"],
+      ["`ufw allow <port>`", "เปิดพอร์ตในไฟร์วอลล์", "ทำ **ก่อน** `ufw enable` เสมอ"],
+      ["`ufw status numbered`", "ดูกฎพร้อมเลขลำดับ", "เลขนี้เอาไว้ `ufw delete <n>`"],
+      ["`chage -l <user>`", "ดูวันหมดอายุรหัสผ่านของบัญชี", "**นี่คือสิ่งที่ผู้ตรวจอ่าน** ไม่ใช่ `/etc/login.defs`"],
+      ["`chage -M 30 -m 2 -W 7 <user>`", "ตั้งอายุรหัสผ่านให้บัญชีที่มีอยู่แล้ว", "`-M` สูงสุด · `-m` ต่ำสุด · `-W` เตือนล่วงหน้า"],
+      ["`visudo -f /etc/sudoers.d/<file>`", "แก้ไฟล์กฎ sudo", "**ตรวจ syntax ให้ก่อนเซฟ** — sudoers พัง = sudo ใช้ไม่ได้ทั้งเครื่อง"],
+      ["`crontab -u root -e`", "แก้ตารางงานของ root", "`-u root` ระบุชัดว่าเป็นของใคร ปลอดภัยกว่าเดาจากผู้ใช้ปัจจุบัน"],
+      ["`lsblk`", "ผังบล็อกอุปกรณ์ทั้งเครื่อง", "หลักฐานของ LUKS + LVM ที่ผู้ตรวจดูก่อนอย่างอื่น"],
+      ["`aa-status`", "สถานะ AppArmor และโปรไฟล์ที่โหลดอยู่", "คู่กับ `systemctl is-enabled apparmor`"],
+      ["`sha1sum <file>`", "คำนวณลายเซ็นของดิสก์เสมือน", "ต้องทำตอนเครื่อง **ปิด** เท่านั้น"]
+    ]}},
+    { h: "apt — สามคำสั่งที่คนสับสนกันบ่อย" },
+    { code: String.raw`sudo apt update                 # รีเฟรช 'สารบัญ' ของ repository เท่านั้น
+sudo apt upgrade -y             # อัปเกรดของที่ติดตั้งไว้แล้ว
+sudo apt install -y sudo ufw openssh-server libpam-pwquality
+
+apt list --installed | grep ufw # ยืนยันว่าติดตั้งแล้วจริง
+dpkg -l | grep -iE 'xserver|wayland'   # ต้องว่าง = ไม่มี GUI`,
+      cap: "update ไม่ได้อัปเกรดอะไรเลย มันแค่ทำให้ apt รู้ว่ามีเวอร์ชันใหม่อะไรบ้าง", lang: "bash" },
+    { h: "ผู้ใช้และกลุ่ม — กับดักอยู่ที่ธง -a" },
+    { code: String.raw`sudo adduser wiaon-in           # ถามรหัสผ่านและข้อมูลทีละอย่าง
+sudo groupadd user42
+sudo usermod -aG user42,sudo wiaon-in
+
+groups wiaon-in                 # wiaon-in : wiaon-in sudo user42
+getent group user42             # ดูสมาชิกของกลุ่มจากอีกทาง
+id wiaon-in                     # uid, gid และกลุ่มทั้งหมดในบรรทัดเดียว`,
+      cap: "usermod -G (ไม่มี a) จะ *แทนที่* รายชื่อกลุ่มทั้งหมด — เผลอแล้วหลุดจาก sudo ทันที", lang: "bash" },
+    { h: "systemctl — active ไม่เท่ากับ enabled" },
+    { code: String.raw`sudo systemctl status ssh       # ตอนนี้เป็นยังไง (q ออก)
+sudo systemctl restart ssh      # อ่านคอนฟิกใหม่
+sudo systemctl enable ssh       # ให้ขึ้นเองตอนบูต
+systemctl is-active ssh         # active   <- ตอนนี้รันอยู่
+systemctl is-enabled ssh        # enabled  <- บูตใหม่แล้วยังขึ้น`,
+      cap: "ผู้ตรวจอาจสั่งรีบูตแล้วดูว่า ufw กับ ssh ยังขึ้นเองไหม — enabled คือคำตอบ", lang: "bash" },
+    { h: "monitoring.sh ตามคู่มือ gitbook — ประกอบทีละบรรทัด" },
+    { p: "สคริปต์ชุดนี้เป็นรุ่นที่ใช้กันแพร่หลายที่สุด (จาก **noreply.gitbook.io/born2beroot**) ต่างจากรุ่นในหมวดก่อนตรงที่ใช้ `vmstat` วัด CPU และ `free --mega` แทน `free -m` — **ทั้งสองรุ่นถูกทั้งคู่** แต่ต้องอธิบายให้ได้ว่าบรรทัดที่เขียนทำอะไร" },
+    { code: String.raw`#!/bin/bash
+
+arch=$(uname -a)
+cpuf=$(grep "physical id" /proc/cpuinfo | wc -l)
+cpuv=$(grep "processor" /proc/cpuinfo | wc -l)`,
+      cap: "บล็อกที่ 1: สถาปัตยกรรมและจำนวน CPU", lang: "bash" },
+    { table: { head: ["บรรทัด", "อ่านว่าอะไร"], rows: [
+      ["`uname -a`", "`-a` = all: ชื่อ kernel, hostname, เวอร์ชัน, สถาปัตยกรรม รวดเดียว"],
+      ["`grep \"physical id\" /proc/cpuinfo | wc -l`", "`/proc/cpuinfo` มีหนึ่งบล็อกต่อหนึ่ง core; บรรทัด `physical id` บอกว่าอยู่ซ็อกเก็ตไหน · `wc -l` นับบรรทัด"],
+      ["`grep \"processor\" /proc/cpuinfo | wc -l`", "นับ **core เชิงตรรกะ** ซึ่งคือจำนวน vCPU ที่ VM มองเห็น"]
+    ]}},
+    { note: "**ข้อควรระวัง:** `grep \"physical id\" | wc -l` นับ *ทุกบรรทัด* ไม่ใช่จำนวนซ็อกเก็ตที่ไม่ซ้ำ บน VM ซ็อกเก็ตเดียวหลาย core ตัวเลขจะเท่ากับ vCPU — ถ้าอยากได้จำนวนซ็อกเก็ตจริงต้องเติม `| sort -u` ก่อน `wc -l` เตรียมคำตอบข้อนี้ไว้ เพราะเป็นคำถามที่ถามบ่อย" },
+    { code: String.raw`ram_total=$(free --mega | awk '$1 == "Mem:" {print $2}')
+ram_use=$(free --mega | awk '$1 == "Mem:" {print $3}')
+ram_percent=$(free --mega | awk '$1 == "Mem:" {printf("%.2f"), $3/$2*100}')`,
+      cap: "บล็อกที่ 2: หน่วยความจำ", lang: "bash" },
+    { table: { head: ["ส่วนประกอบ", "อ่านว่าอะไร"], rows: [
+      ["`free --mega`", "รายงานหน่วยความจำเป็นเมกะไบต์ฐานสิบ (10^6) ส่วน `free -m` เป็นเมบิไบต์ (2^20) ตัวเลขจึงต่างกันเล็กน้อย"],
+      ["`awk '$1 == \"Mem:\"'`", "เลือกเฉพาะบรรทัดที่คอลัมน์แรกคือ `Mem:` ข้ามหัวตารางและบรรทัด swap"],
+      ["`{print $2}` / `{print $3}`", "คอลัมน์ 2 คือ total คอลัมน์ 3 คือ used"],
+      ["`printf(\"%.2f\"), $3/$2*100`", "คิดเปอร์เซ็นต์เอง awk ไม่มีให้สำเร็จรูป"]
+    ]}},
+    { code: String.raw`disk_total=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_t += $2} END {printf ("%.1fGb\n"), disk_t/1024}')
+disk_use=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_u += $3} END {print disk_u}')
+disk_percent=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_u += $3} {disk_t += $2} END {printf("%d"), disk_u/disk_t*100}')`,
+      cap: "บล็อกที่ 3: พื้นที่ดิสก์", lang: "bash" },
+    { table: { head: ["ส่วนประกอบ", "อ่านว่าอะไร"], rows: [
+      ["`df -m`", "พื้นที่ว่างของทุก filesystem หน่วยเป็น MB"],
+      ["`grep \"/dev/\"`", "เอาเฉพาะอุปกรณ์จริง ตัด `tmpfs`, `udev` ที่อยู่ใน RAM ทิ้ง"],
+      ["`grep -v \"/boot\"`", "`-v` = กลับเงื่อนไข ตัด `/boot` ออกเพราะไม่ใช่พื้นที่ที่ผู้ใช้ใช้"],
+      ["`awk '{disk_t += $2} END {...}'`", "บวกสะสมทุกบรรทัด แล้วพิมพ์ครั้งเดียวใน `END`"],
+      ["`disk_t/1024`", "แปลง MB เป็น GB"]
+    ]}},
+    { code: String.raw`cpul=$(vmstat 1 2 | tail -1 | awk '{printf $15}')
+cpu_op=$(expr 100 - $cpul)
+cpu_fin=$(printf "%.1f" $cpu_op)`,
+      cap: "บล็อกที่ 4: โหลด CPU — จุดที่คนอธิบายไม่ได้บ่อยที่สุด", lang: "bash" },
+    { table: { head: ["ส่วนประกอบ", "อ่านว่าอะไร"], rows: [
+      ["`vmstat 1 2`", "เก็บตัวอย่าง 2 ครั้ง ห่างกัน 1 วินาที — **รอบแรกเป็นค่าเฉลี่ยตั้งแต่บูต จึงต้องเอารอบที่สอง**"],
+      ["`tail -1`", "หยิบบรรทัดสุดท้าย ซึ่งคือตัวอย่างรอบที่สอง"],
+      ["`awk '{printf $15}'`", "คอลัมน์ที่ 15 คือ `id` (idle) หน่วยเปอร์เซ็นต์"],
+      ["`expr 100 - $cpul`", "โหลด = 100 ลบ idle"],
+      ["`printf \"%.1f\"`", "จัดรูปให้เหลือทศนิยมตำแหน่งเดียว"]
+    ]}},
+    { note: "นี่คือเหตุผลที่ต้องใช้ `vmstat 1 2` ไม่ใช่ `vmstat` เปล่า ๆ — ค่าที่ได้จากการเรียกครั้งเดียวคือค่าเฉลี่ยตั้งแต่บูตเครื่อง ซึ่งแทบไม่ขยับเลยและอธิบายไม่ได้ว่าเป็นโหลด 'ตอนนี้'" },
+    { code: String.raw`lb=$(who -b | awk '$1 == "system" {print $3 " " $4}')
+lvmu=$(if [ $(lsblk | grep "lvm" | wc -l) -gt 0 ]; then echo yes; else echo no; fi)
+tcpc=$(ss -ta | grep ESTAB | wc -l)
+ulog=$(users | wc -w)`,
+      cap: "บล็อกที่ 5: บูตล่าสุด, LVM, การเชื่อมต่อ, ผู้ใช้", lang: "bash" },
+    { table: { head: ["ส่วนประกอบ", "อ่านว่าอะไร"], rows: [
+      ["`who -b`", "`-b` = boot time พิมพ์ว่า `system boot  2025-08-10 09:12`"],
+      ["`awk '$1 == \"system\" {print $3 \" \" $4}'`", "หยิบเฉพาะวันที่กับเวลา"],
+      ["`lsblk | grep \"lvm\" | wc -l`", "มีบรรทัดที่ชนิดเป็น `lvm` ไหม — มากกว่า 0 แปลว่ากำลังใช้ LVM อยู่"],
+      ["`ss -ta | grep ESTAB | wc -l`", "`-t` tcp · `-a` ทุกสถานะ แล้วกรองเฉพาะที่เชื่อมต่อสำเร็จ"],
+      ["`users | wc -w`", "`users` พิมพ์ชื่อผู้ใช้ที่ล็อกอินอยู่คั่นด้วยช่องว่าง · `-w` นับ **คำ**"]
+    ]}},
+    { note: "`users | wc -w` นับ **จำนวน session ไม่ใช่จำนวนคน** — เปิด 3 terminal คนเดียวก็ได้ 3 ถ้าอยากได้จำนวนคนที่ไม่ซ้ำต้อง `users | tr ' ' '\\n' | sort -u | wc -l` เลือกทางไหนก็ได้ แต่ต้องรู้ว่าเลือกอะไรอยู่" },
+    { code: String.raw`ip=$(hostname -I)
+mac=$(ip link | grep "link/ether" | awk '{print $2}')
+cmnd=$(journalctl _COMM=sudo | grep COMMAND | wc -l)`,
+      cap: "บล็อกที่ 6: เครือข่ายและจำนวนคำสั่ง sudo", lang: "bash" },
+    { table: { head: ["ส่วนประกอบ", "อ่านว่าอะไร"], rows: [
+      ["`hostname -I`", "`-I` ตัวใหญ่ = พิมพ์ IP ทุกอันของเครื่อง (ไม่รวม loopback)"],
+      ["`ip link`", "แสดงอินเทอร์เฟซชั้น link ทุกอัน"],
+      ["`grep \"link/ether\"`", "เอาเฉพาะบรรทัดที่มี MAC ของอีเทอร์เน็ต"],
+      ["`journalctl _COMM=sudo`", "อ่าน journal เฉพาะรายการที่โปรแกรมชื่อ `sudo` เป็นคนเขียน"],
+      ["`grep COMMAND | wc -l`", "หนึ่งบรรทัด `COMMAND=` คือหนึ่งคำสั่งที่ถูกรันด้วย sudo"]
+    ]}},
+    { code: String.raw`wall "	#Architecture: $arch
+	#CPU physical: $cpuf
+	#vCPU: $cpuv
+	#Memory Usage: $ram_use/` + "$" + String.raw`{ram_total}MB ($ram_percent%)
+	#Disk Usage: $disk_use/$disk_total ($disk_percent%)
+	#CPU load: $cpu_fin%
+	#Last boot: $lb
+	#LVM use: $lvmu
+	#Connections TCP: $tcpc ESTABLISHED
+	#User log: $ulog
+	#Network: IP $ip($mac)
+	#Sudo: $cmnd cmd"`,
+      cap: "บล็อกสุดท้าย: broadcast — แต่ละบรรทัดขึ้นต้นด้วย tab จริง ไม่ใช่ช่องว่าง", lang: "bash" },
+    { h: "ติดตั้งสคริปต์แล้วตั้งเวลา" },
+    { code: String.raw`sudo cp monitoring.sh /usr/local/bin/monitoring.sh
+sudo chmod +x /usr/local/bin/monitoring.sh
+sudo bash /usr/local/bin/monitoring.sh        # ลองมือรันก่อน ต้องไม่มี error โผล่
+
+sudo crontab -u root -e
+    */10 * * * * sh /usr/local/bin/monitoring.sh
+
+sudo crontab -u root -l                       # ยืนยันว่าบรรทัดอยู่จริง`,
+      cap: "รันมือก่อนเสมอ — error ที่โผล่ตอน cron ยิงจะไปกวนทุก terminal ของทุกคน", lang: "bash" },
+    { table: { head: ["ช่องของ cron", "ความหมาย", "ในโปรเจกต์นี้"], rows: [
+      ["ช่อง 1", "นาที (0-59)", "`*/10` = ทุก ๆ 10 นาที"],
+      ["ช่อง 2", "ชั่วโมง (0-23)", "`*` ไม่จำกัด"],
+      ["ช่อง 3", "วันที่ (1-31)", "`*`"],
+      ["ช่อง 4", "เดือน (1-12)", "`*`"],
+      ["ช่อง 5", "วันในสัปดาห์ (0-7)", "`*`"]
+    ]}}
+  ];
+
+  TH.tricks = [
+    { h: "ชุดคำสั่งที่ผู้ตรวจพิมพ์จริงตอน defense" },
+    { p: "คู่มือ gitbook แยกหมวด **evaluation commands** ไว้ต่างหาก เพราะการสอบคือการพิมพ์คำสั่งเหล่านี้ทีละอันแล้วดูผล — ซ้อมให้พิมพ์ได้โดยไม่ต้องนึก" },
+    { table: { head: ["ต้องพิสูจน์ว่า", "พิมพ์", "ต้องเห็นอะไร"], rows: [
+      ["ไม่มี GUI", "`dpkg -l | grep -iE 'xserver|wayland'`", "ว่างเปล่า"],
+      ["ระบบปฏิบัติการ", "`cat /etc/os-release`", "Debian stable ล่าสุด"],
+      ["ชื่อเครื่อง", "`hostname`", "`<login>42`"],
+      ["เปลี่ยนชื่อเครื่องสด ๆ", "`sudo hostnamectl set-hostname test42` แล้วแก้ `/etc/hosts`", "`hostname` เปลี่ยนตาม"],
+      ["พาร์ทิชัน", "`lsblk`", "`crypt` แล้วตามด้วย `lvm`"],
+      ["AppArmor", "`aa-status` · `systemctl is-enabled apparmor`", "profiles loaded · enabled"],
+      ["sudo ติดตั้งแล้ว", "`dpkg -l | grep sudo`", "เจอแพ็กเกจ"],
+      ["ผู้ใช้อยู่ในกลุ่ม", "`groups <login>`", "มี `sudo` และ `user42`"],
+      ["สร้างผู้ใช้ใหม่สด ๆ", "`sudo adduser test`", "รหัสที่อ่อนถูกปฏิเสธจริง"],
+      ["นโยบายรหัสผ่าน", "`chage -l test`", "30 / 2 / 7"],
+      ["สร้างกลุ่มและเพิ่มสมาชิก", "`sudo groupadd evaluating` · `sudo usermod -aG evaluating test`", "`groups test` มีกลุ่มใหม่"],
+      ["กฎของ sudo", "`sudo cat /etc/sudoers.d/*`", "ครบทั้ง 5 ข้อ"],
+      ["log ของ sudo", "`sudo ls /var/log/sudo/` · `sudo cat /var/log/sudo/sudo.log`", "มีไฟล์และมีรายการ"],
+      ["ไฟร์วอลล์", "`sudo ufw status numbered`", "active และมีแค่ 4242"],
+      ["เพิ่ม/ลบกฎสด ๆ", "`sudo ufw allow 8080` · `sudo ufw delete <n>`", "รายการเปลี่ยนตาม"],
+      ["SSH", "`sudo ss -tlnp | grep 4242` · `systemctl status ssh`", "sshd ฟังที่ 4242"],
+      ["ห้าม root ผ่าน SSH", "`ssh -p 4242 root@127.0.0.1`", "Permission denied"],
+      ["cron ของสคริปต์", "`sudo crontab -u root -l`", "บรรทัด `*/10`"],
+      ["หยุดสคริปต์โดยห้ามแก้ไฟล์", "`sudo crontab -u root -e` แล้วใส่ `#`", "wall เงียบไป"]
+    ]}},
+    { note: "**ซ้อมทั้งชุดนี้ให้ครบหนึ่งรอบก่อนวันสอบ** — เกือบทุกข้อในตารางนี้คือหนึ่งช่องในใบให้คะแนน และการพิมพ์ผิดตอนตื่นเต้นทำให้เสียเวลามากกว่าที่คิด" }
+  ];
+
+  TH.eval = [
+    { h: "คู่มือฉบับเต็มที่คนใช้กันมากที่สุด" },
+    { links: [
+      { label: "Born2beRoot guide (noreply.gitbook.io)", url: "https://noreply.gitbook.io/born2beroot",
+        note: "คู่มือทีละหน้าจอตั้งแต่ติดตั้ง Debian จนถึง signature.txt — ตัวสคริปต์ในหมวด 'ลงมือทำ' มาจากที่นี่" },
+      { label: "gitbook — Script (monitoring.sh)", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/script",
+        note: "ต้นฉบับของสคริปต์รุ่น vmstat ที่อธิบายไว้ทีละบรรทัด" },
+      { label: "gitbook — sudo policies", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/sudo-policies",
+        note: "ทั้ง 5 บรรทัดใน sudoers.d พร้อมคำอธิบาย" },
+      { label: "gitbook — password policy", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/password-policy",
+        note: "ตั้ง login.defs และต่อพารามิเตอร์ pwquality ท้าย common-password" },
+      { label: "gitbook — Evaluation commands", url: "https://noreply.gitbook.io/born2beroot/correction-preparation/evaluation-commands",
+        note: "รายการคำสั่งที่ใช้ตอนสอบ แยกเป็นหน้าย่อยทีละหัวข้อ" },
+      { label: "gitbook — BONUS: Partition disks", url: "https://noreply.gitbook.io/born2beroot/installing-debian/bonus-partition-disks",
+        note: "ไล่ทีละหน้าจอของ installer ตั้งแต่ LUKS จนถึง logical volume ครบทุกก้อน" }
+    ]}
+  ];
+
+  EN.implementation = [
+    { h: "Every command, explained" },
+    { p: "This is the complete command set for the project, in the order you actually use it. **Every flag is there for a reason**, and an evaluator may ask about any of them — knowing the command is not enough; you must know what the flag changes." },
+    { table: { head: ["Command", "What it does", "The flag you must be able to explain"], rows: [
+      ["`apt update`", "Refreshes the **package index** from the repositories", "It installs nothing; it only refreshes the catalogue"],
+      ["`apt upgrade`", "Upgrades the packages already installed", "`-y` answers yes in advance"],
+      ["`apt install <pkg>`", "Installs a new package", "`--no-install-recommends` skips merely recommended extras, keeping the machine lean"],
+      ["`adduser <name>`", "Creates a user, a home directory and a password interactively", "A friendlier wrapper around `useradd` that does the whole job"],
+      ["`groupadd <group>`", "Creates a group", "`user42`, which the subject requires"],
+      ["`usermod -aG <g> <user>`", "Adds a user to supplementary groups", "**`-a` means append** — without it every existing group, `sudo` included, is wiped"],
+      ["`groups <user>`", "Shows which groups a user belongs to", "Only reflects the change after a fresh login"],
+      ["`hostnamectl set-hostname <name>`", "Changes the machine name persistently", "`/etc/hosts` must be updated to match"],
+      ["`systemctl restart <svc>`", "Restarts a service", "So it re-reads its configuration"],
+      ["`systemctl enable <svc>`", "Makes it start at boot", "`--now` enables and starts in one go"],
+      ["`systemctl is-enabled <svc>`", "Asks whether it starts at boot", "**Different from `is-active`**, which asks whether it is running now"],
+      ["`ss -tlnp`", "Shows which ports something is listening on", "`t` tcp · `l` listening · `n` no name resolution · `p` which process (needs sudo)"],
+      ["`ufw allow <port>`", "Opens a port in the firewall", "Always **before** `ufw enable`"],
+      ["`ufw status numbered`", "Lists the rules with index numbers", "Those numbers are what `ufw delete <n>` takes"],
+      ["`chage -l <user>`", "Shows an account's password ageing", "**This is what the evaluator reads**, not `/etc/login.defs`"],
+      ["`chage -M 30 -m 2 -W 7 <user>`", "Applies the ageing policy to an existing account", "`-M` maximum · `-m` minimum · `-W` warning window"],
+      ["`visudo -f /etc/sudoers.d/<file>`", "Edits a sudo rules file", "**It validates the syntax before saving** — a broken sudoers locks sudo for everybody"],
+      ["`crontab -u root -e`", "Edits root's schedule", "`-u root` states whose crontab explicitly rather than inferring it"],
+      ["`lsblk`", "The block device tree", "The proof of LUKS and LVM an evaluator looks at first"],
+      ["`aa-status`", "AppArmor's state and loaded profiles", "Pairs with `systemctl is-enabled apparmor`"],
+      ["`sha1sum <file>`", "Computes the virtual disk's signature", "Only valid with the machine **powered off**"]
+    ]}},
+    { h: "apt — the three commands people confuse" },
+    { code: String.raw`sudo apt update                 # refresh the repository catalogue only
+sudo apt upgrade -y             # upgrade what is already installed
+sudo apt install -y sudo ufw openssh-server libpam-pwquality
+
+apt list --installed | grep ufw # confirm it really is installed
+dpkg -l | grep -iE 'xserver|wayland'   # must be empty: no GUI`,
+      cap: "update upgrades nothing; it only teaches apt which newer versions exist", lang: "bash" },
+    { h: "Users and groups — the trap is the -a flag" },
+    { code: String.raw`sudo adduser wiaon-in           # asks for the password and the details
+sudo groupadd user42
+sudo usermod -aG user42,sudo wiaon-in
+
+groups wiaon-in                 # wiaon-in : wiaon-in sudo user42
+getent group user42             # the group's members, from the other direction
+id wiaon-in                     # uid, gid and every group on one line`,
+      cap: "usermod -G without the a *replaces* the whole group list — one slip and you are out of sudo", lang: "bash" },
+    { h: "systemctl — active is not the same as enabled" },
+    { code: String.raw`sudo systemctl status ssh       # what it is doing right now (q to quit)
+sudo systemctl restart ssh      # re-read the configuration
+sudo systemctl enable ssh       # bring it up at boot
+systemctl is-active ssh         # active   <- running now
+systemctl is-enabled ssh        # enabled  <- comes back after a reboot`,
+      cap: "An evaluator may reboot and check ufw and ssh return by themselves — enabled is the answer", lang: "bash" },
+    { h: "monitoring.sh from the gitbook guide, built line by line" },
+    { p: "This is the most widely used version of the script (from **noreply.gitbook.io/born2beroot**). It differs from the one earlier on this page by measuring CPU with `vmstat` and memory with `free --mega` rather than `free -m` — **both are correct**, but you must be able to explain the lines you wrote." },
+    { code: String.raw`#!/bin/bash
+
+arch=$(uname -a)
+cpuf=$(grep "physical id" /proc/cpuinfo | wc -l)
+cpuv=$(grep "processor" /proc/cpuinfo | wc -l)`,
+      cap: "Block 1: architecture and CPU counts", lang: "bash" },
+    { table: { head: ["Line", "How to read it"], rows: [
+      ["`uname -a`", "`-a` is all: kernel name, hostname, version and architecture in one go"],
+      ["`grep \"physical id\" /proc/cpuinfo | wc -l`", "`/proc/cpuinfo` holds one block per core; the `physical id` line names its socket, and `wc -l` counts lines"],
+      ["`grep \"processor\" /proc/cpuinfo | wc -l`", "Counts **logical cores**, which is the vCPU count the VM sees"]
+    ]}},
+    { note: "**A caveat:** `grep \"physical id\" | wc -l` counts *every line*, not the number of distinct sockets. On a single-socket VM with several cores the number equals the vCPU count — for the real socket count you need `| sort -u` before `wc -l`. Have that answer ready; it is a favourite question." },
+    { code: String.raw`ram_total=$(free --mega | awk '$1 == "Mem:" {print $2}')
+ram_use=$(free --mega | awk '$1 == "Mem:" {print $3}')
+ram_percent=$(free --mega | awk '$1 == "Mem:" {printf("%.2f"), $3/$2*100}')`,
+      cap: "Block 2: memory", lang: "bash" },
+    { table: { head: ["Piece", "How to read it"], rows: [
+      ["`free --mega`", "Reports in decimal megabytes (10^6), while `free -m` uses mebibytes (2^20), so the numbers differ slightly"],
+      ["`awk '$1 == \"Mem:\"'`", "Selects only the line whose first column is `Mem:`, skipping the header and the swap line"],
+      ["`{print $2}` / `{print $3}`", "Column 2 is total, column 3 is used"],
+      ["`printf(\"%.2f\"), $3/$2*100`", "The percentage is computed by hand; awk offers none ready-made"]
+    ]}},
+    { code: String.raw`disk_total=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_t += $2} END {printf ("%.1fGb\n"), disk_t/1024}')
+disk_use=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_u += $3} END {print disk_u}')
+disk_percent=$(df -m | grep "/dev/" | grep -v "/boot" | awk '{disk_u += $3} {disk_t += $2} END {printf("%d"), disk_u/disk_t*100}')`,
+      cap: "Block 3: disk space", lang: "bash" },
+    { table: { head: ["Piece", "How to read it"], rows: [
+      ["`df -m`", "Free space on every filesystem, in megabytes"],
+      ["`grep \"/dev/\"`", "Keeps only real devices, dropping `tmpfs` and `udev`, which live in RAM"],
+      ["`grep -v \"/boot\"`", "`-v` inverts the match, dropping `/boot`, which is not user space"],
+      ["`awk '{disk_t += $2} END {...}'`", "Accumulates across every line and prints once in `END`"],
+      ["`disk_t/1024`", "Converts megabytes to gigabytes"]
+    ]}},
+    { code: String.raw`cpul=$(vmstat 1 2 | tail -1 | awk '{printf $15}')
+cpu_op=$(expr 100 - $cpul)
+cpu_fin=$(printf "%.1f" $cpu_op)`,
+      cap: "Block 4: CPU load — the line people most often cannot explain", lang: "bash" },
+    { table: { head: ["Piece", "How to read it"], rows: [
+      ["`vmstat 1 2`", "Two samples a second apart — **the first is an average since boot, so you want the second**"],
+      ["`tail -1`", "Takes the last line, which is that second sample"],
+      ["`awk '{printf $15}'`", "Column 15 is `id`, the idle percentage"],
+      ["`expr 100 - $cpul`", "Load is one hundred minus idle"],
+      ["`printf \"%.1f\"`", "Formats it to one decimal place"]
+    ]}},
+    { note: "This is why it must be `vmstat 1 2` rather than a bare `vmstat`: a single call reports the average since boot, which barely moves and cannot honestly be called the load 'right now'." },
+    { code: String.raw`lb=$(who -b | awk '$1 == "system" {print $3 " " $4}')
+lvmu=$(if [ $(lsblk | grep "lvm" | wc -l) -gt 0 ]; then echo yes; else echo no; fi)
+tcpc=$(ss -ta | grep ESTAB | wc -l)
+ulog=$(users | wc -w)`,
+      cap: "Block 5: last boot, LVM, connections and users", lang: "bash" },
+    { table: { head: ["Piece", "How to read it"], rows: [
+      ["`who -b`", "`-b` is boot time, printing `system boot  2025-08-10 09:12`"],
+      ["`awk '$1 == \"system\" {print $3 \" \" $4}'`", "Takes just the date and the time"],
+      ["`lsblk | grep \"lvm\" | wc -l`", "Is any device of type `lvm` present? More than zero means LVM is in use"],
+      ["`ss -ta | grep ESTAB | wc -l`", "`-t` tcp, `-a` every state, then keep only the established ones"],
+      ["`users | wc -w`", "`users` prints the logged-in names separated by spaces; `-w` counts **words**"]
+    ]}},
+    { note: "`users | wc -w` counts **sessions, not people** — one person with three terminals reads as three. For distinct people you need `users | tr ' ' '\\n' | sort -u | wc -l`. Either is defensible, as long as you know which one you chose." },
+    { code: String.raw`ip=$(hostname -I)
+mac=$(ip link | grep "link/ether" | awk '{print $2}')
+cmnd=$(journalctl _COMM=sudo | grep COMMAND | wc -l)`,
+      cap: "Block 6: networking and the sudo command count", lang: "bash" },
+    { table: { head: ["Piece", "How to read it"], rows: [
+      ["`hostname -I`", "A capital `-I` prints every address of the machine, excluding loopback"],
+      ["`ip link`", "Lists every link-layer interface"],
+      ["`grep \"link/ether\"`", "Keeps only the lines carrying an Ethernet MAC"],
+      ["`journalctl _COMM=sudo`", "Reads only the journal entries written by the program named `sudo`"],
+      ["`grep COMMAND | wc -l`", "One `COMMAND=` line is one command run through sudo"]
+    ]}},
+    { code: String.raw`wall "	#Architecture: $arch
+	#CPU physical: $cpuf
+	#vCPU: $cpuv
+	#Memory Usage: $ram_use/` + "$" + String.raw`{ram_total}MB ($ram_percent%)
+	#Disk Usage: $disk_use/$disk_total ($disk_percent%)
+	#CPU load: $cpu_fin%
+	#Last boot: $lb
+	#LVM use: $lvmu
+	#Connections TCP: $tcpc ESTABLISHED
+	#User log: $ulog
+	#Network: IP $ip($mac)
+	#Sudo: $cmnd cmd"`,
+      cap: "The last block: the broadcast — each line begins with a real tab, not spaces", lang: "bash" },
+    { h: "Install the script and schedule it" },
+    { code: String.raw`sudo cp monitoring.sh /usr/local/bin/monitoring.sh
+sudo chmod +x /usr/local/bin/monitoring.sh
+sudo bash /usr/local/bin/monitoring.sh        # run it by hand first: no errors allowed
+
+sudo crontab -u root -e
+    */10 * * * * sh /usr/local/bin/monitoring.sh
+
+sudo crontab -u root -l                       # confirm the line is really there`,
+      cap: "Always run it by hand first — an error under cron lands on everybody's terminal", lang: "bash" },
+    { table: { head: ["cron field", "Meaning", "In this project"], rows: [
+      ["1", "Minute (0-59)", "`*/10`, every ten minutes"],
+      ["2", "Hour (0-23)", "`*`, unrestricted"],
+      ["3", "Day of month (1-31)", "`*`"],
+      ["4", "Month (1-12)", "`*`"],
+      ["5", "Day of week (0-7)", "`*`"]
+    ]}}
+  ];
+
+  EN.tricks = [
+    { h: "The commands an evaluator actually types" },
+    { p: "The gitbook guide keeps **evaluation commands** in their own chapter, because the defense really is somebody typing these one at a time and reading the output — rehearse until you need no notes." },
+    { table: { head: ["To prove", "Type", "You must see"], rows: [
+      ["No GUI", "`dpkg -l | grep -iE 'xserver|wayland'`", "Nothing"],
+      ["The operating system", "`cat /etc/os-release`", "The latest stable Debian"],
+      ["The hostname", "`hostname`", "`<login>42`"],
+      ["Changing it live", "`sudo hostnamectl set-hostname test42`, then edit `/etc/hosts`", "`hostname` follows"],
+      ["The partitions", "`lsblk`", "`crypt` and then `lvm`"],
+      ["AppArmor", "`aa-status` · `systemctl is-enabled apparmor`", "Profiles loaded · enabled"],
+      ["sudo is installed", "`dpkg -l | grep sudo`", "The package is there"],
+      ["Group membership", "`groups <login>`", "Both `sudo` and `user42`"],
+      ["Creating a user live", "`sudo adduser test`", "A weak password really is refused"],
+      ["The password policy", "`chage -l test`", "30 / 2 / 7"],
+      ["Creating a group and adding to it", "`sudo groupadd evaluating` · `sudo usermod -aG evaluating test`", "`groups test` shows the new group"],
+      ["The sudo rules", "`sudo cat /etc/sudoers.d/*`", "All five of them"],
+      ["The sudo logs", "`sudo ls /var/log/sudo/` · `sudo cat /var/log/sudo/sudo.log`", "Files, with entries in them"],
+      ["The firewall", "`sudo ufw status numbered`", "Active, with only 4242"],
+      ["Adding and deleting a rule live", "`sudo ufw allow 8080` · `sudo ufw delete <n>`", "The list changes accordingly"],
+      ["SSH", "`sudo ss -tlnp | grep 4242` · `systemctl status ssh`", "sshd listening on 4242"],
+      ["Root refused over SSH", "`ssh -p 4242 root@127.0.0.1`", "Permission denied"],
+      ["The script's cron entry", "`sudo crontab -u root -l`", "The `*/10` line"],
+      ["Stopping it without editing the file", "`sudo crontab -u root -e`, add a `#`", "The wall messages stop"]
+    ]}},
+    { note: "**Rehearse the whole table once before the day itself** — nearly every row is a box on the grading sheet, and mistyping under pressure costs more time than you would expect." }
+  ];
+
+  EN.eval = [
+    { h: "The full guide most students use" },
+    { links: [
+      { label: "Born2beRoot guide (noreply.gitbook.io)", url: "https://noreply.gitbook.io/born2beroot",
+        note: "A screen-by-screen walkthrough from the Debian installer to signature.txt; the script in the hands-on tab comes from here" },
+      { label: "gitbook — Script (monitoring.sh)", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/script",
+        note: "The original of the vmstat version explained line by line above" },
+      { label: "gitbook — sudo policies", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/sudo-policies",
+        note: "All five sudoers.d lines with their explanations" },
+      { label: "gitbook — password policy", url: "https://noreply.gitbook.io/born2beroot/virtual-machine-setup/password-policy",
+        note: "Setting login.defs and appending the pwquality parameters to common-password" },
+      { label: "gitbook — Evaluation commands", url: "https://noreply.gitbook.io/born2beroot/correction-preparation/evaluation-commands",
+        note: "The defense command list, split into one page per topic" },
+      { label: "gitbook — BONUS: Partition disks", url: "https://noreply.gitbook.io/born2beroot/installing-debian/bonus-partition-disks",
+        note: "Every installer screen from LUKS through each logical volume" }
+    ]}
+  ];
+
+  var page = null;
+  window.TEACHING_DATA.forEach(function (p) { if (p.id === "born2beroot") page = p; });
+  if (!page) return;
+  var en = window.TEACHING_EN.born2beroot;
+  Object.keys(TH).forEach(function (sec) {
+    TH[sec].forEach(function (b) { page.sections[sec].push(b); });
+    if (en && en[sec]) EN[sec].forEach(function (b) { en[sec].push(b); });
+  });
+})();
+
+/* ============================================================
+   ติดตั้ง VM ตั้งแต่ศูนย์ ทีละหน้าจอ พร้อมค่าที่ต้องใส่จริง
+   ต่อท้ายแท็บ "โครงสร้างโค้ด" ทั้งฝั่งไทยและอังกฤษพร้อมกัน
+   ============================================================ */
+(function () {
+  var TH = [
+    { h: "ติดตั้ง VM ตั้งแต่ศูนย์ — ทีละหน้าจอ" },
+    { p: "ครึ่งแรกของโปรเจกต์คือการกดผ่านหน้าจอให้ถูก **พลาดสองจุดต้องลงใหม่ทั้งเครื่อง**: ติ๊ก desktop environment ตอนเลือกซอฟต์แวร์ และแบ่งพาร์ทิชันผิดตั้งแต่แรก" },
+    { h: "1) ตั้งค่า VirtualBox ก่อนบูต" },
+    { table: { head: ["ช่อง", "ใส่อะไร", "ทำไม"], rows: [
+      ["Type / Version", "Linux · Debian (64-bit)", "ให้ VirtualBox ตั้งค่าเริ่มต้นที่เข้ากับ Debian"],
+      ["Memory", "**1024 MB ขั้นต่ำ · 2048 MB ลื่นกว่า**", "ไม่มี GUI จึงใช้น้อย แต่ตอนติดตั้งและตอน build ของ bonus 1 GB จะฝืด"],
+      ["Hard disk", "VDI · **Dynamically allocated**", "ไฟล์โตตามที่ใช้จริง ไม่กินที่เต็มก้อนตั้งแต่แรก"],
+      ["ขนาดดิสก์", "**12 GB (mandatory) · 30 GB (bonus)**", "bonus ต้องซอยเป็น 7 logical volume จึงต้องใหญ่กว่า"],
+      ["Network", "NAT + port forward `4242`", "ให้ ssh จากเครื่องจริงเข้ามาได้"],
+      ["ที่เก็บไฟล์ VM", "sgoinfre ของแคมปัส หรือ SSD ภายนอก", "ไฟล์ `.vdi` ใหญ่และ home directory ของ 42 มักเต็ม"]
+    ]}},
+    { code: String.raw`VirtualBox -> Settings -> Network -> Adapter 1 -> NAT
+   -> Advanced -> Port Forwarding -> +
+      Name: ssh   Protocol: TCP
+      Host IP: 127.0.0.1   Host Port: 4242
+      Guest IP: (เว้นว่าง)  Guest Port: 4242
+
+VirtualBox -> Settings -> Storage -> Empty (ไอคอนแผ่น) -> เลือกไฟล์ ISO ของ Debian`,
+      cap: "ทำ port forward ตั้งแต่ตอนนี้เลย จะได้ไม่ลืมตอนตั้ง sshd เสร็จ", lang: "txt" },
+    { h: "2) หน้าจอของ Debian installer ที่ต้องเลือกให้ถูก" },
+    { table: { head: ["หน้าจอ", "เลือก", "หมายเหตุ"], rows: [
+      ["Install", "**Install** (ไม่ใช่ Graphical install)", "โหมดข้อความเบากว่าและใช้แป้นพิมพ์อย่างเดียว"],
+      ["Language / Location / Keymap", "ตามสะดวก", "แต่ **จำ keymap ที่เลือกไว้** ไม่งั้นพิมพ์รหัสผ่านไม่ตรง"],
+      ["Hostname", "`<login>42` เช่น `wiaon-in42`", "ข้อบังคับของ subject"],
+      ["Domain name", "เว้นว่าง", "เครื่องเดี่ยว ไม่ต้องมีโดเมน"],
+      ["Root password", "ตั้งให้ผ่านนโยบายที่จะตั้งทีหลัง", "จะต้องเปลี่ยนอีกครั้งหลังตั้ง pwquality อยู่ดี"],
+      ["ผู้ใช้ใหม่", "username = login ของตัวเอง", "subject บังคับว่าต้องมีผู้ใช้ชื่อ login"],
+      ["Clock / timezone", "ตามแคมปัส", "มีผลกับเวลาที่ `monitoring.sh` รายงาน"],
+      ["Partition disks", "**Manual**", "อัตโนมัติจะไม่ได้ LUKS + LVM ตามที่ต้องการ"],
+      ["Software selection", "**ติ๊กออกให้หมด เหลือแค่ `standard system utilities`**", "เผลอติ๊ก GNOME/KDE = ได้ 0 ต้องลงใหม่"],
+      ["GRUB", "ติดตั้งลง `/dev/sda`", "ไม่ใช่ลงพาร์ทิชัน แต่ลงที่ตัวดิสก์"]
+    ]}},
+    { note: "**หน้าจอ Software selection คือจุดที่คนพลาดมากที่สุด** — ค่าเริ่มต้นติ๊ก desktop environment ไว้ให้ ต้องกด space เอาออกทุกอันแล้วเหลือ `standard system utilities` อย่างเดียว มี X.org ติดเครื่องเมื่อไหร่คือ 0" },
+    { h: "3) แบ่งพาร์ทิชันแบบ bonus ทีละขั้น" },
+    { code: String.raw`Partition disks -> Manual
+  -> เลือกดิสก์ทั้งก้อน -> Create new empty partition table -> Yes
+
+  1. FREE SPACE -> Create a new partition
+       Size: 500 MB       Type: Primary      Location: Beginning
+       Mount point: /boot                    -> Done setting up the partition
+
+  2. FREE SPACE -> Create a new partition
+       Size: ที่เหลือทั้งหมด   Type: Logical
+       Use as: physical volume for encryption   -> Done
+
+  3. Configure encrypted volumes -> Create encrypted volumes
+       เลือกพาร์ทิชันที่เพิ่งทำ -> Done -> Finish -> Yes
+       (ล้างข้อมูลด้วยค่าสุ่มใช้เวลานานมาก จะข้ามก็ได้)
+       ตั้ง passphrase -> นี่คือรหัสที่ต้องพิมพ์ทุกครั้งที่บูต
+
+  4. Configure the Logical Volume Manager -> Yes
+       Create volume group   ชื่อ: LVMGroup   เลือก /dev/sda5_crypt
+       Create logical volume x 7 (ตามตารางข้างล่าง)
+       Finish
+
+  5. เลือกแต่ละ LV -> Use as: Ext4 (หรือ swap area) -> ตั้ง Mount point
+  6. Finish partitioning and write changes to disk -> Yes`,
+      cap: "ลำดับสำคัญ: /boot ก่อน แล้วเข้ารหัสที่เหลือ แล้วค่อยสร้าง LVM ข้างใน", lang: "txt" },
+    { table: { head: ["Logical volume", "ขนาด (ดิสก์ 30 GB)", "Mount point"], rows: [
+      ["`root`", "10 G", "`/`"],
+      ["`swap`", "2.3 G", "swap area"],
+      ["`home`", "5 G", "`/home`"],
+      ["`var`", "3 G", "`/var`"],
+      ["`srv`", "3 G", "`/srv`"],
+      ["`tmp`", "3 G", "`/tmp`"],
+      ["`var-log`", "4 G", "`/var/log`"]
+    ]}},
+    { p: "ตัวเลขชุดนี้คือของ **bonus** ส่วน mandatory ต้องการแค่ **สองพาร์ทิชันเข้ารหัสบน LVM** — ทำ `root` กับ `home` (หรือ `swap`) ก็พอ และดิสก์ 12 GB ก็เหลือเฟือ" },
+    { h: "4) หลังบูตครั้งแรก — ยืนยันว่าติดตั้งถูก" },
+    { code: String.raw`su -                                   # ยังไม่มี sudo ต้องเข้าเป็น root ก่อน
+apt update && apt upgrade -y
+
+lsblk                                  # ต้องเห็น crypt แล้วตามด้วย lvm
+cat /etc/os-release                    # Debian stable ล่าสุด
+hostname                               # wiaon-in42
+dpkg -l | grep -iE 'xserver|wayland'   # ต้องว่าง ไม่มี GUI ติดมา
+df -h                                  # แต่ละ mount point แยกกันจริงตามที่แบ่งไว้
+free -m                                # swap ทำงานอยู่`,
+      cap: "เช็ก 6 อย่างนี้ก่อนไปต่อ — ถ้าข้อไหนไม่ผ่าน แก้ตอนนี้ถูกกว่าตอนตั้งค่าไปครึ่งทางแล้ว", lang: "bash" }
+  ];
+
+  var EN = [
+    { h: "Installing the VM from nothing, screen by screen" },
+    { p: "The first half of this project is clicking through installer screens correctly. **Two mistakes force a full reinstall**: ticking a desktop environment at software selection, and getting the partitioning wrong at the start." },
+    { h: "1) VirtualBox settings, before the first boot" },
+    { table: { head: ["Field", "Value", "Why"], rows: [
+      ["Type / Version", "Linux · Debian (64-bit)", "So VirtualBox picks defaults that suit Debian"],
+      ["Memory", "**1024 MB minimum · 2048 MB is smoother**", "A headless system needs little, but 1 GB drags during installation and the bonus builds"],
+      ["Hard disk", "VDI · **dynamically allocated**", "The file grows with actual use instead of claiming everything upfront"],
+      ["Disk size", "**12 GB (mandatory) · 30 GB (bonus)**", "The bonus splits into seven logical volumes, so it needs the room"],
+      ["Network", "NAT plus a port forward for `4242`", "So you can ssh in from the host"],
+      ["Where the VM lives", "The campus sgoinfre share, or an external SSD", "The `.vdi` is large and 42 home directories fill up"]
+    ]}},
+    { code: String.raw`VirtualBox -> Settings -> Network -> Adapter 1 -> NAT
+   -> Advanced -> Port Forwarding -> +
+      Name: ssh   Protocol: TCP
+      Host IP: 127.0.0.1   Host Port: 4242
+      Guest IP: (leave empty)  Guest Port: 4242
+
+VirtualBox -> Settings -> Storage -> Empty (the disc icon) -> pick the Debian ISO`,
+      cap: "Do the port forward now, so it is not forgotten once sshd is configured", lang: "txt" },
+    { h: "2) The Debian installer screens that matter" },
+    { table: { head: ["Screen", "Choose", "Note"], rows: [
+      ["Install", "**Install**, not Graphical install", "The text mode is lighter and keyboard-only"],
+      ["Language / Location / Keymap", "As you like", "But **remember the keymap you chose**, or your password will not type back the same"],
+      ["Hostname", "`<login>42`, e.g. `wiaon-in42`", "Required by the subject"],
+      ["Domain name", "Leave it empty", "A standalone machine needs none"],
+      ["Root password", "One that will satisfy the policy you set later", "You will change it again after pwquality anyway"],
+      ["New user", "username = your own login", "The subject requires a user named after your login"],
+      ["Clock / timezone", "Your campus", "It shows up in what `monitoring.sh` reports"],
+      ["Partition disks", "**Manual**", "The guided options will not give you LUKS under LVM"],
+      ["Software selection", "**Untick everything except `standard system utilities`**", "A ticked GNOME or KDE is a zero and a reinstall"],
+      ["GRUB", "Install to `/dev/sda`", "The disk itself, not a partition"]
+    ]}},
+    { note: "**Software selection is where most people lose the project**: a desktop environment is ticked by default, so press space to clear every box and leave only `standard system utilities`. Any X.org on the machine is a zero." },
+    { h: "3) The bonus partitioning, step by step" },
+    { code: String.raw`Partition disks -> Manual
+  -> select the whole disk -> Create new empty partition table -> Yes
+
+  1. FREE SPACE -> Create a new partition
+       Size: 500 MB       Type: Primary      Location: Beginning
+       Mount point: /boot                    -> Done setting up the partition
+
+  2. FREE SPACE -> Create a new partition
+       Size: all the rest   Type: Logical
+       Use as: physical volume for encryption   -> Done
+
+  3. Configure encrypted volumes -> Create encrypted volumes
+       pick the partition you just made -> Done -> Finish -> Yes
+       (erasing with random data takes a very long time; skipping it is fine)
+       set the passphrase -> this is what you type at every boot
+
+  4. Configure the Logical Volume Manager -> Yes
+       Create volume group   name: LVMGroup   on /dev/sda5_crypt
+       Create logical volume, seven times (see the table below)
+       Finish
+
+  5. For each LV -> Use as: Ext4 (or swap area) -> set its mount point
+  6. Finish partitioning and write changes to disk -> Yes`,
+      cap: "Order matters: /boot first, encrypt the remainder, then build LVM inside it", lang: "txt" },
+    { table: { head: ["Logical volume", "Size (on a 30 GB disk)", "Mount point"], rows: [
+      ["`root`", "10 G", "`/`"],
+      ["`swap`", "2.3 G", "swap area"],
+      ["`home`", "5 G", "`/home`"],
+      ["`var`", "3 G", "`/var`"],
+      ["`srv`", "3 G", "`/srv`"],
+      ["`tmp`", "3 G", "`/tmp`"],
+      ["`var-log`", "4 G", "`/var/log`"]
+    ]}},
+    { p: "Those are the **bonus** numbers. The mandatory part only asks for **two encrypted partitions on LVM** — `root` and `home` (or `swap`) is enough, and 12 GB is plenty." },
+    { h: "4) After the first boot, confirm the install is right" },
+    { code: String.raw`su -                                   # sudo is not installed yet; become root
+apt update && apt upgrade -y
+
+lsblk                                  # crypt must appear, then lvm
+cat /etc/os-release                    # the latest stable Debian
+hostname                               # wiaon-in42
+dpkg -l | grep -iE 'xserver|wayland'   # empty: no GUI came along
+df -h                                  # each mount point really is separate
+free -m                                # swap is active`,
+      cap: "Check these six before going further — fixing them now is far cheaper than halfway through the configuration", lang: "bash" }
+  ];
+
+  var page = null;
+  window.TEACHING_DATA.forEach(function (p) { if (p.id === "born2beroot") page = p; });
+  if (!page) return;
+  TH.forEach(function (b) { page.sections.architecture.push(b); });
+  var en = window.TEACHING_EN.born2beroot;
+  if (en && en.architecture) EN.forEach(function (b) { en.architecture.push(b); });
+})();
