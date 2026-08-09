@@ -20,6 +20,9 @@ html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
+  /* กระดาน NetPractice กว้างเต็มจอด้วย width:100vw ซึ่งกว้างกว่าพื้นที่เนื้อหาเมื่อมี
+     scrollbar แนวตั้ง — กันไม่ให้เกิด scrollbar แนวนอนตามมา */
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--txt);
   font-family: "Segoe UI", "Sarabun", "Noto Sans Thai", system-ui, sans-serif;
@@ -322,9 +325,19 @@ footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line);
 .np-solved { font-size: 13px; font-weight: 700; color: var(--green); }
 .np-brief { margin: 0 0 12px; line-height: 1.7; }
 
-.np-canvas-wrap { overflow-x: auto; padding-bottom: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; }
-.np-canvas { position: relative; margin: 10px; }
-.np-wires { position: absolute; left: 0; top: 0; }
+/* กระดานถูกย่อ-ขยายให้พอดีกรอบเสมอ จึงไม่มี scroll และเห็นผังครบทั้งอัน
+   .np-stage กำหนดขนาดด้วย CSS ล้วน ส่วนกระดานลอยอยู่ข้างในแบบ absolute
+   ขนาดของ stage จึงไม่ขึ้นกับกระดาน และการวัดไม่วนลูป */
+.np-stage { position: relative; width: 100vw; margin-left: calc(50% - 50vw); height: clamp(260px, 62vh, 760px); background: var(--bg2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
+.np-canvas { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
+.np-wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+
+/* เต็มจอ: หัวข้อ/สถานะบน กระดานยืดกลาง ปุ่มล่าง ทุกอย่างอยู่ในจอเดียวไม่ต้องเลื่อน */
+.np-root.full { position: fixed; inset: 0; z-index: 60; margin: 0; padding: 12px 18px; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+.np-root.full .demo-hint, .np-root.full .np-brief, .np-root.full .np-seg { display: none; }
+.np-root.full .np-stage { flex: 1 1 auto; height: auto; min-height: 0; width: 100%; margin-left: 0; border-radius: 12px; border: 1px solid var(--line); }
+.np-root.full .np-res { max-height: 24vh; overflow-y: auto; }
+.np-root.full .np-levels, .np-root.full .np-status, .np-root.full .demo-bar { flex: 0 0 auto; }
 
 .np-card { position: absolute; box-sizing: border-box; background: var(--bg3); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; padding: 5px 9px 7px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .np-card.router { border-left-color: var(--accent); }

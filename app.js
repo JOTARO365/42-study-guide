@@ -1016,9 +1016,10 @@
     useEffect(function () {
       var cv = ref.current;
       if (!cv || !cv.getContext) return;
-      var dpr = window.devicePixelRatio || 1;
-      cv.width = level.w * dpr;
-      cv.height = level.h * dpr;
+      /* backing store คูณด้วยอัตราย่อ-ขยายด้วย เส้นจะได้ยังคมตอนกระดานถูกขยาย */
+      var dpr = (window.devicePixelRatio || 1) * (props.scale || 1);
+      cv.width = Math.round(level.w * dpr);
+      cv.height = Math.round(level.h * dpr);
       var g = cv.getContext("2d");
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, level.w, level.h);
@@ -1060,6 +1061,49 @@
     var sT = useState(level.secs); var left = sT[0], setLeft = sT[1];
     var sD = useState(false); var done = sD[0], setDone = sD[1];   /* ผ่านแล้ว */
     var sO = useState(false); var over = sO[0], setOver = sO[1];   /* หมดเวลา */
+    var sF = useState(false); var full = sF[0], setFull = sF[1];   /* เต็มจอ */
+    var sK = useState(1); var scale = sK[0], setScale = sK[1];
+    var rootRef = React.useRef(null);
+    var stageRef = React.useRef(null);
+
+    /* ย่อ-ขยายกระดานให้พอดีกรอบเสมอ จะได้ไม่มี scroll และเห็นครบทั้งผัง
+       วัดจากกล่อง .np-stage ซึ่งกำหนดขนาดด้วย CSS ไม่ได้ขึ้นกับกระดานที่ถูกย่อ
+       จึงไม่เกิดลูปวัด-แล้วโต */
+    useEffect(function () {
+      var el = stageRef.current;
+      if (!el) return undefined;
+      function fit() {
+        var w = el.clientWidth, hgt = el.clientHeight;
+        if (!w || !hgt) return;
+        var k = Math.min(w / level.w, hgt / level.h);
+        setScale(Math.max(0.3, Math.min(k, 2.5)));
+      }
+      fit();
+      var ro = null;
+      if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(fit); ro.observe(el); }
+      window.addEventListener("resize", fit);
+      return function () {
+        if (ro) ro.disconnect();
+        window.removeEventListener("resize", fit);
+      };
+    }, [li, full]);
+
+    /* ปุ่มเต็มจอกับปุ่ม Esc ของเบราว์เซอร์ต้องเห็นตรงกัน */
+    useEffect(function () {
+      function sync() { setFull(!!document.fullscreenElement); }
+      document.addEventListener("fullscreenchange", sync);
+      return function () { document.removeEventListener("fullscreenchange", sync); };
+    }, []);
+
+    function toggleFull() {
+      var el = rootRef.current;
+      if (!el) return;
+      try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (el.requestFullscreen) el.requestFullscreen();
+        else setFull(!full);           /* file:// บางเบราว์เซอร์ไม่ให้ — ใช้โหมดจำลองแทน */
+      } catch (e) { setFull(!full); }
+    }
 
     /* นาฬิกาเดินเฉพาะตอนด่านยังไม่จบ — หมดเวลาแล้วเปิดเฉลยให้เลย */
     useEffect(function () {
@@ -1122,7 +1166,7 @@
     }).join("   ");
     var solvedAll = done;
 
-    return h("div", { className: "demo" },
+    return h("div", { className: "demo np-root" + (full ? " full" : ""), ref: rootRef },
       h("p", { className: "demo-hint" }, t({
         th: "กระดานฝึกแบบเดียวกับ NetPractice — สายต่อไว้ให้แล้ว เติมช่องสีขาวแล้วกด 'ตรวจ' ระบบจะเดินเส้นทางทั้งขาไปและขากลับให้ดูทีละ hop",
         en: "A NetPractice-style board. The cables are already wired; fill the white fields and press Check, and the engine walks both the forward and the reverse path hop by hop."
@@ -1147,9 +1191,12 @@
           t({ th: "✓ ผ่านด่านนี้แล้ว", en: "✓ level solved" })) : null
       ),
       h("p", { className: "np-brief" }, t(level.brief)),
-      h("div", { className: "np-canvas-wrap" },
-        h("div", { className: "np-canvas", style: { width: level.w + "px", height: level.h + "px" } },
-          h(NpWires, { level: level }),
+      h("div", { className: "np-stage", ref: stageRef },
+        h("div", { className: "np-canvas", style: {
+          width: level.w + "px", height: level.h + "px",
+          transform: "translate(-50%, -50%) scale(" + scale + ")"
+        } },
+          h(NpWires, { level: level, scale: scale }),
           (level.switches || []).map(function (sw) {
             return h("div", {
               key: sw.id, className: "np-switch",
@@ -1200,7 +1247,10 @@
         li < NP_LEVELS.length - 1
           ? h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li + 1); } },
               t({ th: "ด่านถัดไป →", en: "Next level →" }))
-          : null
+          : null,
+        h("button", { className: "demo-btn alt np-fs", onClick: toggleFull },
+          full ? t({ th: "⤢ ออกจากเต็มจอ", en: "⤢ Exit full screen" })
+               : t({ th: "⤢ เต็มจอ", en: "⤢ Full screen" }))
       ),
       showHint ? h("div", { className: "note" }, t(level.hint)) : null,
       over ? h("div", { className: "note" }, t({
