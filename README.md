@@ -106,7 +106,11 @@
 | pipex | ไดอะแกรมไล่ทีละ step: infile → pipe → outfile |
 | NetPractice | **simulator 10 ด่าน จับเวลา** — กระดานวาดสายด้วย canvas เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับ `sim.js` หมดเวลาแล้วเปิดเฉลยให้ |
 
-**Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ): push_swap, pipex, so_long, fract-ol, minitalk, fdf, philosophers
+**Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ) — 24 หน้า:
+
+- **C / เครือข่าย / system:** push_swap · pipex · so_long · fract-ol · minitalk · fdf · philosophers · minishell · miniRT · cub3D · NetPractice · webserv · ft_irc · Inception
+- **C++:** CPP Module 00
+- **AI:** ทั้ง 9 หน้า (foundations, LLM & API, vector, RAG, agents, harness, loop engineering, fine-tuning, output control)
 
 ---
 
