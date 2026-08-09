@@ -104,7 +104,7 @@
 | fract-ol | Mandelbrot/Julia บน canvas, คลิกเพื่อซูม, สไลเดอร์ iteration |
 | so_long | เกมเล่นได้จริง (WASD/ลูกศร) เก็บเหรียญครบแล้วไปประตู |
 | pipex | ไดอะแกรมไล่ทีละ step: infile → pipe → outfile |
-| NetPractice | **simulator ฝึกจริง 5 ด่าน** — เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับเกมจริง |
+| NetPractice | **simulator 10 ด่าน จับเวลา** — กระดานวาดสายด้วย canvas เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับ `sim.js` หมดเวลาแล้วเปิดเฉลยให้ |
 
 **Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ): push_swap, pipex, so_long, fract-ol, minitalk, fdf, philosophers
 

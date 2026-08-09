@@ -1203,3 +1203,56 @@ YoupiBanane/Yeah/not_happy.bad_extension         index youpi.bad_extension`,
     ]
   }
 });
+
+/* flow visualizer: GET หนึ่งใบ ตั้งแต่ poll บอกว่าพร้อม จนถึง byte สุดท้ายออกสาย */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.webserv = {
+  input: "curl -X POST --data-binary @big.txt http://localhost:8080/upload",
+  steps: [
+    { fn: "Server::run()", file: "src/core/Server.cpp", depth: 0,
+      note: { th: "ลูปเดียวของทั้งโปรแกรม: ประกอบ pollfd ใหม่ทุกรอบจาก registry แล้วเรียก `poll()` ตัวเดียวที่มีในโปรเจกต์ — ไม่มี I/O ที่ไหนอยู่นอกเส้นทางนี้",
+              en: "The only loop in the program: rebuild the pollfd set from the registries each tick and call the single `poll()` in the project. No I/O exists off this path." },
+      data: "pfds = [listener:POLLIN, client7:POLLIN, cgi_out9:POLLIN]",
+      vars: [ { n: "_pfds", d: { th: "ประกอบใหม่ทุก tick จึงไม่มี index ค้าง", en: "rebuilt every tick, so no stale index can survive" }, w: true } ] },
+    { fn: "onListenerReadable()", file: "src/core/Server.cpp", depth: 1,
+      note: { th: "`accept()` **วนจนกว่าจะคืนค่าลบ** เพราะ 1 event ของ poll อาจหมายถึงหลาย connection ที่รออยู่ใน backlog แล้วตั้ง `O_NONBLOCK` ให้ socket ที่รับมาด้วย",
+              en: "`accept()` **loops until it returns negative** — one poll event can mean several connections waiting in the backlog — and the accepted socket gets `O_NONBLOCK` too." },
+      data: "accept() -> fd 7   fcntl(7, F_SETFL, O_NONBLOCK)",
+      vars: [ { n: "_conns[7]", v: "new Connection(7)", d: { th: "buffer เข้า/ออกของ client รายนี้", en: "this client's in and out buffers" }, w: true } ] },
+    { fn: "Connection::onReadable()", file: "src/core/Connection.cpp", depth: 1,
+      note: { th: "`recv` คืน 0 = ปลายทางปิด, < 0 = fd ตาย ทั้งสองกรณีตัดทิ้ง — **ไม่แตะ `errno` เลย** เพราะ poll บอกแล้วว่าพร้อม",
+              en: "`recv` returning 0 means the peer closed and < 0 means the descriptor is dead; both drop the connection. **`errno` is never consulted** because poll already said it was ready." },
+      data: "recv(7, buf, 16384) -> 1400  (มาไม่ครบก้อน)",
+      vars: [ { n: "_inBuf", v: "\"POST /upload HTTP/1.1\r\nHost: ...\"", d: { th: "สะสม byte ดิบไว้ก่อน", en: "raw bytes accumulate here first" }, w: true } ] },
+    { fn: "HttpRequest::feed()", file: "src/http/HttpRequest.cpp", depth: 2,
+      note: { th: "state machine ที่ **หยุดตรง `ST_HEADERS_DONE`** เพราะขนาด body สูงสุดขึ้นกับ location ที่ตรงกัน ซึ่งยังไม่รู้จนกว่าจะ parse path เสร็จ",
+              en: "The state machine **pauses at `ST_HEADERS_DONE`**, because the body limit depends on the matched location, which is unknown until the path is parsed." },
+      data: "ST_REQUEST_LINE -> ST_HEADERS -> ST_HEADERS_DONE",
+      vars: [ { n: "_st", v: "ST_HEADERS_DONE", d: { th: "จุดพักที่รอผู้เรียกบอกลิมิต", en: "the pause where the caller supplies the limit" }, w: true } ] },
+    { fn: "pickVirtualHost() + pickLocation()", file: "src/config/ConfigTypes.cpp", depth: 2,
+      note: { th: "เลือก server block จาก header `Host:` แล้วเลือก location: **exact ก่อน แล้ว extension แล้วค่อย longest prefix** พร้อมกันไม่ให้ `/foo` ไปแมตช์ `/foobar`",
+              en: "Pick the server block from the `Host:` header, then the location: **exact first, then extension, then longest prefix**, with the guard that stops `/foo` matching `/foobar`." },
+      data: "Host: localhost -> server{8080}   /upload -> location /upload",
+      vars: [ { n: "loc.clientMaxBodySize", v: "5242880", d: { th: "ลิมิตที่เพิ่งรู้ ส่งกลับให้ parser", en: "the limit just learned, handed back to the parser" }, w: true } ] },
+    { fn: "applyBodyLimit() -> อ่าน body", file: "src/http/HttpRequest.cpp", depth: 2,
+      note: { th: "de-chunk **ในตัว parser** เพื่อให้ handler กับ CGI เห็นแต่ body ธรรมดา และเมื่อเกิน `client_body_buffer_size` จะ spool ลงไฟล์แทนที่จะกองใน RAM",
+              en: "De-chunking happens **in the parser** so the handler and CGI only ever see a plain body, and past `client_body_buffer_size` it spools to a file instead of piling up in RAM." },
+      data: "body 4.2 MB > 1 MiB  ->  เขียนลง /tmp/webserv_body_00017",
+      vars: [ { n: "_spoolPath", v: "/tmp/webserv_body_00017", d: { th: "เจ้าของไฟล์นี้ต้องชัด ไม่งั้นไฟล์ค้าง", en: "ownership must be explicit or the file is stranded" }, w: true } ] },
+    { fn: "RequestHandler::handle()", file: "src/http/RequestHandler.cpp", depth: 1,
+      note: { th: "ตรวจ method กับ `allow_methods` (HEAD ไม่ขี่สิทธิ์ของ GET), normalize URI ก่อนแตะ filesystem แล้วค่อยตัดสินว่าเป็นไฟล์ / upload / CGI / redirect",
+              en: "Check the method against `allow_methods` (HEAD does not inherit GET's permission), normalise the URI before touching the filesystem, then decide file / upload / CGI / redirect." },
+      data: "POST อยู่ใน allow_methods ✓   upload_store ./www/uploads",
+      vars: [ { n: "status", v: "201", d: { th: "สร้างไฟล์ใหม่สำเร็จ", en: "a new file was created" }, w: true } ] },
+    { fn: "Connection::onWritable()", file: "src/core/Connection.cpp", depth: 1,
+      note: { th: "`send()` เขียนได้น้อยกว่าที่ขอเป็นเรื่องปกติ — ลบออกจากคิว **เท่าที่ส่งไปจริง** และขอ `POLLOUT` เฉพาะตอน out-buffer ไม่ว่าง ไม่งั้น CPU วิ่ง 100%",
+              en: "A short `send()` is normal: erase **exactly what went out** and ask for `POLLOUT` only while the out-buffer is non-empty, or the CPU spins at 100%." },
+      data: "send() -> 8192 / 8600   เหลือค้าง 408 byte",
+      vars: [ { n: "_outBuf", v: "408 bytes left", d: { th: "ยังขอ POLLOUT ต่อจนกว่าจะว่าง", en: "POLLOUT stays armed until this is empty" }, w: true } ] },
+    { fn: "keep-alive หรือปิด", file: "src/core/Connection.cpp", depth: 1,
+      note: { th: "ระบายหมดแล้วถ้า `Connection` ไม่ใช่ `close` ให้รีเซ็ต parser และ **เก็บ byte ที่อ่านเกินมาไว้** เพราะนั่นคือจุดเริ่มของ request ถัดไป",
+              en: "Once drained, if `Connection` is not `close`, reset the parser and **keep any over-read bytes** — they are the start of the next request." },
+      data: "_inBuf ยังเหลือ \"GET /style.css HTTP/1.1\r\n...\"",
+      vars: [ { n: "_req", v: "reset()", d: { th: "พร้อมรับ request ถัดไปบน socket เดิม", en: "ready for the next request on the same socket" }, w: true } ] }
+  ]
+};

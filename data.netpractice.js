@@ -927,3 +927,52 @@ vm.runInContext('all_goals();', sandbox);
     ]
   }
 });
+
+/* flow visualizer: ตาม packet หนึ่งใบจาก A1 ไป B1 ข้าม router */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.netpractice = {
+  input: "A1 (192.168.1.10/24) ping B1 (192.168.2.20/24)",
+  steps: [
+    { fn: "A1: dest อยู่ subnet ฉันไหม?", file: "sim.js · rec_route()", depth: 0,
+      note: { th: "เครื่องต้นทางถามคำถามแรกเสมอ: ปลายทางอยู่ในช่วงของ **ขาตัวเอง** หรือเปล่า ถ้าใช่ก็ส่งบนสายได้เลยไม่ต้องพึ่งตาราง",
+              en: "The first question a host always asks: is the destination inside **my own leg's** range? If so it goes straight on the wire, no table needed." },
+      data: "192.168.1.10 AND 255.255.255.0 = 192.168.1.0\n192.168.2.20 AND 255.255.255.0 = 192.168.2.0   ไม่ตรง",
+      vars: [ { n: "my_net", v: "192.168.1.0/24", d: { th: "network ของขา A1", en: "A1's own network" } },
+              { n: "dst", v: "192.168.2.20", d: { th: "ปลายทางที่อยากไป", en: "the destination we want" } } ] },
+    { fn: "A1: ค้น routing table", file: "sim.js · ip_match_route()", depth: 1,
+      note: { th: "อ่านบนลงล่าง **บรรทัดแรกที่ครอบปลายทางชนะแล้วหยุด** ที่นี่มีบรรทัดเดียวคือ default ซึ่งครอบทุกอย่าง",
+              en: "Read top to bottom; **the first line covering the destination wins and stops the search.** Here there is only a default, which covers everything." },
+      data: "default (0.0.0.0/0)  ->  192.168.1.1",
+      vars: [ { n: "gate", v: "192.168.1.1", d: { th: "hop ถัดไป ไม่ใช่ปลายทาง", en: "the next hop, not the destination" }, w: true } ] },
+    { fn: "A1: gateway ถึงได้ไหม?", file: "sim.js · rec_route()", depth: 1,
+      note: { th: "gateway ต้องอยู่ใน subnet ของขาฉัน ไม่งั้นได้ `route match but no interface for gateway` แล้ว packet ถูกทิ้งเลย **ไม่ไหลลงบรรทัดถัดไป**",
+              en: "The gateway must sit inside one of my own subnets, otherwise you get `route match but no interface for gateway` and the packet is dropped — it does **not** fall through to the next line." },
+      data: "192.168.1.1 อยู่ใน 192.168.1.0/24   ✓ ส่งได้",
+      vars: [ { n: "out_if", v: "A1", d: { th: "ขาที่ packet ออก", en: "the leg the packet leaves by" }, w: true } ] },
+    { fn: "R1: ตรงเป๊ะกับขาไหนไหม?", file: "sim.js · rec_route()", depth: 0,
+      note: { th: "router รับมาแล้วถามว่า IP ปลายทาง **ตรงเป๊ะ** กับขาไหนของฉันหรือเปล่า ถ้าไม่ตรงแปลว่าต้อง forward ต่อ (ตรงเป๊ะ ≠ ครอบ)",
+              en: "The router asks whether the destination **equals** one of its own addresses. It does not, so the packet must be forwarded (equalling is not the same test as covering)." },
+      data: "R1a = 192.168.1.1   R1b = 10.0.0.1   ไม่มีตัวไหน = 192.168.2.20",
+      vars: [ { n: "legs", v: "R1a, R1b", d: { th: "ทุกขาถูกไล่ตรวจทีละตัว", en: "every leg is scanned in turn" } } ] },
+    { fn: "R1: มีกี่ขาที่ครอบปลายทาง?", file: "sim.js · rec_route()", depth: 1,
+      note: { th: "ถ้าได้ **มากกว่าหนึ่ง** ขา จะตายทันทีด้วย `multiple interface match` แม้เส้นทางที่ถูกจะมีอยู่จริง — นี่คือกฎที่ห้าม subnet ซ้อนกันบน router ตัวเดียว",
+              en: "**More than one** matching leg dies immediately with `multiple interface match`, even when a correct path exists — this is the rule that forbids overlapping subnets on one router." },
+      data: "R1a 192.168.1.0/24 ไม่ครอบ · R1b 10.0.0.0/30 ไม่ครอบ  ->  นับได้ 0",
+      vars: [ { n: "match_count", v: "0", d: { th: "0 = ต้องพึ่ง routing table, 2 ขึ้นไป = ตาย", en: "0 means fall back to the table; 2 or more is fatal" }, w: true } ] },
+    { fn: "R1: route เจาะจง -> R2", file: "sim.js · ip_match_route()", depth: 1,
+      note: { th: "เจอบรรทัด `192.168.2.0/24 -> 10.0.0.2` แล้ว gateway ตัวนี้อยู่บนลิงก์ /30 ที่ต่อกับ R2 พอดี",
+              en: "The line `192.168.2.0/24 -> 10.0.0.2` matches, and that gateway sits on the /30 link straight to R2." },
+      data: "192.168.2.0/24 -> 10.0.0.2   (ผ่านขา R1b)",
+      vars: [ { n: "gate", v: "10.0.0.2", d: { th: "ขาของ R2 บนลิงก์ระหว่าง router", en: "R2's leg on the router-to-router link" }, w: true } ] },
+    { fn: "R2: ขาที่ครอบ -> ส่งบนสาย", file: "sim.js · rec_route()", depth: 0,
+      note: { th: "คราวนี้ขา R2b ครอบปลายทางพอดี จึงส่งตรงบน segment ปลายทางได้เลยโดยไม่ต้องใช้ตาราง",
+              en: "This time leg R2b covers the destination, so it goes straight onto the final segment without consulting a table." },
+      data: "R2b = 192.168.2.1/24 ครอบ 192.168.2.20   ✓",
+      vars: [ { n: "out_if", v: "R2b", d: { th: "ขาสุดท้ายก่อนถึงเครื่อง", en: "the last leg before the host" }, w: true } ] },
+    { fn: "B1: destination IP reached", file: "sim.js · sim_reach_gen()", depth: 0,
+      note: { th: "IP ของ B1 ตรงเป๊ะกับปลายทาง = ถึงแล้ว **แต่ยังไม่จบ** — sim จะสลับ src/dst แล้วเดินขากลับใหม่ทั้งเส้น ถ้าขากลับไม่ผ่านจะได้ `KO - No reverse way`",
+              en: "B1's address equals the destination, so it has arrived — **but this is not the end.** The sim swaps src and dst and walks the whole return path; if that fails you get `KO - No reverse way`." },
+      data: "Forward way: OK\nReverse way: กำลังเดินใหม่ B1 -> A1 ...",
+      vars: [ { n: "goal", v: "A1 ⇄ B1", d: { th: "ต้องผ่านทั้งสองทิศถึงจะเขียว", en: "both directions must pass before it turns green" }, w: true } ] }
+  ]
+};

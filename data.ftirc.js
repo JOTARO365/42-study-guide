@@ -1237,3 +1237,56 @@ irssi -c 127.0.0.1 -p 6667 -w secret`,
     ]
   }
 });
+
+/* flow visualizer: byte จาก irssi กลายเป็น JOIN ที่ broadcast ออกทั้งช่อง */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.ft_irc = {
+  input: "irssi ส่ง \"JOIN #4\" แล้วอีก packet ส่ง \"2\r\n\"",
+  steps: [
+    { fn: "Server::loop()", file: "src/ServerLoop.cpp", depth: 0,
+      note: { th: "ก่อน `poll()` ทุกครั้งต้อง `_refreshPollOut()` — ขอ `POLLOUT` **เฉพาะ client ที่มี byte ค้างจริง** ไม่งั้น socket ว่างจะรายงานว่าเขียนได้ตลอดแล้ว CPU วิ่ง 100%",
+              en: "Before every `poll()` comes `_refreshPollOut()` — arm `POLLOUT` **only for clients with queued bytes**, or an idle socket reports writable forever and the CPU spins at 100%." },
+      data: "poll(pfds, n, 500)   timeout 500ms ให้ SIGINT ตอบสนองไว",
+      vars: [ { n: "_pfds", d: { th: "เดินบน snapshot เพราะ accept/disconnect แก้ vector กลางรอบ", en: "iterated as a snapshot: accept and disconnect mutate the vector mid-tick" }, w: true } ] },
+    { fn: "recv() -> Client::appendIn()", file: "src/ServerLoop.cpp", depth: 1,
+      note: { th: "**ห้าม parse สิ่งที่ `recv()` คืนมาโดยตรง** TCP เป็นสายของ byte ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client ไว้ก่อนเสมอ",
+              en: "**Never parse what `recv()` returned.** TCP is a byte stream with no message boundaries: always append to the per-client buffer first." },
+      data: "packet 1: \"JOIN #4\"      _in = \"JOIN #4\"   (ยังไม่มี \n)",
+      vars: [ { n: "_in", v: "\"JOIN #4\"", d: { th: "ยังไม่ครบบรรทัด จึงยังไม่ทำอะไร", en: "not a whole line yet, so nothing happens" }, w: true } ] },
+    { fn: "Client::extractLine()", file: "src/Client.cpp", depth: 2,
+      note: { th: "ดึงออกมาก็ต่อเมื่อเจอ `\n` แล้วตัด `\r` ท้ายทิ้งถ้ามี — irssi ส่ง `\r\n` แต่ `nc` ส่ง `\n` เปล่า ต้องรับได้ทั้งคู่ และ **ส่งออกด้วย `\r\n` เสมอ**",
+              en: "A line comes out only once `\n` appears, with a trailing `\r` stripped — irssi sends `\r\n` while `nc` sends a bare `\n`, both must work, and you **always send `\r\n`**." },
+      data: "packet 2: \"2\r\n\"   _in = \"JOIN #42\r\n\"  ->  line = \"JOIN #42\"",
+      vars: [ { n: "line", v: "\"JOIN #42\"", d: { th: "dispatch ครั้งเดียว ไม่ใช่สองครั้ง", en: "dispatched once, not twice" }, w: true } ] },
+    { fn: "Message::parse()", file: "src/Message.cpp", depth: 2,
+      note: { th: "ไวยากรณ์ IRC: prefix (ถ้ามี) แล้ว command แล้ว params ไม่เกิน 15 ตัว โดย param ที่ขึ้นต้นด้วย `:` จะกินยาวถึงท้ายบรรทัดรวมช่องว่าง ชื่อคำสั่งไม่สนตัวพิมพ์",
+              en: "The IRC grammar: an optional prefix, a command, then at most 15 parameters, where a parameter starting with `:` swallows the rest of the line including spaces. Command names are case-insensitive." },
+      data: "command = \"JOIN\"   params = [\"#42\"]",
+      vars: [ { n: "m.command", v: "\"JOIN\"", d: { th: "upper-case ก่อนค้นตาราง dispatch", en: "upper-cased before the dispatch lookup" }, w: true } ] },
+    { fn: "Dispatch::run()", file: "src/Dispatch.cpp", depth: 1,
+      note: { th: "ตารางเดียวคุมทั้งชื่อคำสั่งและธง `needsRegistration` ทำให้ `451 ERR_NOTREGISTERED` เกิดที่เดียว ไม่กระจายไปทุก handler; ไม่เจอในตาราง = `421`",
+              en: "One table holds both the command name and the `needsRegistration` flag, so `451 ERR_NOTREGISTERED` happens in one place instead of in every handler; nothing found is `421`." },
+      data: "JOIN -> cmdJoin   needsRegistration = true   client ผ่าน PASS/NICK/USER แล้ว ✓",
+      vars: [ { n: "c.registered()", v: "true", d: { th: "passOk && hasNick && hasUser", en: "passOk && hasNick && hasUser" } } ] },
+    { fn: "Server::cmdJoin()", file: "src/commands/CmdChannel.cpp", depth: 2,
+      note: { th: "ตรวจตามลำดับ: invite-only (`+i`) ไม่ถูกเชิญ `473`, key (`+k`) ไม่ตรง `475`, limit (`+l`) เต็ม `471` — ถ้าช่องยังไม่มี ผู้สร้างจะได้ `+o` อัตโนมัติ",
+              en: "Checked in order: invite-only (`+i`) without an invite is `473`, a wrong key (`+k`) is `475`, a full channel (`+l`) is `471` — and if the channel does not exist yet, its creator gets `+o`." },
+      data: "#42 ยังไม่มี  ->  สร้างใหม่, alice ได้ +o, ลบออกจาก _invited",
+      vars: [ { n: "_members", v: "{alice}", d: { th: "เก็บเป็น nick ที่ fold แล้ว ไม่ใช่ pointer", en: "folded nicks, never pointers" }, w: true } ] },
+    { fn: "Channel::broadcast()", file: "src/Channel.cpp", depth: 3,
+      note: { th: "เดินบน **สำเนา** ของรายชื่อ เพราะ handler อาจ mark ใครสักคนว่าตายระหว่างทาง และ `send_` แค่ต่อท้าย `_out` ไม่ได้เรียก syscall — ปล่อยให้ `POLLOUT` ส่งทีหลัง",
+              en: "Walk a **copy** of the member list, because a handler may mark somebody dead mid-loop, and `send_` only appends to `_out` — no syscall here; `POLLOUT` delivers it later." },
+      data: ":alice!user@host JOIN #42\r\n   ส่งให้สมาชิกทุกคน รวมตัว alice เอง",
+      vars: [ { n: "_out", v: "queued", d: { th: "รอ POLLOUT รอบถัดไป", en: "waiting for the next POLLOUT" }, w: true } ] },
+    { fn: "ส่ง 332/331 + 353 + 366", file: "src/Replies.cpp", depth: 3,
+      note: { th: "คนที่เพิ่งเข้าต้องได้ topic แล้วรายชื่อ (operator นำหน้าด้วย `@`) แล้วปิดด้วย `366` — **ถ้าไม่ส่งกลับให้ตัวผู้ join เอง client จะไม่รู้ว่าเข้าห้องสำเร็จ**",
+              en: "The joiner needs the topic, then the names list (operators prefixed with `@`), then `366` to close it — **without echoing back to the joiner the client never learns it succeeded.**" },
+      data: "331 (ยังไม่มี topic) · 353 = \"@alice\" · 366 end of names",
+      vars: [ { n: "numerics", v: "331, 353, 366", d: { th: "client จริงใช้ตัวเลขพวกนี้ในการวาดหน้าจอ", en: "a real client renders its window from these numbers" } } ] },
+    { fn: "_sweepDisconnected()", file: "src/ServerLoop.cpp", depth: 0,
+      note: { th: "การลบจริงเกิด **ที่เดียว ท้าย tick** เท่านั้น: handler แค่ mark ว่าตาย ถอดออกจากทุกช่อง broadcast `QUIT` แล้วปล่อยให้ output ระบายจนหมดก่อน `delete`",
+              en: "Real deletion happens **in exactly one place, at the end of the tick**: handlers only mark dead, remove the client from every channel, broadcast its `QUIT`, and let the output drain before the `delete`." },
+      data: "ไม่มีใครตายรอบนี้  ->  วนกลับไป poll() ใหม่",
+      vars: [ { n: "_dead", v: "[]", d: { th: "ว่าง = ไม่มี pointer ค้างให้ใคร", en: "empty means nobody holds a stale pointer" } } ] }
+  ]
+};
