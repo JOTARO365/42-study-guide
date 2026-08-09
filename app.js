@@ -1031,7 +1031,8 @@
     var isCPP  = proj.id.indexOf("cpp_module_") === 0;
     /* เปิดตรงแท็บได้ผ่าน #<section> — ผลค้นหาจากหน้าแรกลิงก์มาแบบนี้ */
     var fromHash = (location.hash || "").slice(1);
-    var st = useState(proj.sections[fromHash] ? fromHash : "principle");
+    var hasSec = Object.prototype.hasOwnProperty.call(proj.sections, fromHash);
+    var st = useState(hasSec ? fromHash : "principle");
     var tab = st[0], setTab = st[1];
     function goTab(k) {
       setTab(k);
