@@ -903,7 +903,30 @@
     );
   }
 
-  /* ---- หน้าแรก ---- */
+  /* ---- หน้าแรก: แยกหมวดเพราะหน้ารวมยาวขึ้นเรื่อย ๆ ---- */
+  var HOME_GROUPS = [
+    {
+      key: "core", match: function (id) { return !/^(cpp_module_|ai_|exam_)/.test(id); },
+      title: { th: "42 Common Core", en: "42 Common Core" },
+      sub: { th: "โปรเจกต์สาย C — ไล่ตั้งแต่ libft ถึง cub3D", en: "The C track — from libft through cub3D" }
+    },
+    {
+      key: "cpp", match: function (id) { return id.indexOf("cpp_module_") === 0; },
+      title: { th: "CPP Modules", en: "CPP Modules" },
+      sub: { th: "C++ ตั้งแต่ module 00 ถึง 09", en: "C++ from module 00 to 09" }
+    },
+    {
+      key: "ai", match: function (id) { return id.indexOf("ai_") === 0; },
+      title: { th: "AI Engineer", en: "AI Engineer" },
+      sub: { th: "สายงาน AI — LLM, RAG, agent, harness", en: "The AI track — LLMs, RAG, agents, harnesses" }
+    },
+    {
+      key: "exam", match: function (id) { return id.indexOf("exam_") === 0; },
+      title: { th: "สื่อติวสอบ Exam Rank", en: "Exam Rank Prep" },
+      sub: { th: "ข้อสอบ on-site rank 02–06", en: "The on-site exams, ranks 02–06" }
+    }
+  ];
+
   function Home(props) {
     return h("div", { className: "wrap" },
       h("div", { className: "hero" },
@@ -914,17 +937,27 @@
           en: "A hands-on 42 guide — from the theory, through every function, to the evaluation Q&A, all in plain language"
         }))
       ),
-      h("div", { className: "grid" },
-        props.projects.map(function (p) {
-          return h("a", {
-            className: "card", key: p.id, href: p.id + ".html",
-            style: { borderLeftColor: p.accent }
-          },
-            h("h3", null, projName(p)),
-            h("p", null, t(p.tag))
-          );
-        })
-      ),
+      HOME_GROUPS.map(function (g) {
+        var items = props.projects.filter(function (p) { return g.match(p.id); });
+        if (!items.length) return null;
+        return h("section", { className: "home-group", key: g.key },
+          h("div", { className: "group-head" },
+            h("h2", null, t(g.title), h("span", { className: "group-count" }, items.length)),
+            h("p", null, t(g.sub))
+          ),
+          h("div", { className: "grid" },
+            items.map(function (p) {
+              return h("a", {
+                className: "card", key: p.id, href: p.id + ".html",
+                style: { borderLeftColor: p.accent }
+              },
+                h("h3", null, projName(p)),
+                h("p", null, t(p.tag))
+              );
+            })
+          )
+        );
+      }),
       h("footer", null, t({
         th: "สื่อการสอน 42",
         en: "42 Study Guide"
