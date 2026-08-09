@@ -7,6 +7,7 @@
 (function () {
   var h = React.createElement;
   var useState = React.useState;
+  var useEffect = React.useEffect;
 
   /* ---- i18n: เลือกภาษา TH / EN ----
      ค่า text ในเนื้อหาเป็นได้ทั้ง string (ใช้ร่วมกัน) หรือ {th, en}
@@ -555,15 +556,36 @@
     return { ok: npNet(base, mk) === npNet(dst, mk), isDefault: bits === 0 };
   }
 
+  /* segment = กลุ่มของ interface ที่ต่อถึงกันด้วยสาย โดย switch ไม่ใช่ hop
+     จึงหาได้ด้วย union-find บนปลายสาย แทนที่จะไล่เขียนมือทีละด่าน */
+  function npSegments(level) {
+    var parent = {};
+    function find(a) {
+      if (parent[a] === undefined) parent[a] = a;
+      while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+      return a;
+    }
+    function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+    level.hosts.forEach(function (hst) { hst.ifs.forEach(function (f) { find(f.id); }); });
+    (level.switches || []).forEach(function (sw) { find(sw.id); });
+    level.links.forEach(function (l) { union(l[0], l[1]); });
+
+    var segOf = {}, groups = {};
+    level.hosts.forEach(function (hst) {
+      hst.ifs.forEach(function (f) {
+        var r = find(f.id);
+        segOf[f.id] = r;
+        (groups[r] = groups[r] || []).push(f.id);
+      });
+    });
+    return { segOf: segOf, groups: groups };
+  }
   function npBuild(level, vals) {
-    var byIf = {}, segOf = {}, hostOf = {};
+    var byIf = {}, hostOf = {};
     level.hosts.forEach(function (hst) {
       hst.ifs.forEach(function (f) { byIf[f.id] = f; hostOf[f.id] = hst.id; });
     });
-    level.segments.forEach(function (seg, i) {
-      seg.forEach(function (id) { segOf[id] = i; });
-    });
-    return { byIf: byIf, segOf: segOf, hostOf: hostOf, vals: vals };
+    return { byIf: byIf, segOf: npSegments(level).segOf, hostOf: hostOf, vals: vals };
   }
   function npHost(level, id) {
     var r = null;
@@ -650,69 +672,162 @@
     };
   }
 
-  function npIf(id, ip, mask, eip, emask) {
-    return { id: id, ip: ip, mask: mask, eip: !!eip, emask: !!emask };
+  /* ---- ข้อมูลกระดาน ----
+     พิกัดทุกตัวเป็น px บนผืนผ้าใบขนาดคงที่ของด่านนั้น (เลื่อนแนวนอนได้บนจอเล็ก)
+     side บอกว่าสายออกจากขอบไหนของกล่อง: l ซ้าย, r ขวา, t บน, b ล่าง          */
+  var NP_W = 230, NP_HEAD = 26, NP_ROW = 28, NP_PAD = 14, NP_SW = 76, NP_SWH = 30;
+
+  function npIf(id, ip, mask, side, eip, emask) {
+    return { id: id, ip: ip, mask: mask, side: side, eip: !!eip, emask: !!emask };
   }
+  function npHostH(hst) {
+    return NP_HEAD + (hst.ifs.length + (hst.routes || []).length) * NP_ROW + NP_PAD;
+  }
+  /* จุดปลายสาย: switch ใช้จุดกึ่งกลางกล่อง, interface ใช้ขอบตาม side ของมัน */
+  function npAnchor(level, endId) {
+    var i, hit = null;
+    (level.switches || []).forEach(function (sw) {
+      if (sw.id === endId) hit = { x: sw.x + NP_SW / 2, y: sw.y + NP_SWH / 2 };
+    });
+    if (hit) return hit;
+    for (i = 0; i < level.hosts.length; i++) {
+      var hst = level.hosts[i];
+      var f = null, j;
+      for (j = 0; j < hst.ifs.length; j++) if (hst.ifs[j].id === endId) f = hst.ifs[j];
+      if (!f) continue;
+      var hgt = npHostH(hst);
+      if (f.side === "l") return { x: hst.x, y: hst.y + hgt / 2 };
+      if (f.side === "r") return { x: hst.x + NP_W, y: hst.y + hgt / 2 };
+      if (f.side === "t") return { x: hst.x + NP_W / 2, y: hst.y };
+      return { x: hst.x + NP_W / 2, y: hst.y + hgt };
+    }
+    return { x: 0, y: 0 };
+  }
+
   var NP_LEVELS = [
     {
       name: { th: "ด่าน 1 · segment เดียว", en: "Level 1 · one segment" },
       brief: {
-        th: "A1 กับ B1 ต่ออยู่กับ switch ตัวเดียวกัน = subnet เดียวกัน เติม IP และ mask ให้ B1 คุยกับ A1 ได้",
+        th: "A1 กับ B1 ห้อยอยู่กับ switch ตัวเดียวกัน = subnet เดียวกัน เติม IP กับ mask ให้ B1 คุยกับ A1 ได้",
         en: "A1 and B1 hang off the same switch, so they share one subnet. Give B1 an address and mask that can talk to A1."
       },
+      secs: 90, w: 990, h: 190,
       hosts: [
-        { id: "A1", type: "host", ifs: [npIf("A1", "192.168.1.10", "255.255.255.0")], routes: [] },
-        { id: "B1", type: "host", ifs: [npIf("B1", "", "", 1, 1)], routes: [] }
+        { id: "A1", type: "host", x: 30, y: 60,
+          ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")], routes: [] },
+        { id: "B1", type: "host", x: 700, y: 60,
+          ifs: [npIf("B1", "", "", "l", 1, 1)], routes: [] }
       ],
-      segments: [["A1", "B1"]],
+      switches: [{ id: "SW1", x: 390, y: 78 }],
+      links: [["A1", "SW1"], ["B1", "SW1"]],
       goals: [["A1", "B1"]],
       solution: { "B1.ip": "192.168.1.20", "B1.mask": "255.255.255.0" },
       hint: {
-        th: "ต้องอยู่ในช่วง 192.168.1.1 – 192.168.1.254 และห้ามชนกับ .0 (network), .255 (broadcast) หรือ .10 ของ A1",
+        th: "อยู่ในช่วง 192.168.1.1 – .254 ก็ได้หมด ยกเว้น .0 (network), .255 (broadcast) และ .10 ที่ A1 ใช้อยู่",
         en: "Anything in 192.168.1.1–254 works, except .0 (network), .255 (broadcast) and A1's own .10"
       }
     },
     {
-      name: { th: "ด่าน 2 · router + default route", en: "Level 2 · router and a default route" },
+      name: { th: "ด่าน 2 · ขอบบล็อกของ mask", en: "Level 2 · the block boundary" },
       brief: {
-        th: "คนละ segment แล้ว — B1 ต้องได้ IP ที่อยู่ subnet เดียวกับขา R1b และต้องมี default route ชี้ไปหา router",
-        en: "Two segments now — B1 needs an address in R1b's subnet and a default route pointing at the router."
+        th: "mask ของ A1 ถูกล็อกไว้ที่ /26 ซึ่งกำหนดขอบบล็อกไปแล้ว หา IP ให้ B1 ที่อยู่ในบล็อกเดียวกันและไม่ชน network/broadcast",
+        en: "A1's mask is pinned at /26, which fixes the block boundaries. Find an address for B1 inside that block that is neither the network nor the broadcast."
       },
+      secs: 120, w: 830, h: 190,
       hosts: [
-        { id: "A1", type: "host", ifs: [npIf("A1", "192.168.1.10", "255.255.255.0")],
+        { id: "A1", type: "host", x: 30, y: 60,
+          ifs: [npIf("A1", "172.20.5.130", "255.255.255.192", "r")], routes: [] },
+        { id: "B1", type: "host", x: 560, y: 60,
+          ifs: [npIf("B1", "", "", "l", 1, 1)], routes: [] }
+      ],
+      links: [["A1", "B1"]],
+      goals: [["A1", "B1"]],
+      solution: { "B1.ip": "172.20.5.131", "B1.mask": "255.255.255.192" },
+      hint: {
+        th: "/26 บล็อกละ 64 → ขอบคือ .128 กับ .191 ใช้ได้จริง .129 ถึง .190 (และ .130 ถูก A1 จองไว้แล้ว)",
+        en: "A /26 has blocks of 64, so this one runs .128 to .191 with .129–.190 usable — and .130 is already taken by A1."
+      }
+    },
+    {
+      name: { th: "ด่าน 3 · router กับ default route", en: "Level 3 · a router and a default route" },
+      brief: {
+        th: "คนละ segment แล้ว B1 ต้องได้ IP ใน subnet เดียวกับขา R1b และต้องมี default route ชี้กลับไปหา router",
+        en: "Two segments now: B1 needs an address in R1b's subnet and a default route pointing back at the router."
+      },
+      secs: 150, w: 1030, h: 180,
+      hosts: [
+        { id: "A1", type: "host", x: 30, y: 40,
+          ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
-        { id: "R1", type: "router", ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0"),
-                                          npIf("R1b", "10.12.0.1", "255.255.255.0")], routes: [] },
-        { id: "B1", type: "host", ifs: [npIf("B1", "", "", 1, 1)],
+        { id: "R1", type: "router", x: 390, y: 40,
+          ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
+                npIf("R1b", "10.12.0.1", "255.255.255.0", "r")], routes: [] },
+        { id: "B1", type: "host", x: 750, y: 40,
+          ifs: [npIf("B1", "", "", "l", 1, 1)],
           routes: [{ id: "rB1", route: "default", gate: "", egate: 1 }] }
       ],
-      segments: [["A1", "R1a"], ["R1b", "B1"]],
+      links: [["A1", "R1a"], ["R1b", "B1"]],
       goals: [["A1", "B1"]],
       solution: { "B1.ip": "10.12.0.2", "B1.mask": "255.255.255.0", "rB1.gate": "10.12.0.1" },
       hint: {
-        th: "R1 ไม่ต้องมี route เลย เพราะทั้งสอง segment ต่ออยู่กับขาของมันโดยตรง — ที่ขาดคือทางกลับของ B1",
+        th: "R1 ไม่ต้องมี route สักบรรทัด เพราะทั้งสอง segment ต่อกับขาของมันตรง ๆ — ที่ขาดคือทางกลับของ B1",
         en: "R1 needs no routes at all: both segments are directly attached. What is missing is B1's way back."
       }
     },
     {
-      name: { th: "ด่าน 3 · สอง router ต้องรู้จักกันทั้งสองทาง", en: "Level 3 · two routers, both directions" },
+      name: { th: "ด่าน 4 · ทุกคนบน switch อยู่ subnet เดียวกัน", en: "Level 4 · everyone on a switch shares a subnet" },
+      brief: {
+        th: "A1, A2 และขา R1a ห้อย switch เดียวกัน จึงต้องอยู่ subnet เดียวกันทั้งหมด และทั้งสองเครื่องต้องมีทางออก",
+        en: "A1, A2 and R1a all hang off one switch, so they must share one subnet — and both hosts need a way out."
+      },
+      secs: 150, w: 1020, h: 270,
+      hosts: [
+        { id: "A1", type: "host", x: 20, y: 20,
+          ifs: [npIf("A1", "192.168.4.10", "255.255.255.0", "r")],
+          routes: [{ id: "rA1", route: "default", gate: "192.168.4.1" }] },
+        { id: "A2", type: "host", x: 20, y: 140,
+          ifs: [npIf("A2", "", "", "r", 1, 1)],
+          routes: [{ id: "rA2", route: "default", gate: "", egate: 1 }] },
+        { id: "R1", type: "router", x: 430, y: 80,
+          ifs: [npIf("R1a", "192.168.4.1", "255.255.255.0", "l"),
+                npIf("R1b", "10.5.0.1", "255.255.255.0", "r")], routes: [] },
+        { id: "B1", type: "host", x: 760, y: 80,
+          ifs: [npIf("B1", "10.5.0.2", "255.255.255.0", "l")],
+          routes: [{ id: "rB1", route: "default", gate: "10.5.0.1" }] }
+      ],
+      switches: [{ id: "SW1", x: 320, y: 112 }],
+      links: [["A1", "SW1"], ["A2", "SW1"], ["SW1", "R1a"], ["R1b", "B1"]],
+      goals: [["A1", "B1"], ["A2", "B1"]],
+      solution: { "A2.ip": "192.168.4.11", "A2.mask": "255.255.255.0", "rA2.gate": "192.168.4.1" },
+      hint: {
+        th: "A2 ต้องใช้ mask และ subnet เดียวกับ A1 เป๊ะ ห้ามซ้ำเลขกับใคร และ gateway คือขา R1a ตัวเดียวกัน",
+        en: "A2 needs exactly A1's subnet and mask, an address nobody else uses, and the same R1a gateway."
+      }
+    },
+    {
+      name: { th: "ด่าน 5 · สอง router ต้องรู้จักกันทั้งสองทาง", en: "Level 5 · two routers, both directions" },
       brief: {
         th: "R1 กับ R2 เชื่อมกันด้วยลิงก์ /30 ต่างฝ่ายต้องมี route ไปหา subnet ของอีกฝั่ง ไม่งั้นจะได้ No reverse way",
         en: "R1 and R2 share a /30 link. Each needs a route to the other side's subnet, or you get No reverse way."
       },
+      secs: 210, w: 1080, h: 180,
       hosts: [
-        { id: "A1", type: "host", ifs: [npIf("A1", "192.168.1.10", "255.255.255.0")],
+        { id: "A1", type: "host", x: 10, y: 20,
+          ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
-        { id: "R1", type: "router", ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0"),
-                                          npIf("R1b", "10.0.0.1", "255.255.255.252")],
+        { id: "R1", type: "router", x: 280, y: 20,
+          ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
+                npIf("R1b", "10.0.0.1", "255.255.255.252", "r")],
           routes: [{ id: "rR1", route: "192.168.2.0/24", gate: "", egate: 1 }] },
-        { id: "R2", type: "router", ifs: [npIf("R2a", "10.0.0.2", "255.255.255.252"),
-                                          npIf("R2b", "192.168.2.1", "255.255.255.0")],
+        { id: "R2", type: "router", x: 560, y: 20,
+          ifs: [npIf("R2a", "10.0.0.2", "255.255.255.252", "l"),
+                npIf("R2b", "192.168.2.1", "255.255.255.0", "r")],
           routes: [{ id: "rR2", route: "", gate: "", eroute: 1, egate: 1 }] },
-        { id: "B1", type: "host", ifs: [npIf("B1", "192.168.2.20", "255.255.255.0")],
+        { id: "B1", type: "host", x: 840, y: 20,
+          ifs: [npIf("B1", "192.168.2.20", "255.255.255.0", "l")],
           routes: [{ id: "rB1", route: "default", gate: "192.168.2.1" }] }
       ],
-      segments: [["A1", "R1a"], ["R1b", "R2a"], ["R2b", "B1"]],
+      links: [["A1", "R1a"], ["R1b", "R2a"], ["R2b", "B1"]],
       goals: [["A1", "B1"]],
       solution: { "rR1.gate": "10.0.0.2", "rR2.route": "192.168.1.0/24", "rR2.gate": "10.0.0.1" },
       hint: {
@@ -721,51 +836,157 @@
       }
     },
     {
-      name: { th: "ด่าน 4 · ขาของ router ห้ามซ้อนกัน", en: "Level 4 · a router's legs must not overlap" },
+      name: { th: "ด่าน 6 · gateway ที่ล็อกคือข้อกำหนด", en: "Level 6 · a locked gateway is a specification" },
       brief: {
-        th: "IP ทุกตัวถูกล็อก เหลือแค่ mask ของสองขา R1 — ลองใส่ 255.255.255.0 ทั้งคู่ดูก่อน แล้วอ่าน log ว่าทำไมถึงตาย",
-        en: "Every address is pinned; only R1's two masks are yours. Try 255.255.255.0 on both first and read the log to see why it dies."
+        th: "default route ของ A1 ถูกล็อกไว้ที่ 172.20.5.129 นั่นบอกเลขของขา R1a และ mask /26 ของ A1 ก็บอกขอบบล็อกไปแล้ว",
+        en: "A1's default gateway is pinned at 172.20.5.129, which dictates R1a's address — and A1's /26 already fixes the block."
       },
+      secs: 210, w: 880, h: 180,
       hosts: [
-        { id: "A1", type: "host", ifs: [npIf("A1", "172.16.5.10", "255.255.255.128")],
-          routes: [{ id: "rA1", route: "default", gate: "172.16.5.1" }] },
-        { id: "R1", type: "router", ifs: [npIf("R1a", "172.16.5.1", "", 0, 1),
-                                          npIf("R1b", "172.16.5.129", "", 0, 1)], routes: [] },
-        { id: "B1", type: "host", ifs: [npIf("B1", "172.16.5.140", "255.255.255.128")],
-          routes: [{ id: "rB1", route: "default", gate: "172.16.5.129" }] }
+        { id: "A1", type: "host", x: 30, y: 40,
+          ifs: [npIf("A1", "", "255.255.255.192", "r", 1, 0)],
+          routes: [{ id: "rA1", route: "default", gate: "172.20.5.129" }] },
+        { id: "R1", type: "router", x: 330, y: 40,
+          ifs: [npIf("R1a", "", "", "l", 1, 1),
+                npIf("R1b", "10.9.0.1", "255.255.255.0", "r")], routes: [] },
+        { id: "B1", type: "host", x: 620, y: 40,
+          ifs: [npIf("B1", "10.9.0.2", "255.255.255.0", "l")],
+          routes: [{ id: "rB1", route: "default", gate: "10.9.0.1" }] }
       ],
-      segments: [["A1", "R1a"], ["R1b", "B1"]],
+      links: [["A1", "R1a"], ["R1b", "B1"]],
       goals: [["A1", "B1"]],
-      solution: { "R1a.mask": "255.255.255.128", "R1b.mask": "255.255.255.128" },
+      solution: { "A1.ip": "172.20.5.130", "R1a.ip": "172.20.5.129", "R1a.mask": "255.255.255.192" },
       hint: {
-        th: "/24 ทำให้ทั้งสองขาครอบ .140 พร้อมกัน → multiple interface match. /25 แบ่งที่ .0 กับ .128 พอดี: .1 กับ .10 อยู่ก้อนล่าง ส่วน .129 กับ .140 อยู่ก้อนบน",
-        en: "With /24 both legs cover .140 at once → multiple interface match. A /25 splits at .0 and .128: .1 and .10 in the lower block, .129 and .140 in the upper."
+        th: "/26 บล็อกละ 64 → segment นี้คือ 172.20.5.128/26 (.128–.191); .129 เป็นของ R1a แล้ว A1 เลือกได้ .130–.190",
+        en: "A /26 means blocks of 64, so this segment is 172.20.5.128/26 (.128–.191); .129 belongs to R1a and A1 can take .130–.190."
       }
     },
     {
-      name: { th: "ด่าน 5 · Internet, IP สาธารณะ, ห้าม default route", en: "Level 5 · Internet, public addresses, no default route" },
+      name: { th: "ด่าน 7 · ขาของ router ห้ามซ้อนกัน", en: "Level 7 · a router's legs must not overlap" },
       brief: {
-        th: "A1 ต้องคุยกับ Internet ได้: ต้องใช้ IP สาธารณะ, R1 ต้องมีทางออก และ Internet ต้องมี route เจาะจงกลับมา (ห้าม default)",
-        en: "A1 must reach the Internet: a public address, a way out on R1, and an explicit route back on the Internet node — never a default."
+        th: "IP ทุกตัวถูกล็อก เหลือแค่ mask ของสองขา R1 ลองใส่ 255.255.255.0 ทั้งคู่ก่อน แล้วอ่าน log ว่าทำไมถึงตาย",
+        en: "Every address is pinned; only R1's two masks are yours. Try 255.255.255.0 on both first and read the log to see why it dies."
       },
+      secs: 240, w: 880, h: 180,
       hosts: [
-        { id: "A1", type: "host", ifs: [npIf("A1", "", "", 1, 1)],
+        { id: "A1", type: "host", x: 30, y: 40,
+          ifs: [npIf("A1", "172.16.5.10", "255.255.255.128", "r")],
+          routes: [{ id: "rA1", route: "default", gate: "172.16.5.1" }] },
+        { id: "R1", type: "router", x: 330, y: 40,
+          ifs: [npIf("R1a", "172.16.5.1", "", "l", 0, 1),
+                npIf("R1b", "172.16.5.129", "", "r", 0, 1)], routes: [] },
+        { id: "B1", type: "host", x: 620, y: 40,
+          ifs: [npIf("B1", "172.16.5.140", "255.255.255.128", "l")],
+          routes: [{ id: "rB1", route: "default", gate: "172.16.5.129" }] }
+      ],
+      links: [["A1", "R1a"], ["R1b", "B1"]],
+      goals: [["A1", "B1"]],
+      solution: { "R1a.mask": "255.255.255.128", "R1b.mask": "255.255.255.128" },
+      hint: {
+        th: "/24 ทำให้ทั้งสองขาครอบ .140 พร้อมกัน → multiple interface match ส่วน /25 แบ่งที่ .0 กับ .128 พอดี",
+        en: "With /24 both legs cover .140 at once → multiple interface match. A /25 splits cleanly at .0 and .128."
+      }
+    },
+    {
+      name: { th: "ด่าน 8 · บรรทัดแรกที่ตรงชนะ", en: "Level 8 · first match wins" },
+      brief: {
+        th: "R1 มี default route ล็อกไว้ชี้ออก ISP อยู่แล้ว ถ้าไม่ใส่ route เจาะจงของ LAN ฝั่ง B ไว้บรรทัดบน packet จะวิ่งออก ISP แล้วหาย",
+        en: "R1 already has a locked default route out to the ISP. Without a specific route for B's LAN on the line above it, packets leave through the ISP and vanish."
+      },
+      secs: 300, w: 1080, h: 350,
+      hosts: [
+        { id: "A1", type: "host", x: 10, y: 20,
+          ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
+          routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
+        { id: "R1", type: "router", x: 280, y: 20,
+          ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
+                npIf("R1b", "10.0.0.1", "255.255.255.252", "r"),
+                npIf("R1c", "41.66.0.1", "255.255.255.252", "b")],
+          routes: [{ id: "rR1a", route: "", gate: "", eroute: 1, egate: 1 },
+                   { id: "rR1b", route: "default", gate: "41.66.0.2" }] },
+        { id: "R2", type: "router", x: 560, y: 20,
+          ifs: [npIf("R2a", "10.0.0.2", "255.255.255.252", "l"),
+                npIf("R2b", "192.168.2.1", "255.255.255.0", "r")],
+          routes: [{ id: "rR2", route: "192.168.1.0/24", gate: "10.0.0.1" }] },
+        { id: "B1", type: "host", x: 840, y: 20,
+          ifs: [npIf("B1", "192.168.2.20", "255.255.255.0", "l")],
+          routes: [{ id: "rB1", route: "default", gate: "192.168.2.1" }] },
+        { id: "ISP", type: "host", x: 280, y: 250,
+          ifs: [npIf("ISP", "41.66.0.2", "255.255.255.252", "t")], routes: [] }
+      ],
+      links: [["A1", "R1a"], ["R1b", "R2a"], ["R2b", "B1"], ["R1c", "ISP"]],
+      goals: [["A1", "B1"]],
+      solution: { "rR1a.route": "192.168.2.0/24", "rR1a.gate": "10.0.0.2" },
+      hint: {
+        th: "ตารางอ่านบนลงล่างและหยุดที่บรรทัดแรกที่ตรง — route เจาะจงจึงต้องอยู่เหนือ default เสมอ",
+        en: "The table is read top to bottom and stops at the first match, so a specific route must always sit above the default."
+      }
+    },
+    {
+      name: { th: "ด่าน 9 · Internet ห้ามมี default route", en: "Level 9 · the Internet takes no default route" },
+      brief: {
+        th: "A1 ต้องคุยกับ Internet ให้ได้ — ต้องใช้ IP สาธารณะ, R1 ต้องมีทางออก และ Internet ต้องมี route เจาะจงกลับมา",
+        en: "A1 must reach the Internet: a public address, a way out on R1, and an explicit route back on the Internet node."
+      },
+      secs: 300, w: 880, h: 190,
+      hosts: [
+        { id: "A1", type: "host", x: 30, y: 40,
+          ifs: [npIf("A1", "", "", "r", 1, 1)],
           routes: [{ id: "rA1", route: "default", gate: "104.198.7.1" }] },
-        { id: "R1", type: "router", ifs: [npIf("R1a", "104.198.7.1", "255.255.255.0"),
-                                          npIf("R1b", "41.66.1.2", "255.255.255.252")],
+        { id: "R1", type: "router", x: 330, y: 40,
+          ifs: [npIf("R1a", "104.198.7.1", "255.255.255.0", "l"),
+                npIf("R1b", "41.66.1.2", "255.255.255.252", "r")],
           routes: [{ id: "rR1", route: "default", gate: "", egate: 1 }] },
-        { id: "NET", type: "internet", ifs: [npIf("NET", "41.66.1.1", "255.255.255.252")],
+        { id: "NET", type: "internet", x: 620, y: 40,
+          ifs: [npIf("NET", "41.66.1.1", "255.255.255.252", "l")],
           routes: [{ id: "rNET", route: "", gate: "", eroute: 1, egate: 1 }] }
       ],
-      segments: [["A1", "R1a"], ["R1b", "NET"]],
+      links: [["A1", "R1a"], ["R1b", "NET"]],
       goals: [["A1", "NET"]],
       solution: {
         "A1.ip": "104.198.7.10", "A1.mask": "255.255.255.0",
         "rR1.gate": "41.66.1.1", "rNET.route": "104.198.7.0/24", "rNET.gate": "41.66.1.2"
       },
       hint: {
-        th: "default route ของ A1 ถูกล็อกไว้ที่ 104.198.7.1 ซึ่งบอกว่า segment นี้ต้องเป็น 104.198.7.0/24 — และ 192.168.x จะโดน Internet ทิ้ง",
-        en: "A1's locked default gateway of 104.198.7.1 dictates the 104.198.7.0/24 segment — and any 192.168.x would be dropped by the Internet node."
+        th: "gateway ที่ล็อกของ A1 บอกว่า segment นี้คือ 104.198.7.0/24 และถ้าใช้ 192.168.x จะโดน Internet ทิ้งทันที",
+        en: "A1's locked gateway says this segment is 104.198.7.0/24, and any 192.168.x would be dropped by the Internet node outright."
+      }
+    },
+    {
+      name: { th: "ด่าน 10 · route ช่องเดียวสำหรับสอง LAN", en: "Level 10 · one route slot for two LANs" },
+      brief: {
+        th: "Internet มีช่อง route ช่องเดียว แต่ต้องเข้าถึงทั้ง LAN A และ LAN B — ต้องออกแบบให้สอง LAN อยู่ใต้ prefix เดียวกันได้ และขาของ R1 ต้องไม่ซ้อนกัน",
+        en: "The Internet node has a single route slot but must reach both LAN A and LAN B — the two LANs have to fit under one prefix, and R1's legs must not overlap."
+      },
+      secs: 420, w: 1020, h: 400,
+      hosts: [
+        { id: "NET", type: "internet", x: 400, y: 20,
+          ifs: [npIf("NET", "41.66.1.1", "255.255.255.252", "b")],
+          routes: [{ id: "rNET", route: "", gate: "", eroute: 1, egate: 1 }] },
+        { id: "R1", type: "router", x: 400, y: 190,
+          ifs: [npIf("R1c", "41.66.1.2", "255.255.255.252", "t"),
+                npIf("R1a", "104.198.6.1", "", "l", 0, 1),
+                npIf("R1b", "104.198.6.129", "", "r", 0, 1)],
+          routes: [{ id: "rR1", route: "default", gate: "", egate: 1 }] },
+        { id: "A1", type: "host", x: 60, y: 225,
+          ifs: [npIf("A1", "", "", "r", 1, 1)],
+          routes: [{ id: "rA1", route: "default", gate: "104.198.6.1" }] },
+        { id: "B1", type: "host", x: 760, y: 225,
+          ifs: [npIf("B1", "", "", "l", 1, 1)],
+          routes: [{ id: "rB1", route: "default", gate: "104.198.6.129" }] }
+      ],
+      links: [["NET", "R1c"], ["R1a", "A1"], ["R1b", "B1"]],
+      goals: [["A1", "NET"], ["B1", "NET"]],
+      solution: {
+        "R1a.mask": "255.255.255.128", "R1b.mask": "255.255.255.128",
+        "A1.ip": "104.198.6.10", "A1.mask": "255.255.255.128",
+        "B1.ip": "104.198.6.140", "B1.mask": "255.255.255.128",
+        "rR1.gate": "41.66.1.1",
+        "rNET.route": "104.198.6.0/24", "rNET.gate": "41.66.1.2"
+      },
+      hint: {
+        th: "ซอย 104.198.6.0/24 เป็น /25 สองก้อน (.0 กับ .128) แล้ว Internet เขียน route เดียวครอบทั้งคู่ด้วย /24",
+        en: "Split 104.198.6.0/24 into two /25 blocks (.0 and .128); one /24 route on the Internet then covers both."
       }
     }
   ];
@@ -780,6 +1001,55 @@
     });
     return v;
   }
+  function npClock(s) {
+    if (s < 0) s = 0;
+    var m = Math.floor(s / 60), r = s % 60;
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  /* ---- ผืนผ้าใบวาดสาย ----
+     canvas วาดเฉพาะสายกับหัวต่อ ส่วนกล่องและช่องกรอกเป็น HTML ทับอยู่ด้านบน
+     (input ใส่ใน canvas ไม่ได้)                                            */
+  function NpWires(props) {
+    var level = props.level;
+    var ref = React.useRef(null);
+    useEffect(function () {
+      var cv = ref.current;
+      if (!cv || !cv.getContext) return;
+      var dpr = window.devicePixelRatio || 1;
+      cv.width = level.w * dpr;
+      cv.height = level.h * dpr;
+      var g = cv.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, level.w, level.h);
+
+      var accent = "#5eb0ef";
+      try {
+        var v = getComputedStyle(document.documentElement).getPropertyValue("--accent");
+        if (v && v.trim()) accent = v.trim();
+      } catch (e) { /* บางสภาพแวดล้อมไม่มี getComputedStyle */ }
+
+      g.lineCap = "round";
+      g.lineJoin = "round";
+      level.links.forEach(function (l) {
+        var a = npAnchor(level, l[0]), b = npAnchor(level, l[1]);
+        g.strokeStyle = "rgba(148,163,184,.28)";      /* เงาสายให้ดูมีน้ำหนัก */
+        g.lineWidth = 6;
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+        g.strokeStyle = accent;
+        g.lineWidth = 2;
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+        g.fillStyle = accent;
+        [a, b].forEach(function (p) {
+          g.beginPath(); g.arc(p.x, p.y, 4, 0, Math.PI * 2); g.fill();
+        });
+      });
+    });
+    return h("canvas", {
+      ref: ref, className: "np-wires",
+      style: { width: level.w + "px", height: level.h + "px" }
+    });
+  }
 
   function NetPracticeDemo() {
     var sL = useState(0); var li = sL[0], setLi = sL[1];
@@ -787,29 +1057,54 @@
     var sV = useState(npInitVals(level)); var vals = sV[0], setVals = sV[1];
     var sR = useState(null); var res = sR[0], setRes = sR[1];
     var sH = useState(false); var showHint = sH[0], setShowHint = sH[1];
+    var sT = useState(level.secs); var left = sT[0], setLeft = sT[1];
+    var sD = useState(false); var done = sD[0], setDone = sD[1];   /* ผ่านแล้ว */
+    var sO = useState(false); var over = sO[0], setOver = sO[1];   /* หมดเวลา */
+
+    /* นาฬิกาเดินเฉพาะตอนด่านยังไม่จบ — หมดเวลาแล้วเปิดเฉลยให้เลย */
+    useEffect(function () {
+      if (done || over) return;
+      var id = setInterval(function () {
+        setLeft(function (s) {
+          if (s <= 1) { setOver(true); revealInto(); return 0; }
+          return s - 1;
+        });
+      }, 1000);
+      return function () { clearInterval(id); };
+    }, [li, done, over]);
+
+    function withSolution(base) {
+      var nv = {}, k;
+      for (k in base) if (base.hasOwnProperty(k)) nv[k] = base[k];
+      for (k in level.solution) if (level.solution.hasOwnProperty(k)) nv[k] = level.solution[k];
+      return nv;
+    }
+    function revealInto() { setVals(function (cur) { return withSolution(cur); }); setRes(null); }
 
     function loadLevel(i) {
       setLi(i); setVals(npInitVals(NP_LEVELS[i])); setRes(null); setShowHint(false);
+      setLeft(NP_LEVELS[i].secs); setDone(false); setOver(false);
     }
     function set(key, v) {
-      var nv = {}; for (var k in vals) if (vals.hasOwnProperty(k)) nv[k] = vals[k];
-      nv[key] = v; setVals(nv); setRes(null);
+      var nv = {}, k;
+      for (k in vals) if (vals.hasOwnProperty(k)) nv[k] = vals[k];
+      nv[key] = v;
+      setVals(nv); setRes(null);
     }
     function check() {
-      setRes(level.goals.map(function (g) {
+      var out = level.goals.map(function (g) {
         var r = npCheckGoal(level, vals, g[0], g[1]);
         r.src = g[0]; r.dst = g[1];
         return r;
-      }));
-    }
-    function reveal() {
-      var nv = {}; for (var k in vals) if (vals.hasOwnProperty(k)) nv[k] = vals[k];
-      for (var s in level.solution) if (level.solution.hasOwnProperty(s)) nv[s] = level.solution[s];
-      setVals(nv); setRes(null);
+      });
+      setRes(out);
+      if (out.every(function (r) { return r.fwd && r.rev; })) setDone(true);
     }
 
     function field(key, ph, editable) {
-      if (!editable) return h("span", { className: "np-locked" }, npVal(vals, key.split(".")[0], key.split(".")[1]) || "—");
+      var parts = key.split(".");
+      if (!editable)
+        return h("span", { className: "np-locked" }, npVal(vals, parts[0], parts[1]) || "—");
       return h("input", {
         className: "np-in", value: vals[key] || "", placeholder: ph, spellCheck: false,
         onChange: function (e) { set(key, e.target.value); }
@@ -821,58 +1116,97 @@
       router: { th: "เราเตอร์", en: "router" },
       internet: { th: "Internet", en: "internet" }
     };
-    var segNames = level.segments.map(function (seg, i) {
-      return "S" + (i + 1) + " = { " + seg.join(", ") + " }";
+    var groups = npSegments(level).groups;
+    var segText = Object.keys(groups).map(function (k, i) {
+      return "S" + (i + 1) + " = { " + groups[k].join(", ") + " }";
     }).join("   ");
+    var solvedAll = done;
 
     return h("div", { className: "demo" },
       h("p", { className: "demo-hint" }, t({
-        th: "กระดานฝึกแบบเดียวกับ NetPractice — เติมช่องสีขาว แล้วกด 'ตรวจ' ระบบจะเดินเส้นทางทั้งขาไปและขากลับให้ดูทีละ hop",
-        en: "A NetPractice-style board. Fill the white fields and press Check; the engine walks both the forward and the reverse path hop by hop."
+        th: "กระดานฝึกแบบเดียวกับ NetPractice — สายต่อไว้ให้แล้ว เติมช่องสีขาวแล้วกด 'ตรวจ' ระบบจะเดินเส้นทางทั้งขาไปและขากลับให้ดูทีละ hop",
+        en: "A NetPractice-style board. The cables are already wired; fill the white fields and press Check, and the engine walks both the forward and the reverse path hop by hop."
       })),
       h("div", { className: "np-levels" },
         NP_LEVELS.map(function (lv, i) {
           return h("button", {
             key: i, className: "np-lvl" + (i === li ? " active" : ""),
+            title: t(lv.name),
             onClick: function () { loadLevel(i); }
-          }, t(lv.name));
-        })
+          }, String(i + 1));
+        }),
+        h("span", { className: "np-lvlname" }, t(level.name))
+      ),
+      h("div", { className: "np-status" },
+        h("span", { className: "np-count" }, t({ th: "ด่าน ", en: "Level " }) + (li + 1) + "/10"),
+        h("span", {
+          className: "np-timer" + (over ? " over" : (left <= 30 ? " warn" : "")) + (solvedAll ? " done" : "")
+        }, (over ? "⏱ " : "⏳ ") + npClock(left) +
+           t({ th: over ? " หมดเวลา" : " เหลือ", en: over ? " time up" : " left" })),
+        solvedAll ? h("span", { className: "np-solved" },
+          t({ th: "✓ ผ่านด่านนี้แล้ว", en: "✓ level solved" })) : null
       ),
       h("p", { className: "np-brief" }, t(level.brief)),
-      h("div", { className: "np-seg" }, t({ th: "segment (สิ่งที่ต่อสายเดียวกัน): ", en: "segments (one wire each): " }) + segNames),
-      h("div", { className: "np-board" },
-        level.hosts.map(function (hst) {
-          return h("div", { className: "np-card " + hst.type, key: hst.id },
-            h("div", { className: "np-card-head" },
-              h("b", null, hst.id),
-              h("span", { className: "np-kind" }, t(kindLabel[hst.type]))
-            ),
-            hst.ifs.map(function (f) {
-              return h("div", { className: "np-row", key: f.id },
-                h("span", { className: "np-lbl" }, f.id),
-                h("span", { className: "np-cell" }, "IP ", field(f.id + ".ip", "0.0.0.0", f.eip)),
-                h("span", { className: "np-cell" }, "mask ", field(f.id + ".mask", "255.255.255.0", f.emask))
-              );
-            }),
-            (hst.routes || []).map(function (r) {
-              return h("div", { className: "np-row route", key: r.id },
-                h("span", { className: "np-lbl" }, t({ th: "route", en: "route" })),
-                h("span", { className: "np-cell" }, field(r.id + ".route", "0.0.0.0/0", r.eroute)),
-                h("span", { className: "np-cell" }, "→ ", field(r.id + ".gate", "0.0.0.0", r.egate))
-              );
-            })
-          );
-        })
+      h("div", { className: "np-canvas-wrap" },
+        h("div", { className: "np-canvas", style: { width: level.w + "px", height: level.h + "px" } },
+          h(NpWires, { level: level }),
+          (level.switches || []).map(function (sw) {
+            return h("div", {
+              key: sw.id, className: "np-switch",
+              style: { left: sw.x + "px", top: sw.y + "px", width: NP_SW + "px", height: NP_SWH + "px" }
+            }, sw.id);
+          }),
+          level.hosts.map(function (hst) {
+            return h("div", {
+              key: hst.id, className: "np-card " + hst.type,
+              style: {
+                left: hst.x + "px", top: hst.y + "px",
+                width: NP_W + "px", height: npHostH(hst) + "px"
+              }
+            },
+              h("div", { className: "np-card-head" },
+                h("b", null, hst.id),
+                h("span", { className: "np-kind" }, t(kindLabel[hst.type]))
+              ),
+              hst.ifs.map(function (f) {
+                return h("div", { className: "np-row", key: f.id },
+                  h("span", { className: "np-lbl" }, f.id),
+                  field(f.id + ".ip", "0.0.0.0", f.eip),
+                  field(f.id + ".mask", "255.255.255.0", f.emask)
+                );
+              }),
+              (hst.routes || []).map(function (r) {
+                return h("div", { className: "np-row route", key: r.id },
+                  h("span", { className: "np-lbl" }, "rt"),
+                  field(r.id + ".route", "0.0.0.0/0", r.eroute),
+                  h("span", { className: "np-arrow" }, "→"),
+                  field(r.id + ".gate", "0.0.0.0", r.egate)
+                );
+              })
+            );
+          })
+        )
       ),
+      h("div", { className: "np-seg" },
+        t({ th: "segment (สิ่งที่ต่อสายถึงกัน): ", en: "segments (wired together): " }) + segText),
       h("div", { className: "demo-bar" },
         h("button", { className: "demo-btn", onClick: check }, t({ th: "ตรวจ", en: "Check" })),
         h("button", { className: "demo-btn alt", onClick: function () { setShowHint(!showHint); } },
           t({ th: "คำใบ้", en: "Hint" })),
-        h("button", { className: "demo-btn alt", onClick: reveal }, t({ th: "เฉลย", en: "Solution" })),
+        h("button", { className: "demo-btn alt", onClick: function () { setDone(true); revealInto(); } },
+          t({ th: "เฉลย", en: "Solution" })),
         h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li); } },
-          t({ th: "รีเซ็ต", en: "Reset" }))
+          t({ th: "เริ่มด่านนี้ใหม่", en: "Restart level" })),
+        li < NP_LEVELS.length - 1
+          ? h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li + 1); } },
+              t({ th: "ด่านถัดไป →", en: "Next level →" }))
+          : null
       ),
       showHint ? h("div", { className: "note" }, t(level.hint)) : null,
+      over ? h("div", { className: "note" }, t({
+        th: "หมดเวลา — เปิดเฉลยให้แล้ว อ่านว่าทำไมถึงเป็นเลขชุดนี้ แล้วกด 'เริ่มด่านนี้ใหม่' ลองจับเวลาอีกรอบ",
+        en: "Time is up — the solution has been filled in. Read why those numbers are what they are, then press Restart level and race it again."
+      })) : null,
       res ? h("div", { className: "np-res" },
         res.map(function (r, i) {
           var ok = r.fwd && r.rev;

@@ -306,27 +306,44 @@ code.inline { background: var(--bg3); color: #ffd9a0; padding: 2px 6px; border-r
 
 footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
 
+
 /* ---- NetPractice simulator ---- */
-.np-levels { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.np-lvl { background: var(--bg2); border: 1px solid var(--line); color: var(--muted); padding: 6px 12px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; transition: .1s; }
+.np-levels { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.np-lvl { width: 30px; height: 30px; padding: 0; background: var(--bg2); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; transition: .1s; }
 .np-lvl:hover { border-color: var(--accent); color: var(--txt); }
-.np-lvl.active { background: var(--accent); border-color: var(--accent); color: #0b0e13; font-weight: 600; }
-.np-brief { margin: 0 0 10px; line-height: 1.7; }
-.np-seg { font-family: "JetBrains Mono","Consolas",monospace; font-size: 12.5px; color: var(--muted); background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; overflow-x: auto; white-space: nowrap; }
-.np-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.np-card { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; border-left: 4px solid var(--muted); }
+.np-lvl.active { background: var(--accent); border-color: var(--accent); color: #0b0e13; font-weight: 700; }
+.np-lvlname { margin-left: 8px; font-size: 13px; color: var(--muted); }
+.np-status { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; }
+.np-count { font-size: 13px; color: var(--muted); }
+.np-timer { font-family: "JetBrains Mono","Consolas",monospace; font-size: 15px; font-weight: 700; color: var(--txt); background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 12px; }
+.np-timer.warn { color: #fbbf24; border-color: #fbbf24; }
+.np-timer.over { color: #ef4444; border-color: #ef4444; }
+.np-timer.done { color: var(--green); border-color: var(--green); }
+.np-solved { font-size: 13px; font-weight: 700; color: var(--green); }
+.np-brief { margin: 0 0 12px; line-height: 1.7; }
+
+.np-canvas-wrap { overflow-x: auto; padding-bottom: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; }
+.np-canvas { position: relative; margin: 10px; }
+.np-wires { position: absolute; left: 0; top: 0; }
+
+.np-card { position: absolute; box-sizing: border-box; background: var(--bg3); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; padding: 5px 9px 7px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .np-card.router { border-left-color: var(--accent); }
 .np-card.internet { border-left-color: #f472b6; }
-.np-card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-.np-card-head b { font-family: "JetBrains Mono","Consolas",monospace; font-size: 15px; }
-.np-kind { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-.np-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
-.np-row.route { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 9px; }
-.np-lbl { font-family: "JetBrains Mono","Consolas",monospace; font-size: 12px; color: var(--muted); min-width: 42px; }
-.np-cell { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
-.np-in { background: var(--bg); border: 1px solid var(--accent); color: var(--txt); border-radius: 6px; padding: 4px 8px; width: 132px; font-family: "JetBrains Mono","Consolas",monospace; font-size: 12.5px; }
-.np-in:focus { outline: none; box-shadow: 0 0 0 2px rgba(94,176,239,.25); }
-.np-locked { font-family: "JetBrains Mono","Consolas",monospace; font-size: 12.5px; color: var(--txt); background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.np-card-head { display: flex; align-items: baseline; gap: 7px; height: 20px; }
+.np-card-head b { font-family: "JetBrains Mono","Consolas",monospace; font-size: 13px; }
+.np-kind { font-size: 10px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
+.np-row { display: flex; align-items: center; gap: 5px; height: 28px; }
+.np-row.route { border-top: 1px dashed var(--line); }
+.np-lbl { font-family: "JetBrains Mono","Consolas",monospace; font-size: 10.5px; color: var(--muted); width: 24px; flex: 0 0 24px; }
+.np-arrow { color: var(--muted); font-size: 11px; }
+.np-in, .np-locked { box-sizing: border-box; width: 84px; flex: 0 0 84px; font-family: "JetBrains Mono","Consolas",monospace; font-size: 10.5px; border-radius: 5px; padding: 3px 5px; }
+.np-in { background: var(--bg); border: 1px solid var(--accent); color: var(--txt); }
+.np-in:focus { outline: none; box-shadow: 0 0 0 2px rgba(94,176,239,.3); }
+.np-locked { background: transparent; border: 1px solid transparent; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.np-switch { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: var(--bg3); border: 1px dashed var(--muted); border-radius: 8px; font-family: "JetBrains Mono","Consolas",monospace; font-size: 11px; color: var(--muted); }
+
+.np-seg { font-family: "JetBrains Mono","Consolas",monospace; font-size: 12px; color: var(--muted); margin-top: 10px; overflow-x: auto; white-space: nowrap; }
 .np-res { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .np-goal { border: 1px solid var(--line); border-left: 4px solid #ef4444; border-radius: 10px; padding: 10px 14px; background: var(--bg2); }
 .np-goal.ok { border-left-color: var(--green); }
@@ -334,4 +351,3 @@ footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line);
 .np-goal.ok .np-goal-head b { color: var(--green); }
 .np-goal:not(.ok) .np-goal-head b { color: #ef4444; }
 .np-log { margin: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-family: "JetBrains Mono","Consolas",monospace; font-size: 12.5px; line-height: 1.65; color: #cfe8ff; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
-@media (max-width: 560px) { .np-in { width: 100%; } .np-cell { width: 100%; } }
