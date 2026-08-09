@@ -976,3 +976,75 @@ window.EXTRA_FLOWS.netpractice = {
       vars: [ { n: "goal", v: "A1 ⇄ B1", d: { th: "ต้องผ่านทั้งสองทิศถึงจะเขียว", en: "both directions must pass before it turns green" }, w: true } ] }
   ]
 };
+
+/* Flow Visualizer ของหน้านี้ — เก็บไว้กับข้อมูลของหน้าเองจะได้ไม่ต้องโหลดไฟล์เพิ่ม */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.netpractice = {
+    input: "goal A1 -> B1 : ping 192.168.2.20",
+    steps: [
+      { fn: "sim_reach_gen(goal)", file: "sim.js", depth: 0,
+        note: { th: "จุดเริ่มของทุก goal — จำลอง **สองรอบ** คือ Forward way แล้วตามด้วย Reverse way ถ้ารอบไหนตกก็ KO",
+                en: "Where every goal starts — it simulates **twice**, Forward way then Reverse way; either failing means KO" },
+        data: "src = A1 (192.168.1.10)\ndst = B1 (192.168.2.20)",
+        vars: [
+          { n: "ip_src", v: "192.168.1.10", d: { th: "IP ของเครื่องต้นทาง", en: "the source host's address" } },
+          { n: "ip_dest", v: "192.168.2.20", d: { th: "IP ปลายทาง — ค่านี้ไม่เปลี่ยนตลอดเส้นทาง", en: "the destination, unchanged for the whole path" } }
+        ] },
+      { fn: "get_if_ip(A1)", file: "sim.js", depth: 1,
+        note: { th: "ขอ IP ที่ **ใช้ได้จริง** ของ interface — คืน `null` ถ้า IP เท่ากับ network หรือ broadcast ของ mask ตัวเอง นี่คือเหตุผลที่ /31 กับ /32 ตายเสมอ",
+                en: "Asks for the interface's **usable** address — it returns `null` when the address equals its own network or broadcast, which is why /31 and /32 are always dead" },
+        data: "ip   = 192.168.1.10\nmask = 255.255.255.0\nnetwork = .0   broadcast = .255   -> ok",
+        vars: [
+          { n: "mask", v: "255.255.255.0", d: { th: "ต้องเป็นบิต 1 ที่ติดกัน ไม่งั้น `mask_to_int()` ปฏิเสธ", en: "must have contiguous 1-bits or `mask_to_int()` rejects it" } }
+        ] },
+      { fn: "rec_route(dest, target, A1)", file: "sim.js", depth: 1,
+        note: { th: "ถามว่า **ขาไหนของเครื่องนี้ครอบปลายทางบ้าง** — ได้ 0 ขาแปลว่าต้องพึ่ง routing table, ได้มากกว่า 1 ขาคือ `multiple interface match` ตายทันที",
+                en: "Asks **which of this machine's legs cover the destination** — zero means fall back to the routing table, more than one is `multiple interface match` and it dies at once" },
+        data: "A1 มีขาเดียว: 192.168.1.0/24\n192.168.2.20 ไม่อยู่ในนั้น -> ต้องหา route",
+        vars: [
+          { n: "nb_match", v: "0", d: { th: "จำนวนขาที่ครอบปลายทาง", en: "how many legs cover the destination" }, w: true }
+        ] },
+      { fn: "ip_match_route(routes)", file: "sim.js", depth: 2,
+        note: { th: "ไล่ตารางจาก **บนลงล่าง** และหยุดที่บรรทัดแรกที่ตรง (`if (nb_routes > 0) return ret;`) — default ที่วางไว้บนจึงกลืน route เจาะจงที่อยู่ล่าง",
+                en: "Scans the table **top to bottom** and stops at the first match (`if (nb_routes > 0) return ret;`) — a default placed on top swallows the specific route below it" },
+        data: "route: 0.0.0.0/0  gate: 192.168.1.1   <- ตรง หยุดที่นี่",
+        vars: [
+          { n: "gate", v: "192.168.1.1", d: { th: "hop ถัดไป ไม่ใช่ปลายทาง", en: "the next hop, not the destination" }, w: true }
+        ] },
+      { fn: "rec_route(dest, gate, A1)", file: "sim.js", depth: 2,
+        note: { th: "เรียกซ้ำแต่คราวนี้ target คือ **gateway** — ถ้าไม่มีขาไหนคุยกับ gateway ได้ตรง ๆ จะได้ `route match but no interface for gateway` แล้วทิ้ง packet ไม่ไหลลงบรรทัดถัดไป",
+                en: "Recurses, but now the target is the **gateway** — if no leg can reach it directly you get `route match but no interface for gateway` and the packet is dropped rather than trying the next line" },
+        data: "192.168.1.1 อยู่ใน 192.168.1.0/24 ของขา A1 -> ส่งบนสายได้",
+        vars: [
+          { n: "input_itf", v: "if_A1", d: { th: "ขาที่ packet ออกไป", en: "the leg the packet leaves through" } }
+        ] },
+      { fn: "hop -> R1", file: "sim.js", depth: 1,
+        note: { th: "มาถึง router แล้วเริ่มตรรกะเดิมซ้ำ: ขาไหนครอบ `192.168.2.20` — ถ้า 2 ขาซ้อนกันตายที่นี่",
+                en: "At the router the same logic starts over: which leg covers `192.168.2.20` — two overlapping legs die right here" },
+        data: "R1a = 192.168.1.0/24  ไม่ครอบ\nR1b = 10.0.0.0/30      ไม่ครอบ\n-> ค้น routing table ของ R1",
+        vars: [
+          { n: "h['id']", v: "R1", d: { th: "เครื่องที่กำลังตัดสินใจอยู่", en: "the machine making the decision now" }, w: true }
+        ] },
+      { fn: "hop -> R2 -> B1", file: "sim.js", depth: 1,
+        note: { th: "R1 เจอ route `192.168.2.0/24` ส่งไป gateway `10.0.0.2` แล้ว R2 มีขาที่ครอบปลายทางจึงวางลงสายตรง",
+                en: "R1 matches `192.168.2.0/24` and hands it to gateway `10.0.0.2`; R2 has a leg covering the destination so it goes straight onto the wire" },
+        data: "R2b = 192.168.2.0/24 ครอบ .20 -> ส่งบนสาย",
+        vars: [
+          { n: "ttl", v: "3 hops", d: { th: "switch ไม่นับเป็น hop", en: "switches are not hops" } }
+        ] },
+      { fn: "destination IP reached", file: "sim.js", depth: 1,
+        note: { th: "ถึงเมื่อ **IP ของขาใดขาหนึ่งตรงเป๊ะ** กับปลายทาง (ไม่ใช่แค่อยู่ subnet เดียวกัน) ถ้าอยู่ subnet เดียวกันแต่เลขไม่ตรงจะได้ `packet not for me`",
+                en: "Arrival means **a leg's address equals the destination exactly**, not merely sharing its subnet — same subnet with the wrong number is `packet not for me`" },
+        data: "B1 = 192.168.2.20 == ip_dest   -> Forward way OK",
+        vars: [
+          { n: "status", v: "OK", d: { th: "ครึ่งแรกผ่าน", en: "the first half passed" }, w: true }
+        ] },
+      { fn: "Reverse way: B1 -> A1", file: "sim.js", depth: 0,
+        note: { th: "สลับต้นทางกับปลายทางแล้วเดินใหม่ทั้งเส้น — **นี่คือจุดที่คนตกมากที่สุด** เพราะ R2 ต้องมี route กลับไป `192.168.1.0/24` ด้วย ไม่งั้นได้ `KO - No reverse way`",
+                en: "Swaps source and destination and walks the whole path again — **this is where most people fail**, because R2 also needs a route back to `192.168.1.0/24` or you get `KO - No reverse way`" },
+        data: "B1 -> R2 -> R1 -> A1\nR2 ต้องมี: 192.168.1.0/24 -> 10.0.0.1",
+        vars: [
+          { n: "goal", v: "OK - Congratulations!!", d: { th: "เขียวก็ต่อเมื่อผ่านทั้งสองทิศ", en: "green only when both directions pass" }, w: true }
+        ] }
+    ]
+  };

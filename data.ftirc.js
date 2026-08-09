@@ -1290,3 +1290,65 @@ window.EXTRA_FLOWS.ft_irc = {
       vars: [ { n: "_dead", v: "[]", d: { th: "ว่าง = ไม่มี pointer ค้างให้ใคร", en: "empty means nobody holds a stale pointer" } } ] }
   ]
 };
+
+/* Flow Visualizer ของหน้านี้ — เก็บไว้กับข้อมูลของหน้าเองจะได้ไม่ต้องโหลดไฟล์เพิ่ม */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.ft_irc = {
+    input: "nc -C : ส่ง \"PRIVM\" , \"SG #42 :hi\" , \"\\r\\n\" เป็น 3 packet",
+    steps: [
+      { fn: "Server::loop()", file: "src/ServerLoop.cpp", depth: 0,
+        note: { th: "`_refreshPollOut()` ก่อนทุกครั้ง: ขอ `POLLOUT` เฉพาะ client ที่ out-buffer ไม่ว่าง แล้ว `poll(..., 500)` ให้ SIGINT ตอบสนองไว",
+                en: "`_refreshPollOut()` runs first: arm `POLLOUT` only where the out-buffer is non-empty, then `poll(..., 500)` so SIGINT stays responsive" },
+        data: "pfds = [listen:POLLIN, fd9:POLLIN]",
+        vars: [
+          { n: "revents", d: { th: "แหล่งความจริงเดียวว่าจะแตะ fd ไหน", en: "the only source of truth about which fd to touch" } } ] },
+      { fn: "recv(fd9)", file: "src/ServerLoop.cpp", depth: 1,
+        note: { th: "packet ที่ 1 มาถึง — **ห้าม parse ผลของ `recv` ตรง ๆ** เพราะ TCP ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client เท่านั้น",
+                en: "The first packet arrives — **never parse what `recv` returned**, because TCP has no message boundaries; append to the per-client buffer instead" },
+        data: "_in = \"PRIVM\"",
+        vars: [
+          { n: "_in", v: "\"PRIVM\"", d: { th: "ยังไม่มี `\\n` จึงยังไม่ทำอะไร", en: "no `\\n` yet, so nothing happens" }, w: true } ] },
+      { fn: "Client::extractLine()", file: "src/Client.cpp", depth: 2,
+        note: { th: "หา `\\n` ไม่เจอก็คืน false แล้วรอ byte ถัดไป — ถ้า buffer โตเกินเพดาน (8 KiB) ตัด client ด้วย `ERROR :Input line too long`",
+                en: "No `\\n` found, so it returns false and waits for more bytes — past the 8 KiB cap the client is dropped with `ERROR :Input line too long`" },
+        data: "find('\\n') == npos -> return false",
+        vars: [
+          { n: "MAX_IN", v: "8192", d: { th: "กัน peer ที่ไม่เคยส่ง `\\n` ทำ memory โตไม่จำกัด", en: "stops a peer that never sends `\\n` growing memory without bound" } } ] },
+      { fn: "recv(fd9) x2", file: "src/ServerLoop.cpp", depth: 1,
+        note: { th: "packet ที่ 2 และ 3 ต่อท้ายเข้า buffer เดิม — พอครบ `\\r\\n` ถึงจะได้ 1 บรรทัด นี่คือเทสต์ที่ subject ระบุไว้ตรง ๆ",
+                en: "Packets two and three append to the same buffer; only once `\\r\\n` is there does a line exist. This is the test the subject spells out" },
+        data: "_in = \"PRIVMSG #42 :hi\\r\\n\"",
+        vars: [
+          { n: "_in", d: { th: "ครบบรรทัดแล้ว", en: "a complete line at last" }, w: true } ] },
+      { fn: "extractLine() -> true", file: "src/Client.cpp", depth: 2,
+        note: { th: "ตัดที่ `\\n` แล้ว **ตัด `\\r` ท้ายทิ้งถ้ามี** — irssi ส่ง `\\r\\n` แต่ `nc` ส่ง `\\n` เปล่า ต้องรับทั้งคู่ ส่วนขาออกส่ง `\\r\\n` เสมอ",
+                en: "Split on `\\n` and **strip a trailing `\\r`** — irssi sends `\\r\\n` while `nc` sends a bare `\\n`, so both must work; outgoing lines always use `\\r\\n`" },
+        data: "line = \"PRIVMSG #42 :hi\"   (ตอบครั้งเดียว ไม่ใช่ 3 ครั้ง)",
+        vars: [
+          { n: "line", v: "\"PRIVMSG #42 :hi\"", d: { th: "หนึ่งคำสั่งจากสาม packet", en: "one command out of three packets" }, w: true } ] },
+      { fn: "Message::parse()", file: "src/Message.cpp", depth: 2,
+        note: { th: "ไวยากรณ์ `[:prefix] command *(SP middle) [SP :trailing]` — trailing ที่ขึ้นต้นด้วย `:` **กินทุกอย่างรวมช่องว่างจนจบบรรทัด** และพารามิเตอร์ได้ไม่เกิน 15 ตัว",
+                en: "Grammar is `[:prefix] command *(SP middle) [SP :trailing]` — a trailing starting with `:` **swallows everything including spaces**, and there are at most 15 parameters" },
+        data: "command = \"PRIVMSG\"\nparams  = [\"#42\", \"hi\"]",
+        vars: [
+          { n: "m.command", v: "\"PRIVMSG\"", d: { th: "upper-case ก่อนค้นตาราง dispatch", en: "upper-cased before the dispatch lookup" }, w: true } ] },
+      { fn: "dispatch()", file: "src/Dispatch.cpp", depth: 1,
+        note: { th: "ตารางเดียวแมปชื่อคำสั่งไปหา handler พร้อมธง `needsRegistration` ทำให้ `451 ERR_NOTREGISTERED` เกิดที่เดียว ไม่กระจายในทุก handler",
+                en: "One table maps the command to its handler with a `needsRegistration` flag, so `451 ERR_NOTREGISTERED` happens in one place instead of in every handler" },
+        data: "PRIVMSG -> cmdPrivmsg (needsRegistration = true)",
+        vars: [
+          { n: "registered", v: "true", d: { th: "ผ่าน PASS + NICK + USER มาแล้ว", en: "PASS, NICK and USER are all done" } } ] },
+      { fn: "Channel::broadcast()", file: "src/Channel.cpp", depth: 2,
+        note: { th: "เดินบน **สำเนา** ของรายชื่อสมาชิก เพราะ handler อาจ mark ใครสักคนว่าตายระหว่างวน และส่งให้ทุกคน **ยกเว้นผู้ส่ง** โดยใช้ prefix ของผู้ส่ง",
+                en: "Walks a **copy** of the member list because a handler may mark somebody dead mid-loop, and delivers to everyone **except the sender**, using the sender's prefix" },
+        data: ":bob!b@host PRIVMSG #42 :hi   -> สมาชิกอื่นทุกคน",
+        vars: [
+          { n: "_out", d: { th: "`send_()` แค่ต่อท้ายคิว ไม่เรียก syscall — POLLOUT เป็นคนส่งจริง", en: "`send_()` only queues; POLLOUT does the actual sending" }, w: true } ] },
+      { fn: "_sweepDisconnected()", file: "src/ServerLoop.cpp", depth: 0,
+        note: { th: "ลบ client จริง **ที่เดียวคือท้าย tick** และเฉพาะตัวที่ระบาย out-buffer หมดแล้ว — handler ห้าม `delete` เด็ดขาด ไม่งั้น pointer ค้างกลาง broadcast",
+                en: "Clients are deleted **in exactly one place, at the end of the tick**, and only once their out-buffer has drained. A handler must never `delete`, or a pointer goes stale mid-broadcast" },
+        data: "ไม่มีใครตาย -> ไม่ลบอะไร",
+        vars: [
+          { n: "_dead", v: "false", d: { th: "ธงแทนการลบทันที", en: "a flag instead of an immediate delete" } } ] }
+    ]
+  };

@@ -1256,3 +1256,66 @@ window.EXTRA_FLOWS.webserv = {
       vars: [ { n: "_req", v: "reset()", d: { th: "พร้อมรับ request ถัดไปบน socket เดิม", en: "ready for the next request on the same socket" }, w: true } ] }
   ]
 };
+
+/* Flow Visualizer ของหน้านี้ — เก็บไว้กับข้อมูลของหน้าเองจะได้ไม่ต้องโหลดไฟล์เพิ่ม */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.webserv = {
+    input: "POST /upload/big.bin HTTP/1.1  (chunked, 100 MB)",
+    steps: [
+      { fn: "Server::run()", file: "core/Server.cpp", depth: 0,
+        note: { th: "ลูปเดียวของทั้งโปรแกรม: ประกอบ `pollfd` ใหม่ทุกรอบจาก registry แล้ว `poll()` — ไม่มี I/O ที่ไหนนอกเส้นทางนี้",
+                en: "The program's only loop: rebuild the `pollfd` set from the registries each tick, then `poll()` — no I/O happens off this path" },
+        data: "pfds = [listener:POLLIN, client7:POLLIN]",
+        vars: [
+          { n: "_pfds", d: { th: "ประกอบใหม่ทุก tick ทำให้ index ที่ค้างไว้ไม่มีวันเพี้ยน", en: "rebuilt every tick, so a stale index can never go wrong" }, w: true } ] },
+      { fn: "onListenerReadable()", file: "core/Server.cpp", depth: 1,
+        note: { th: "`accept()` **วนจนคืนค่าลบ** เพราะ 1 event ของ poll อาจหมายถึงหลาย connection ที่รออยู่ แล้วตั้ง `O_NONBLOCK` ให้ socket ที่รับมาด้วย",
+                en: "`accept()` **loops until it returns negative** because one poll event can mean several pending connections, and the accepted socket also gets `O_NONBLOCK`" },
+        data: "cfd = 7   -> new Connection(7)",
+        vars: [
+          { n: "cfd", v: "7", d: { th: "fd ของ client ใหม่", en: "the new client's descriptor" }, w: true } ] },
+      { fn: "Connection::onReadable()", file: "core/Connection.cpp", depth: 1,
+        note: { th: "`recv` ครั้งเดียวแล้วป้อน parser — `n == 0` คือปลายทางปิด, `n < 0` คือ fd ตาย **ไม่มีการดู `errno`** เพราะ poll บอกแล้วว่าพร้อม",
+                en: "One `recv`, then feed the parser — `n == 0` means the peer closed and `n < 0` means the descriptor is dead. **`errno` is never consulted**, because poll already said it was ready" },
+        data: "recv() -> 8192 bytes -> _inBuf",
+        vars: [
+          { n: "_inBuf", d: { th: "byte ดิบที่ยังไม่ถูก parse สะสมไว้ที่นี่", en: "raw bytes accumulate here until the parser consumes them" }, w: true },
+          { n: "_lastIo", d: { th: "ประทับเวลาไว้ใช้ตัดสิน timeout", en: "stamped for the timeout sweep" }, w: true } ] },
+      { fn: "HttpRequest::feed()", file: "http/HttpRequest.cpp", depth: 2,
+        note: { th: "state machine ที่ **หยุดตรง `ST_HEADERS_DONE`** เพราะยังไม่รู้ `client_max_body_size` จนกว่าจะ resolve location ได้",
+                en: "The state machine **pauses at `ST_HEADERS_DONE`** because `client_max_body_size` is unknown until the location has been resolved" },
+        data: "ST_REQUEST_LINE -> ST_HEADERS -> ST_HEADERS_DONE",
+        vars: [
+          { n: "_st", v: "ST_HEADERS_DONE", d: { th: "รอผู้เรียกบอกลิมิต", en: "waiting for the caller's limit" }, w: true } ] },
+      { fn: "pickVirtualHost() + pickLocation()", file: "config/ConfigParser.cpp", depth: 2,
+        note: { th: "เลือก server block จาก header `Host:` แล้วเลือก location ตามลำดับ exact -> extension -> longest prefix จากนั้นค่อย `applyBodyLimit()`",
+                en: "Pick the server block from the `Host:` header, then the location by exact, extension and finally longest prefix — only then `applyBodyLimit()`" },
+        data: "Host: localhost -> server[0]\n/upload/big.bin -> location /upload  (maxBody 5m)",
+        vars: [
+          { n: "clientMaxBodySize", v: "5m", d: { th: "ค่าที่ทำให้ parser เดินต่อได้", en: "the value that unblocks the parser" }, w: true } ] },
+      { fn: "feedChunked()", file: "http/HttpRequest.cpp", depth: 2,
+        note: { th: "de-chunk **ในตัว parser** เพื่อให้ handler กับ CGI เห็นแต่ body ธรรมดา ทุกสถานะ resumable เพราะ chunk มาไม่ครบก้อน",
+                en: "De-chunking happens **inside the parser** so the handler and CGI only ever see a plain body; every state is resumable because chunks arrive split" },
+        data: "size line 2000 (hex) -> data -> CRLF -> วนใหม่",
+        vars: [
+          { n: "_chunkLeft", v: "8192", d: { th: "เหลืออีกกี่ byte ใน chunk ปัจจุบัน", en: "bytes still owed by the current chunk" }, w: true } ] },
+      { fn: "appendBody() -> spool file", file: "http/HttpRequest.cpp", depth: 3,
+        note: { th: "เกิน `client_body_buffer_size` แล้ว body ไหลลงไฟล์ชั่วคราวแทน RAM — วัดจริงบนเทสต์เดียวกัน **2020 MB เหลือ 22 MB**. ไฟล์บนดิสก์ได้รับการยกเว้นจากกฎ poll",
+                en: "Past `client_body_buffer_size` the body goes to a temp file instead of RAM — measured on the same test, **2020 MB becomes 22 MB**. Regular files are exempt from the poll rule" },
+        data: "open(client_body_temp_path/…, O_CREAT|O_EXCL)\nwrite(fd, decoded, n)",
+        vars: [
+          { n: "_spoolFd", d: { th: "เจ้าของไฟล์ต้องชัด ไม่งั้นไฟล์ค้างเต็มดิสก์", en: "ownership must be explicit or temp files pile up" }, w: true } ] },
+      { fn: "RequestHandler::handle()", file: "http/RequestHandler.cpp", depth: 1,
+        note: { th: "ตัดสินใจว่าจะตอบอะไร: method อยู่ใน `allow_methods` ไหม (ไม่งั้น 405 + `Allow:`), normalize URI ก่อนแตะ filesystem, เป็น CGI หรือไฟล์นิ่ง",
+                en: "Decides the answer: is the method in `allow_methods` (else 405 with `Allow:`), normalise the URI before touching the filesystem, CGI or static file" },
+        data: "POST + upload_store -> เขียนไฟล์จาก spool แบบ copy ทีละก้อน",
+        vars: [
+          { n: "status", v: "201", d: { th: "สร้างไฟล์สำเร็จ", en: "the upload was created" }, w: true } ] },
+      { fn: "Connection::onWritable()", file: "core/Connection.cpp", depth: 1,
+        note: { th: "`send()` เขียนได้น้อยกว่าที่ขอเป็นเรื่องปกติ — **ลบออกจากคิวเท่าที่คืนมาจริง** และขอ `POLLOUT` เฉพาะตอนมี byte ค้าง ไม่งั้น CPU วิ่ง 100%",
+                en: "`send()` routinely writes less than asked — **erase exactly what it returned**, and only arm `POLLOUT` while bytes are queued or the CPU spins at 100%" },
+        data: "_outBuf: 512 -> send 512 -> ว่าง -> ปลด POLLOUT",
+        vars: [
+          { n: "_outBuf", v: "\"\"", d: { th: "ระบายหมดแล้ว keep-alive จึงรีเซ็ต parser รอ request ถัดไป", en: "drained, so keep-alive resets the parser for the next request" }, w: true } ] }
+    ]
+  };

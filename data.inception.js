@@ -1404,3 +1404,65 @@ window.EXTRA_FLOWS.inception = {
       vars: [ { n: "down -v", d: { th: "อันนี้ต่างหากที่ลบ volume และข้อมูลหายจริง", en: "this is the one that deletes the volumes and really loses the data" } } ] }
   ]
 };
+
+/* Flow Visualizer ของหน้านี้ — เก็บไว้กับข้อมูลของหน้าเองจะได้ไม่ต้องโหลดไฟล์เพิ่ม */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.inception = {
+    input: "make up   (volume ว่างเปล่า, บูตครั้งแรก)",
+    steps: [
+      { fn: "docker compose up -d --build", file: "Makefile", depth: 0,
+        note: { th: "build image ทั้งสามจาก Dockerfile ของเราเอง แล้วสตาร์ตตามลำดับที่ `depends_on` กำหนด — ไม่มี image สำเร็จรูปของแอปเลย",
+                en: "Builds all three images from our own Dockerfiles and starts them in the order `depends_on` dictates — no ready-made application image anywhere" },
+        data: "mariadb:1.0  wordpress:1.0  nginx:1.0",
+        vars: [
+          { n: "DATA_PATH", v: "/home/<login>/data", d: { th: "ปลายทางจริงของ named volume", en: "where the named volumes really live" } } ] },
+      { fn: "mariadb entrypoint.sh", file: "requirements/mariadb/tools/entrypoint.sh", depth: 1,
+        note: { th: "อ่าน secret จาก `/run/secrets/` แล้ว **`tr -d '\\r\\n'`** ทันที — CR ที่ติดมาจาก Windows ทำให้รหัสผ่านเพี้ยนแล้ว login พังด้วย error 1045 โดยที่พิมพ์ออกมาดูเหมือนกันเป๊ะ",
+                en: "Reads the secrets from `/run/secrets/` and **`tr -d '\\r\\n'`** at once — a CR left by Windows poisons the password and every later login fails with error 1045 while both values print identically" },
+        data: "ROOT_PW=$(tr -d '\\r\\n' < /run/secrets/db_root_password)",
+        vars: [
+          { n: "/run/secrets", d: { th: "tmpfs ที่ `docker inspect` มองไม่เห็น ต่างจาก `.env`", en: "tmpfs that `docker inspect` cannot show, unlike `.env`" } } ] },
+      { fn: "mariadbd --bootstrap", file: "tools/entrypoint.sh", depth: 2,
+        note: { th: "โหมดนี้ **ไม่ใช่ SQL parser** — มันส่งให้ server ทีละ *บรรทัด* คำสั่งที่ตัดขึ้นบรรทัดใหม่จะพังแล้วทุกอย่างหลังจากนั้นหายหมด จนได้ root ที่ตั้งรหัสแล้วแต่ไม่มี database",
+                en: "This mode is **not a SQL parser** — it hands the server one *line* at a time, so a wrapped statement breaks and everything after it is lost, leaving a root password set but no database" },
+        data: "CREATE DATABASE IF NOT EXISTS wordpress ...;   (บรรทัดเดียวจบ)\nCREATE USER 'wpuser'@'%' IDENTIFIED BY '...';",
+        vars: [
+          { n: "/var/lib/mysql", d: { th: "ต้อง `rm -rf` ใน Dockerfile ไม่งั้น Docker ก๊อป datadir ของ image เข้า volume ว่างแล้ว bootstrap ไม่เคยรัน", en: "must be `rm -rf`d in the Dockerfile, or Docker copies the image's datadir into the empty volume and the bootstrap never runs" }, w: true } ] },
+      { fn: "exec mariadbd --user=mysql", file: "tools/entrypoint.sh", depth: 1,
+        note: { th: "`exec` **แทนที่** shell ทำให้ daemon เป็น PID 1 เอง จึงได้รับ `SIGTERM` ตอน `docker stop` — นี่คือเหตุผลที่ `tail -f` ถูกห้าม และผู้ตรวจเช็กด้วย `cat /proc/1/comm`",
+                en: "`exec` **replaces** the shell so the daemon becomes PID 1 and receives `SIGTERM` on `docker stop` — which is why `tail -f` is banned, and evaluators check with `cat /proc/1/comm`" },
+        data: "/proc/1/comm -> mariadbd",
+        vars: [
+          { n: "PID 1", v: "mariadbd", d: { th: "ตัวรับสัญญาณจาก Docker", en: "what receives Docker's signals" }, w: true } ] },
+      { fn: "healthcheck: SELECT 1", file: "srcs/docker-compose.yml", depth: 1,
+        note: { th: "ใช้ query ที่ **ต้องใช้ credential จริง** ไม่ใช่ `mariadb-admin ping` เพราะ ping ตอบ exit 0 แม้ auth พัง แล้ว healthcheck จะเขียวทั้งที่ไม่มีใคร login ได้",
+                en: "Uses a query that **needs real credentials**, not `mariadb-admin ping`, because ping exits 0 even when authentication fails and the check goes green while nobody can log in" },
+        data: "mariadb -h localhost -u root -p\"...\" -e 'SELECT 1'   -> healthy",
+        vars: [
+          { n: "-h localhost", d: { th: "ต้องใส่ให้ชัด ไม่งั้น `MYSQL_HOST` จาก `.env` แย่ง client ไปวิ่ง TCP แล้วถูกปฏิเสธ", en: "must be explicit, or `MYSQL_HOST` from `.env` hijacks the client onto TCP and it is refused" } } ] },
+      { fn: "wordpress entrypoint.sh", file: "requirements/wordpress/tools/entrypoint.sh", depth: 1,
+        note: { th: "`depends_on: service_healthy` ปล่อยให้เริ่มได้แล้ว แต่ยัง **รอ `SELECT 1` ผ่านจริงด้วยตัวเอง** และ wait-loop มีเพดาน ไม่งั้น container ค้างแทนที่จะแจ้ง error",
+                en: "`depends_on: service_healthy` let it start, but it still **waits for a real `SELECT 1`** of its own, with a ceiling on the loop so a failure is reported rather than hanging the container" },
+        data: "until mariadb ... -e 'SELECT 1'; do sleep 2; done",
+        vars: [
+          { n: "i", v: "<= 60", d: { th: "เพดานของ wait-loop", en: "the loop's ceiling" } } ] },
+      { fn: "wp core install", file: "tools/entrypoint.sh", depth: 2,
+        note: { th: "`wp-cli` เป็นไฟล์ phar ไม่ใช่ image สำเร็จรูป จึงใช้ได้ตามกฎ — เขียน `wp-config.php` ลงใน **volume** ไม่ใช่ในชั้นของ image ทำให้รหัสผ่านไม่ถูกอบเข้าไป",
+                en: "`wp-cli` is a phar, not a ready-made image, so it is allowed — and it writes `wp-config.php` into the **volume**, never into an image layer, so no password is baked in" },
+        data: "admin: wiaonin (ห้ามมีคำว่า admin)\nauthor: guest",
+        vars: [
+          { n: "wp-config.php", d: { th: "ครั้งหน้าบูต เจอไฟล์นี้แล้วข้ามการติดตั้งทันที", en: "on the next boot its presence skips installation entirely" }, w: true } ] },
+      { fn: "nginx entrypoint.sh", file: "requirements/nginx/tools/entrypoint.sh", depth: 1,
+        note: { th: "สร้าง self-signed cert **ตอนรัน** ไม่ใช่ใน Dockerfile — CN จึงตาม `DOMAIN_NAME` และ private key ไม่ไปอยู่ในชั้น image ที่อาจถูก push",
+                en: "Generates the self-signed certificate **at run time**, not in the Dockerfile, so the CN follows `DOMAIN_NAME` and no private key lands in a layer that could be pushed" },
+        data: "openssl req -x509 ... -subj \"/CN=$DOMAIN_NAME\"\nssl_protocols TLSv1.2 TLSv1.3;",
+        vars: [
+          { n: "ports", v: "443:443", d: { th: "รายการเดียวในทั้งไฟล์ compose", en: "the only entry in the whole compose file" } } ] },
+      { fn: "GET /wp-admin/", file: "conf/default.conf", depth: 0,
+        note: { th: "NGINX เสิร์ฟไฟล์ static เองจาก volume ที่แชร์กัน ส่วน `.php` แปลงเป็น FastCGI ส่งไป `wordpress:9000` — ต้องมี `fastcgi_param HTTPS on` ไม่งั้น `is_ssl()` เป็น false แล้ว redirect วนไม่จบ",
+                en: "NGINX serves the static files itself from the shared volume and translates `.php` into FastCGI for `wordpress:9000` — `fastcgi_param HTTPS on` is required or `is_ssl()` is false and the page redirect-loops" },
+        data: "browser -> nginx:443 -> php-fpm:9000 -> mariadb:3306",
+        vars: [
+          { n: "fastcgi_buffer_size", v: "16k", d: { th: "URI ยาวทำ header ล้น buffer 4k แล้วได้ 502", en: "a long URI overflows the 4k default and returns 502" } } ] }
+    ]
+  };
