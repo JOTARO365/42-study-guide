@@ -14332,3 +14332,482 @@ round N:
     ]},
   ];
 })();
+
+/* ===================== EN · ai_finetune ===================== */
+Object.assign(window.TEACHING_EN, {
+  "ai_finetune": {
+    principle: [
+      { h: "What this page covers" },
+      { p: "How to **decide** whether the task in front of you should be fine-tuned at all (most of the time: no), and, when it should, how to train something that survives production rather than a notebook with pretty numbers." },
+      { note: "The expensive part of fine-tuning is not the GPU. It is **training something that prompting or retrieval already solved** — you pay for curation, training runs, an eval harness and a serving path, and you end up with a model frozen against one base version while new base models ship every few months." },
+
+      { h: "The adaptation ladder — climb only when the rung below fails" },
+      { table: { head: ["Step", "What it fixes", "Cost to change later"], rows: [
+        ["A better prompt and schema", "Wrong format, vague task", "Edit one string"],
+        ["Few-shot examples", "Style, edge cases", "Edit one list"],
+        ["RAG / tool calls", "Facts the model lacks, or facts that change", "Reindex"],
+        ["**SFT (LoRA)**", "Behaviour the prompt keeps losing; cost and latency", "Retrain"],
+        ["Preference tuning (DPO)", "\"Both are valid, we prefer this one\"", "Retrain plus new labels"],
+        ["Full fine-tune", "Domain language far from pretraining", "Retrain, expensively"],
+      ]}},
+      { note: "The fastest test there is: **if you cannot write a rubric a human could grade this task with, you cannot build a training set for it either.** Go back to the prompt." },
+
+      { h: "What fine-tuning does and does not do" },
+      { table: { head: ["✅ Does well", "❌ Does not (and people keep trying)"], rows: [
+        ["Locks in **format and behaviour** — always this JSON shape, always this register", "**Adds facts reliably** — training on documents teaches the shape of an answer, not a retrievable index"],
+        ["**Cuts cost and latency** — moves a task from a big model onto a small one", "**Creates ability the base model lacks** — it sharpens what exists, it rarely invents"],
+        ["**Compresses a long prompt** — a 3k-token instruction block baked into weights", "**Keeps data fresh** — facts in weights have no expiry date"],
+        ["Narrow tasks with a clean signal — classify, extract, route", "Anything where \"correct\" cannot be defined"],
+      ]}},
+      { note: "One sentence to remember: if you want the model to **know** something, use retrieval. If you want it to **behave** a certain way, fine-tune." },
+    ],
+
+    theory: [
+      { h: "1) What SFT actually is" },
+      { p: "Supervised fine-tuning is not exotic. It is **the same next-token prediction**, run on your data: pairs of (prompt → the completion you want). The model is pushed to raise the probability of your tokens and lower everything else." },
+      { code: String.raw`One row of the dataset (chat form):
+
+{"messages": [
+  {"role": "system",    "content": "You classify support tickets. Reply with JSON only."},
+  {"role": "user",      "content": "I paid but it still says overdue"},
+  {"role": "assistant", "content": "{\"category\":\"billing\",\"urgency\":\"high\"}"}
+]}
+
+While training: loss is computed on the assistant tokens only.
+While serving:  send the same system + user, let the model write the assistant part.`, cap: "An SFT dataset is a set of correct outputs, not a description of how to produce them", lang: "json" },
+
+      { h: "2) LoRA — under 1% of the parameters, most of the quality" },
+      { p: "Instead of moving every weight, LoRA **freezes the base entirely** and injects two thin matrices beside the important layers (the attention and MLP projections). During the forward pass their output is added to the original one." },
+      { code: String.raw`original weight  W  of shape d x k    (frozen, never trained)
+LoRA adds        B (d x r) and A (r x k),  with r << d, k
+
+  h = W·x  +  (alpha/r) · B·A·x
+      ^^^^     ^^^^^^^^^^^^^^^^
+      fixed     the trained part (tiny)
+
+d = k = 4096, r = 16:
+  full training = 4096 x 4096       = 16,777,216 parameters
+  LoRA          = 4096x16 + 16x4096 =    131,072 parameters   (0.78%)`, cap: "The result: optimizer state collapses, the adapter file is megabytes rather than gigabytes, and one base model in memory can serve a different adapter per tenant", lang: "txt" },
+      { table: { head: ["Knob", "Common value", "When to change it"], rows: [
+        ["rank `r`", "8–32", "Raise only when the task is far from base behaviour — raising it blindly just overfits sooner"],
+        ["`alpha`", "About 2r", "It scales the trained part; treat it as a second learning rate"],
+        ["target modules", "All attention projections plus the MLP", "Attention-only is cheaper and often enough"],
+        ["dropout", "0–0.1", "Worth adding when data is scarce"],
+      ]}},
+
+      { h: "3) QLoRA — LoRA on a 4-bit base" },
+      { p: "Load the base quantized to 4-bit, then attach LoRA (still 16-bit) on top. It puts 7B–13B training within reach of a single GPU, at a small quality cost — an excellent trade for experiments." },
+
+      { h: "4) Preference tuning (DPO) — when several answers are correct" },
+      { p: "SFT learns from one correct answer. Plenty of tasks have many correct answers and you simply prefer one. DPO trains on **comparison pairs** (chosen / rejected), with no separate reward model to maintain." },
+      { code: String.raw`SFT   : (prompt, the correct answer)                  -> "do it like this"
+DPO   : (prompt, preferred answer, rejected answer)   -> "this beats that"
+RLVR  : (prompt, a verifier that decides pass/fail)   -> "find a way to satisfy it"
+
+What most teams actually run: SFT first, DPO on top.
+(DPO straight onto a raw base rarely works — there is no baseline behaviour to steer yet.)`, cap: "Pick by the labels you can realistically collect: gold answers → SFT, human preference → DPO, automatic checking → RLVR", lang: "txt" },
+
+      { h: "5) Loss masking — train only on what you want it to say" },
+      { p: "Without masking, the model is trained to predict **the prompt as well as the answer**: capacity is wasted memorising questions, and in bad cases it starts inventing questions inside its output." },
+
+      { h: "6) The template must match serving exactly" },
+      { p: "The chat template is the string that turns messages into real tokens, special markers included. Train with one and serve with another and the model meets a language it has never seen — **this is the number one cause of \"great in the notebook, broken in production\"**." },
+
+      { h: "7) Hyperparameters, briefly" },
+      { table: { head: ["Knob", "Starting point", "Sign it is wrong"], rows: [
+        ["epochs", "1–3", "Past 3 it memorises; if you want more, add *data*, not passes"],
+        ["learning rate (LoRA)", "1e-4 – 2e-4", "Too high shows up as rambling or repeated words"],
+        ["learning rate (full FT)", "1e-5 or lower", "Using the LoRA value here breaks the model immediately"],
+        ["schedule", "Short warmup, cosine decay", "Not worth tuning; the payoff is smaller than it looks"],
+        ["packing", "On, for throughput", "Watch for attention bleeding between packed examples"],
+      ]}},
+
+      { h: "🔬 Deep dive A: why low rank is enough — the maths of LoRA" },
+      { p: "**Intuition:** most fine-tuning does not teach a new ability, it **tilts behaviour in one direction** — so the change you need occupies a handful of directions in parameter space, not all of them. A change with few effective dimensions is described by a low-rank matrix." },
+      { p: "**Mechanism:** write the tuned weight as W' = W + ΔW. Full training searches for a complete ΔW (d×k free values). LoRA assumes ΔW is low-rank and writes it as a product of two thin matrices, ΔW = B·A, with B of shape d×r and A of shape r×k." },
+      { code: String.raw`Why that product forces a low rank:
+
+  rank(B·A) ≤ min(rank(B), rank(A)) ≤ r
+
+A squeezes a vector from k dimensions down to r, then B expands it back to d.
+Everything must pass through an r-dimensional bottleneck, so the result always
+lives in a subspace of dimension at most r.
+
+  x (k) --A--> z (r) --B--> Δh (d)
+               ^^^
+          the bottleneck = the rank limit
+
+Parameter count: d·k  ->  r·(d+k)
+  d=k=4096, r=16 :  16.7M  ->  131k   (128x smaller)
+  d=k=4096, r=64 :  16.7M  ->  524k   (32x smaller)`, cap: "r is the dimensional budget you allow behaviour to move within — too small and it cannot fit the task, too large and it overfits sooner and costs more", lang: "txt" },
+      { p: "**Why it starts safely:** A is initialised to small random values while **B starts at zero**, so on the first step B·A is exactly zero and the model begins identical to base. It then drifts gradually, instead of jumping to a random point at step 0." },
+      { ul: [
+        "**Try it:** train the same task three times at r = 4 / 16 / 64 and plot the task metric against r — style and format tasks usually saturate at a low rank",
+        "**Trap:** raising r because \"quality is still bad\" when the real problem is dirty data — rank does not buy data quality",
+        "**Trap:** forgetting that alpha/r is a scale factor, so raising r while holding alpha weakens the effective update and the runs stop being comparable",
+      ]},
+      { qa: [
+        { q: "Why does training well under 1% of the parameters come close to full training?", a: "Because the change needed spans a few directions rather than all of them, so forcing the update through a low-dimensional bottleneck still describes it — and it doubles as a leash that keeps the model near its original behaviour." },
+        { q: "Why is the second matrix initialised to zero?", a: "So the first step starts exactly where the base model is. If both were random, the model would be shoved to a random point before it learned anything." },
+      ]},
+
+      { h: "🔬 Deep dive B: why fine-tuning cannot install knowledge" },
+      { p: "**Intuition:** training does not build an *index* to look things up in. It adjusts *next-token probabilities*. The model learns \"a question shaped like this gets an answer shaped like that\" extremely well, and does not store the individual fact anywhere it can be retrieved from cleanly." },
+      { code: String.raw`Train on 500 pages of refund policy, then ask
+"can an order be refunded after 90 days?"
+
+What the model actually learned:
+  ✓ the shape of the answer   ("Under section X ... is / is not eligible ...")
+  ✓ your company's vocabulary
+  ✓ the tone and the length
+  ✗ the number 90, bound to that specific condition
+
+Common outcome: a fluent answer in which the number becomes 30 or 60,
+because 30/60/90 all appeared in similar contexts in the training data,
+so the model picks the one that is likely rather than the one that is right.
+                                              ← near-miss hallucination`, cap: "The signature of knowledge stuffed into weights: wrong in an almost-right way, which is more dangerous than obviously wrong because reviewers wave it through", lang: "txt" },
+      { p: "**Compare with retrieval:** RAG puts the actual text in front of the model at answer time, so the fact does not have to be recalled at all. It can be cited, and it is corrected by reindexing rather than retraining." },
+      { table: { head: ["Symptom", "Root cause", "The right fix"], rows: [
+        ["Numbers, names or dates that are almost right", "Knowledge pushed into weights", "Move it to retrieval"],
+        ["The output format keeps drifting", "The prompt cannot hold the behaviour", "Fine-tuning is the correct tool here"],
+        ["Data changes weekly", "Weights have no expiry", "Retrieval plus caching"],
+        ["Answers must cite a source", "Weights cannot cite", "Retrieval with citations"],
+      ]}},
+      { ul: [
+        "**Try it:** train an adapter on a small internal corpus, then ask 20 questions whose answers contain a specific number — count how many come back \"right shape, wrong number\"",
+        "**Trap:** seeing it answer training examples correctly and concluding that it knows the material — that measures memorisation, not knowledge",
+      ]},
+      { qa: [
+        { q: "To make the model know internal company data, should you train or use retrieval?", a: "Retrieval. Facts belong somewhere you can correct, audit and cite; training only captures the way answers are phrased." },
+        { q: "Is there any point in doing both?", a: "Yes, for different jobs: train it to use retrieved context properly — stick to the supplied text, cite every claim, and say it does not know when the context is silent." },
+      ]},
+
+      { h: "🔬 Deep dive C: catastrophic forgetting — sharp at one task, dulled everywhere" },
+      { p: "**Intuition:** there is one set of weights and every task shares it. Making the model excellent at your task means moving those weights away from the point where the base balanced *all* tasks. The harder you push — high learning rate, many epochs, large rank — the further it slides and the more the rest degrades." },
+      { code: String.raw`Train a support-ticket classifier, 5,000 examples, 5 epochs:
+
+  the target task (classify)   92%  ->  97%    ✓ looks like success
+  general questions            fine ->  clipped, cut off mid-sentence
+  unseen instructions          fine ->  JSON forced into every answer, asked for or not
+  long-form Thai               fine ->  drifts into English on its own
+
+The model has not erased anything — it has been pushed until one answer
+shape became the most likely response to any input at all.`, cap: "The classic shape of this failure: the target number goes up while users report that it \"feels off\" — because only one axis was ever measured", lang: "txt" },
+      { ul: [
+        "**Push less:** fewer epochs, lower learning rate, smaller rank — those three knobs fix more than half of these cases",
+        "**Replay:** mix 5–20% general instruction data into the training set so the model is reminded it still has other jobs",
+        "**Keep the adapter separate:** an unmerged LoRA means switching back to base is instant whenever the request is off-task",
+        "**Try it:** hold a 50-item regression set (general questions, instruction following, language) and score it at every checkpoint — you will see the drop start long before it becomes obvious",
+      ]},
+      { note: "A usable rule: **the task metric rises but the regression set falls by more than 3–5%** means you trained too hard. Take the earlier checkpoint." },
+      { qa: [
+        { q: "How do you notice catastrophic forgetting?", a: "You need a general-capability set kept separate from the target task, scored at every checkpoint. Measuring only the target task can never reveal it, because that axis always improves." },
+        { q: "What do you do once it has happened?", a: "Roll back to an earlier checkpoint, cut the epochs and the learning rate, and mix general instruction data into the training set before training again." },
+      ]},
+
+      { h: "🔬 Deep dive D: the loss keeps falling and the output keeps getting worse" },
+      { p: "**Intuition:** training loss answers *\"how likely does the model think these tokens are\"*, not *\"did the task succeed\"*. The two move together early on, then part ways." },
+      { code: String.raw`Three curves, always read together:
+
+  train loss    falls forever (if it does not, the setup is broken)
+  val loss      falls, then turns upward   <- stop here
+  task metric   rises, then flattens or drops  <- the only one users feel
+
+  loss
+   │╲
+   │ ╲___          val loss turns up here
+   │     ╲ ___/‾‾‾  <- memorisation begins
+   │      ╲__
+   │  train loss keeps falling, happily
+   └──────────────────────── steps
+              ↑
+        the checkpoint to keep`, cap: "Take the checkpoint with the lowest validation loss, not the last one — and confirm it with the task metric", lang: "txt" },
+      { p: "**Why a low loss can still be bad:** the model can earn a good score by imitating the *style* of your answers — the length, the opening words, the sentence shape — while the content is wrong. Cross-entropy scores one token at a time, so a right-shaped answer fools it easily." },
+      { ul: [
+        "**Try it:** take 20 validation examples and read base versus fine-tuned outputs side by side for ten minutes — it surfaces things no curve reports",
+        "**Trap:** comparing loss across runs that used different tokenizers or templates — different units, not comparable",
+        "**Trap:** a validation set carved off the end of the same generated file, which only measures memorisation rather than usefulness",
+      ]},
+      { qa: [
+        { q: "Why not simply take the final checkpoint?", a: "Training loss can keep falling through memorisation. The best-generalising point is where loss on unseen data bottoms out, which usually arrives before the run ends." },
+        { q: "What must be measured alongside the loss?", a: "A real task metric on data drawn from real traffic, plus a head-to-head against the base model. Without a clear win there is no reason to carry the maintenance burden of your own model." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "LoRA: Low-Rank Adaptation of Large Language Models", url: "https://arxiv.org/abs/2106.09685", note: "The original paper — section 4 carries the whole idea" },
+        { label: "QLoRA: Efficient Finetuning of Quantized LLMs", url: "https://arxiv.org/abs/2305.14314", note: "4-bit base plus LoRA, with measurements of what quality it costs" },
+        { label: "Direct Preference Optimization (DPO)", url: "https://arxiv.org/abs/2305.18290", note: "Preference training without a reward model" },
+        { label: "Fine-Tuning or Retrieval? (knowledge injection compared)", url: "https://arxiv.org/abs/2312.05934", note: "Experimental evidence for keeping facts in retrieval" },
+      ]},
+      { h: "📚 Provider documentation" },
+      { links: [
+        { label: "Hugging Face PEFT", url: "https://huggingface.co/docs/peft", note: "The standard library for LoRA/QLoRA and the whole adapter family" },
+        { label: "TRL — SFTTrainer / DPOTrainer", url: "https://huggingface.co/docs/trl", note: "The most widely used ready-made trainers" },
+        { label: "OpenAI fine-tuning guide", url: "https://platform.openai.com/docs/guides/fine-tuning", note: "The managed path — worth reading for file formats and limits" },
+        { label: "Unsloth", url: "https://docs.unsloth.ai/", note: "Much faster single-GPU LoRA training, ideal for experiments" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "What must exist before you start a run" },
+      { p: "The order matters more than it looks — without the first three, a training run cannot tell you whether it succeeded." },
+      { table: { head: ["Prerequisite", "Why", "How much is enough"], rows: [
+        ["**A prompt-only baseline**", "If the fine-tune does not beat it clearly, it is not worth maintaining", "Write the number down"],
+        ["**An eval set from real traffic**", "Sets you generate yourself are always too easy", "200–500 examples, held out from day one"],
+        ["**A regression set**", "Catches catastrophic forgetting", "50–100 items covering general ability"],
+        ["The training set", "The actual teaching material", "500–2,000 clean rows beats 50k messy ones"],
+      ]}},
+
+      { h: "Data format — JSONL, one example per line" },
+      { code: String.raw`train.jsonl  (one JSON object per line, never wrapped across lines)
+
+{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+
+What makes a dataset usable:
+  1. the system prompt is byte-identical to the serving one (read from the same file)
+  2. 100% of rows use the exact target format — 5% strays and the model strays
+  3. it contains the hard cases that used to fail, with corrected answers
+  4. no duplicates or near-duplicates — those quietly add epochs to those rows`, cap: "Always inspect the file first: count rows, validate every row against the schema, find duplicates, and confirm nothing leaked into the eval set", lang: "json" },
+
+      { h: "Hardware, roughly" },
+      { table: { head: ["Model", "Method", "Approximate VRAM"], rows: [
+        ["7–8B", "QLoRA (4-bit)", "One 16 GB card"],
+        ["7–8B", "LoRA (16-bit)", "24–40 GB"],
+        ["13B", "QLoRA", "24 GB"],
+        ["70B", "QLoRA", "Several cards, or rent by the hour"],
+        ["Any", "Full fine-tune", "Many cards — skip it unless the reason is compelling"],
+      ]}},
+      { note: "Most application work ends at **QLoRA on a 7–8B model, on a rented GPU costing a couple of dollars an hour**. If your plan needs more than that up front, revisit whether it is really necessary." },
+    ],
+
+    architecture: [
+      { h: "Five stages, each its own file and runnable alone" },
+      { code: String.raw`data/                  raw captured from production (never edited)
+  raw/tickets.jsonl
+  curated/train.jsonl       filtered, cleaned, deduplicated
+  curated/eval.jsonl        held out from the start, never trained on
+  curated/regression.jsonl  the general-capability set
+
+src/
+  curate.py     raw -> curated   (filter, dedupe, validate, decontaminate)
+  format.py     curated -> the exact strings the chat template produces
+  train.py      LoRA/QLoRA, with every hyperparameter in a config file
+  evaluate.py   task metric + regression + head-to-head with base
+  serve.py      load base + adapter, with a switch to disable the adapter
+
+configs/run-2026-08-09.yaml   every value recorded, or the run is unrepeatable`, cap: "The work lives in curate and evaluate; train.py should be the shortest and dullest file in the project", lang: "txt" },
+
+      { h: "Always keep the adapter separate from the base" },
+      { ul: [
+        "One base in memory, with a different adapter swapped in per tenant or per task",
+        "Instant rollback to base when an adapter misbehaves — the cheapest rollback switch you will ever have",
+        "Merging into the base throws all of that away, in exchange for slightly better latency",
+      ]},
+      { h: "Pin every version" },
+      { p: "An adapter is bound to **exactly one base version**. The moment the base moves, the old adapter is invalid — so record the base version, the tokenizer version, the template and the commit of your formatting code alongside every adapter you keep." },
+    ],
+
+    dataflow: [
+      { h: "How one row travels during training" },
+      { code: String.raw`raw row
+  {"question": "paid but still marked overdue", "label": "billing", "urgency": "high"}
+      │
+      ├─ curate.py    validate the schema, dedupe, drop rows whose labels contradict
+      │
+      ├─ format.py    build messages, render through that model's chat template
+      │               "<|system|>...<|user|>paid but...<|assistant|>{...}"
+      │
+      ├─ tokenize     [128, 9021, 44, ...]  137 tokens long
+      │
+      ├─ loss mask    prompt, 96 tokens -> masked (-100), no loss
+      │               answer, 41 tokens -> loss computed
+      │
+      ├─ forward      logits at every position
+      ├─ loss         cross-entropy over the final 41 positions only
+      └─ backward     gradients reach only the LoRA A and B (the base is frozen)`, cap: "Formatting and loss masking are where this breaks most often — both stay completely silent while corrupting the entire run", lang: "txt" },
+
+      { h: "How a request travels at serving time" },
+      { code: String.raw`request
+  │
+  ├─ build messages from "the same system prompt file used in training"
+  ├─ render through the same chat template used in training   <- must diff clean
+  ├─ frozen base + the selected adapter
+  ├─ generate
+  └─ validate against the schema ─┬─ pass -> return
+                                  └─ fail -> retry once -> still failing -> fall back to base + prompt`, cap: "Always keep the fallback to base: the adapter is the newest and therefore riskiest piece in the stack", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "🧪 A complete LoRA run (copy and try it)" },
+      { code: String.raw`# pip install "transformers>=4.44" peft trl datasets bitsandbytes accelerate
+import json
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import LoraConfig
+from trl import SFTTrainer, SFTConfig
+
+BASE = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+
+tok = AutoTokenizer.from_pretrained(BASE)
+model = AutoModelForCausalLM.from_pretrained(
+    BASE,
+    quantization_config=BitsAndBytesConfig(load_in_4bit=True),   # QLoRA
+    device_map="auto",
+)
+
+peft_config = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05, task_type="CAUSAL_LM",
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj"],
+)
+
+ds = load_dataset("json", data_files={
+    "train": "data/curated/train.jsonl",
+    "eval":  "data/curated/eval.jsonl",
+})
+
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=ds["train"],
+    eval_dataset=ds["eval"],
+    peft_config=peft_config,
+    processing_class=tok,
+    args=SFTConfig(
+        output_dir="out/run-2026-08-09",
+        num_train_epochs=2,              # 1-3, no more
+        learning_rate=2e-4,              # a LoRA value, not a full fine-tune value
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4,
+        warmup_ratio=0.03,
+        lr_scheduler_type="cosine",
+        bf16=True,
+        packing=True,
+        completion_only_loss=True,       # mask the loss on the prompt
+        eval_strategy="steps", eval_steps=50,
+        save_strategy="steps", save_steps=50,
+        load_best_model_at_end=True,     # keep the best checkpoint, not the last
+        metric_for_best_model="eval_loss", greater_is_better=False,
+    ),
+)
+
+trainer.train()
+trainer.save_model("out/run-2026-08-09/adapter")   # a few MB of adapter, nothing more`, cap: "The three lines people forget: completion_only_loss, load_best_model_at_end, and using the same tokenizer you serve with", lang: "python" },
+
+      { h: "🧪 Score three axes, not one" },
+      { code: String.raw`import json, collections
+from peft import PeftModel
+
+def generate(model, tok, messages, max_new_tokens=200):
+    text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    ids = tok(text, return_tensors="pt").to(model.device)
+    out = model.generate(**ids, max_new_tokens=max_new_tokens, do_sample=False)
+    return tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
+
+def task_score(model, tok, path):
+    ok = total = 0
+    for line in open(path, encoding="utf-8"):
+        row = json.loads(line)
+        want = json.loads(row["messages"][-1]["content"])
+        try:
+            got = json.loads(generate(model, tok, row["messages"][:-1]))
+        except json.JSONDecodeError:
+            total += 1                      # non-JSON output is wrong, not skipped
+            continue
+        ok += int(got.get("category") == want["category"])
+        total += 1
+    return ok / total
+
+base  = AutoModelForCausalLM.from_pretrained(BASE, device_map="auto")
+tuned = PeftModel.from_pretrained(base, "out/run-2026-08-09/adapter")
+
+report = {
+    "task_base":        task_score(base,  tok, "data/curated/eval.jsonl"),
+    "task_tuned":       task_score(tuned, tok, "data/curated/eval.jsonl"),
+    "regression_base":  task_score(base,  tok, "data/curated/regression.jsonl"),
+    "regression_tuned": task_score(tuned, tok, "data/curated/regression.jsonl"),
+}
+print(json.dumps(report, indent=2, ensure_ascii=False))
+
+# Ship only when
+#   task_tuned - task_base            > the margin you decided was worth the upkeep
+#   regression_base - regression_tuned < 0.03`, cap: "Write the pass/fail thresholds down *before* you see the numbers, or you will rationalise whatever comes out", lang: "python" },
+
+      { h: "🧪 Do the break-even maths first" },
+      { code: String.raw`# placeholder numbers — substitute your own
+calls_per_month = 400_000
+tok_in_big, tok_out_big     = 1800, 120      # long prompt: instructions plus few-shot
+tok_in_small, tok_out_small = 300, 120       # instructions now baked into weights
+
+price_big   = (tok_in_big/1e6)*3.00  + (tok_out_big/1e6)*15.00
+price_small = (tok_in_small/1e6)*0.25 + (tok_out_small/1e6)*1.25
+
+saving_per_month = (price_big - price_small) * calls_per_month
+one_off   = 60_000      # curation + training runs + eval harness (count the labour)
+recurring = 12_000      # hosting + monitoring + retraining when the base moves
+
+print(f"net monthly saving = {saving_per_month - recurring:,.0f}")
+print(f"payback period     = {one_off / max(saving_per_month - recurring, 1):.1f} months")
+
+# The clause that kills most proposals:
+#   if payback is slower than how long this base model stays current
+#   (rarely more than 6-12 months), it is a loss however good the monthly figure looks`, cap: "Fine-tuning wins on volume, not on principle — below a certain call rate the prompt always wins", lang: "python" },
+
+      { h: "Checklist before a training run" },
+      { ul: [
+        "A prompt-only baseline exists and **its score is written down**",
+        "The eval set comes from real traffic and was held out from day one",
+        "Training data uses the same chat template and system prompt as serving",
+        "Loss is masked down to the completion tokens",
+        "Train and eval have been checked for contamination",
+        "A general-capability regression set is ready",
+        "There is a switch to disable the adapter and fall back to base",
+        "The break-even maths is done and survives a base-model refresh",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trick 1: make the baseline hard to beat first" },
+      { p: "Before training anything, spend half a day tuning the prompt and its few-shot examples as far as they go, then make the fine-tune beat that. Half of all fine-tuning projects end right here — the baseline was good enough, and it is editable as a string." },
+
+      { h: "Trick 2: 500 clean rows beat 50,000 messy ones" },
+      { p: "Inconsistency in the data is learned directly: if 5% of your answers are malformed, roughly that share of outputs will be malformed forever. Time spent reading your data beats time spent tuning hyperparameters." },
+
+      { h: "Trick 3: diff the real strings between training and serving" },
+      { code: String.raw`# five lines that prevent the most expensive bug in the project
+train_text = format_for_training(sample)          # the training-side formatter
+serve_text = tok.apply_chat_template(sample["messages"][:-1],
+                                     tokenize=False, add_generation_prompt=True)
+assert serve_text in train_text, "template mismatch — stop before wasting a run"`, cap: "Put this assertion at the top of train.py once and it saves days of debugging", lang: "python" },
+
+      { h: "Trick 4: collect the regression set before the first run" },
+      { p: "Building it afterwards works less well, because you will unconsciously pick questions your model happens to handle. Fifty items covering general questions, instruction following, language and appropriate refusals is plenty." },
+
+      { h: "Trick 5: run short first, then read the curves" },
+      { p: "Run 100–200 steps with frequent evaluation. If the validation curve is not moving the right way, the problem is the data or the template, not the number of epochs. Do not burn a GPU overnight to discover a formatting bug." },
+
+      { h: "Trick 6: several adapters beat one that does everything" },
+      { p: "Three tasks means three adapters on one base, not one adapter carrying all three. Each is small, trains quickly, is measured independently, fails independently, and none of them drag the weights in a competing direction." },
+
+      { h: "Trick 7: never train on your own unfiltered output" },
+      { p: "Feeding a model its own output back as training data with no human or verifier in between amplifies its errors every generation — model collapse. Synthetic data is fine, but it needs a gate anchored in external truth." },
+    ],
+
+    eval: [
+      { h: "Questions to answer before claiming you can fine-tune" },
+      { qa: [
+        { q: "When should you fine-tune, and when should you use retrieval?", a: "If the model needs to know facts, or the data changes, use retrieval. If it needs to behave consistently — output format, tone, refusals — train it. They solve different problems and combine well." },
+        { q: "What does LoRA train, and why is it so cheap?", a: "It freezes the original weights and trains two thin matrices whose product is the update. Because everything passes through a low-dimensional bottleneck, the parameter count drops by orders of magnitude and the artefact is megabytes." },
+        { q: "Why mask the loss on the prompt?", a: "Otherwise the model is taught to predict the question too, which wastes capacity on something you never wanted and can make it start inventing questions inside its answers." },
+        { q: "How many epochs, and how do you know it is too many?", a: "One to three. Too many shows up as loss on unseen data turning upward while training loss keeps falling, and the real task metric flattening or dropping." },
+        { q: "What is catastrophic forgetting and how do you measure it?", a: "The model gets better at the trained task while other abilities decay. You need a general-capability set separate from the target task, scored at every checkpoint rather than only at the end." },
+        { q: "It was good in the notebook and broke in production — what do you suspect first?", a: "A template mismatch: one format in training, another in serving. Render one real request through the training-side formatter and diff the strings." },
+        { q: "Why is a falling loss not evidence of improvement?", a: "It measures token likelihood, not task success. A model can score well by imitating the style of your answers while getting the content wrong, so it must always be paired with a real task metric." },
+        { q: "Should the adapter stay separate or be merged into the base?", a: "Separate, so it can be swapped per task or per tenant and switched off instantly when something goes wrong. Merging trades that flexibility for a small latency gain." },
+        { q: "You only have 300 training rows — now what?", a: "Do not train yet. Use them as prompt examples and as an eval set. If you must train, use a low rank and few epochs, and expect formatting gains rather than new ability." },
+        { q: "How do you tell a project is not worth it before starting?", a: "Multiply the per-call price difference by real volume and compare it with the setup cost plus ongoing upkeep. If payback arrives later than this base model stays current, it loses money however good the monthly figure looks." },
+      ]},
+    ],
+  }
+});
