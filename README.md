@@ -1,10 +1,10 @@
 # สื่อการสอน 42 · 42 Study Guide
 
-สื่อการสอนสำหรับ 42 School Common Core (C/C++), สาย AI Engineer และสื่อติวสอบ Exam Rank 02–06
+สื่อการสอนสำหรับ 42 School Common Core (C/C++, เครือข่าย, system admin), สาย AI Engineer และสื่อติวสอบ Exam Rank 02–06
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **37 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **41 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step
 
@@ -42,6 +42,10 @@
 | [minishell](https://jotaro365.github.io/42-study-guide/minishell.html) | สถาปัตยกรรม shell, lexer/parser, pipe EOF, signal | 4 |
 | [miniRT](https://jotaro365.github.io/42-study-guide/minirt.html) | ray tracer: สมการกำลังสอง ray-sphere, Phong, shadow acne, camera basis, parse .rt | 4 |
 | [cub3D](https://jotaro365.github.io/42-study-guide/cub3d.html) | raycasting FPS: camera plane, DDA, แก้ fisheye, texture mapping, ตรวจแผนที่ปิด | 4 |
+| [NetPractice](https://jotaro365.github.io/42-study-guide/netpractice.html) | subnetting + routing: netmask/CIDR, network vs broadcast, ขาของ router ห้ามซ้อน, first-match-wins, ขาไป-ขากลับ, กฎของ Internet node | 6 |
+| [webserv](https://jotaro365.github.io/42-study-guide/webserv.html) | HTTP/1.1 บน poll() ตัวเดียว: framing กับ chunked, state machine ที่หยุดตรง header, CGI สองท่อ, back-pressure, spool body ลงดิสก์ | 6 |
+| [ft_irc](https://jotaro365.github.io/42-study-guide/ft_irc.html) | IRC server C++98: partial read/send, POLLOUT ที่ต้องไม่ค้าง, ลบ client กลาง broadcast, casemapping RFC 1459, CAP/PING/005 ที่ทำให้ irssi ใช้ได้ | 6 |
+| [Inception](https://jotaro365.github.io/42-study-guide/inception.html) | docker-compose 3 image เขียนเอง: PID 1 กับ exec, named volume, secrets, php-fpm/FastCGI, TLS — และ 7 กับดักที่ไม่มีใน subject | 7 |
 
 ## CPP Modules
 
@@ -100,6 +104,7 @@
 | fract-ol | Mandelbrot/Julia บน canvas, คลิกเพื่อซูม, สไลเดอร์ iteration |
 | so_long | เกมเล่นได้จริง (WASD/ลูกศร) เก็บเหรียญครบแล้วไปประตู |
 | pipex | ไดอะแกรมไล่ทีละ step: infile → pipe → outfile |
+| NetPractice | **simulator ฝึกจริง 5 ด่าน** — เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับเกมจริง |
 
 **Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ): push_swap, pipex, so_long, fract-ol, minitalk, fdf, philosophers
 
