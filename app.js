@@ -849,13 +849,195 @@
   /* ชื่อโปรเจกต์: สาย 42 เป็นอังกฤษอยู่แล้ว มีแค่สาย AI ที่ตั้งชื่อไทย */
   function projName(p) { return t({ th: p.name, en: p.nameEn || p.name }); }
 
+  /* ---- ชื่อแท็บของโปรเจกต์หนึ่ง (สาย exam/AI ใช้ชื่อของตัวเอง) ---- */
+  function tabLabel(pid, key) {
+    var map = pid.indexOf("exam_") === 0 ? EXAM_TAB_LABELS
+      : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS : null;
+    if (map && map[key]) return t(map[key]);
+    for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === key) return t(TABS[i][1]);
+    return key;
+  }
+
+  /* ============================================================
+     ค้นหา — ดัชนีข้อความจากทุกหน้า สร้างครั้งเดียวต่อภาษา
+     ============================================================ */
+  var searchIndex = null, searchIndexLang = null;
+
+  /* ดึงข้อความที่ค้นได้ออกจาก block หนึ่ง + น้ำหนักตามชนิด */
+  function blockText(b) {
+    if (b.h) return { kind: "h", w: 6, text: t(b.h) };
+    if (b.p) return { kind: "p", w: 3, text: t(b.p) };
+    if (b.note) return { kind: "note", w: 3, text: t(b.note) };
+    if (b.ul) return { kind: "ul", w: 2, text: b.ul.map(t).join(" · ") };
+    if (b.qa) return {
+      kind: "qa", w: 3,
+      text: b.qa.map(function (x) { return t(x.q) + " — " + t(x.a); }).join(" · ")
+    };
+    if (b.table) return {
+      kind: "table", w: 2,
+      text: b.table.head.map(t).join(" ") + " " +
+        b.table.rows.map(function (r) { return r.map(t).join(" "); }).join(" · ")
+    };
+    if (b.links) return {
+      kind: "links", w: 2,
+      text: b.links.map(function (l) { return t(l.label) + " " + (l.note ? t(l.note) : ""); }).join(" · ")
+    };
+    if (b.code) return { kind: "code", w: 1, text: (b.cap ? t(b.cap) + " — " : "") + b.code };
+    return null;
+  }
+
+  function buildSearchIndex() {
+    if (searchIndex && searchIndexLang === LANG) return searchIndex;
+    var out = [];
+    (window.TEACHING_DATA || []).forEach(function (p) {
+      var en = (LANG === "en" && window.TEACHING_EN) ? window.TEACHING_EN[p.id] : null;
+      Object.keys(p.sections).forEach(function (key) {
+        var blocks = (en && en[key]) || p.sections[key] || [];
+        var heading = "";
+        blocks.forEach(function (b) {
+          var got = blockText(b);
+          if (!got || !got.text) return;
+          if (got.kind === "h") heading = got.text;
+          out.push({
+            pid: p.id, pname: projName(p), sec: key,
+            heading: got.kind === "h" ? "" : heading,
+            kind: got.kind, w: got.w,
+            text: got.text, hay: got.text.toLowerCase()
+          });
+        });
+      });
+    });
+    searchIndex = out; searchIndexLang = LANG;
+    return out;
+  }
+
+  /* ตัดข้อความรอบคำที่เจอ + ล้างเครื่องหมาย markdown ออกก่อน */
+  function snippet(text, terms, width) {
+    var clean = text.replace(/\*\*/g, "").replace(/`/g, "").replace(/\s+/g, " ").trim();
+    var low = clean.toLowerCase(), at = -1;
+    for (var i = 0; i < terms.length && at < 0; i++) at = low.indexOf(terms[i]);
+    if (at < 0) at = 0;
+    var from = Math.max(0, at - Math.floor(width / 3));
+    var piece = clean.slice(from, from + width);
+    return (from > 0 ? "…" : "") + piece + (from + width < clean.length ? "…" : "");
+  }
+
+  /* ไฮไลต์คำค้นในข้อความที่ตัดมาแล้ว */
+  function highlight(text, terms) {
+    var esc = terms.map(function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); });
+    var re = new RegExp("(" + esc.join("|") + ")", "ig");
+    var parts = [], last = 0, m, k = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) parts.push(text.slice(last, m.index));
+      parts.push(h("mark", { key: k++ }, m[0]));
+      last = re.lastIndex;
+      if (m[0] === "") re.lastIndex++;          // กัน regex วนไม่จบกับคำว่าง
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts;
+  }
+
+  /* ค้น: ทุกคำต้องเจอในบล็อกเดียวกัน แล้วรวมคะแนนเป็นรายหน้า */
+  function runSearch(query) {
+    var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) return [];
+    var byPage = {};
+    buildSearchIndex().forEach(function (e) {
+      var score = 0;
+      for (var i = 0; i < terms.length; i++) {
+        if (e.hay.indexOf(terms[i]) < 0) return;               // ขาดคำใดคำหนึ่ง = ไม่นับ
+        score += e.w;
+      }
+      if (terms.length > 1 && e.hay.indexOf(query.toLowerCase()) >= 0) score += e.w * 3;  // เจอเป็นวลีเต็ม
+      if (e.pname.toLowerCase().indexOf(terms[0]) >= 0) score += 4;
+      var page = byPage[e.pid] || (byPage[e.pid] = { pid: e.pid, pname: e.pname, score: 0, hits: [] });
+      page.score += score;
+      page.hits.push({ sec: e.sec, heading: e.heading, kind: e.kind, text: e.text, score: score });
+    });
+    return Object.keys(byPage).map(function (k) { return byPage[k]; })
+      .map(function (p) {
+        p.hits.sort(function (a, b) { return b.score - a.score; });
+        p.hits = p.hits.slice(0, 3);
+        return p;
+      })
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, 8);
+  }
+
+  function Search(props) {
+    var s = useState(""), q = s[0], setQ = s[1];
+    var terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var results = terms.length >= 1 ? runSearch(q) : null;
+    var box = React.useRef(null);
+
+    React.useEffect(function () {
+      function onKey(ev) {
+        if (ev.key === "/" && document.activeElement !== box.current) {
+          ev.preventDefault(); if (box.current) box.current.focus();
+        } else if (ev.key === "Escape" && document.activeElement === box.current) {
+          setQ(""); box.current.blur();
+        }
+      }
+      document.addEventListener("keydown", onKey);
+      return function () { document.removeEventListener("keydown", onKey); };
+    }, []);
+
+    return h("div", { className: "search" },
+      h("div", { className: "search-box" },
+        h("span", { className: "search-icon" }, "⌕"),
+        h("input", {
+          ref: box, type: "search", value: q, className: "search-input",
+          placeholder: t({
+            th: "ค้นหาหัวข้อหรือเนื้อหา — กด / เพื่อเริ่มพิมพ์",
+            en: "Search titles and content — press / to start typing"
+          }),
+          onChange: function (ev) { setQ(ev.target.value); }
+        }),
+        q ? h("button", {
+          className: "search-clear", onClick: function () { setQ(""); },
+          title: t({ th: "ล้าง", en: "Clear" })
+        }, "×") : null
+      ),
+      results === null ? null :
+        !results.length
+          ? h("p", { className: "search-empty" },
+            t({ th: "ไม่พบ ", en: "No matches for " }) + "“" + q + "”")
+          : h("div", { className: "search-results" },
+            results.map(function (p) {
+              return h("div", { className: "search-page", key: p.pid },
+                h("a", { className: "search-title", href: p.pid + ".html" }, p.pname),
+                p.hits.map(function (hit, i) {
+                  return h("a", {
+                    key: i, className: "search-hit",
+                    href: p.pid + ".html#" + hit.sec
+                  },
+                    h("span", { className: "search-where" },
+                      tabLabel(p.pid, hit.sec) + (hit.heading ? " · " + hit.heading.replace(/^🔬\s*/, "") : "")),
+                    h("span", { className: "search-snip" },
+                      highlight(snippet(hit.text, terms, 170), terms))
+                  );
+                })
+              );
+            })
+          )
+    );
+  }
+
   /* ---- หน้าโปรเจกต์ ---- */
   function ProjectPage(props) {
     var proj = props.proj;
     var isAI = proj.id.indexOf("ai_") === 0;
     var isExam = proj.id.indexOf("exam_") === 0;
     var isCPP  = proj.id.indexOf("cpp_module_") === 0;
-    var st = useState("principle"), tab = st[0], setTab = st[1];
+    /* เปิดตรงแท็บได้ผ่าน #<section> — ผลค้นหาจากหน้าแรกลิงก์มาแบบนี้ */
+    var fromHash = (location.hash || "").slice(1);
+    var st = useState(proj.sections[fromHash] ? fromHash : "principle");
+    var tab = st[0], setTab = st[1];
+    function goTab(k) {
+      setTab(k);
+      try { location.hash = k; } catch (e) { /* file:// บางเบราว์เซอร์ไม่ยอม */ }
+      window.scrollTo(0, 0);
+    }
     document.documentElement.style.setProperty("--accent", proj.accent);
     var enSec = (LANG === "en" && window.TEACHING_EN && window.TEACHING_EN[proj.id])
       ? window.TEACHING_EN[proj.id][tab] : null;
@@ -893,7 +1075,7 @@
             return h("button", {
               key: k,
               className: "tab" + (tab === k ? " active" : ""),
-              onClick: function () { setTab(k); window.scrollTo(0, 0); }
+              onClick: function () { goTab(k); }
             }, t(label));
           })
       ),
@@ -937,6 +1119,7 @@
           en: "A hands-on 42 guide — from the theory, through every function, to the evaluation Q&A, all in plain language"
         }))
       ),
+      h(Search, null),
       HOME_GROUPS.map(function (g) {
         var items = props.projects.filter(function (p) { return g.match(p.id); });
         if (!items.length) return null;
