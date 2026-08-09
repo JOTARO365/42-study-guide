@@ -1243,3 +1243,33 @@ while ((nl = strchr(stash[fd], '\n'))) {        // มีบรรทัดค�
     ],
   },
 });
+
+/* แหล่งอ้างอิงร่วมของทุก rank — ต่อท้าย eval ทั้งฝั่งไทยและอังกฤษให้จำนวนบล็อกยังตรงกัน */
+(function () {
+  var TH = { links: [
+    { label: "42_examshell — pool โจทย์จริง + เฉลย", url: "https://github.com/terminal-42s/42_examshell",
+      note: "ที่มาของ pool ทั้งหมดในหน้านี้ ติดตั้งแล้วซ้อมออฟไลน์ได้เหมือนของจริง" },
+    { label: "42_EXAM — ชุดโจทย์ที่ชุมชนรวบรวม", url: "https://github.com/JCluzet/42_EXAM",
+      note: "มีสคริปต์รันเทียบผลลัพธ์กับเฉลยให้ ใช้ซ้อมจับเวลาได้" },
+    { label: "man7.org — Linux man pages", url: "https://man7.org/linux/man-pages/",
+      note: "ในห้องสอบมี man ให้ใช้ — อ่าน man ให้เร็วคือทักษะที่ได้คะแนนจริง" },
+    { label: "cppreference — C library", url: "https://en.cppreference.com/w/c",
+      note: "ค่าคืน พฤติกรรมขอบ และ undefined behaviour ของฟังก์ชันมาตรฐาน" }
+  ]};
+  var EN = { links: [
+    { label: "42_examshell — the real exercise pool and answers", url: "https://github.com/terminal-42s/42_examshell",
+      note: "Where this page's pool comes from; install it and rehearse offline exactly as in the exam" },
+    { label: "42_EXAM — a community-collected pool", url: "https://github.com/JCluzet/42_EXAM",
+      note: "Ships scripts that diff your output against the expected one, so you can rehearse against the clock" },
+    { label: "man7.org — Linux man pages", url: "https://man7.org/linux/man-pages/",
+      note: "man is available during the exam; reading one quickly is itself a graded skill" },
+    { label: "cppreference — C library", url: "https://en.cppreference.com/w/c",
+      note: "Return values, edge behaviour and undefined behaviour of the standard functions" }
+  ]};
+  window.TEACHING_DATA.forEach(function (p) {
+    if (p.id.indexOf("exam_") !== 0 || !p.sections.eval) return;
+    p.sections.eval.push(TH);
+    var en = window.TEACHING_EN[p.id];
+    if (en && en.eval) en.eval.push(EN);
+  });
+})();

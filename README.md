@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **41 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **42 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step
 
@@ -32,6 +32,7 @@
 | [libft](https://jotaro365.github.io/42-study-guide/libft.html) | กล่องเครื่องมือ 46 ฟังก์ชัน: ความเป็นเจ้าของ pointer, memmove ซ้อนทับ, ค่าคืนของ strlcpy/strlcat, calloc overflow, ft_split, t_list, libft.a ลิงก์ยังไง | 9 |
 | [ft_printf](https://jotaro365.github.io/42-study-guide/ft_printf.html) | variadic: กลไก va_list, default argument promotion, ทำไมต้องส่ง va_list เป็น pointer, แปลงฐานแบบ recursive, นับค่าคืนให้เป๊ะ | 6 |
 | [get_next_line](https://jotaro365.github.io/42-study-guide/get_next_line.html) | static storage, stash ที่เหลือค้าง, read คืนได้ 3 แบบ, node ต่อ fd, BUFFER_SIZE จากภายนอก | 6 |
+| [Born2beRoot](https://jotaro365.github.io/42-study-guide/born2beroot.html) | เซิร์ฟเวอร์ Debian ไร้ GUI: LUKS ใต้ LVM, SSH 4242 ห้าม root, UFW, PAM/pwquality, sudoers ที่บันทึก I/O, monitoring.sh + cron และกับดักลายเซ็น .vdi | 7 |
 | [push_swap](https://jotaro365.github.io/42-study-guide/push_swap.html) | Turkish sort, พิสูจน์ Big-O, ขอบล่างของ decision tree, two's complement, การคิด cost | 7 |
 | [pipex](https://jotaro365.github.io/42-study-guide/pipex.html) | fork/pipe/dup2/execve, ไล่ตาราง fd, pipe reference counting, exec เปลี่ยน memory ยังไง | 4 |
 | [so_long](https://jotaro365.github.io/42-study-guide/so_long.html) | flood fill, ความซับซ้อน DFS/BFS, ที่มาสูตร camera, FSM แบบเป็นทางการ | 4 |
@@ -106,9 +107,9 @@
 | pipex | ไดอะแกรมไล่ทีละ step: infile → pipe → outfile |
 | NetPractice | **simulator 10 ด่าน จับเวลา** — กระดานวาดสายด้วย canvas เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับ `sim.js` หมดเวลาแล้วเปิดเฉลยให้ |
 
-**Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ) — 24 หน้า:
+**Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ) — 25 หน้า:
 
-- **C / เครือข่าย / system:** push_swap · pipex · so_long · fract-ol · minitalk · fdf · philosophers · minishell · miniRT · cub3D · NetPractice · webserv · ft_irc · Inception
+- **C / เครือข่าย / system:** Born2beRoot · push_swap · pipex · so_long · fract-ol · minitalk · fdf · philosophers · minishell · miniRT · cub3D · NetPractice · webserv · ft_irc · Inception
 - **C++:** CPP Module 00
 - **AI:** ทั้ง 9 หน้า (foundations, LLM & API, vector, RAG, agents, harness, loop engineering, fine-tuning, output control)
 
