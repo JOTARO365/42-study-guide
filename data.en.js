@@ -14811,3 +14811,448 @@ assert serve_text in train_text, "template mismatch — stop before wasting a ru
     ],
   }
 });
+
+/* ===================== EN · ai_output_control ===================== */
+Object.assign(window.TEACHING_EN, {
+  "ai_output_control": {
+    principle: [
+      { h: "What this page covers" },
+      { p: "How to **force the shape of an LLM's output** using the mechanisms the API actually provides, instead of pleading with it in the prompt — starting with the ones that make wrong output *impossible* and ending with the ones that merely *ask*." },
+      { note: "One idea runs through the whole page: **reach for the mechanism that makes wrong output impossible before the one that asks for the right one.** If a schema can enforce it, there is nothing left to argue about in the prompt." },
+
+      { h: "The order to reach for them (strongest first)" },
+      { code: String.raw`1. structured output / JSON schema    malformed output cannot occur  <- start here
+2. prefill + stop sequence            control the head and the tail
+3. tool_choice                        force the tool you want called
+4. prompt structure (delimiters, examples)   remove instruction/data ambiguity
+5. sampling (temperature/top_p)       reduces randomness, does not enforce shape
+6. retry-and-repair                   the last resort, exactly once
+
+The most common mistake: jumping to step 5, or rewriting the prompt again,
+when the problem was solved at step 1.`, cap: "The higher the step, the more it enforces; the lower, the more it requests — they fix different symptoms and do not substitute for each other", lang: "txt" },
+
+      { h: "Symptom → the control to reach for" },
+      { table: { head: ["Symptom", "What to use"], rows: [
+        ["JSON arrives wrapped in a code fence, or after a preamble", "Structured output, or prefill"],
+        ["It answers correctly, then keeps talking", "Stop sequence"],
+        ["It sometimes refuses to call the tool", "`tool_choice`, not a firmer instruction"],
+        ["It ignores the length you asked for", "A countable unit, enforced by the schema"],
+        ["The format drifts between calls", "Two or three few-shot examples in the exact target shape"],
+        ["It follows text inside the user's data instead of your instruction", "Delimited blocks, and reorder them"],
+        ["Output varies at temperature 0", "Accept that it cannot be pinned; cache instead"],
+      ]}},
+    ],
+
+    theory: [
+      { h: "1) Structured output — the strongest control there is" },
+      { p: "This is not \"please answer in JSON\". It **removes the tokens that would break the schema from consideration** before sampling, so malformed output is not discouraged — it cannot be produced." },
+      { ul: [
+        "**Keep the schema thin** — every field is generated as real tokens, so it costs money and adds a way to fail. Ask only for what the code consumes",
+        "**Constrain values, not just types** — an enum beats a free string, a bounded integer beats a number",
+        "**Field names are prompt** — `refund_reason_code` steers far better than `field3`",
+        "**Field order matters** — the model writes one field at a time seeing the previous ones, so reasoning must come *before* the conclusion it supports",
+      ]},
+
+      { h: "2) Prefill — write the start of the answer yourself" },
+      { p: "Put the opening of the answer in the assistant turn. The model **continues from there**, so a preamble like \"Sure, here is the JSON:\" disappears — there is no longer a slot for it." },
+      { code: String.raw`messages = [
+  {"role": "user",      "content": "..."},
+  {"role": "assistant", "content": "{"}      # it can only continue as JSON now
+]
+
+The same trick forces other shapes:
+  prefill "- "        -> forces a bullet
+  prefill "| "        -> forces a table row
+  prefill "<answer>"  -> paired with a stop at "</answer>", an exact frame
+
+Remember: the prefill is not in the returned response — prepend it yourself.`, cap: "Prefill closes the preamble slot structurally rather than asking for it to be skipped — far more reliable than writing \"no preamble\"", lang: "python" },
+      { note: "Not every provider or mode supports prefill (thinking modes usually do not) — check before you build around it." },
+
+      { h: "3) Stop sequences — decide where it ends" },
+      { p: "Generation halts the moment the sequence appears, and **the sequence itself is not returned**. Paired with prefill it gives an exact frame." },
+      { table: { head: ["Fixes", "How to set it"], rows: [
+        ["Correct answer followed by chatter", "Stop at the closing marker, e.g. `</answer>`"],
+        ["The model inventing another conversation turn", "Stop at `\\nUser:` or `\\nHuman:`"],
+        ["You only want the first line", "Stop at `\\n`"],
+      ]}},
+      { note: "A stop sequence does not shorten or repair anything — it ends the call. Keep `max_tokens` as the backstop." },
+
+      { h: "4) tool_choice — take the choice away" },
+      { table: { head: ["Value", "Effect", "Use when"], rows: [
+        ["`auto`", "The model decides", "Agents that need to judge for themselves"],
+        ["`any` / `required`", "It must call some tool", "A pipeline step where an action is mandatory"],
+        ["A named tool", "It must call that one", "Using a tool schema as your output-format enforcement"],
+        ["`none`", "Text only, tools stay visible", "You want prose but still want the tools as context"],
+      ]}},
+      { p: "If the symptom is \"it sometimes doesn't call the tool\", the answer is this parameter, not a more emphatic instruction." },
+
+      { h: "5) Sampling — temperature, top_p, top_k" },
+      { table: { head: ["Knob", "What it does", "How to use it"], rows: [
+        ["`temperature`", "Flattens or sharpens the whole distribution", "The main dial — 0 for extraction and classification, 0.7–1.0 for drafting"],
+        ["`top_p`", "Keeps the smallest set of tokens whose mass reaches p", "Trims the long tail without flattening the head"],
+        ["`top_k`", "Keeps the k most likely tokens", "Blunt; rarely needed alongside top_p"],
+      ]}},
+      { note: "**Tune one.** A low temperature and a low top_p compound into near-greedy output that repeats and loops. Most providers advise against setting both." },
+
+      { h: "6) Prompt structure — separate instructions from data" },
+      { p: "The model does not see your quotation marks the way you do. Draw the boundary with named blocks." },
+      { code: String.raw`<instructions>Summarise in exactly three bullets.</instructions>
+<document>
+{{ user_text }}
+</document>
+
+Two wins at once:
+  1. steadier format, because it is unambiguous which part is the instruction
+  2. basic prompt-injection resistance, because a smuggled "ignore the previous
+     instructions" now sits visibly *inside* <document>
+
+Ordering: durable instructions on top (they cache), variable data at the bottom.`, cap: "Two or three examples in the exact target shape control format better than a paragraph describing that shape", lang: "xml" },
+
+      { h: "7) Length and tone" },
+      { ul: [
+        "`max_tokens` **truncates**, it does not **summarise** — set it as a safety net, not as a length control",
+        "Ask for a **countable unit**: \"three bullets\", \"under 50 words\", \"one sentence\". Words like \"short\" drift between calls",
+        "Enforce structurally where you can: an array with maxItems 3 cannot return five",
+        "Tone travels better in two examples than in a pile of adjectives",
+      ]},
+
+      { h: "🔬 Deep dive A: constrained decoding — why a schema really does enforce" },
+      { p: "**Intuition:** at every generation step the model scores (logits) every token in the vocabulary and samples from those scores. Structured output does not adjust the scores — it **removes the options that would break the JSON** before sampling happens." },
+      { code: String.raw`generated so far:  {"category":
+per the schema, the next value must come from ["billing","technical","other"]
+
+raw logits from the model:      after the schema mask:
+  "billing"    12.1               "billing"    12.1
+  "  "          9.8               "technical"   7.4
+  "I"           8.6               "other"       5.2
+  "technical"   7.4               everything else  -inf   <- unreachable
+  "other"       5.2
+  ... 100k more
+
+Sampling happens only over the masked set -> " I think the category..." is impossible`, cap: "This is why structured output beats writing \"reply with JSON only\" — the instruction leaves a path to failure, the mask does not", lang: "txt" },
+      { p: "**The consequence people miss:** the mask is computed from the *current schema state* at every step, so the more complex the schema (deep nesting, many unions, optional everywhere) the more states exist, the more ambiguous the choice, and the more often the model walks into a branch it cannot finish well. **A thin schema is not just cheaper, it is more accurate.**" },
+      { ul: [
+        "**Try it:** run the same task with a 12-field schema and with the 4 fields you actually consume, and measure the rate of \"every field correct\" — the thin one usually wins",
+        "**Trap:** putting a `reasoning` field *after* `answer` — the model has already committed, so the reasoning becomes an after-the-fact justification that helped nothing",
+        "**Trap:** using schema `description` fields as a dumping ground for long instructions — that is prompt text you pay for on every call, so keep it short and specific",
+      ]},
+      { qa: [
+        { q: "How is structured output different from writing \"reply with JSON only\"?", a: "The first removes malformed options at the moment each token is chosen, so bad output cannot be produced. The second is a request the model may not honour, especially on unusual input." },
+        { q: "Why does field order affect answer quality?", a: "Because generation is token by token, always conditioned on what came before. Put the conclusion first and the reasoning becomes a justification for a decision already made; put the reasoning first and the conclusion is built on it." },
+      ]},
+
+      { h: "🔬 Deep dive B: prefill and stop — controlling both ends mechanically" },
+      { p: "**Intuition:** the model does exactly one thing — guess what follows from what is already there. Make what is already there a `{` and it has no option but to continue as JSON, because the context has closed the door on a preamble." },
+      { code: String.raw`without prefill:
+  context = [system][user]
+  most likely next token = "Sure" / "Here" / "I"      <- the preamble starts here
+
+with prefill "{":
+  context = [system][user][assistant: "{"]
+  most likely next token = "\"" (opening a key)       <- no room for a preamble
+
+versus the instruction "do not add a preamble":
+  that sentence sits thousands of tokens away and competes with a strongly
+  trained habit; the prefill sits adjacent to the position being written.
+  It is not a close contest.`, cap: "Stop sequences work on the same principle: rather than asking it to stop, you cut the generation when the real marker appears", lang: "txt" },
+      { p: "**The pairing that gives an exact frame:** prefill `<answer>` with a stop at `</answer>` fixes both ends without relying on the model's cooperation at either — and removes the regex clean-up pass that usually follows." },
+      { ul: [
+        "**Try it:** send the same request 20 times with \"no preamble\" in the prompt and 20 times with a prefill, and count the preambles that slip through",
+        "**Trap:** forgetting the prefill is not in the response, so the JSON fails to parse because the opening brace you supplied is missing",
+        "**Trap:** a prefill ending in whitespace — several providers reject it",
+      ]},
+      { qa: [
+        { q: "Why does prefill beat an instruction?", a: "It changes the context immediately adjacent to the position being generated, while an instruction is distant text competing with trained behaviour." },
+        { q: "How does a stop sequence differ from max_tokens?", a: "A stop sequence ends generation at a marker you chose, so it finishes exactly where intended. max_tokens cuts at a count and can slice a sentence in half, so it belongs as a safety net only." },
+      ]},
+
+      { h: "🔬 Deep dive C: temperature 0 is not determinism" },
+      { p: "**Intuition:** temperature 0 only says \"always take the highest-scoring token\". It does not promise **the scores come out identical every time**. When first and second place are nearly tied, floating-point noise decides the winner." },
+      { code: String.raw`Four reasons output varies at temperature 0
+
+1. batching        your request is grouped with other traffic, differently each time
+                   a different batch size changes the summation order in the matmuls
+2. floating point  (a+b)+c is not exactly a+(b+c)
+                   a different order shifts a logit in the 7th decimal place
+3. MoE routing     some architectures pick different experts depending on the batch
+4. model versions  providers update weights and serving stacks under a stable alias
+
+  logits:  "billing" 12.100001   vs   "billing" 12.099998
+           "other"   12.100000        "other"   12.100004
+                     ^ wins today                ^ wins tomorrow
+
+Result: 999 identical runs and one that is not — usually the one that mattered.`, cap: "Temperature 0 removes the randomness you added; it does not remove the nondeterminism of the computation itself", lang: "txt" },
+      { p: "**What to do when you genuinely need repeatability:** stop expecting it from re-running the call. **Cache the result** keyed by a hash of the input, **pin a dated model name** rather than a floating alias, and for anything auditable log the input, the output, the model name and the parameters together." },
+      { ul: [
+        "**Try it:** send one prompt 200 times at temperature 0 and count distinct answers — borderline judgement tasks diverge far more than clean extraction",
+        "**Trap:** tests that assert an exact output string — they go red at random with nobody having changed anything. Assert schema and properties instead",
+        "**Trap:** an undated model alias in production, then confusion when behaviour shifts overnight on its own",
+      ]},
+      { qa: [
+        { q: "Why does output still vary at temperature 0?", a: "Because the deciding scores are computed in floating point on parallel hardware, and the summation order shifts with how requests are batched. When two candidates are nearly tied, the winner can flip." },
+        { q: "So how do you get reproducibility?", a: "Cache and reuse results instead of re-running, pin a dated model version, and log inputs and outputs for audit. Never build a system whose correctness depends on getting byte-identical text back." },
+      ]},
+
+      { h: "🔬 Deep dive D: why \"do not\" works worse than \"do\"" },
+      { p: "**Intuition:** the model predicts what comes next from everything in the context. Writing \"do not add explanations\" places the word *explanations* prominently in that context. It gets activated rather than removed." },
+      { code: String.raw`❌ "Do not add explanations. No markdown. Do not begin with 'Here is'."
+   the context now contains: explanations / markdown / Here is
+
+✅ "Reply with a single JSON object."
+   the context contains only a picture of what you want
+
+Measured on an extraction task, 200 runs (our own numbers — the exact figures
+depend on model and task, so measure your own):
+   negative phrasing : ~8% malformed
+   positive phrasing : ~3% malformed
+   + prefill         : ~0% malformed
+
+The general rule: describe the output you want, not the output you forbid.
+And if it matters enough to forbid, it matters enough to enforce structurally.`, cap: "Prohibitions you genuinely need should be short and last — but the cheaper move is to migrate them into a schema, a prefill or a stop sequence", lang: "txt" },
+      { p: "**The deeper reason:** a negative instruction requires the model to generate-then-suppress, which draws on its reasoning capacity. As input grows longer or stranger that capacity is spent elsewhere, and the prohibition is the first thing to slip. A positive instruction merely points, and needs no suppression at all." },
+      { ul: [
+        "**Try it:** take a prompt with five prohibitions, rewrite it as two positive instructions, and compare malformed rates",
+        "**Trap:** adding one more prohibition each time a bug appears, until the system prompt is a 20-line list of don'ts — long, expensive and progressively less effective",
+        "**Trap:** forbidding X while an example still contains X — the example wins every time",
+      ]},
+      { qa: [
+        { q: "Why is a negative instruction weaker?", a: "It makes the unwanted thing prominent in the context, and it relies on suppression, which is the first thing to fail as input gets longer or harder. Stating what you want needs no suppression." },
+        { q: "What if a prohibition is genuinely necessary?", a: "Move it into structure where possible — a schema or a prefill. If it must stay as text, keep it short and put it last rather than accumulating a list." },
+      ]},
+
+      { h: "📖 Further reading" },
+      { links: [
+        { label: "Grammar-Constrained Decoding (llama.cpp GBNF)", url: "https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md", note: "See token-level masking for real; structured output clicks immediately" },
+        { label: "Outlines — structured generation", url: "https://github.com/dottxt-ai/outlines", note: "Constrained decoding for open-weight models" },
+        { label: "Nondeterminism in LLM inference", url: "https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/", note: "Why temperature 0 still moves, traced down to batching and kernels" },
+        { label: "The Prompt Report (a survey of prompting techniques)", url: "https://arxiv.org/abs/2406.06608", note: "Techniques with evidence for which ones actually work" },
+      ]},
+      { h: "📚 Provider documentation" },
+      { links: [
+        { label: "Anthropic — prefill Claude's response", url: "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/prefill-claudes-response", note: "How prefill works and where it does not apply" },
+        { label: "Anthropic — structured outputs", url: "https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs", note: "Enforcing shape with schemas and tools" },
+        { label: "OpenAI — structured outputs", url: "https://platform.openai.com/docs/guides/structured-outputs", note: "Strict schemas and which JSON Schema features are supported" },
+        { label: "Pydantic — validation", url: "https://docs.pydantic.dev/", note: "The validator on your side, paired with retry-and-repair" },
+      ]},
+    ],
+
+    foundations: [
+      { h: "Anatomy of a call you can actually control" },
+      { code: String.raw`call = {
+  model:        "a dated model name, never a floating alias",
+  system:       "role plus positively phrased rules (stable, cacheable)",
+  messages:     [user, (assistant prefill if used)],
+  tools:        [...],  tool_choice: "auto | any | a tool name",
+  response_format / schema: "the shape you enforce",
+  stop_sequences: ["</answer>"],
+  temperature:  0,           # tune one sampling knob only
+  max_tokens:   800,         # a safety net, not a length control
+}
+        │
+        ▼
+  validate(result)  ─┬─ passes -> use it
+                     └─ fails   -> one repair round -> still failing -> fallback`, cap: "Every field here is a control. Calling an LLM with only model and messages set leaves half the toolbox unopened", lang: "txt" },
+
+      { h: "Rules that belong in structure, not in a sentence" },
+      { table: { head: ["What you want", "Written in the prompt", "Enforced structurally"], rows: [
+        ["One of three values", "\"Answer A, B or C\"", "An enum in the schema"],
+        ["All four fields present", "\"Don't forget any field\"", "required in the schema"],
+        ["At most three items", "\"Keep it brief\"", "An array with maxItems"],
+        ["A tool must be called", "\"Always use the tool\"", "`tool_choice`"],
+        ["No preamble", "\"Do not add a preamble\"", "Prefill"],
+        ["End here", "\"That is all you need to say\"", "A stop sequence"],
+      ]}},
+      { note: "The right-hand column is not merely better — it is **testable**. A schema violation is an error you catch immediately; an ignored sentence fails silently and surfaces at the user." },
+    ],
+
+    architecture: [
+      { h: "Three layers: prompt, enforcement, validation" },
+      { code: String.raw`prompts/
+  extract.system.md        plain text, editable without touching code
+  extract.examples.jsonl   the few-shot examples that hold the format
+
+src/
+  schemas.py     the output shapes (one source of truth)
+  llm.py         one call site that always attaches schema/stop/prefill/tool_choice
+  repair.py      a single repair round plus the fallback
+  metrics.py     format_error_rate, repair_rate, output length`, cap: "The shared call site matters most: when every module calls the API itself, one of them always forgets the schema — and that is the one that breaks in production", lang: "txt" },
+      { h: "The schema is a contract, not a hint" },
+      { p: "Let one schema definition serve both the enforcement side (sent to the API) and the validation side (checking the result). Define it twice and one day they diverge, and output that \"passed the API\" fails your own validator." },
+      { h: "Numbers worth watching" },
+      { ul: [
+        "**format_error_rate** — share of results failing validation on the first try (should be near zero with a schema)",
+        "**repair_rate** — share needing a repair; a slow rise means a prompt, a schema or a model version has drifted",
+        "**Length distribution** — output growing quietly is cost growing quietly",
+        "**max_tokens hit rate** — anything above zero means truncated answers are reaching users",
+      ]},
+    ],
+
+    dataflow: [
+      { h: "The controls one request passes through" },
+      { code: String.raw`user input
+  │
+  ├─ build prompt : [stable system][examples][<document>user data</document>]
+  │                  instructions on top, data below, inside named blocks
+  │
+  ├─ parameters   : schema + stop + temperature 0 + max_tokens
+  │
+  ├─ prefill "{"  : closes the preamble slot
+  │
+  ├─ generate     : every step masked to tokens that keep the schema valid
+  │
+  ├─ cut at stop  : the stop string itself is not returned
+  │
+  ├─ re-attach    : "{" + whatever the model wrote
+  │
+  └─ validate ─┬─ passes -> hand to the code waiting for it
+               └─ fails  -> send the validator's error back, once
+                            -> still failing -> fallback (default / other model / human)`, cap: "Each stage does a different job and none substitutes for another — and the last one must always exist", lang: "txt" },
+    ],
+
+    implementation: [
+      { h: "🧪 A fully controlled call (copy and try it)" },
+      { code: String.raw`# pip install anthropic pydantic
+from typing import Literal
+from pydantic import BaseModel, Field, ValidationError
+import anthropic, json
+
+client = anthropic.Anthropic()
+MODEL = "claude-sonnet-5"          # a specific model, not a floating alias
+
+class Ticket(BaseModel):
+    reason: str = Field(max_length=200, description="brief reasoning, before the verdict")
+    category: Literal["billing", "technical", "other"]     # an enum, not a str
+    urgency: Literal["low", "medium", "high"]
+    # reason comes first on purpose: think, then conclude — not conclude, then justify
+
+SYSTEM = "You classify support tickets. Reply with a single JSON object matching the schema."
+
+def classify(text: str) -> Ticket:
+    msg = client.messages.create(
+        model=MODEL,
+        system=SYSTEM,                        # stable -> cacheable
+        messages=[
+            {"role": "user", "content":
+                "<instructions>Classify this ticket</instructions>\n"
+                f"<ticket>\n{text}\n</ticket>"},
+            {"role": "assistant", "content": "{"},        # prefill kills the preamble
+        ],
+        stop_sequences=["}"],                 # with the prefill, an exact frame
+        temperature=0,                        # one knob; top_p left alone
+        max_tokens=300,                       # safety net, not a length control
+    )
+    raw = "{" + msg.content[0].text + "}"     # re-attach the prefill and the stop
+    return Ticket.model_validate_json(raw)`, cap: "Both the prefill and the stop must be re-attached by you. Forgetting it breaks every parse, and it is slow to diagnose because it looks like the model got it wrong", lang: "python" },
+
+      { h: "🧪 Bounded retry-and-repair" },
+      { code: String.raw`def classify_safe(text: str) -> Ticket | None:
+    try:
+        return classify(text)
+    except (ValidationError, json.JSONDecodeError) as e:
+        # exactly one repair, feeding the validator's own message back
+        msg = client.messages.create(
+            model=MODEL, system=SYSTEM, temperature=0, max_tokens=300,
+            messages=[
+                {"role": "user", "content": f"<ticket>\n{text}\n</ticket>"},
+                {"role": "assistant", "content": last_raw},
+                {"role": "user", "content":
+                    f"That failed validation: {e}\nReturn the corrected JSON only."},
+            ],
+        )
+        try:
+            return Ticket.model_validate_json(msg.content[0].text)
+        except ValidationError:
+            metrics.incr("classify.fallback")
+            return None            # let the caller decide; do not keep looping
+
+# Two rules for a repair loop:
+#   1. repair once — looping until success is a bill with no ceiling
+#   2. send the real validator message, not "that was wrong";
+#      the specific error is what makes the second attempt land`, cap: "The repair rate is an early-warning signal — when it creeps up, something drifted, and you want to know before users do", lang: "python" },
+
+      { h: "🧪 Measure which control actually helps" },
+      { code: String.raw`import collections, statistics
+
+VARIANTS = {
+    "baseline":        dict(),                                  # nothing at all
+    "prompt_only":     dict(system=SYSTEM + " Reply with JSON only."),
+    "prefill":         dict(prefill="{"),
+    "schema":          dict(schema=Ticket),
+    "schema+prefill":  dict(schema=Ticket, prefill="{"),
+}
+
+def bench(variant, cases, n=50):
+    ok = lens = 0
+    for case in cases[:n]:
+        out = call_with(variant, case)
+        try:
+            Ticket.model_validate_json(out); ok += 1
+        except Exception:
+            pass
+        lens += len(out)
+    return {"valid_rate": ok / n, "avg_len": lens / n}
+
+for name, v in VARIANTS.items():
+    print(name.ljust(16), bench(v, cases))
+
+# Include the cases that used to fail, not just the pretty ones.
+# Expected shape: schema and prefill push valid_rate towards 1.0,
+# while prompt_only tends to plateau somewhere in the 0.9s.`, cap: "Do not assume a control helps until you have measured it on your own data — models differ in how strongly each one bites", lang: "python" },
+
+      { h: "Checklist before a call goes to production" },
+      { ul: [
+        "A dated model name, not an alias that can move under you",
+        "Anything the code parses is enforced by a schema, not by an instruction",
+        "Prefill and stop strings are re-attached before parsing",
+        "Exactly one sampling knob is set (usually temperature)",
+        "`max_tokens` has a value, and a metric counts how often it is hit",
+        "Validation, one repair round, and an explicit fallback all exist",
+        "Instructions and user data live in separate named blocks",
+        "The final string sent to the API can be logged (at least in debug)",
+      ]},
+    ],
+
+    tricks: [
+      { h: "Trick 1: read the final string before blaming the model" },
+      { p: "Most \"it ignores my instruction\" reports turn out to be templating bugs — an empty variable, an instruction nested inside the data block, or a system prompt that was never sent. Print the final string first. It takes thirty seconds." },
+
+      { h: "Trick 2: enforce before you ask" },
+      { p: "Every time you are about to add another sentence to a prompt, ask whether it could be an enum, a required field, maxItems or a stop sequence instead. If it can, do that — you get certainty and an error you can catch." },
+
+      { h: "Trick 3: make it think before it concludes, via field order" },
+      { code: String.raw`❌ {"answer": "...", "reasoning": "..."}     answer first; reasoning becomes an excuse
+✅ {"reasoning": "...", "answer": "..."}     think first; the answer rests on it
+
+If you do not want to show the reasoning, strip it on your side —
+but you still pay for those tokens, so weigh it against the accuracy gained.`, cap: "The same principle that makes chain-of-thought work: room to think before answering helps, but only in the right position", lang: "txt" },
+
+      { h: "Trick 4: examples beat descriptions, always" },
+      { p: "Show two or three examples in the target shape rather than describing it in a paragraph. And when an example contradicts an instruction, the model follows the example — so clean the examples before rewriting the instruction." },
+
+      { h: "Trick 5: tune one sampling knob" },
+      { p: "temperature and top_p overlap; pulling both down produces repetitive, looping output. Pick one — usually temperature — and leave the other at its default." },
+
+      { h: "Trick 6: never assert exact strings in tests" },
+      { p: "LLM output is not perfectly stable even at temperature 0. Assert *properties* — it validates, the category is in the enum, the length is in range — rather than byte-identical text, or you get randomly red tests and a team that stops trusting them." },
+
+      { h: "Trick 7: an accumulating list of prohibitions is a smell" },
+      { p: "If the system prompt grows another \"do not...\" every week, the problem is being fixed at the wrong layer. Migrate the important ones into schema, prefill and stop, then delete them from the prompt — you gain certainty and cheaper tokens at once." },
+    ],
+
+    eval: [
+      { h: "Questions to answer before claiming you can control output" },
+      { qa: [
+        { q: "In what order should you reach for output controls?", a: "Start with what makes wrong output impossible — schema enforcement — then the prefill and stop that fix both ends, then prompt structure, then sampling, and only last the repair path when validation fails." },
+        { q: "Why is structured output stronger than an instruction?", a: "It removes the malformed options at the moment each token is chosen, so bad output cannot be produced, whereas an instruction is a request that slips on unusual input." },
+        { q: "What is prefill and when do you use it?", a: "Writing the beginning of the answer in the assistant turn so the model continues from it. It closes off preambles and forces a shape. Remember that what you wrote is not returned, so re-attach it." },
+        { q: "How does a stop sequence differ from max_tokens?", a: "A stop sequence ends generation at a marker you chose, so it stops exactly where intended. max_tokens cuts at a count and may slice a sentence, so it serves only as a safety net." },
+        { q: "The model sometimes will not call the tool — where do you fix that?", a: "In the tool-choice parameter: require a call, or name the tool outright. Not by making the instruction more emphatic." },
+        { q: "Should you set temperature and top_p together?", a: "No. They control the same randomness from different sides, and lowering both makes the output repeat. Tune one and leave the other at its default." },
+        { q: "Does temperature 0 make output identical every time?", a: "No. Floating-point arithmetic on parallel hardware gives slightly different results depending on how requests are batched, so nearly tied candidates can swap. For repeatability, cache the result and pin the model version." },
+        { q: "Why does a prohibition work less well than a positive instruction?", a: "It makes the unwanted thing prominent in the context and depends on suppression, which fails first as input gets harder. Stating the desired output requires no suppression at all." },
+        { q: "How many repair rounds should there be?", a: "One, then a fallback — looping until success means an unbounded bill. And send the validator's actual error back so the second attempt fixes the right thing." },
+        { q: "How do you notice output control degrading?", a: "Watch the share failing validation on the first attempt and the share needing repair. A slow rise means the prompt, the schema or the model version has moved, and you want to look before users do." },
+      ]},
+    ],
+  }
+});

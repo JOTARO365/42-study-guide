@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **36 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **37 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step
 
@@ -70,6 +70,7 @@
 | [Harness](https://jotaro365.github.io/42-study-guide/ai_harness.html) | guardrail, tool calling, ออกแบบ system prompt, คุมต้นทุน, eval, MCP | 3 |
 | [Loop Engineering](https://jotaro365.github.io/42-study-guide/ai_loop_engineering.html) | agent ที่วน reason → act → ตรวจเอง: goal+gate, เพดานรอบ, false-pass, no-progress detector | 4 |
 | [Fine-tuning](https://jotaro365.github.io/42-study-guide/ai_finetune.html) | บันได prompt → RAG → SFT/LoRA → DPO, LoRA ทำงานยังไง, เตรียมข้อมูล, catastrophic forgetting, จุดคุ้มทุน | 4 |
+| [Output Control](https://jotaro365.github.io/42-study-guide/ai_output_control.html) | บังคับรูปแบบผลลัพธ์: structured output, prefill, stop sequence, tool_choice, temperature เทียบ top_p, retry-and-repair | 4 |
 
 ## Exam Rank 02–06
 
