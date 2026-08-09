@@ -406,18 +406,18 @@ If ps->silent==1 (checker mode) it does not write.`, cap: "Arrows = 'calls / pas
       { h: "stack.c — the stack primitives (reused everywhere)" },
       { table: { head: ["Function", "Why it exists", "Takes · from whom", "Returns/effect · to whom"], rows: [
         ["new_node(val)", "Make a new node (malloc + init)", "int · from build_stack", "t_node* → append_node"],
-        ["stack_push(**top,n)", "Push a node on top (can change top → double ptr)", "**top,node · from pa/pb", "edits *top in place"],
-        ["stack_pop(**top)", "Pop the top node", "**top · from pa/pb", "t_node* + edits *top"],
+        ["`stack_push(**top,n)`", "Push a node on top (can change top → double ptr)", "`**top`, node · from pa/pb", "edits *top in place"],
+        ["`stack_pop(**top)`", "Pop the top node", "`**top` · from pa/pb", "t_node* + edits *top"],
         ["stack_size(top)", "Count (used to decide things everywhere)", "top · from sort/cost/move", "int"],
-        ["stack_free(**top)", "Free the whole list", "**top · from ps_free", "*top = NULL"],
+        ["`stack_free(**top)`", "Free the whole list", "`**top` · from ps_free", "*top = NULL"],
       ]}},
       { h: "ops_*.c — the 11 commands (the only code that writes output)" },
       { table: { head: ["Function", "Why it exists", "Takes · from whom", "Effect"], rows: [
         ["sa / sb / ss", "Swap the top 2", "t_ps* · from sort_*", "edit stack + write op name"],
         ["pa / pb", "Move across stacks (= pop+push)", "t_ps* · from sort_*/do_move", "move a node + write"],
-        ["rotate_one (static)", "Rotate mechanic top→bottom (pointer surgery)", "**stack · from ra/rb/rr", "edits list in place"],
+        ["rotate_one (static)", "Rotate mechanic top→bottom (pointer surgery)", "`**stack` · from ra/rb/rr", "edits list in place"],
         ["ra / rb / rr", "Rotate forward (rr = both, 1 op)", "t_ps* · from rotate_*_by/sort", "call rotate_one + write"],
-        ["rev_rotate_one (static)", "Rotate mechanic bottom→top", "**stack · from rra/rrb/rrr", "edits list in place"],
+        ["rev_rotate_one (static)", "Rotate mechanic bottom→top", "`**stack` · from rra/rrb/rrr", "edits list in place"],
         ["rra / rrb / rrr", "Rotate backward (rrr = both, 1 op)", "t_ps* · from rotate_*_by/sort", "call rev_rotate_one + write"],
       ]}},
       { h: "sort_small.c / sort_large.c — the sorting strategy" },
@@ -2624,7 +2624,7 @@ exec_cmd(cmd, envp) -> ft_split(cmd,' ') -> get_path(args[0],envp)
       ]}},
       { h: "utils.c / bonus" },
       { table: { head: ["Function", "Why it exists", "Gets · from whom", "Result"], rows: [
-        ["free_tab(tab)", "fully free a char** from ft_split", "char** · from exec_cmd/path", "free every string + the array"],
+        ["free_tab(tab)", "fully free a `char**` from ft_split", "`char**` · from exec_cmd/path", "free every string + the array"],
         ["error_exit(msg)", "print error + exit on fatal", "message · from any error path", "perror/exit(1)"],
         ["here_doc (static)", "[bonus] read stdin until LIMITER into a pipe", "limiter · from pipex_bonus", "pipe read fd -> used as infile"],
         ["open_out_bonus (static)", "[bonus] open outfile (append/trunc)", "file,append · from pipex_bonus", "fd -> fds[1]"],
@@ -2971,7 +2971,7 @@ src/free.c      free all memory
       { h: "validate.c — check it's actually playable" },
       { table: { head: ["Function", "Why it exists", "Gets · from whom", "Returns · to whom"], rows: [
         ["check_walls (static)", "check the border is all wall '1'", "&game · from validate_map", "error if not closed"],
-        ["copy_grid (static)", "copy the grid (to not destroy the real one)", "&game · from validate_map", "char** copy -> flood_fill"],
+        ["copy_grid (static)", "copy the grid (to not destroy the real one)", "&game · from validate_map", "`char**` copy -> flood_fill"],
         ["flood_fill (static)", "flood the reachable area from (px,py)", "copy,x,y · from validate_map", "mark 'V' (recursive, 4 directions)"],
         ["check_reachable (static)", "any C/E left un-flooded?", "&game,copy · from validate_map", "1/0"],
         ["validate_map", "drive the check + free the copy", "&game · from main", "calls the 4 above"],
@@ -7000,7 +7000,7 @@ init mlx + load 4 textures (xpm) as images
     implementation: [
       { h: "Suggested build order" },
       { ul: [
-        "1. parse .cub: elements (NO/SO/WE/EA/F/C) + the map as char** first",
+        "1. parse .cub: elements (NO/SO/WE/EA/F/C) + the map as `char**` first",
         "2. validate: 6 elements present, no duplicates, 1 player, valid chars, **closed map** (4-neighbour)",
         "3. open the mlx window + put_pixel test + draw solid floor/ceiling",
         "4. **cast rays + DDA** drawing solid-color walls (perp distance — check fisheye)",

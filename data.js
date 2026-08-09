@@ -462,18 +462,18 @@ typedef struct s_ps {
       { h: "stack.c — กลไกพื้นฐานของ stack (ถูกใช้ซ้ำทุกที่)" },
       { table: { head: ["ฟังก์ชัน", "ทำไมถึงมี", "รับ · จากใคร", "คืน/ผล · ให้ใคร"], rows: [
         ["new_node(val)", "ผลิต node ใหม่ (malloc + init)", "int · จาก build_stack", "t_node* → append_node"],
-        ["stack_push(**top,n)", "ดัน node ขึ้นยอด (แก้ตัว top ได้ → double ptr)", "**top,node · จาก pa/pb", "แก้ *top ในที่"],
-        ["stack_pop(**top)", "หยิบ node ยอดออก", "**top · จาก pa/pb", "t_node* + แก้ *top"],
+        ["`stack_push(**top,n)`", "ดัน node ขึ้นยอด (แก้ตัว top ได้ → double ptr)", "`**top`, node · จาก pa/pb", "แก้ *top ในที่"],
+        ["`stack_pop(**top)`", "หยิบ node ยอดออก", "`**top` · จาก pa/pb", "t_node* + แก้ *top"],
         ["stack_size(top)", "นับจำนวน (ใช้ตัดสินใจทั่วโปรแกรม)", "top · จาก sort/cost/move", "int"],
-        ["stack_free(**top)", "คืน memory ทั้ง list", "**top · จาก ps_free", "*top = NULL"],
+        ["`stack_free(**top)`", "คืน memory ทั้ง list", "`**top` · จาก ps_free", "*top = NULL"],
       ]}},
       { h: "ops_*.c — 11 คำสั่ง (ตัวเดียวที่ write output)" },
       { table: { head: ["ฟังก์ชัน", "ทำไมถึงมี", "รับ · จากใคร", "ผล"], rows: [
         ["sa / sb / ss", "สลับ 2 ยอด", "t_ps* · จาก sort_*", "แก้ stack + write ชื่อ op"],
         ["pa / pb", "ย้ายข้าม stack (= pop+push)", "t_ps* · จาก sort_*/do_move", "ย้าย node + write"],
-        ["rotate_one (static)", "กลไกหมุน top→bottom (pointer surgery)", "**stack · จาก ra/rb/rr", "แก้ list ในที่"],
+        ["rotate_one (static)", "กลไกหมุน top→bottom (pointer surgery)", "`**stack` · จาก ra/rb/rr", "แก้ list ในที่"],
         ["ra / rb / rr", "หมุนหน้า (rr = ทั้งคู่, 1 op)", "t_ps* · จาก rotate_*_by/sort", "เรียก rotate_one + write"],
-        ["rev_rotate_one (static)", "กลไกหมุน bottom→top", "**stack · จาก rra/rrb/rrr", "แก้ list ในที่"],
+        ["rev_rotate_one (static)", "กลไกหมุน bottom→top", "`**stack` · จาก rra/rrb/rrr", "แก้ list ในที่"],
         ["rra / rrb / rrr", "หมุนหลัง (rrr = ทั้งคู่, 1 op)", "t_ps* · จาก rotate_*_by/sort", "เรียก rev_rotate_one + write"],
       ]}},
       { h: "sort_small.c / sort_large.c — กลยุทธ์การเรียง" },
@@ -858,7 +858,7 @@ exec_cmd(cmd, envp) ─► ft_split(cmd,' ') ─► get_path(args[0],envp)
       ]}},
       { h: "utils.c / bonus" },
       { table: { head: ["ฟังก์ชัน", "ทำไมถึงมี", "รับ · จากใคร", "ผล"], rows: [
-        ["free_tab(tab)", "คืน char** จาก ft_split ให้ครบ", "char** · จาก exec_cmd/path", "free string ทุกตัว + array"],
+        ["free_tab(tab)", "คืน `char**` จาก ft_split ให้ครบ", "`char**` · จาก exec_cmd/path", "free string ทุกตัว + array"],
         ["error_exit(msg)", "พิมพ์ error + exit เมื่อ fatal", "ข้อความ · จากทุก error path", "perror/exit(1)"],
         ["here_doc (static)", "[bonus] อ่าน stdin จนเจอ LIMITER ลง pipe", "limiter · จาก pipex_bonus", "fd อ่านของ pipe → ใช้เป็น infile"],
         ["open_out_bonus (static)", "[bonus] เปิด outfile (append/trunc)", "file,append · จาก pipex_bonus", "fd → fds[1]"],
@@ -1219,7 +1219,7 @@ src/free.c      คืน memory ทั้งหมด
       { h: "validate.c — ตรวจว่าเล่นได้จริง" },
       { table: { head: ["ฟังก์ชัน", "ทำไมถึงมี", "รับ · จากใคร", "คืน · ให้ใคร"], rows: [
         ["check_walls (static)", "เช็คขอบเป็นกำแพง '1' ครบ", "&game · จาก validate_map", "error ถ้าไม่ปิด"],
-        ["copy_grid (static)", "สำเนา grid (เพื่อไม่ทำลายของจริง)", "&game · จาก validate_map", "char** copy → flood_fill"],
+        ["copy_grid (static)", "สำเนา grid (เพื่อไม่ทำลายของจริง)", "&game · จาก validate_map", "`char**` copy → flood_fill"],
         ["flood_fill (static)", "ระบายพื้นที่เดินถึงจาก (px,py)", "copy,x,y · จาก validate_map", "mark 'V' (recursive 4 ทิศ)"],
         ["check_reachable (static)", "ยังเหลือ C/E ที่ไม่ถูกระบายไหม", "&game,copy · จาก validate_map", "1/0"],
         ["validate_map", "คุมการตรวจ + free สำเนา", "&game · จาก main", "เรียก 4 ตัวบน"],
@@ -4685,7 +4685,7 @@ init mlx + โหลด 4 texture (xpm) เป็น image
     implementation: [
       { h: "ลำดับการลงมือเขียน (แนะนำ)" },
       { ul: [
-        "1. parse .cub: element (NO/SO/WE/EA/F/C) + แผนที่เป็น char** ก่อน",
+        "1. parse .cub: element (NO/SO/WE/EA/F/C) + แผนที่เป็น `char**` ก่อน",
         "2. validate: 6 element ครบ ไม่ซ้ำ, 1 ผู้เล่น, char ถูก, **แผนที่ปิด** (4-neighbour)",
         "3. เปิด mlx window + put_pixel ทดสอบ + วาดพื้น/เพดานสีล้วน",
         "4. **ยิง ray + DDA** วาดผนังสีล้วน (perp distance — เช็ค fisheye)",
