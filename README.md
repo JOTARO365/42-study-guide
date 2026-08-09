@@ -6,7 +6,8 @@
 
 - **42 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
-- เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step
+- เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
+- ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
 
 > ลิงก์ในตารางข้างล่างชี้ไปที่เว็บที่ deploy แล้ว กดจากหน้านี้ได้เลย
 > (ลิงก์แบบ relative ใช้ไม่ได้บน GitHub เพราะ GitHub จะเปิดเป็น source ไม่ใช่หน้าเว็บ)
@@ -105,7 +106,7 @@
 | fract-ol | Mandelbrot/Julia บน canvas, คลิกเพื่อซูม, สไลเดอร์ iteration |
 | so_long | เกมเล่นได้จริง (WASD/ลูกศร) เก็บเหรียญครบแล้วไปประตู |
 | pipex | ไดอะแกรมไล่ทีละ step: infile → pipe → outfile |
-| NetPractice | **simulator 10 ด่าน จับเวลา** — กระดานวาดสายด้วย canvas เติม IP/mask/route แล้วกดตรวจ ระบบเดินเส้นทางขาไปและขากลับให้ดูทีละ hop พร้อมข้อความ error แบบเดียวกับ `sim.js` หมดเวลาแล้วเปิดเฉลยให้ |
+| NetPractice | **เกม 10 ด่าน จับเวลา** — หน้าต่างเกมมีกรอบครบสี่ด้าน กระดานทั้งอันวาดบน canvas คลิกช่องแล้วพิมพ์ได้เลย (`Tab` ไปช่องถัดไป) กด "ตรวจ" แล้วเอนจินเดินเส้นทางขาไป-ขากลับทีละ hop พร้อมข้อความ error ชุดเดียวกับ `sim.js` ตัวจริง · ลากมุมย่อ-ขยายหน้าต่าง หรือกดเต็มจอ · หมดเวลาเปิดเฉลยให้ |
 
 **อ่านเพิ่ม**: ทุกหน้ามีรายการอ้างอิง (man page, cppreference, RFC, เอกสารทางการ) อยู่ท้ายแท็บสุดท้ายของหน้านั้นเสมอ
 
@@ -139,12 +140,25 @@ data.libft.js         # libft
 data.printf.js        # ft_printf
 data.gnl.js           # get_next_line
 data.cpp.js           # CPP Module 00–09
-data.ai.js            # สาย AI Engineer
+data.ai.js            # สาย AI Engineer 7 หน้าแรก
+data.finetune.js      # Fine-tuning         (ไทย + อังกฤษในไฟล์เดียว)
+data.outputctl.js     # Output Control      (ไทย + อังกฤษ)
+data.born2beroot.js   # Born2beRoot         (ไทย + อังกฤษ + flow)
+data.netpractice.js   # NetPractice         (ไทย + อังกฤษ + flow)
+data.webserv.js       # webserv             (ไทย + อังกฤษ + flow)
+data.ftirc.js         # ft_irc              (ไทย + อังกฤษ + flow)
+data.inception.js     # Inception           (ไทย + อังกฤษ + flow)
 data.exam.js          # Exam Rank 02–06
-data.en.js            # คำแปลอังกฤษของทุกหน้า
+data.en.js            # คำแปลอังกฤษของหน้ารุ่นเก่า
+data.flows.js         # flow ของ miniRT, cub3D, Fine-tuning, Output Control
+data.flows2.js        # flow ของ libft, ft_printf, GNL, CPP 01–09
+data.refs.js          # บล็อก "อ่านเพิ่ม" ท้ายแท็บสุดท้ายของหน้า C/C++
 ```
 
-ลำดับ `<script>` ใน `.html` สำคัญ: ไฟล์ `data.*.js` ต้องโหลดก่อน `app.js` เสมอ
+ลำดับ `<script>` ใน `.html` สำคัญ 2 ข้อ:
+
+- `data.*.js` ต้องโหลดก่อน `app.js` เสมอ
+- `data.en.js` ตั้ง `window.TEACHING_EN = { ... }` ทับทั้งก้อน ไฟล์ที่เขียนคำแปลไว้ในตัวเอง (`data.netpractice.js` ฯลฯ) จึงต้องโหลด **หลัง** มัน
 
 </details>
 
