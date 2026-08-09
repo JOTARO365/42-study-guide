@@ -675,7 +675,8 @@
   /* ---- ข้อมูลกระดาน ----
      พิกัดทุกตัวเป็น px บนผืนผ้าใบขนาดคงที่ของด่านนั้น (เลื่อนแนวนอนได้บนจอเล็ก)
      side บอกว่าสายออกจากขอบไหนของกล่อง: l ซ้าย, r ขวา, t บน, b ล่าง          */
-  var NP_W = 230, NP_HEAD = 26, NP_ROW = 28, NP_PAD = 14, NP_SW = 76, NP_SWH = 30;
+  var NP_W = 288, NP_HEAD = 28, NP_ROW = 30, NP_PAD = 14, NP_SW = 88, NP_SWH = 32;
+  var NP_FW = 116, NP_LBL = 36;   /* กว้างของช่องค่า และคอลัมน์ชื่อขา */
 
   function npIf(id, ip, mask, side, eip, emask) {
     return { id: id, ip: ip, mask: mask, side: side, eip: !!eip, emask: !!emask };
@@ -711,14 +712,14 @@
         th: "A1 กับ B1 ห้อยอยู่กับ switch ตัวเดียวกัน = subnet เดียวกัน เติม IP กับ mask ให้ B1 คุยกับ A1 ได้",
         en: "A1 and B1 hang off the same switch, so they share one subnet. Give B1 an address and mask that can talk to A1."
       },
-      secs: 90, w: 990, h: 190,
+      secs: 90, w: 1267, h: 217,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 60,
+        { id: "A1", type: "host", x: 38, y: 68,
           ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")], routes: [] },
-        { id: "B1", type: "host", x: 700, y: 60,
+        { id: "B1", type: "host", x: 896, y: 68,
           ifs: [npIf("B1", "", "", "l", 1, 1)], routes: [] }
       ],
-      switches: [{ id: "SW1", x: 390, y: 78 }],
+      switches: [{ id: "SW1", x: 499, y: 89 }],
       links: [["A1", "SW1"], ["B1", "SW1"]],
       goals: [["A1", "B1"]],
       solution: { "B1.ip": "192.168.1.20", "B1.mask": "255.255.255.0" },
@@ -733,11 +734,11 @@
         th: "mask ของ A1 ถูกล็อกไว้ที่ /26 ซึ่งกำหนดขอบบล็อกไปแล้ว หา IP ให้ B1 ที่อยู่ในบล็อกเดียวกันและไม่ชน network/broadcast",
         en: "A1's mask is pinned at /26, which fixes the block boundaries. Find an address for B1 inside that block that is neither the network nor the broadcast."
       },
-      secs: 120, w: 830, h: 190,
+      secs: 120, w: 1062, h: 217,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 60,
+        { id: "A1", type: "host", x: 38, y: 68,
           ifs: [npIf("A1", "172.20.5.130", "255.255.255.192", "r")], routes: [] },
-        { id: "B1", type: "host", x: 560, y: 60,
+        { id: "B1", type: "host", x: 717, y: 68,
           ifs: [npIf("B1", "", "", "l", 1, 1)], routes: [] }
       ],
       links: [["A1", "B1"]],
@@ -754,15 +755,15 @@
         th: "คนละ segment แล้ว B1 ต้องได้ IP ใน subnet เดียวกับขา R1b และต้องมี default route ชี้กลับไปหา router",
         en: "Two segments now: B1 needs an address in R1b's subnet and a default route pointing back at the router."
       },
-      secs: 150, w: 1030, h: 180,
+      secs: 150, w: 1318, h: 205,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 40,
+        { id: "A1", type: "host", x: 38, y: 46,
           ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
-        { id: "R1", type: "router", x: 390, y: 40,
+        { id: "R1", type: "router", x: 499, y: 46,
           ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
                 npIf("R1b", "10.12.0.1", "255.255.255.0", "r")], routes: [] },
-        { id: "B1", type: "host", x: 750, y: 40,
+        { id: "B1", type: "host", x: 960, y: 46,
           ifs: [npIf("B1", "", "", "l", 1, 1)],
           routes: [{ id: "rB1", route: "default", gate: "", egate: 1 }] }
       ],
@@ -780,22 +781,22 @@
         th: "A1, A2 และขา R1a ห้อย switch เดียวกัน จึงต้องอยู่ subnet เดียวกันทั้งหมด และทั้งสองเครื่องต้องมีทางออก",
         en: "A1, A2 and R1a all hang off one switch, so they must share one subnet — and both hosts need a way out."
       },
-      secs: 150, w: 1020, h: 270,
+      secs: 150, w: 1306, h: 308,
       hosts: [
-        { id: "A1", type: "host", x: 20, y: 20,
+        { id: "A1", type: "host", x: 26, y: 23,
           ifs: [npIf("A1", "192.168.4.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.4.1" }] },
-        { id: "A2", type: "host", x: 20, y: 140,
+        { id: "A2", type: "host", x: 26, y: 160,
           ifs: [npIf("A2", "", "", "r", 1, 1)],
           routes: [{ id: "rA2", route: "default", gate: "", egate: 1 }] },
-        { id: "R1", type: "router", x: 430, y: 80,
+        { id: "R1", type: "router", x: 550, y: 91,
           ifs: [npIf("R1a", "192.168.4.1", "255.255.255.0", "l"),
                 npIf("R1b", "10.5.0.1", "255.255.255.0", "r")], routes: [] },
-        { id: "B1", type: "host", x: 760, y: 80,
+        { id: "B1", type: "host", x: 973, y: 91,
           ifs: [npIf("B1", "10.5.0.2", "255.255.255.0", "l")],
           routes: [{ id: "rB1", route: "default", gate: "10.5.0.1" }] }
       ],
-      switches: [{ id: "SW1", x: 320, y: 112 }],
+      switches: [{ id: "SW1", x: 410, y: 128 }],
       links: [["A1", "SW1"], ["A2", "SW1"], ["SW1", "R1a"], ["R1b", "B1"]],
       goals: [["A1", "B1"], ["A2", "B1"]],
       solution: { "A2.ip": "192.168.4.11", "A2.mask": "255.255.255.0", "rA2.gate": "192.168.4.1" },
@@ -810,20 +811,20 @@
         th: "R1 กับ R2 เชื่อมกันด้วยลิงก์ /30 ต่างฝ่ายต้องมี route ไปหา subnet ของอีกฝั่ง ไม่งั้นจะได้ No reverse way",
         en: "R1 and R2 share a /30 link. Each needs a route to the other side's subnet, or you get No reverse way."
       },
-      secs: 210, w: 1080, h: 180,
+      secs: 210, w: 1382, h: 205,
       hosts: [
-        { id: "A1", type: "host", x: 10, y: 20,
+        { id: "A1", type: "host", x: 13, y: 23,
           ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
-        { id: "R1", type: "router", x: 280, y: 20,
+        { id: "R1", type: "router", x: 358, y: 23,
           ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
                 npIf("R1b", "10.0.0.1", "255.255.255.252", "r")],
           routes: [{ id: "rR1", route: "192.168.2.0/24", gate: "", egate: 1 }] },
-        { id: "R2", type: "router", x: 560, y: 20,
+        { id: "R2", type: "router", x: 717, y: 23,
           ifs: [npIf("R2a", "10.0.0.2", "255.255.255.252", "l"),
                 npIf("R2b", "192.168.2.1", "255.255.255.0", "r")],
           routes: [{ id: "rR2", route: "", gate: "", eroute: 1, egate: 1 }] },
-        { id: "B1", type: "host", x: 840, y: 20,
+        { id: "B1", type: "host", x: 1075, y: 23,
           ifs: [npIf("B1", "192.168.2.20", "255.255.255.0", "l")],
           routes: [{ id: "rB1", route: "default", gate: "192.168.2.1" }] }
       ],
@@ -841,15 +842,15 @@
         th: "default route ของ A1 ถูกล็อกไว้ที่ 172.20.5.129 นั่นบอกเลขของขา R1a และ mask /26 ของ A1 ก็บอกขอบบล็อกไปแล้ว",
         en: "A1's default gateway is pinned at 172.20.5.129, which dictates R1a's address — and A1's /26 already fixes the block."
       },
-      secs: 210, w: 880, h: 180,
+      secs: 210, w: 1126, h: 205,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 40,
+        { id: "A1", type: "host", x: 38, y: 46,
           ifs: [npIf("A1", "", "255.255.255.192", "r", 1, 0)],
           routes: [{ id: "rA1", route: "default", gate: "172.20.5.129" }] },
-        { id: "R1", type: "router", x: 330, y: 40,
+        { id: "R1", type: "router", x: 422, y: 46,
           ifs: [npIf("R1a", "", "", "l", 1, 1),
                 npIf("R1b", "10.9.0.1", "255.255.255.0", "r")], routes: [] },
-        { id: "B1", type: "host", x: 620, y: 40,
+        { id: "B1", type: "host", x: 794, y: 46,
           ifs: [npIf("B1", "10.9.0.2", "255.255.255.0", "l")],
           routes: [{ id: "rB1", route: "default", gate: "10.9.0.1" }] }
       ],
@@ -867,15 +868,15 @@
         th: "IP ทุกตัวถูกล็อก เหลือแค่ mask ของสองขา R1 ลองใส่ 255.255.255.0 ทั้งคู่ก่อน แล้วอ่าน log ว่าทำไมถึงตาย",
         en: "Every address is pinned; only R1's two masks are yours. Try 255.255.255.0 on both first and read the log to see why it dies."
       },
-      secs: 240, w: 880, h: 180,
+      secs: 240, w: 1126, h: 205,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 40,
+        { id: "A1", type: "host", x: 38, y: 46,
           ifs: [npIf("A1", "172.16.5.10", "255.255.255.128", "r")],
           routes: [{ id: "rA1", route: "default", gate: "172.16.5.1" }] },
-        { id: "R1", type: "router", x: 330, y: 40,
+        { id: "R1", type: "router", x: 422, y: 46,
           ifs: [npIf("R1a", "172.16.5.1", "", "l", 0, 1),
                 npIf("R1b", "172.16.5.129", "", "r", 0, 1)], routes: [] },
-        { id: "B1", type: "host", x: 620, y: 40,
+        { id: "B1", type: "host", x: 794, y: 46,
           ifs: [npIf("B1", "172.16.5.140", "255.255.255.128", "l")],
           routes: [{ id: "rB1", route: "default", gate: "172.16.5.129" }] }
       ],
@@ -893,25 +894,25 @@
         th: "R1 มี default route ล็อกไว้ชี้ออก ISP อยู่แล้ว ถ้าไม่ใส่ route เจาะจงของ LAN ฝั่ง B ไว้บรรทัดบน packet จะวิ่งออก ISP แล้วหาย",
         en: "R1 already has a locked default route out to the ISP. Without a specific route for B's LAN on the line above it, packets leave through the ISP and vanish."
       },
-      secs: 300, w: 1080, h: 350,
+      secs: 300, w: 1382, h: 399,
       hosts: [
-        { id: "A1", type: "host", x: 10, y: 20,
+        { id: "A1", type: "host", x: 13, y: 23,
           ifs: [npIf("A1", "192.168.1.10", "255.255.255.0", "r")],
           routes: [{ id: "rA1", route: "default", gate: "192.168.1.1" }] },
-        { id: "R1", type: "router", x: 280, y: 20,
+        { id: "R1", type: "router", x: 358, y: 23,
           ifs: [npIf("R1a", "192.168.1.1", "255.255.255.0", "l"),
                 npIf("R1b", "10.0.0.1", "255.255.255.252", "r"),
                 npIf("R1c", "41.66.0.1", "255.255.255.252", "b")],
           routes: [{ id: "rR1a", route: "", gate: "", eroute: 1, egate: 1 },
                    { id: "rR1b", route: "default", gate: "41.66.0.2" }] },
-        { id: "R2", type: "router", x: 560, y: 20,
+        { id: "R2", type: "router", x: 717, y: 23,
           ifs: [npIf("R2a", "10.0.0.2", "255.255.255.252", "l"),
                 npIf("R2b", "192.168.2.1", "255.255.255.0", "r")],
           routes: [{ id: "rR2", route: "192.168.1.0/24", gate: "10.0.0.1" }] },
-        { id: "B1", type: "host", x: 840, y: 20,
+        { id: "B1", type: "host", x: 1075, y: 23,
           ifs: [npIf("B1", "192.168.2.20", "255.255.255.0", "l")],
           routes: [{ id: "rB1", route: "default", gate: "192.168.2.1" }] },
-        { id: "ISP", type: "host", x: 280, y: 250,
+        { id: "ISP", type: "host", x: 358, y: 285,
           ifs: [npIf("ISP", "41.66.0.2", "255.255.255.252", "t")], routes: [] }
       ],
       links: [["A1", "R1a"], ["R1b", "R2a"], ["R2b", "B1"], ["R1c", "ISP"]],
@@ -928,16 +929,16 @@
         th: "A1 ต้องคุยกับ Internet ให้ได้ — ต้องใช้ IP สาธารณะ, R1 ต้องมีทางออก และ Internet ต้องมี route เจาะจงกลับมา",
         en: "A1 must reach the Internet: a public address, a way out on R1, and an explicit route back on the Internet node."
       },
-      secs: 300, w: 880, h: 190,
+      secs: 300, w: 1126, h: 217,
       hosts: [
-        { id: "A1", type: "host", x: 30, y: 40,
+        { id: "A1", type: "host", x: 38, y: 46,
           ifs: [npIf("A1", "", "", "r", 1, 1)],
           routes: [{ id: "rA1", route: "default", gate: "104.198.7.1" }] },
-        { id: "R1", type: "router", x: 330, y: 40,
+        { id: "R1", type: "router", x: 422, y: 46,
           ifs: [npIf("R1a", "104.198.7.1", "255.255.255.0", "l"),
                 npIf("R1b", "41.66.1.2", "255.255.255.252", "r")],
           routes: [{ id: "rR1", route: "default", gate: "", egate: 1 }] },
-        { id: "NET", type: "internet", x: 620, y: 40,
+        { id: "NET", type: "internet", x: 794, y: 46,
           ifs: [npIf("NET", "41.66.1.1", "255.255.255.252", "l")],
           routes: [{ id: "rNET", route: "", gate: "", eroute: 1, egate: 1 }] }
       ],
@@ -958,20 +959,20 @@
         th: "Internet มีช่อง route ช่องเดียว แต่ต้องเข้าถึงทั้ง LAN A และ LAN B — ต้องออกแบบให้สอง LAN อยู่ใต้ prefix เดียวกันได้ และขาของ R1 ต้องไม่ซ้อนกัน",
         en: "The Internet node has a single route slot but must reach both LAN A and LAN B — the two LANs have to fit under one prefix, and R1's legs must not overlap."
       },
-      secs: 420, w: 1020, h: 400,
+      secs: 420, w: 1306, h: 456,
       hosts: [
-        { id: "NET", type: "internet", x: 400, y: 20,
+        { id: "NET", type: "internet", x: 512, y: 23,
           ifs: [npIf("NET", "41.66.1.1", "255.255.255.252", "b")],
           routes: [{ id: "rNET", route: "", gate: "", eroute: 1, egate: 1 }] },
-        { id: "R1", type: "router", x: 400, y: 190,
+        { id: "R1", type: "router", x: 512, y: 217,
           ifs: [npIf("R1c", "41.66.1.2", "255.255.255.252", "t"),
                 npIf("R1a", "104.198.6.1", "", "l", 0, 1),
                 npIf("R1b", "104.198.6.129", "", "r", 0, 1)],
           routes: [{ id: "rR1", route: "default", gate: "", egate: 1 }] },
-        { id: "A1", type: "host", x: 60, y: 225,
+        { id: "A1", type: "host", x: 77, y: 256,
           ifs: [npIf("A1", "", "", "r", 1, 1)],
           routes: [{ id: "rA1", route: "default", gate: "104.198.6.1" }] },
-        { id: "B1", type: "host", x: 760, y: 225,
+        { id: "B1", type: "host", x: 973, y: 256,
           ifs: [npIf("B1", "", "", "l", 1, 1)],
           routes: [{ id: "rB1", route: "default", gate: "104.198.6.129" }] }
       ],
@@ -1007,49 +1008,177 @@
     return m + ":" + (r < 10 ? "0" : "") + r;
   }
 
-  /* ---- ผืนผ้าใบวาดสาย ----
-     canvas วาดเฉพาะสายกับหัวต่อ ส่วนกล่องและช่องกรอกเป็น HTML ทับอยู่ด้านบน
-     (input ใส่ใน canvas ไม่ได้)                                            */
-  function NpWires(props) {
-    var level = props.level;
-    var ref = React.useRef(null);
-    useEffect(function () {
-      var cv = ref.current;
-      if (!cv || !cv.getContext) return;
-      /* backing store คูณด้วยอัตราย่อ-ขยายด้วย เส้นจะได้ยังคมตอนกระดานถูกขยาย */
-      var dpr = (window.devicePixelRatio || 1) * (props.scale || 1);
-      cv.width = Math.round(level.w * dpr);
-      cv.height = Math.round(level.h * dpr);
-      var g = cv.getContext("2d");
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.clearRect(0, 0, level.w, level.h);
+  /* ---- กระดานทั้งอันวาดบน canvas ----
+     ไม่มี HTML ทับอีกแล้ว: กล่อง สาย ป้าย และช่องค่า ถูกวาดเองทั้งหมด
+     จึงคุมความกว้างของช่องได้เอง และค่าอย่าง 255.255.255.192 ไม่มีวันถูกตัด
+     การพิมพ์รับผ่าน input ที่ซ่อนไว้ แล้วสะท้อนกลับมาวาดเป็นข้อความ + เคอร์เซอร์ */
+  var NP_FONT = '"JetBrains Mono","Consolas",monospace';
 
-      var accent = "#5eb0ef";
-      try {
-        var v = getComputedStyle(document.documentElement).getPropertyValue("--accent");
-        if (v && v.trim()) accent = v.trim();
-      } catch (e) { /* บางสภาพแวดล้อมไม่มี getComputedStyle */ }
-
-      g.lineCap = "round";
-      g.lineJoin = "round";
-      level.links.forEach(function (l) {
-        var a = npAnchor(level, l[0]), b = npAnchor(level, l[1]);
-        g.strokeStyle = "rgba(148,163,184,.28)";      /* เงาสายให้ดูมีน้ำหนัก */
-        g.lineWidth = 6;
-        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
-        g.strokeStyle = accent;
-        g.lineWidth = 2;
-        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
-        g.fillStyle = accent;
-        [a, b].forEach(function (p) {
-          g.beginPath(); g.arc(p.x, p.y, 4, 0, Math.PI * 2); g.fill();
-        });
+  /* วางตำแหน่งช่องทุกช่องของด่านหนึ่ง ๆ ในพิกัดกระดาน (ยังไม่ย่อ-ขยาย) */
+  function npFields(level) {
+    var out = [];
+    level.hosts.forEach(function (hst) {
+      var row = 0;
+      hst.ifs.forEach(function (f) {
+        var y = hst.y + NP_HEAD + row * NP_ROW;
+        out.push({ key: f.id + ".ip",   x: hst.x + NP_LBL, y: y + 4, w: NP_FW, h: NP_ROW - 8, edit: f.eip });
+        out.push({ key: f.id + ".mask", x: hst.x + NP_LBL + NP_FW + 8, y: y + 4, w: NP_FW, h: NP_ROW - 8, edit: f.emask });
+        row++;
+      });
+      (hst.routes || []).forEach(function (r) {
+        var y = hst.y + NP_HEAD + row * NP_ROW;
+        out.push({ key: r.id + ".route", x: hst.x + NP_LBL, y: y + 4, w: NP_FW, h: NP_ROW - 8, edit: r.eroute });
+        out.push({ key: r.id + ".gate",  x: hst.x + NP_LBL + NP_FW + 8, y: y + 4, w: NP_FW, h: NP_ROW - 8, edit: r.egate });
+        row++;
       });
     });
-    return h("canvas", {
-      ref: ref, className: "np-wires",
-      style: { width: level.w + "px", height: level.h + "px" }
+    return out;
+  }
+
+  function npCssVar(name, fallback) {
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+      if (v && v.trim()) return v.trim();
+    } catch (e) { /* บางสภาพแวดล้อมไม่มี getComputedStyle */ }
+    return fallback;
+  }
+
+  /* ย่อข้อความให้พอดีช่องด้วยการ "ลดขนาดฟอนต์" ไม่ใช่ตัดตัวอักษรทิ้ง
+     ผู้เล่นจึงเห็นเลขเต็มเสมอ ซึ่งเป็นเรื่องเป็นเรื่องตายของโจทย์ subnetting */
+  function npFitFont(g, text, maxW, base) {
+    var size = base;
+    while (size > 7) {
+      g.font = size + "px " + NP_FONT;
+      if (g.measureText(text).width <= maxW) return size;
+      size -= 0.5;
+    }
+    return size;
+  }
+
+  function npDrawBoard(cv, level, vals, focusKey, caretOn, box) {
+    var g = cv.getContext("2d");
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(box.w * dpr);
+    cv.height = Math.round(box.h * dpr);
+    var k = Math.min(box.w / level.w, box.h / level.h);
+    var offX = (box.w - level.w * k) / 2;
+    var offY = (box.h - level.h * k) / 2;
+
+    var accent = npCssVar("--accent", "#5eb0ef");
+    var muted = npCssVar("--muted", "#8b98a9");
+    var txt = npCssVar("--txt", "#e6edf3");
+    var bg = npCssVar("--bg", "#0b0e13");
+    var bg2 = npCssVar("--bg2", "#141a22");
+    var bg3 = npCssVar("--bg3", "#1b232d");
+    var line = npCssVar("--line", "#2a3440");
+
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = bg2;
+    g.fillRect(0, 0, box.w, box.h);
+    g.setTransform(dpr * k, 0, 0, dpr * k, dpr * offX, dpr * offY);
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.textBaseline = "middle";
+
+    function roundRect(x, y, w, hgt, r) {
+      g.beginPath();
+      g.moveTo(x + r, y);
+      g.arcTo(x + w, y, x + w, y + hgt, r);
+      g.arcTo(x + w, y + hgt, x, y + hgt, r);
+      g.arcTo(x, y + hgt, x, y, r);
+      g.arcTo(x, y, x + w, y, r);
+      g.closePath();
+    }
+
+    /* สายก่อน กล่องจะได้ทับปลายสายให้ดูเรียบร้อย */
+    level.links.forEach(function (l) {
+      var a = npAnchor(level, l[0]), b = npAnchor(level, l[1]);
+      g.strokeStyle = "rgba(148,163,184,.30)";
+      g.lineWidth = 7;
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      g.strokeStyle = accent;
+      g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      g.fillStyle = accent;
+      [a, b].forEach(function (p) { g.beginPath(); g.arc(p.x, p.y, 4.5, 0, Math.PI * 2); g.fill(); });
     });
+
+    (level.switches || []).forEach(function (sw) {
+      g.fillStyle = bg3;
+      roundRect(sw.x, sw.y, NP_SW, NP_SWH, 8); g.fill();
+      g.strokeStyle = muted; g.lineWidth = 1; g.setLineDash([4, 3]); g.stroke(); g.setLineDash([]);
+      g.fillStyle = muted; g.font = "12px " + NP_FONT; g.textAlign = "center";
+      g.fillText(sw.id, sw.x + NP_SW / 2, sw.y + NP_SWH / 2 + 1);
+      g.textAlign = "left";
+    });
+
+    var accentFor = { host: muted, router: accent, internet: "#f472b6" };
+    level.hosts.forEach(function (hst) {
+      var hgt = npHostH(hst);
+      g.fillStyle = bg3;
+      roundRect(hst.x, hst.y, NP_W, hgt, 10); g.fill();
+      g.strokeStyle = line; g.lineWidth = 1; g.stroke();
+      g.fillStyle = accentFor[hst.type] || muted;
+      roundRect(hst.x, hst.y, 4, hgt, 2); g.fill();
+
+      g.fillStyle = txt; g.font = "bold 14px " + NP_FONT;
+      g.fillText(hst.id, hst.x + 12, hst.y + NP_HEAD / 2 + 1);
+      g.fillStyle = muted; g.font = "10px " + NP_FONT;
+      g.textAlign = "right";
+      g.fillText(hst.type.toUpperCase(), hst.x + NP_W - 12, hst.y + NP_HEAD / 2 + 1);
+      g.textAlign = "left";
+
+      var row = 0;
+      function label(text, y) {
+        g.fillStyle = muted; g.font = "11px " + NP_FONT;
+        g.fillText(text, hst.x + 12, y + NP_ROW / 2);
+      }
+      hst.ifs.forEach(function (f) {
+        label(f.id, hst.y + NP_HEAD + row * NP_ROW); row++;
+      });
+      (hst.routes || []).forEach(function () {
+        label("rt", hst.y + NP_HEAD + row * NP_ROW); row++;
+      });
+    });
+
+    /* ช่องค่า: กรอบทึบสำหรับช่องที่แก้ได้ กรอบจาง ๆ สำหรับค่าที่ล็อกไว้ */
+    npFields(level).forEach(function (fd) {
+      var parts = fd.key.split(".");
+      var v = npVal(vals, parts[0], parts[1]);
+      var focused = fd.edit && fd.key === focusKey;
+      if (fd.edit) {
+        g.fillStyle = bg;
+        roundRect(fd.x, fd.y, fd.w, fd.h, 5); g.fill();
+        g.strokeStyle = focused ? accent : line;
+        g.lineWidth = focused ? 2 : 1;
+        g.stroke();
+      }
+      var pad = 6;
+      var shown = v || (fd.edit ? "" : "—");
+      var size = npFitFont(g, shown || " ", fd.w - pad * 2, 12);
+      g.font = size + "px " + NP_FONT;
+      g.fillStyle = v ? (fd.edit ? txt : muted) : muted;
+      g.fillText(shown, fd.x + pad, fd.y + fd.h / 2 + 1);
+      if (focused && caretOn) {
+        var cx = fd.x + pad + g.measureText(v || "").width + 1;
+        g.strokeStyle = accent; g.lineWidth = 1.5;
+        g.beginPath(); g.moveTo(cx, fd.y + 4); g.lineTo(cx, fd.y + fd.h - 4); g.stroke();
+      }
+    });
+
+    /* ลูกศรของบรรทัด route วาดทีหลังจะได้อยู่บนสุด */
+    g.fillStyle = muted; g.font = "11px " + NP_FONT; g.textAlign = "center";
+    level.hosts.forEach(function (hst) {
+      var row = hst.ifs.length;
+      (hst.routes || []).forEach(function () {
+        var y = hst.y + NP_HEAD + row * NP_ROW;
+        g.fillText("→", hst.x + NP_LBL + NP_FW + 4, y + NP_ROW / 2);
+        row++;
+      });
+    });
+    g.textAlign = "left";
+
+    return { k: k, offX: offX, offY: offY };
   }
 
   function NetPracticeDemo() {
@@ -1062,31 +1191,63 @@
     var sD = useState(false); var done = sD[0], setDone = sD[1];   /* ผ่านแล้ว */
     var sO = useState(false); var over = sO[0], setOver = sO[1];   /* หมดเวลา */
     var sF = useState(false); var full = sF[0], setFull = sF[1];   /* เต็มจอ */
-    var sK = useState(1); var scale = sK[0], setScale = sK[1];
-    var rootRef = React.useRef(null);
-    var stageRef = React.useRef(null);
+    var sSize = useState({ w: 0, h: 520 }); var size = sSize[0], setSize = sSize[1];
+    var sFocus = useState(null); var focusKey = sFocus[0], setFocusKey = sFocus[1];
+    var sCaret = useState(true); var caretOn = sCaret[0], setCaretOn = sCaret[1];
 
-    /* ย่อ-ขยายกระดานให้พอดีกรอบเสมอ จะได้ไม่มี scroll และเห็นครบทั้งผัง
-       วัดจากกล่อง .np-stage ซึ่งกำหนดขนาดด้วย CSS ไม่ได้ขึ้นกับกระดานที่ถูกย่อ
-       จึงไม่เกิดลูปวัด-แล้วโต */
+    var winRef = React.useRef(null);
+    var boardRef = React.useRef(null);
+    var canvasRef = React.useRef(null);
+    var inputRef = React.useRef(null);
+    var dragRef = React.useRef(null);
+
+    var fields = npFields(level);
+    function editable(key) {
+      for (var i = 0; i < fields.length; i++) if (fields[i].key === key) return fields[i].edit;
+      return false;
+    }
+    var editKeys = fields.filter(function (f) { return f.edit; }).map(function (f) { return f.key; });
+
+    /* ---- ขนาดหน้าต่างเกม: กว้างเท่าที่มี สูงตามที่ผู้เล่นลากไว้ ---- */
     useEffect(function () {
-      var el = stageRef.current;
-      if (!el) return undefined;
       function fit() {
-        var w = el.clientWidth, hgt = el.clientHeight;
-        if (!w || !hgt) return;
-        var k = Math.min(w / level.w, hgt / level.h);
-        setScale(Math.max(0.3, Math.min(k, 2.5)));
+        var el = winRef.current;
+        if (!el) return;
+        setSize(function (cur) {
+          var w = el.clientWidth;
+          if (w === cur.w) return cur;
+          return { w: w, h: cur.h };
+        });
       }
       fit();
       var ro = null;
-      if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(fit); ro.observe(el); }
+      if (typeof ResizeObserver !== "undefined" && winRef.current) {
+        ro = new ResizeObserver(fit); ro.observe(winRef.current);
+      }
       window.addEventListener("resize", fit);
       return function () {
         if (ro) ro.disconnect();
         window.removeEventListener("resize", fit);
       };
-    }, [li, full]);
+    }, [full]);
+
+    /* ---- วาดใหม่ทุกครั้งที่อะไรก็ตามเปลี่ยน ---- */
+    useEffect(function () {
+      var cv = canvasRef.current, host = boardRef.current;
+      if (!cv || !cv.getContext || !host) return;
+      var box = { w: host.clientWidth, h: host.clientHeight };
+      if (box.w < 10 || box.h < 10) return;
+      cv.style.width = box.w + "px";
+      cv.style.height = box.h + "px";
+      npDrawBoard(cv, level, vals, focusKey, caretOn, box);
+    });
+
+    /* เคอร์เซอร์กะพริบเฉพาะตอนมีช่องถูกเลือก */
+    useEffect(function () {
+      if (!focusKey) return undefined;
+      var id = setInterval(function () { setCaretOn(function (c) { return !c; }); }, 530);
+      return function () { clearInterval(id); setCaretOn(true); };
+    }, [focusKey]);
 
     /* ปุ่มเต็มจอกับปุ่ม Esc ของเบราว์เซอร์ต้องเห็นตรงกัน */
     useEffect(function () {
@@ -1095,19 +1256,9 @@
       return function () { document.removeEventListener("fullscreenchange", sync); };
     }, []);
 
-    function toggleFull() {
-      var el = rootRef.current;
-      if (!el) return;
-      try {
-        if (document.fullscreenElement) document.exitFullscreen();
-        else if (el.requestFullscreen) el.requestFullscreen();
-        else setFull(!full);           /* file:// บางเบราว์เซอร์ไม่ให้ — ใช้โหมดจำลองแทน */
-      } catch (e) { setFull(!full); }
-    }
-
     /* นาฬิกาเดินเฉพาะตอนด่านยังไม่จบ — หมดเวลาแล้วเปิดเฉลยให้เลย */
     useEffect(function () {
-      if (done || over) return;
+      if (done || over) return undefined;
       var id = setInterval(function () {
         setLeft(function (s) {
           if (s <= 1) { setOver(true); revealInto(); return 0; }
@@ -1127,13 +1278,16 @@
 
     function loadLevel(i) {
       setLi(i); setVals(npInitVals(NP_LEVELS[i])); setRes(null); setShowHint(false);
-      setLeft(NP_LEVELS[i].secs); setDone(false); setOver(false);
+      setLeft(NP_LEVELS[i].secs); setDone(false); setOver(false); setFocusKey(null);
     }
     function set(key, v) {
-      var nv = {}, k;
-      for (k in vals) if (vals.hasOwnProperty(k)) nv[k] = vals[k];
-      nv[key] = v;
-      setVals(nv); setRes(null);
+      setVals(function (cur) {
+        var nv = {}, k;
+        for (k in cur) if (cur.hasOwnProperty(k)) nv[k] = cur[k];
+        nv[key] = v;
+        return nv;
+      });
+      setRes(null);
     }
     function check() {
       var out = level.goals.map(function (g) {
@@ -1145,15 +1299,72 @@
       if (out.every(function (r) { return r.fwd && r.rev; })) setDone(true);
     }
 
-    function field(key, ph, editable) {
-      var parts = key.split(".");
-      if (!editable)
-        return h("span", { className: "np-locked" }, npVal(vals, parts[0], parts[1]) || "—");
-      return h("input", {
-        className: "np-in", value: vals[key] || "", placeholder: ph, spellCheck: false,
-        onChange: function (e) { set(key, e.target.value); }
-      });
+    function toggleFull() {
+      var el = winRef.current;
+      if (!el) return;
+      try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (el.requestFullscreen) el.requestFullscreen();
+        else setFull(!full);        /* file:// บางเบราว์เซอร์ไม่ให้ — ใช้โหมดจำลอง */
+      } catch (e) { setFull(!full); }
     }
+
+    /* ---- คลิกเลือกช่อง: แปลงพิกัดหน้าจอกลับเป็นพิกัดกระดาน ---- */
+    function onBoardClick(e) {
+      var host = boardRef.current;
+      if (!host) return;
+      var r = host.getBoundingClientRect();
+      var box = { w: host.clientWidth, h: host.clientHeight };
+      var k = Math.min(box.w / level.w, box.h / level.h);
+      var bx = (e.clientX - r.left - (box.w - level.w * k) / 2) / k;
+      var by = (e.clientY - r.top - (box.h - level.h * k) / 2) / k;
+      var hit = null;
+      fields.forEach(function (f) {
+        if (f.edit && bx >= f.x && bx <= f.x + f.w && by >= f.y && by <= f.y + f.h) hit = f.key;
+      });
+      setFocusKey(hit);
+      setCaretOn(true);
+      if (hit && inputRef.current) inputRef.current.focus();
+    }
+
+    function onKeyDown(e) {
+      if (!focusKey) return;
+      if (e.key === "Escape") { setFocusKey(null); return; }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        var i = editKeys.indexOf(focusKey);
+        var next = editKeys[(i + (e.shiftKey ? editKeys.length - 1 : 1)) % editKeys.length];
+        setFocusKey(next); setCaretOn(true);
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        set(focusKey, (vals[focusKey] || "").slice(0, -1));
+        return;
+      }
+      if (e.key.length === 1 && /[0-9./a-zA-Z]/.test(e.key)) {
+        e.preventDefault();
+        var cur = vals[focusKey] || "";
+        if (cur.length < 18) set(focusKey, cur + e.key);
+      }
+    }
+
+    /* ---- ลากมุมขวาล่างเพื่อย่อ-ขยายหน้าต่างเกม ---- */
+    function onGripDown(e) {
+      if (full) return;
+      var el = winRef.current;
+      if (!el) return;
+      dragRef.current = { y: e.clientY, h: size.h };
+      try { e.target.setPointerCapture(e.pointerId); } catch (err) { /* เบราว์เซอร์เก่า */ }
+      e.preventDefault();
+    }
+    function onGripMove(e) {
+      var d = dragRef.current;
+      if (!d) return;
+      var h = Math.max(280, Math.min(d.h + (e.clientY - d.y), 1200));
+      setSize(function (cur) { return { w: cur.w, h: h }; });
+    }
+    function onGripUp() { dragRef.current = null; }
 
     var kindLabel = {
       host: { th: "เครื่อง", en: "host" },
@@ -1165,97 +1376,72 @@
       return "S" + (i + 1) + " = { " + groups[k].join(", ") + " }";
     }).join("   ");
     var solvedAll = done;
+    void kindLabel;
 
-    return h("div", { className: "demo np-root" + (full ? " full" : ""), ref: rootRef },
+    return h("div", { className: "demo" },
       h("p", { className: "demo-hint" }, t({
-        th: "กระดานฝึกแบบเดียวกับ NetPractice — สายต่อไว้ให้แล้ว เติมช่องสีขาวแล้วกด 'ตรวจ' ระบบจะเดินเส้นทางทั้งขาไปและขากลับให้ดูทีละ hop",
-        en: "A NetPractice-style board. The cables are already wired; fill the white fields and press Check, and the engine walks both the forward and the reverse path hop by hop."
+        th: "กระดานฝึกแบบเดียวกับ NetPractice — คลิกช่องแล้วพิมพ์ได้เลย (Tab ไปช่องถัดไป), กด 'ตรวจ' แล้วระบบจะเดินเส้นทางทั้งขาไปและขากลับให้ดูทีละ hop",
+        en: "A NetPractice-style board. Click a field and type (Tab moves on), then press Check and the engine walks both the forward and the reverse path hop by hop."
       })),
-      h("div", { className: "np-levels" },
-        NP_LEVELS.map(function (lv, i) {
-          return h("button", {
-            key: i, className: "np-lvl" + (i === li ? " active" : ""),
-            title: t(lv.name),
-            onClick: function () { loadLevel(i); }
-          }, String(i + 1));
-        }),
-        h("span", { className: "np-lvlname" }, t(level.name))
-      ),
-      h("div", { className: "np-status" },
-        h("span", { className: "np-count" }, t({ th: "ด่าน ", en: "Level " }) + (li + 1) + "/10"),
-        h("span", {
-          className: "np-timer" + (over ? " over" : (left <= 30 ? " warn" : "")) + (solvedAll ? " done" : "")
-        }, (over ? "⏱ " : "⏳ ") + npClock(left) +
-           t({ th: over ? " หมดเวลา" : " เหลือ", en: over ? " time up" : " left" })),
-        solvedAll ? h("span", { className: "np-solved" },
-          t({ th: "✓ ผ่านด่านนี้แล้ว", en: "✓ level solved" })) : null
+      h("div", { className: "np-win" + (full ? " full" : ""), ref: winRef },
+        h("div", { className: "np-titlebar" },
+          h("span", { className: "np-title" }, t({ th: "ด่าน ", en: "Level " }) + (li + 1) + "/10 · " + t(level.name)),
+          h("span", { className: "np-spacer" }),
+          solvedAll ? h("span", { className: "np-solved" },
+            t({ th: "✓ ผ่านแล้ว", en: "✓ solved" })) : null,
+          h("span", {
+            className: "np-timer" + (over ? " over" : (left <= 30 ? " warn" : "")) + (solvedAll ? " done" : "")
+          }, (over ? "⏱ " : "⏳ ") + npClock(left)),
+          h("button", { className: "np-icon", title: t({ th: "เต็มจอ", en: "Full screen" }), onClick: toggleFull },
+            full ? "⤡" : "⤢")
+        ),
+        h("div", { className: "np-levels" },
+          NP_LEVELS.map(function (lv, i) {
+            return h("button", {
+              key: i, className: "np-lvl" + (i === li ? " active" : ""),
+              title: t(lv.name),
+              onClick: function () { loadLevel(i); }
+            }, String(i + 1));
+          })
+        ),
+        h("div", {
+          className: "np-board", ref: boardRef, tabIndex: 0,
+          style: full ? null : { height: size.h + "px" },
+          onMouseDown: onBoardClick
+        },
+          h("canvas", { ref: canvasRef, className: "np-canvas" }),
+          h("input", {
+            ref: inputRef, className: "np-keycatch", value: "", readOnly: true,
+            onKeyDown: onKeyDown, onChange: function () { },
+            "aria-label": "board input"
+          })
+        ),
+        h("div", { className: "np-bar" },
+          h("button", { className: "demo-btn", onClick: check }, t({ th: "ตรวจ", en: "Check" })),
+          h("button", { className: "demo-btn alt", onClick: function () { setShowHint(!showHint); } },
+            t({ th: "คำใบ้", en: "Hint" })),
+          h("button", { className: "demo-btn alt", onClick: function () { setDone(true); revealInto(); } },
+            t({ th: "เฉลย", en: "Solution" })),
+          h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li); } },
+            t({ th: "เริ่มใหม่", en: "Restart" })),
+          li < NP_LEVELS.length - 1
+            ? h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li + 1); } },
+                t({ th: "ด่านถัดไป →", en: "Next →" }))
+            : null,
+          h("span", { className: "np-spacer" }),
+          h("span", { className: "np-seg" }, segText)
+        ),
+        full ? null : h("div", {
+          className: "np-grip", title: t({ th: "ลากเพื่อย่อ-ขยาย", en: "Drag to resize" }),
+          onPointerDown: onGripDown, onPointerMove: onGripMove,
+          onPointerUp: onGripUp, onPointerCancel: onGripUp
+        })
       ),
       h("p", { className: "np-brief" }, t(level.brief)),
-      h("div", { className: "np-stage", ref: stageRef },
-        h("div", { className: "np-canvas", style: {
-          width: level.w + "px", height: level.h + "px",
-          transform: "translate(-50%, -50%) scale(" + scale + ")"
-        } },
-          h(NpWires, { level: level, scale: scale }),
-          (level.switches || []).map(function (sw) {
-            return h("div", {
-              key: sw.id, className: "np-switch",
-              style: { left: sw.x + "px", top: sw.y + "px", width: NP_SW + "px", height: NP_SWH + "px" }
-            }, sw.id);
-          }),
-          level.hosts.map(function (hst) {
-            return h("div", {
-              key: hst.id, className: "np-card " + hst.type,
-              style: {
-                left: hst.x + "px", top: hst.y + "px",
-                width: NP_W + "px", height: npHostH(hst) + "px"
-              }
-            },
-              h("div", { className: "np-card-head" },
-                h("b", null, hst.id),
-                h("span", { className: "np-kind" }, t(kindLabel[hst.type]))
-              ),
-              hst.ifs.map(function (f) {
-                return h("div", { className: "np-row", key: f.id },
-                  h("span", { className: "np-lbl" }, f.id),
-                  field(f.id + ".ip", "0.0.0.0", f.eip),
-                  field(f.id + ".mask", "255.255.255.0", f.emask)
-                );
-              }),
-              (hst.routes || []).map(function (r) {
-                return h("div", { className: "np-row route", key: r.id },
-                  h("span", { className: "np-lbl" }, "rt"),
-                  field(r.id + ".route", "0.0.0.0/0", r.eroute),
-                  h("span", { className: "np-arrow" }, "→"),
-                  field(r.id + ".gate", "0.0.0.0", r.egate)
-                );
-              })
-            );
-          })
-        )
-      ),
-      h("div", { className: "np-seg" },
-        t({ th: "segment (สิ่งที่ต่อสายถึงกัน): ", en: "segments (wired together): " }) + segText),
-      h("div", { className: "demo-bar" },
-        h("button", { className: "demo-btn", onClick: check }, t({ th: "ตรวจ", en: "Check" })),
-        h("button", { className: "demo-btn alt", onClick: function () { setShowHint(!showHint); } },
-          t({ th: "คำใบ้", en: "Hint" })),
-        h("button", { className: "demo-btn alt", onClick: function () { setDone(true); revealInto(); } },
-          t({ th: "เฉลย", en: "Solution" })),
-        h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li); } },
-          t({ th: "เริ่มด่านนี้ใหม่", en: "Restart level" })),
-        li < NP_LEVELS.length - 1
-          ? h("button", { className: "demo-btn alt", onClick: function () { loadLevel(li + 1); } },
-              t({ th: "ด่านถัดไป →", en: "Next level →" }))
-          : null,
-        h("button", { className: "demo-btn alt np-fs", onClick: toggleFull },
-          full ? t({ th: "⤢ ออกจากเต็มจอ", en: "⤢ Exit full screen" })
-               : t({ th: "⤢ เต็มจอ", en: "⤢ Full screen" }))
-      ),
       showHint ? h("div", { className: "note" }, t(level.hint)) : null,
       over ? h("div", { className: "note" }, t({
-        th: "หมดเวลา — เปิดเฉลยให้แล้ว อ่านว่าทำไมถึงเป็นเลขชุดนี้ แล้วกด 'เริ่มด่านนี้ใหม่' ลองจับเวลาอีกรอบ",
-        en: "Time is up — the solution has been filled in. Read why those numbers are what they are, then press Restart level and race it again."
+        th: "หมดเวลา — เปิดเฉลยให้แล้ว อ่านว่าทำไมถึงเป็นเลขชุดนี้ แล้วกด 'เริ่มใหม่' ลองจับเวลาอีกรอบ",
+        en: "Time is up — the solution has been filled in. Read why those numbers are what they are, then press Restart and race it again."
       })) : null,
       res ? h("div", { className: "np-res" },
         res.map(function (r, i) {

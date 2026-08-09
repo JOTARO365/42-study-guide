@@ -310,33 +310,45 @@ code.inline { background: var(--bg3); color: #ffd9a0; padding: 2px 6px; border-r
 footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
 
 
-/* ---- NetPractice simulator ---- */
-.np-levels { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
-.np-lvl { width: 30px; height: 30px; padding: 0; background: var(--bg2); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; transition: .1s; }
-.np-lvl:hover { border-color: var(--accent); color: var(--txt); }
-.np-lvl.active { background: var(--accent); border-color: var(--accent); color: #0b0e13; font-weight: 700; }
-.np-lvlname { margin-left: 8px; font-size: 13px; color: var(--muted); }
-.np-status { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; }
-.np-count { font-size: 13px; color: var(--muted); }
-.np-timer { font-family: "JetBrains Mono","Consolas",monospace; font-size: 15px; font-weight: 700; color: var(--txt); background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 12px; }
+/* ---- NetPractice simulator ----
+   หน้าต่างเกมมีกรอบครบสี่ด้าน: แถบหัวเรื่องบน แถบปุ่มล่าง กระดานอยู่ตรงกลาง
+   กระดานทั้งอันเป็น canvas ตัวเดียว จึงไม่มีข้อความไหนถูกกรอบ HTML ตัดทิ้ง   */
+.np-win { position: relative; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 34px rgba(0,0,0,.4); overflow: hidden; margin: 4px 0 16px; }
+.np-win.full { position: fixed; inset: 0; z-index: 60; margin: 0; border-radius: 0; border: 0; }
+
+.np-titlebar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg3); border-bottom: 1px solid var(--line); }
+.np-title { font-size: 13px; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-spacer { flex: 1 1 auto; }
+.np-timer { font-family: "JetBrains Mono","Consolas",monospace; font-size: 14px; font-weight: 700; color: var(--txt); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 2px 10px; }
 .np-timer.warn { color: #fbbf24; border-color: #fbbf24; }
 .np-timer.over { color: #ef4444; border-color: #ef4444; }
 .np-timer.done { color: var(--green); border-color: var(--green); }
-.np-solved { font-size: 13px; font-weight: 700; color: var(--green); }
+.np-solved { font-size: 12px; font-weight: 700; color: var(--green); }
+.np-icon { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 7px; width: 28px; height: 26px; cursor: pointer; font-size: 13px; line-height: 1; }
+.np-icon:hover { border-color: var(--accent); color: var(--txt); }
+
+.np-levels { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.np-lvl { width: 27px; height: 27px; padding: 0; background: var(--bg2); border: 1px solid var(--line); color: var(--muted); border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 12.5px; transition: .1s; }
+.np-lvl:hover { border-color: var(--accent); color: var(--txt); }
+.np-lvl.active { background: var(--accent); border-color: var(--accent); color: #0b0e13; font-weight: 700; }
+
+.np-board { position: relative; background: var(--bg2); outline: none; cursor: pointer; }
+.np-win.full .np-board { flex: 1 1 auto; min-height: 0; }
+.np-canvas { display: block; }
+/* ตัวรับคีย์บอร์ด: ต้องอยู่ในหน้าจริงถึงจะโฟกัสได้ แต่ต้องมองไม่เห็น */
+.np-keycatch { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; }
+
+.np-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg3); border-top: 1px solid var(--line); }
+.np-bar .demo-btn { padding: 5px 12px; font-size: 13px; }
+.np-seg { font-family: "JetBrains Mono","Consolas",monospace; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* มุมลากย่อ-ขยายแบบหน้าต่างจริง */
+.np-grip { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: ns-resize; touch-action: none;
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--muted) 3px 4px); opacity: .5; border-radius: 0 0 12px 0; }
+.np-grip:hover { opacity: 1; }
+
 .np-brief { margin: 0 0 12px; line-height: 1.7; }
-
-/* กระดานถูกย่อ-ขยายให้พอดีกรอบเสมอ จึงไม่มี scroll และเห็นผังครบทั้งอัน
-   .np-stage กำหนดขนาดด้วย CSS ล้วน ส่วนกระดานลอยอยู่ข้างในแบบ absolute
-   ขนาดของ stage จึงไม่ขึ้นกับกระดาน และการวัดไม่วนลูป */
-.np-stage { position: relative; width: 100vw; margin-left: calc(50% - 50vw); height: clamp(260px, 62vh, 760px); background: var(--bg2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
-.np-canvas { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
-.np-wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
-
-/* เต็มจอ: หัวข้อ/สถานะบน กระดานยืดกลาง ปุ่มล่าง ทุกอย่างอยู่ในจอเดียวไม่ต้องเลื่อน */
-.np-root.full { position: fixed; inset: 0; z-index: 60; margin: 0; padding: 12px 18px; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
-.np-root.full .demo-hint, .np-root.full .np-brief, .np-root.full .np-seg { display: none; }
-.np-root.full .np-stage { flex: 1 1 auto; height: auto; min-height: 0; width: 100%; margin-left: 0; border-radius: 12px; border: 1px solid var(--line); }
-.np-root.full .np-res { max-height: 24vh; overflow-y: auto; }
+.np-res { max-height: 24vh; overflow-y: auto; }
 .np-root.full .np-levels, .np-root.full .np-status, .np-root.full .demo-bar { flex: 0 0 auto; }
 
 .np-card { position: absolute; box-sizing: border-box; background: var(--bg3); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; padding: 5px 9px 7px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
