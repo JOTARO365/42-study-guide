@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **42 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **43 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
 - ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
@@ -77,6 +77,18 @@
 | [Loop Engineering](https://jotaro365.github.io/42-study-guide/ai_loop_engineering.html) | agent ที่วน reason → act → ตรวจเอง: goal+gate, เพดานรอบ, false-pass, no-progress detector | 4 |
 | [Fine-tuning](https://jotaro365.github.io/42-study-guide/ai_finetune.html) | บันได prompt → RAG → SFT/LoRA → DPO, LoRA ทำงานยังไง, เตรียมข้อมูล, catastrophic forgetting, จุดคุ้มทุน | 4 |
 | [Output Control](https://jotaro365.github.io/42-study-guide/ai_output_control.html) | บังคับรูปแบบผลลัพธ์: structured output, prefill, stop sequence, tool_choice, temperature เทียบ top_p, retry-and-repair | 4 |
+
+## Machine Learning & Deep Learning
+
+ตั้งแต่คณิตศาสตร์พื้นฐานถึงสถาปัตยกรรมสมัยใหม่ — ทุกสมการอนุมานให้เห็นที่มา ไม่ใช่ยกมาท่อง
+
+| หน้า | เนื้อหา | เจาะลึก |
+|------|---------|:------:|
+| [คณิตศาสตร์ของ ML](https://jotaro365.github.io/42-study-guide/ml_math.html) | พีชคณิตเชิงเส้น (รูปร่าง, dot product, broadcasting, eigen/SVD), แคลคูลัส (chain rule, อนุมาน backprop ทั้งขาไป-ขากลับด้วยตัวเลขจริง), ความน่าจะเป็น (อนุมาน MSE กับ cross-entropy จาก maximum likelihood), ทฤษฎีสารสนเทศ (entropy, KL) + MLP ใน NumPy ล้วน + gradient check | 10 |
+
+> กำลังทยอยเพิ่ม: ML พื้นฐาน · linear/logistic regression · โมเดลคลาสสิก · neural network · การเทรน · CNN · sequence · transformer · การนำไปใช้จริง
+
+---
 
 ## Exam Rank 02–06
 

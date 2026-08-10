@@ -2064,6 +2064,7 @@
   function ProjectPage(props) {
     var proj = props.proj;
     var isAI = proj.id.indexOf("ai_") === 0;
+    var isML = proj.id.indexOf("ml_") === 0;
     var isExam = proj.id.indexOf("exam_") === 0;
     /* แท็บ demo / flowviz โผล่เฉพาะโปรเจกต์ที่มีของจริงลงทะเบียนไว้
        — ไม่ต้องไล่ระบุ id ทีละตัวเวลามีหน้าใหม่ */
@@ -2111,7 +2112,7 @@
         tabs.map(function (tb) {
             var k = tb[0];
             var label = (isExam && EXAM_TAB_LABELS[k]) ? EXAM_TAB_LABELS[k]
-              : (isAI && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
+              : ((isAI || isML) && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
             return h("button", {
               key: k,
               className: "tab" + (tab === k ? " active" : ""),
@@ -2128,7 +2129,7 @@
   /* ---- หน้าแรก: แยกหมวดเพราะหน้ารวมยาวขึ้นเรื่อย ๆ ---- */
   var HOME_GROUPS = [
     {
-      key: "core", match: function (id) { return !/^(cpp_module_|ai_|exam_)/.test(id); },
+      key: "core", match: function (id) { return !/^(cpp_module_|ai_|ml_|exam_)/.test(id); },
       title: { th: "42 Common Core", en: "42 Common Core" },
       sub: { th: "ไล่ตั้งแต่ libft ถึง Inception — C, เครือข่าย และ system admin", en: "From libft through Inception — C, networking and system administration" }
     },
@@ -2141,6 +2142,12 @@
       key: "ai", match: function (id) { return id.indexOf("ai_") === 0; },
       title: { th: "AI Engineer", en: "AI Engineer" },
       sub: { th: "สายงาน AI — LLM, RAG, agent, harness", en: "The AI track — LLMs, RAG, agents, harnesses" }
+    },
+    {
+      key: "ml", match: function (id) { return id.indexOf("ml_") === 0; },
+      title: { th: "Machine Learning & Deep Learning", en: "Machine Learning & Deep Learning" },
+      sub: { th: "ตั้งแต่คณิตศาสตร์พื้นฐานถึงสถาปัตยกรรมสมัยใหม่ — ทุกสมการมีที่มา",
+             en: "From the underlying mathematics to modern architectures — every equation derived, not quoted" }
     },
     {
       key: "exam", match: function (id) { return id.indexOf("exam_") === 0; },
@@ -2191,6 +2198,7 @@
   /* ---- title ของแท็บ: <title> ใน .html เป็นไทยตายตัว ต้องเซ็ตซ้ำเมื่อสลับภาษา ---- */
   var SITE_NAMES = {
     ai_:   { th: "สื่อการสอน AI Engineer", en: "AI Engineer Study Guide" },
+    ml_:   { th: "สื่อการสอน ML & Deep Learning", en: "ML & Deep Learning Study Guide" },
     exam_: { th: "สื่อติวสอบ 42", en: "42 Exam Prep" }
   };
 
