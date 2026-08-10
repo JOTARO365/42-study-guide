@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **50 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **51 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
 - ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
@@ -92,6 +92,7 @@
 | [การเทรน Deep Network](https://jotaro365.github.io/42-study-guide/ml_train.html) | optimizer แต่ละตัวแก้ความล้มเหลวของตัวก่อนหน้า, เดินตัวเลขจน learning rate ระเบิดให้เห็น, AdamW ไม่ใช่ Adam ที่ใส่ L2, warmup มีไว้ทำไม, กฎสเกลเชิงเส้น, batch norm เทียบ layer norm, LR range test, AMP กับ gradient accumulation | 13 |
 | [CNN](https://jotaro365.github.io/42-study-guide/ml_cnn.html) | สมมติฐานสองข้อที่ทำให้ weight sharing ถูกต้อง, สูตรขนาด output, ทำมือด้วย Sobel จนเห็นขอบทั้งสองด้าน, ทำไม 3×3 สองชั้นชนะ 5×5, residual connection กับ `+1` ในอนุพันธ์, depthwise separable, ลำดับ fine-tune และ normalization ที่ต้องตรงกับ checkpoint | 14 |
 | [Sequence & Attention](https://jotaro365.github.io/42-study-guide/ml_seq.html) | ทำไม gradient ของ RNN พังเป็น λᵀ, LSTM แก้ด้วยเส้นทางบวกของ cell state, `∂C_t/∂C_{t−1} = f_t`, คอขวดของ seq2seq, คำนวณ attention ด้วยมือครบทุกขั้น, ทำไมต้องหารด้วย √d_k พร้อมตัวเลข, teacher forcing กับ exposure bias, beam search | 15 |
+| [Transformer](https://jotaro365.github.io/42-study-guide/ml_tf.html) | สิ่งที่เพิ่มคือการเอา recurrence ออก, multi-head แบ่งไม่ใช่เพิ่ม, ทำไมสถาปัตยกรรมนี้ไม่รู้จักลำดับ, causal mask พร้อม softmax ทีละแถว, FFN กินสองในสามของพารามิเตอร์, นับ GPT-2 ครบ 124,439,808, KV cache เป็น MB, LoRA | 16 |
 
 > กำลังทยอยเพิ่ม: ML พื้นฐาน · linear/logistic regression · โมเดลคลาสสิก · neural network · การเทรน · CNN · sequence · transformer · การนำไปใช้จริง
 
