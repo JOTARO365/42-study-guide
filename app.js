@@ -2176,12 +2176,38 @@
       page = h(Home, { projects: data });
     }
     document.title = pageTitle(proj);
+    try { document.documentElement.lang = s[0]; } catch (e) { /* ignore */ }
     return h(React.Fragment, null,
       h("div", { className: "lang-switch" },
         h("button", { className: "lang-btn" + (s[0] === "th" ? " on" : ""), onClick: function () { setLang("th"); } }, "TH"),
         h("button", { className: "lang-btn" + (s[0] === "en" ? " on" : ""), onClick: function () { setLang("en"); } }, "EN")
       ),
+      topbar(),
       page
+    );
+  }
+
+  /* ---- แถบบน ----
+     markup ของ .topbar อยู่ในไฟล์ .html แต่ละหน้าและเป็นข้อความไทยตายตัว
+     จึงล้างของเดิมทิ้งครั้งเดียวแล้ว portal เนื้อหาที่ผ่าน t() เข้าไปแทน
+     ทำแบบนี้ทั้ง 43 หน้าได้ผลพร้อมกันโดยไม่ต้องแก้ไฟล์ .html ทีละไฟล์ */
+  var topbarHost = null;
+  function topbar() {
+    if (!topbarHost) {
+      topbarHost = document.querySelector(".topbar-inner");
+      if (!topbarHost) return null;
+      topbarHost.innerHTML = "";
+    }
+    var home = window.PROJECT_ID
+      ? t({ th: "← หน้าแรก", en: "← Home" })
+      : t({ th: "หน้าแรก", en: "Home" });
+    return ReactDOM.createPortal(
+      h(React.Fragment, null,
+        h("span", { className: "brand" },
+          h("b", null, "42"), " · " + t({ th: "สื่อการสอน", en: "Study Guide" })),
+        h("a", { className: "home-link", href: "index.html" }, home)
+      ),
+      topbarHost
     );
   }
   ReactDOM.createRoot(document.getElementById("root")).render(h(Root));
