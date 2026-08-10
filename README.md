@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **48 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **49 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
 - ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
@@ -90,6 +90,7 @@
 | [โมเดลคลาสสิก](https://jotaro365.github.io/42-study-guide/ml_classic.html) | สร้างต้นไม้ด้วยมือจาก gini กับ information gain, bagging เทียบ boosting และเหตุผลที่ป่าใช้ต้นไม้ลึกแต่ boosting ใช้ต้นตื้น, margin กับ kernel trick, PCA และ k-means, feature importance ที่เชื่อได้ | 11 |
 | [Neural Network](https://jotaro365.github.io/42-study-guide/ml_nn.html) | ทำไมขาด activation แล้วความลึกหายทั้งหมด, ตารางเทียบ activation กับปัญหาที่แต่ละตัวแก้, backpropagation เดินมือครบทั้ง forward และ backward จนได้น้ำหนักใหม่, He เทียบ Xavier, vanishing gradient เป็นผลคูณ, เขียนเครือข่ายจากศูนย์ด้วย NumPy พร้อม gradient check | 12 |
 | [การเทรน Deep Network](https://jotaro365.github.io/42-study-guide/ml_train.html) | optimizer แต่ละตัวแก้ความล้มเหลวของตัวก่อนหน้า, เดินตัวเลขจน learning rate ระเบิดให้เห็น, AdamW ไม่ใช่ Adam ที่ใส่ L2, warmup มีไว้ทำไม, กฎสเกลเชิงเส้น, batch norm เทียบ layer norm, LR range test, AMP กับ gradient accumulation | 13 |
+| [CNN](https://jotaro365.github.io/42-study-guide/ml_cnn.html) | สมมติฐานสองข้อที่ทำให้ weight sharing ถูกต้อง, สูตรขนาด output, ทำมือด้วย Sobel จนเห็นขอบทั้งสองด้าน, ทำไม 3×3 สองชั้นชนะ 5×5, residual connection กับ `+1` ในอนุพันธ์, depthwise separable, ลำดับ fine-tune และ normalization ที่ต้องตรงกับ checkpoint | 14 |
 
 > กำลังทยอยเพิ่ม: ML พื้นฐาน · linear/logistic regression · โมเดลคลาสสิก · neural network · การเทรน · CNN · sequence · transformer · การนำไปใช้จริง
 
