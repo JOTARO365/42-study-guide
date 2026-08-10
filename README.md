@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **43 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **45 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
 - ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
@@ -85,6 +85,8 @@
 | หน้า | เนื้อหา | เจาะลึก |
 |------|---------|:------:|
 | [คณิตศาสตร์ของ ML](https://jotaro365.github.io/42-study-guide/ml_math.html) | พีชคณิตเชิงเส้น (รูปร่าง, dot product, broadcasting, eigen/SVD), แคลคูลัส (chain rule, อนุมาน backprop ทั้งขาไป-ขากลับด้วยตัวเลขจริง), ความน่าจะเป็น (อนุมาน MSE กับ cross-entropy จาก maximum likelihood), ทฤษฎีสารสนเทศ (entropy, KL) + MLP ใน NumPy ล้วน + gradient check | 10 |
+| [พื้นฐาน ML](https://jotaro365.github.io/42-study-guide/ml_basics.html) | แบ่งข้อมูลไม่ให้โกงตัวเอง (time series, จัดกลุ่ม, stratified), bias-variance อ่านจากช่องว่าง train/val, metric ทุกตัวและจุดที่มันโกหก, ROC-AUC เทียบ PR-AUC, calibration, ตาราง leakage 6 รูปแบบ + เดินงาน churn ครบ 8 ขั้น | 9 |
+| [Linear & Logistic Regression](https://jotaro365.github.io/42-study-guide/ml_linear.html) | อนุมาน MSE กับ log loss จาก maximum likelihood, normal equation และเหตุผลที่มันพัง, condition number/VIF, ทำไม logistic ไม่มีสูตรปิด, odds ratio, perfect separation, เขียนทั้งสองตัวจากศูนย์ด้วย NumPy | 10 |
 
 > กำลังทยอยเพิ่ม: ML พื้นฐาน · linear/logistic regression · โมเดลคลาสสิก · neural network · การเทรน · CNN · sequence · transformer · การนำไปใช้จริง
 
