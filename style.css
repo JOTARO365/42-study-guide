@@ -376,3 +376,16 @@ footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line);
 .np-goal.ok .np-goal-head b { color: var(--green); }
 .np-goal:not(.ok) .np-goal-head b { color: #ef4444; }
 .np-log { margin: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-family: "JetBrains Mono","Consolas",monospace; font-size: 12.5px; line-height: 1.65; color: #cfe8ff; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+
+/* ---- multi-flow picker (libft: หนึ่ง visualizer ต่อหนึ่งฟังก์ชัน) ---- */
+.multiflow { padding-top: 8px; }
+.mf-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.mf-count { font-size: 13px; color: var(--muted); }
+.mf-filter { flex: 1 1 220px; max-width: 320px; background: var(--bg); border: 1px solid var(--line); color: var(--txt); border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: 13px; }
+.mf-filter:focus { outline: none; border-color: var(--accent); }
+.mf-group { margin-bottom: 10px; }
+.mf-group-name { display: block; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.mf-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.mf-tab { background: var(--bg2); border: 1px solid var(--line); color: var(--muted); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-family: "JetBrains Mono","Consolas",monospace; font-size: 12px; transition: .1s; }
+.mf-tab:hover { border-color: var(--accent); color: var(--txt); }
+.mf-tab.active { background: var(--accent); border-color: var(--accent); color: #0b0e13; font-weight: 700; }

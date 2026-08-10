@@ -5,52 +5,6 @@
    ============================================================ */
 window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
-window.EXTRA_FLOWS.libft = {
-  input: "ft_split(\"  42  is  fun \", ' ')",
-  steps: [
-    { fn: "ft_split(s, c)", file: "ft_split.c", depth: 0,
-      note: { th: "คืน **array ของ string ที่จบด้วย NULL** ผู้เรียกจึงวนอ่านได้โดยไม่ต้องรู้จำนวน — และเป็นเจ้าของหน่วยความจำทั้งก้อนต่อจากนี้",
-              en: "Returns a **NULL-terminated array of strings**, so the caller can walk it without knowing the count — and owns every allocation from here on." },
-      data: "s = \"  42  is  fun \"   c = ' '",
-      vars: [ { n: "s", v: "\"  42  is  fun \"", d: { th: "ตัวคั่นติดกันหลายตัวและมีที่หัวท้ายด้วย", en: "separators repeat, and appear at both ends" } } ] },
-    { fn: "count_words(s, c)", file: "ft_split.c", depth: 1,
-      note: { th: "นับคำก่อนจองหน่วยความจำ เพราะต้องรู้ขนาด array ล่วงหน้า — เงื่อนไขคือ 'ตัวนี้ไม่ใช่ตัวคั่น และตัวก่อนหน้าเป็นตัวคั่นหรือเป็นต้นสตริง'",
-              en: "Count first, because the array size must be known before allocating — a word starts where 'this character is not the separator and the previous one was, or this is the start'." },
-      data: "\"42\", \"is\", \"fun\"  ->  3",
-      vars: [ { n: "words", v: "3", d: { th: "ตัวคั่นซ้อนกันต้องไม่ถูกนับเป็นคำว่าง", en: "repeated separators must not count as empty words" }, w: true } ] },
-    { fn: "malloc((words + 1) * sizeof(char *))", file: "ft_split.c", depth: 1,
-      note: { th: "**+1 คือช่องสำหรับ NULL ปิดท้าย** ลืมช่องนี้แล้วผู้เรียกจะวนเลยขอบ array ไปอ่านหน่วยความจำที่ไม่ใช่ของตัวเอง",
-              en: "**The +1 is the slot for the terminating NULL.** Forget it and the caller walks past the end into memory that is not theirs." },
-      data: "tab = malloc(4 * 8) = 32 bytes",
-      vars: [ { n: "tab", d: { th: "ต้องเช็ค NULL ทันที — malloc ล้มเหลวได้เสมอ", en: "check for NULL immediately; malloc can always fail" }, w: true } ] },
-    { fn: "ft_substr(s, start, len)", file: "ft_substr.c", depth: 2,
-      note: { th: "แต่ละคำถูกคัดลอกออกมาเป็นสตริงใหม่ที่จองแยก — split จึงไม่ผูกกับอายุของ `s` ผู้เรียกจะ free `s` ทิ้งได้ทันที",
-              en: "Each word is copied into its own allocation, so the result does not depend on the lifetime of `s` — the caller may free `s` straight away." },
-      data: "substr(s, 2, 2) -> \"42\"",
-      vars: [ { n: "tab[0]", v: "\"42\"", d: { th: "สตริงใหม่ที่จบด้วย '\\0' ของตัวเอง", en: "a fresh string with its own terminating '\\0'" }, w: true } ] },
-    { fn: "ถ้า malloc กลางทางล้มเหลว", file: "ft_split.c", depth: 2,
-      note: { th: "ต้อง **free ทุกคำที่จองไปแล้ว** และ free ตัว array ก่อนคืน NULL — ไม่ใช่แค่ return NULL เฉย ๆ ไม่งั้นคือ leak ที่ valgrind จับได้ทันที",
-              en: "You must **free every word already allocated** and the array itself before returning NULL — simply returning NULL is a leak valgrind catches at once." },
-      data: "free(tab[0]); free(tab[1]); free(tab); return (NULL);",
-      vars: [ { n: "i", d: { th: "ตัวนับที่บอกว่าจองสำเร็จไปกี่ตัวแล้ว", en: "the counter telling you how many succeeded" } } ] },
-    { fn: "tab[words] = NULL", file: "ft_split.c", depth: 1,
-      note: { th: "จุดปิดสัญญา: ผู้เรียกจะวนด้วย `while (tab[i])` ได้อย่างปลอดภัย นี่คือรูปแบบเดียวกับที่ `argv` และ `envp` ใช้",
-              en: "This closes the contract: the caller can safely loop with `while (tab[i])`. It is the same shape `argv` and `envp` use." },
-      data: "tab = [\"42\", \"is\", \"fun\", NULL]",
-      vars: [ { n: "tab[3]", v: "NULL", d: { th: "ตัวปิด array ไม่ใช่คำ", en: "the array terminator, not a word" }, w: true } ] },
-    { fn: "ผู้เรียกต้อง free ให้ครบ", file: "main.c", depth: 0,
-      note: { th: "หนึ่ง `ft_split` = **การจอง 1 + จำนวนคำ ครั้ง** ต้อง free ทีละคำแล้วค่อย free ตัว array — free แค่ `tab` คือ leak ทุกคำที่อยู่ข้างใน",
-              en: "One `ft_split` is **one allocation plus one per word**. Free each word, then the array — freeing only `tab` leaks every string inside it." },
-      data: "while (tab[i]) free(tab[i++]);  free(tab);",
-      vars: [ { n: "leak", v: "0", d: { th: "valgrind ต้องบอก all heap blocks were freed", en: "valgrind must report all heap blocks were freed" }, w: true } ] },
-    { fn: "ft_lstmap — รูปแบบเดียวกันบน linked list", file: "ft_lstmap.c", depth: 0,
-      note: { th: "list ก็ใช้กติกาเดียวกัน: สร้าง node ใหม่ทีละตัว ถ้าตัวไหนล้มเหลวต้อง `ft_lstclear` ส่วนที่สร้างไปแล้วด้วย `del` แล้วคืน NULL",
-              en: "The list version follows the same rule: build node by node, and if one fails, `ft_lstclear` what exists so far with `del` and return NULL." },
-      data: "new = ft_lstnew(f(lst->content));  if (!new) { ft_lstclear(&head, del); return (NULL); }",
-      vars: [ { n: "del", d: { th: "ผู้เรียกเป็นคนบอกวิธี free เนื้อหา เพราะ libft ไม่รู้ว่าข้างในคืออะไร", en: "the caller supplies how to free the content, because libft cannot know what it is" } } ] }
-  ]
-};
-
 window.EXTRA_FLOWS.ft_printf = {
   input: "ft_printf(\"id=%d name=%s\\n\", 42, \"wiaon-in\")",
   steps: [

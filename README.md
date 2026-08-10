@@ -112,7 +112,7 @@
 
 **Flow visualizer** (ไล่ execution ทีละ step พร้อมค่าตัวแปรทุกจังหวะ) — 37 หน้า:
 
-- **C / เครือข่าย / system:** libft · ft_printf · get_next_line · Born2beRoot · push_swap · pipex · so_long · fract-ol · minitalk · fdf · philosophers · minishell · miniRT · cub3D · NetPractice · webserv · ft_irc · Inception
+- **C / เครือข่าย / system:** libft (**หนึ่ง visualizer ต่อหนึ่งฟังก์ชัน ครบ 43 ตัว เลือกจากแถบด้านบน**) · ft_printf · get_next_line · Born2beRoot · push_swap · pipex · so_long · fract-ol · minitalk · fdf · philosophers · minishell · miniRT · cub3D · NetPractice · webserv · ft_irc · Inception
 - **C++:** CPP Module 00-09 ครบทุกโมดูล
 - **AI:** ทั้ง 9 หน้า (foundations, LLM & API, vector, RAG, agents, harness, loop engineering, fine-tuning, output control)
 

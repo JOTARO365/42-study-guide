@@ -1724,6 +1724,54 @@
     ]},
   };
 
+  /* ---- หน้าที่มี flow หลายอัน (เช่น libft ที่มีทีละฟังก์ชัน) ----
+     ข้อมูลรูปแบบ { multi: [ { label, group, input, steps } ] }
+     แถบเลือกจัดกลุ่มตาม group แล้วส่ง flow ที่เลือกให้ FlowViz ตัวเดิม
+     key = index → เปลี่ยนฟังก์ชันแล้ว FlowViz รีเซ็ตกลับไป step แรกเอง */
+  function MultiFlow(props) {
+    var list = props.flow.multi;
+    var sI = useState(0); var idx = sI[0], setIdx = sI[1];
+    var sQ = useState(""); var q = sQ[0], setQ = sQ[1];
+
+    var groups = [], seen = {};
+    list.forEach(function (f, i) {
+      var g = f.group ? t(f.group) : "";
+      if (!seen[g]) { seen[g] = { name: g, items: [] }; groups.push(seen[g]); }
+      seen[g].items.push({ f: f, i: i });
+    });
+    var needle = q.trim().toLowerCase();
+
+    return h("div", { className: "multiflow" },
+      h("div", { className: "mf-head" },
+        h("span", { className: "mf-count" },
+          t({ th: "เลือกฟังก์ชัน", en: "Pick a function" }) + " · " + list.length),
+        h("input", {
+          className: "mf-filter", value: q, spellCheck: false,
+          placeholder: t({ th: "กรองชื่อฟังก์ชัน…", en: "Filter by name…" }),
+          onChange: function (e) { setQ(e.target.value); }
+        })
+      ),
+      groups.map(function (g) {
+        var items = g.items.filter(function (it) {
+          return !needle || it.f.label.toLowerCase().indexOf(needle) >= 0;
+        });
+        if (!items.length) return null;
+        return h("div", { className: "mf-group", key: g.name },
+          g.name ? h("span", { className: "mf-group-name" }, g.name) : null,
+          h("div", { className: "mf-tabs" },
+            items.map(function (it) {
+              return h("button", {
+                key: it.i, className: "mf-tab" + (it.i === idx ? " active" : ""),
+                onClick: function () { setIdx(it.i); }
+              }, it.f.label);
+            })
+          )
+        );
+      }),
+      h(FlowViz, { flow: list[idx], key: idx })
+    );
+  }
+
   function FlowViz(props) {
     var flow = props.flow;
     var steps = flow.steps;
@@ -2046,7 +2094,8 @@
       body = Demo ? h(Demo, null) : h("p", null, t({ th: "ยังไม่มีเดโมสำหรับโปรเจกต์นี้", en: "No demo for this project yet" }));
     } else if (tab === "flowviz") {
       var flow = FLOWS[proj.id] || (window.EXTRA_FLOWS || {})[proj.id];
-      body = flow ? h(FlowViz, { flow: flow })
+      body = flow
+        ? (flow.multi ? h(MultiFlow, { flow: flow }) : h(FlowViz, { flow: flow }))
         : h("p", null, t({ th: "ยังไม่มี visualizer สำหรับโปรเจกต์นี้", en: "No flow visualizer for this project yet" }));
     } else {
       body = blocks.map(function (b, i) { return h(Block, { key: i, b: b }); });
