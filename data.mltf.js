@@ -32,8 +32,8 @@ transformer:  ทุกตำแหน่งพร้อมกันในกา
       { code: String.raw`RNN:          O(n · d²)   โตเชิงเส้นตามความยาว แต่ขนานไม่ได้
 transformer:  O(n² · d)   ขนานได้เต็มที่ แต่โตกำลังสองตามความยาว
 
-n = 512    attention ยังถูกกว่า FFN
-n = 32,768 attention แพงกว่า FFN 43 เท่า`,
+n = 512     attention ยังถูกกว่า FFN มาก
+n = 32,768  attention แพงกว่า FFN ราว 11 เท่า`,
         cap: "นี่คือเหตุผลทั้งหมดว่าทำไมบริบทยาวถึงแพง และทำไมงานวิจัยจำนวนมากพยายามลด n² ตัวนี้", lang: "txt" },
       { h: "หน้านี้จะทำให้ทำได้" },
       { ul: [
@@ -75,7 +75,7 @@ Attention(Q,K,V) = softmax(Q Kᵀ / √d_k) V`,
 **มันไม่มีแนวคิดเรื่องลำดับอยู่เลย** ต่างจาก RNN ที่ลำดับฝังอยู่ในโครงสร้าง
 
 → ต้องฉีดข้อมูลตำแหน่งเข้าไปเอง`,
-        cap: "เรียกว่า permutation invariant และเป็นเหตุผลที่ positional encoding ไม่ใช่ของเสริม แต่จำเป็น", lang: "txt" },
+        cap: "เรียกว่า permutation **equivariant** (output สลับตาม ไม่ใช่คงเดิม) และเป็นเหตุผลที่ positional encoding ไม่ใช่ของเสริม แต่จำเป็น · ข้อพิสูจน์นี้ใช้กับ self-attention ที่ยังไม่ใส่ mask เท่านั้น — causal mask ในหมวดถัดไปทำลายสมบัตินี้ทิ้ง", lang: "txt" },
       { table: { head: ["แบบ", "คุณสมบัติ"], rows: [
         ["**sinusoidal**", "คงที่ ไม่มีพารามิเตอร์ · ขยายเกินความยาวที่เทรนได้"],
         ["**learned**", "embedding หนึ่งตัวต่อหนึ่งตำแหน่ง · ง่าย แต่**เกินความยาวที่เทรนไม่ได้**"],
@@ -201,12 +201,14 @@ pos 3:  [0.1411, −0.9900, 0.0300, 0.9996]
 สองมิติหลังเปลี่ยนช้ามาก (ความถี่ต่ำ) — ใช้แยกตำแหน่งที่ห่างกันมาก`,
         cap: "สองมิติหลังแทบไม่ขยับใน 4 ตำแหน่งแรก แต่จะต่างชัดเจนที่ตำแหน่งหลักร้อยหรือหลักพัน", lang: "txt" },
       { h: "attention แพงกว่า FFN เมื่อไร" },
-      { code: String.raw`d_model = 768
+      { code: String.raw`d_model = 768 · นับ FLOPs จริงพร้อมค่าคงที่
+   attention ≈ 4n²d   (QKᵀ กับ AV อย่างละ 2n²d)
+   FFN       ≈ 16nd²  (ขยายกับบีบกลับ อย่างละ 8nd²)
 
-n =    512   attention 2.01e8   FFN 3.02e8   attention/FFN = 0.67
-n =  2,048   attention 3.22e9   FFN 1.21e9   attention/FFN = 2.67
-n = 32,768   attention 8.25e11  FFN 1.93e10  attention/FFN = 42.7`,
-        cap: "จุดพลิกอยู่ที่ราว n = d_model — ต่ำกว่านั้น FFN คือค่าใช้จ่ายหลัก สูงกว่านั้น attention กลืนทุกอย่าง", lang: "txt" },
+n =    512   attention 8.05e8   FFN 4.83e9   attention/FFN = 0.17
+n =  2,048   attention 1.29e10  FFN 1.93e10  attention/FFN = 0.67
+n = 32,768   attention 3.30e12  FFN 3.09e11  attention/FFN = 10.7`,
+        cap: "จุดพลิกอยู่ที่ราว n = 4·d_model — ต่ำกว่านั้น FFN คือค่าใช้จ่ายหลัก สูงกว่านั้น attention กลืนทุกอย่าง · ถ้าทิ้งค่าคงที่จะได้จุดพลิกที่ n = d_model ซึ่งเร็วเกินจริงสี่เท่า", lang: "txt" },
       { h: "KV cache ใหญ่แค่ไหนจริง ๆ" },
       { code: String.raw`ขนาด = 2 · L · n · d_model · 2 ไบต์ (fp16)
 
@@ -244,7 +246,7 @@ GPT-2 small  L=12  d=768   n=1,024   →      36 MB
         ["Llama-2 7B", "32", "4096", "32", "6.7B"],
         ["Llama-2 70B", "80", "8192", "64", "69B"]
       ]}},
-      { p: "**สังเกตว่า d_model / heads ≈ 64 เกือบทุกตัว** — ขนาดต่อหัวถูกตรึงไว้ที่ราว 64 มิติ แล้วเพิ่มจำนวนหัวเมื่อ d_model โต ไม่ใช่เพิ่มขนาดของแต่ละหัว" },
+      { p: "**สังเกตว่าขนาดต่อหัวถูกตรึงไว้แคบมาก** — 64 มิติในรุ่น GPT-2 กับ BERT และ 128 มิติในรุ่น Llama · เมื่อ d_model โตขึ้น สิ่งที่เพิ่มคือจำนวนหัว ไม่ใช่ขนาดของแต่ละหัว" },
       { h: "โครงของหนึ่ง block เขียนเป็นแผนภาพ" },
       { code: String.raw`      x
       ├──────────────┐
@@ -277,12 +279,12 @@ r = 8 · d = 4096  →  2 × 8 × 4096 = 65,536 พารามิเตอร�
         cap: "จึงเทรนได้บน GPU ตัวเดียว และเก็บ adapter หลายตัวสำหรับหลายงานบนโมเดลฐานเดียวกันได้", lang: "txt" },
       { h: "ลดราคาของบริบทยาว" },
       { table: { head: ["วิธี", "ลดอะไร", "แลกอะไร"], rows: [
-        ["**FlashAttention**", "หน่วยความจำจาก O(n²) เหลือ O(n)", "**ไม่แลกอะไรเลย ผลลัพธ์เท่าเดิมเป๊ะ**"],
+        ["**FlashAttention**", "หน่วยความจำจาก O(n²) เหลือ O(n)", "**ไม่แลกคุณภาพเลย — ผลลัพธ์เท่ากันในเชิงคณิตศาสตร์**"],
         ["**grouped-query attention**", "ขนาด KV cache หลายเท่า", "คุณภาพลดเล็กน้อย"],
         ["**sliding window**", "มองแค่ k ตำแหน่งล่าสุด", "เสียบริบทไกล"],
         ["**quantization (int8/int4)**", "หน่วยความจำของน้ำหนัก 2-4 เท่า", "คุณภาพลดเล็กน้อยถึงปานกลาง"]
       ]}},
-      { note: "**FlashAttention ควรเปิดเสมอถ้าใช้ได้** — มันคำนวณ attention เป็นบล็อกโดยไม่สร้างเมทริกซ์ (n, n) ขึ้นมาทั้งก้อนในหน่วยความจำ ผลลัพธ์เหมือนเดิมทุกประการแต่ใช้หน่วยความจำน้อยลงมากและเร็วขึ้นด้วย" }
+      { note: "**FlashAttention ควรเปิดเสมอถ้าใช้ได้** — มันคำนวณ attention เป็นบล็อกโดยไม่สร้างเมทริกซ์ (n, n) ขึ้นมาทั้งก้อนในหน่วยความจำ · ผลลัพธ์เท่ากันในเชิงคณิตศาสตร์ (ต่างได้เฉพาะการปัดเศษ floating point เพราะลำดับการบวกเปลี่ยนไป) แต่ใช้หน่วยความจำน้อยลงมากและเร็วขึ้นด้วย" }
     ],
 
     dataflow: [
@@ -535,7 +537,7 @@ print(kv_cache_mb(32, 4096, 32768))      # 16384.0  7B ที่บริบท 
         ["fine-tune แล้วโมเดลลืมความสามารถเดิม", "learning rate สูงเกิน หรือ full fine-tune บนข้อมูลน้อย", "ใช้ LoRA · ลด lr เหลือ 1e-5 หรือต่ำกว่า"]
       ]}},
       { h: "ค่าเริ่มต้นที่ใช้ได้ทันที" },
-      { code: String.raw`d_model / n_heads = 64          ตรึงขนาดต่อหัวไว้ แล้วเพิ่มจำนวนหัว
+      { code: String.raw`d_model / n_heads = 64-128      ตรึงขนาดต่อหัวไว้ แล้วเพิ่มจำนวนหัว
 FFN                = 4 × d_model
 norm               pre-norm เสมอ
 activation         GELU หรือ SwiGLU
@@ -559,8 +561,8 @@ clipping           1.0`,
       { table: { head: ["เรื่อง", "ค่า"], rows: [
         ["พารามิเตอร์ต่อ block", "`12 · d_model²` (attention 4 · FFN 8)"],
         ["สัดส่วน FFN", "**สองในสาม**"],
-        ["ขนาดต่อหัว", "ราว 64 มิติแทบทุกโมเดล"],
-        ["ราคาของ attention", "`O(n²·d)` — พลิกเหนือ FFN ที่ราว n = d_model"],
+        ["ขนาดต่อหัว", "64 มิติรุ่น GPT-2/BERT · 128 มิติรุ่น Llama"],
+        ["ราคาของ attention", "`4n²d` เทียบ FFN `16nd²` — พลิกที่ราว n = 4·d_model"],
         ["ขนาด KV cache", "`2 · L · n · d · ไบต์`"],
         ["GPT-2 small", "12 ชั้น · d 768 · 124,439,808 พารามิเตอร์"],
         ["สัดส่วนของ LoRA", "ราว 0.1-1% ของน้ำหนักทั้งหมด"]
@@ -582,7 +584,7 @@ clipping           1.0`,
         { q: "แล้วการแบ่งหัวได้อะไรมา",
           a: "หัวเดียวให้ค่าเฉลี่ยถ่วงน้ำหนักหนึ่งชุด คือมองความสัมพันธ์ได้แบบเดียว ส่วนหลายหัวให้หลายความสัมพันธ์พร้อมกัน และเมื่อตรวจดูจริงพบว่าหัวต่าง ๆ ทำงานคนละอย่าง เช่นบางหัวตามไวยากรณ์ บางหัวมองแค่ token ก่อนหน้า" },
         { q: "ทำไม transformer ต้องมี positional encoding",
-          a: "เพราะ self-attention เป็น permutation invariant — สลับแถวของ input แล้วผลลัพธ์เดิมทุกตัวแค่ถูกสลับตาม มันจึงไม่มีแนวคิดเรื่องลำดับอยู่เลย ต่างจาก RNN ที่ลำดับฝังอยู่ในโครงสร้าง" },
+          a: "เพราะ self-attention เป็น permutation equivariant — สลับแถวของ input แล้วผลลัพธ์เดิมทุกตัวแค่ถูกสลับตาม มันจึงไม่มีแนวคิดเรื่องลำดับอยู่เลย ต่างจาก RNN ที่ลำดับฝังอยู่ในโครงสร้าง (สมบัตินี้ใช้กับกรณีที่ยังไม่ใส่ mask)" },
         { q: "positional encoding มีกี่แบบ ต่างกันยังไง",
           a: "sinusoidal คงที่ ไม่มีพารามิเตอร์ และขยายเกินความยาวที่เทรนได้, learned เป็น embedding ต่อตำแหน่งซึ่งง่ายแต่เกินความยาวที่เทรนไม่ได้, และ RoPE หมุน Q กับ K ตามตำแหน่งจึงเข้ารหัสระยะสัมพัทธ์ — LLM ยุคใหม่ใช้ RoPE แทบทั้งหมด" },
         { q: "pre-norm ต่างจาก post-norm ยังไง และทำไมยุคใหม่ใช้ pre-norm",
@@ -600,7 +602,7 @@ clipping           1.0`,
         { q: "ทำไม decoder-only ถึงกลืนงานอื่นไปหมด",
           a: "เพราะงานเกือบทุกอย่างเขียนเป็นการสร้างข้อความต่อได้ ทั้งการจำแนก การตอบคำถาม และการสรุป จึงเทรนโมเดลชนิดเดียวครั้งเดียวแล้วใช้ได้ทุกงาน" },
         { q: "attention แพงกว่า FFN เมื่อไร",
-          a: "จุดพลิกอยู่ที่ราว `n = d_model` — ที่ d=768 และ n=512 attention ยังถูกกว่า FFN แต่ที่ n=32,768 มันแพงกว่า 43 เท่า เพราะ attention เป็น `O(n²·d)` ส่วน FFN เป็น `O(n·d²)`" },
+          a: "จุดพลิกอยู่ที่ราว `n = 4·d_model` เมื่อนับค่าคงที่จริง (attention ≈ `4n²d` · FFN ≈ `16nd²`) — ที่ d=768 และ n=512 attention ถูกกว่า FFN หกเท่า แต่ที่ n=32,768 มันแพงกว่าราว 11 เท่า" },
         { q: "KV cache เก็บอะไร และใหญ่แค่ไหน",
           a: "เก็บ K กับ V ของทุก token ก่อนหน้าเพื่อไม่ต้องคำนวณใหม่ ขนาดคือ `2·L·n·d·ไบต์` — โมเดล 7B ที่บริบท 32k ใช้ 16 GB ซึ่ง**ใหญ่กว่าน้ำหนักโมเดลเองที่ราว 14 GB**" },
         { q: "ทำไม token แรกช้าแล้วที่เหลือเร็ว",
@@ -608,7 +610,7 @@ clipping           1.0`,
         { q: "ทำไมการรวม request เป็น batch ตอน inference ถึงช่วยมาก",
           a: "เพราะเมื่อ memory bandwidth คือคอขวด น้ำหนักที่อ่านขึ้นมาแล้วครั้งหนึ่งสามารถใช้กับหลาย request พร้อมกันได้ ต้นทุนต่อ request จึงลดลงมาก" },
         { q: "FlashAttention แลกอะไรเพื่อความเร็ว",
-          a: "**ไม่แลกอะไรเลย** — ผลลัพธ์เท่ากับ attention ปกติทุกประการ มันแค่คำนวณเป็นบล็อกโดยไม่สร้างเมทริกซ์ `(n,n)` ขึ้นมาทั้งก้อนในหน่วยความจำ ทำให้ใช้ `O(n)` แทน `O(n²)` และเร็วขึ้นด้วย" },
+          a: "**ไม่แลกคุณภาพเลย** — ผลลัพธ์เท่ากันในเชิงคณิตศาสตร์ ต่างได้เฉพาะการปัดเศษ floating point เพราะลำดับการบวกเปลี่ยน มันคำนวณเป็นบล็อกโดยไม่สร้างเมทริกซ์ `(n,n)` ทั้งก้อน จึงใช้ `O(n)` แทน `O(n²)` และเร็วขึ้นด้วย" },
         { q: "LoRA ทำงานยังไง และทำไมถึงเสถียร",
           a: "แทรก `ΔW = BA` ที่ rank ต่ำเข้าไปโดยแช่แข็งน้ำหนักเดิม ที่ r=8 และ d=4096 ใช้ 65,536 พารามิเตอร์เทียบกับ 16.8 ล้าน คือ 0.39% · มันเสถียรเพราะ **B เริ่มที่ศูนย์** ทำให้ `ΔW = 0` ตอนเริ่ม โมเดลจึงเริ่มจากพฤติกรรมเดิมเป๊ะแล้วค่อยเบนออก" },
         { q: "นับพารามิเตอร์ GPT-2 small ได้ไหม",
@@ -653,8 +655,8 @@ transformer:  every position at once, in one matrix multiply
     { code: String.raw`RNN:          O(n · d²)   linear in length, but not parallelisable
 transformer:  O(n² · d)   fully parallel, but quadratic in length
 
-n = 512     attention is still cheaper than the FFN
-n = 32,768  attention costs 43× the FFN`,
+n = 512     attention is far cheaper than the FFN
+n = 32,768  attention costs about 11× the FFN`,
       cap: "This is the entire reason long context is expensive, and why so much research aims at that n² term", lang: "txt" },
     { h: "What this page will let you do" },
     { ul: [
@@ -696,7 +698,7 @@ parameters: 4 · d_model², identical whatever h is`,
 **it contains no notion of order whatsoever**, unlike an RNN where order is structural
 
 -> positional information must be injected explicitly`,
-      cap: "This is called permutation invariance, and it is why positional encoding is a requirement rather than an extra", lang: "txt" },
+      cap: "This is permutation **equivariance** (the output permutes with the input rather than staying fixed), and it is why positional encoding is a requirement rather than an extra · the proof holds only for unmasked self-attention — the causal mask two sections later destroys the property", lang: "txt" },
     { table: { head: ["Kind", "Property"], rows: [
       ["**Sinusoidal**", "Fixed, parameter-free · extrapolates beyond the trained length"],
       ["**Learned**", "One embedding per position · simple, but **cannot exceed the trained length**"],
@@ -822,12 +824,14 @@ the first two dimensions change fast (high frequency)
 the last two change very slowly (low frequency) — they separate distant positions`,
       cap: "The last two barely move across the first four positions, but differ clearly at position hundreds or thousands", lang: "txt" },
     { h: "When attention costs more than the FFN" },
-    { code: String.raw`d_model = 768
+    { code: String.raw`d_model = 768 · real FLOPs, with the constants kept
+   attention ≈ 4n²d   (QKᵀ and AV, 2n²d each)
+   FFN       ≈ 16nd²  (expand and contract, 8nd² each)
 
-n =    512   attention 2.01e8   FFN 3.02e8   attention/FFN = 0.67
-n =  2,048   attention 3.22e9   FFN 1.21e9   attention/FFN = 2.67
-n = 32,768   attention 8.25e11  FFN 1.93e10  attention/FFN = 42.7`,
-      cap: "The crossover sits at roughly n = d_model — below it the FFN dominates the cost, above it attention swallows everything", lang: "txt" },
+n =    512   attention 8.05e8   FFN 4.83e9   attention/FFN = 0.17
+n =  2,048   attention 1.29e10  FFN 1.93e10  attention/FFN = 0.67
+n = 32,768   attention 3.30e12  FFN 3.09e11  attention/FFN = 10.7`,
+      cap: "The crossover sits at roughly n = 4·d_model — below it the FFN dominates, above it attention swallows everything · dropping the constants would put it at n = d_model, four times too early", lang: "txt" },
     { h: "How large a KV cache really gets" },
     { code: String.raw`size = 2 · L · n · d_model · 2 bytes (fp16)
 
@@ -865,7 +869,7 @@ permute the rows of X by P:
       ["Llama-2 7B", "32", "4096", "32", "6.7B"],
       ["Llama-2 70B", "80", "8192", "64", "69B"]
     ]}},
-    { p: "**Note that d_model / heads ≈ 64 in nearly all of them** — the per-head size is pinned at around 64 dimensions and the head count grows with d_model, rather than the heads themselves getting wider." },
+    { p: "**Note how narrow the per-head size stays** — 64 dimensions in the GPT-2 and BERT generation, 128 in the Llama generation. As d_model grows it is the head count that rises, not the width of each head." },
     { h: "One block as a diagram" },
     { code: String.raw`      x
       |--------------.
@@ -898,12 +902,12 @@ which is 0.39%`,
       cap: "So it trains on a single GPU, and many adapters for many tasks can share one base model", lang: "txt" },
     { h: "Reducing the cost of long context" },
     { table: { head: ["Method", "What it cuts", "What it costs"], rows: [
-      ["**FlashAttention**", "Memory from O(n²) to O(n)", "**Nothing at all — the output is bit-for-bit the same**"],
+      ["**FlashAttention**", "Memory from O(n²) to O(n)", "**No quality cost — mathematically the same result**"],
       ["**Grouped-query attention**", "The KV cache, severalfold", "A small quality loss"],
       ["**Sliding window**", "Only the last k positions are visible", "Distant context is lost"],
       ["**Quantisation (int8/int4)**", "Weight memory by 2-4×", "A small to moderate quality loss"]
     ]}},
-    { note: "**Always enable FlashAttention where it is available** — it computes attention in blocks without ever materialising the full (n, n) matrix in memory, giving identical results while using far less memory and running faster." }
+    { note: "**Always enable FlashAttention where it is available** — it computes attention in blocks without ever materialising the full (n, n) matrix, giving a mathematically identical result — differing only in floating-point rounding, since the summation order changes — while using far less memory and running faster." }
   ],
 
   dataflow: [
@@ -1156,7 +1160,7 @@ print(kv_cache_mb(32, 4096, 32768))      # 16384.0  7B at 32k context`,
       ["Fine-tuning makes the model forget its abilities", "Learning rate too high, or full fine-tuning on little data", "Use LoRA · drop the lr to 1e-5 or lower"]
     ]}},
     { h: "Defaults you can use immediately" },
-    { code: String.raw`d_model / n_heads = 64          pin the per-head size, grow the head count
+    { code: String.raw`d_model / n_heads = 64-128      pin the per-head size, grow the head count
 FFN                = 4 × d_model
 norm               always pre-norm
 activation         GELU or SwiGLU
@@ -1180,8 +1184,8 @@ clipping           1.0`,
     { table: { head: ["Thing", "Value"], rows: [
       ["Parameters per block", "`12 · d_model²` (attention 4 · FFN 8)"],
       ["The FFN's share", "**Two thirds**"],
-      ["Per-head size", "About 64 dimensions in nearly every model"],
-      ["Attention's cost", "`O(n²·d)` — it overtakes the FFN at around n = d_model"],
+      ["Per-head size", "64 dimensions in GPT-2/BERT, 128 in Llama"],
+      ["Attention's cost", "`4n²d` against the FFN's `16nd²` — it overtakes at around n = 4·d_model"],
       ["KV cache size", "`2 · L · n · d · bytes`"],
       ["GPT-2 small", "12 layers · d 768 · 124,439,808 parameters"],
       ["LoRA's share", "About 0.1-1% of the weights"]
@@ -1203,7 +1207,7 @@ clipping           1.0`,
       { q: "So what does splitting buy?",
         a: "One head produces a single weighted average, meaning one view of the relationships, while several heads produce several at once — and inspection shows they specialise, some tracking syntax, some only the previous token." },
       { q: "Why does a transformer need positional encoding?",
-        a: "Because self-attention is permutation invariant — permute the input rows and the outputs are identical, merely permuted. It carries no notion of order at all, unlike an RNN where order is structural." },
+        a: "Because self-attention is permutation equivariant — permute the input rows and the outputs are identical, merely permuted. It carries no notion of order at all, unlike an RNN where order is structural. (The property holds for the unmasked case.)" },
       { q: "What kinds of positional encoding are there?",
         a: "Sinusoidal, which is fixed, parameter-free and extrapolates beyond the trained length; learned, one embedding per position, simple but unable to exceed the trained length; and RoPE, which rotates Q and K by position and therefore encodes relative distance — used by nearly every modern LLM." },
       { q: "How does pre-norm differ from post-norm, and why did the field move to pre-norm?",
@@ -1221,7 +1225,7 @@ clipping           1.0`,
       { q: "Why did decoder-only swallow the other tasks?",
         a: "Because almost anything can be written as continuing text — classification, question answering, summarisation — so one model type, trained once, serves every task." },
       { q: "When does attention cost more than the FFN?",
-        a: "The crossover is around `n = d_model` — at d=768 and n=512 attention is still cheaper, but at n=32,768 it costs 43× more, because attention is `O(n²·d)` while the FFN is `O(n·d²)`." },
+        a: "With the real constants (attention ≈ `4n²d`, FFN ≈ `16nd²`) the crossover is around `n = 4·d_model` — at d=768 and n=512 attention is six times cheaper, while at n=32,768 it costs about 11× more." },
       { q: "What does the KV cache store, and how large does it get?",
         a: "The K and V of every previous token, so they are not recomputed. Its size is `2·L·n·d·bytes` — a 7B model at 32k context needs 16 GB, **more than the model's own weights at about 14 GB**." },
       { q: "Why is the first token slow and the rest fast?",
@@ -1229,7 +1233,7 @@ clipping           1.0`,
       { q: "Why does batching requests at inference help so much?",
         a: "Because when memory bandwidth is the bottleneck, weights read once can serve many requests simultaneously, so the cost per request falls sharply." },
       { q: "What does FlashAttention trade for its speed?",
-        a: "**Nothing at all** — the output is identical to ordinary attention. It simply computes in blocks without materialising the `(n,n)` matrix, using `O(n)` memory instead of `O(n²)` and running faster as well." },
+        a: "**No quality at all** — the result is mathematically identical, differing only in floating-point rounding because the summation order changes. It computes in blocks without materialising the `(n,n)` matrix, using `O(n)` memory instead of `O(n²)` and running faster." },
       { q: "How does LoRA work, and why is it stable?",
         a: "It inserts a low-rank `ΔW = BA` while freezing the original weights — at r=8 and d=4096 that is 65,536 parameters against 16.8 million, or 0.39%. It is stable because **B starts at zero**, so `ΔW = 0` initially and the model begins with exactly its original behaviour." },
       { q: "Can you count GPT-2 small's parameters?",

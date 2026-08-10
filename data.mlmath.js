@@ -216,7 +216,7 @@ Backward (ไล่จากท้ายมาหน้า):
   dZ1 = dA1 ⊙ (Z1 > 0)              ← อนุพันธ์ของ ReLU คือ 1 หรือ 0
   dW1 = Xᵀ @ dZ1
   db1 = sum(dZ1, axis=0)`,
-        cap: "หกบรรทัดนี้คือ backpropagation ทั้งหมด — ที่เหลือคือการทำซ้ำต่อชั้น", lang: "txt" },
+        cap: "เจ็ดบรรทัดนี้คือ backpropagation ทั้งหมด — ที่เหลือคือการทำซ้ำต่อชั้น", lang: "txt" },
       { note: "**`dZ2 = ŷ − y` คือความมหัศจรรย์เล็ก ๆ ของหน้านี้** — อนุพันธ์ของ softmax เองยุ่งมาก (เป็น Jacobian เต็ม) แต่พอต่อกับ cross-entropy แล้วพจน์ยุ่ง ๆ ตัดกันหมด เหลือแค่ 'ทำนาย ลบ ความจริง' นี่คือเหตุผลที่ framework รวมสองอันเป็น op เดียว" },
       { h: "อนุมานให้เห็นว่าทำไมถึงตัดกันหมด" },
       { code: String.raw`L = −Σ yₖ log ŷₖ        และ  ŷᵢ = e^zᵢ / Σⱼ e^zⱼ
@@ -323,7 +323,7 @@ W2[0][1] ← 0.7 − 0.1( 0.2897) = 0.6710
 W1[0][0] ← 0.1 − 0.1( 0.1159) = 0.0884
 ...
 
-รันขาไปใหม่:  L = 0.8659 → 0.8206`,
+รันขาไปใหม่ (อัปเดตทั้ง W และ b):  L = 0.8659 → 0.7032`,
         cap: "loss ลดลงจริงในก้าวเดียว — นี่คือทั้งหมดของการเทรน ทำซ้ำหลายล้านรอบ", lang: "txt" },
       { h: "หนึ่ง epoch ประกอบด้วยอะไร" },
       { code: String.raw`for epoch in range(E):              ← เห็นข้อมูลครบทั้งชุด 1 รอบ
@@ -424,8 +424,8 @@ for epoch in range(2000):
         acc = (out.argmax(1) == y.argmax(1)).mean()
         print(f"epoch {epoch:5d}  loss {loss:.4f}  acc {acc:.2f}")
 
-# epoch     0  loss 0.7215  acc 0.50   ← เท่าเดาสุ่ม
-# epoch  1500  loss 0.0142  acc 1.00`,
+# epoch     0  loss 0.5992  acc 0.75
+# epoch  1500  loss 0.0005  acc 1.00   ← เรียนรู้ XOR ได้ครบ`,
         cap: "XOR แยกด้วยเส้นตรงไม่ได้ ต้องมีชั้นซ่อน — เป็นการพิสูจน์ว่าชั้นซ่อนมีประโยชน์จริง", lang: "python" },
       { h: "6) Gradient check — พิสูจน์ว่า backward ที่เขียนถูก" },
       { code: String.raw`def grad_check(net, X, y, eps=1e-5):
@@ -784,7 +784,7 @@ Backward (from the end):
   dZ1 = dA1 ⊙ (Z1 > 0)              ← ReLU's derivative is 1 or 0
   dW1 = Xᵀ @ dZ1
   db1 = sum(dZ1, axis=0)`,
-        cap: "Those six lines are all of backpropagation; deeper networks just repeat them", lang: "txt" },
+        cap: "Those seven lines are all of backpropagation; deeper networks just repeat them", lang: "txt" },
       { note: "**`dZ2 = ŷ − y` is the small miracle of this page.** Softmax's own derivative is messy — a full Jacobian — but composed with cross-entropy the messy terms cancel, leaving \"prediction minus truth\". That is why frameworks fuse the pair into a single op." },
       { h: "Deriving why everything cancels" },
       { code: String.raw`L = −Σ yₖ log ŷₖ        and  ŷᵢ = e^zᵢ / Σⱼ e^zⱼ
@@ -890,7 +890,7 @@ W2[0][1] ← 0.7 − 0.1( 0.2897) = 0.6710
 W1[0][0] ← 0.1 − 0.1( 0.1159) = 0.0884
 ...
 
-running forward again:  L = 0.8659 → 0.8206`,
+running forward again (updating both W and b):  L = 0.8659 → 0.7032`,
         cap: "The loss really does fall in one step — training is this, repeated a few million times", lang: "txt" },
       { h: "What one epoch consists of" },
       { code: String.raw`for epoch in range(E):              ← one pass over the whole dataset
@@ -990,8 +990,8 @@ for epoch in range(2000):
         acc = (out.argmax(1) == y.argmax(1)).mean()
         print(f"epoch {epoch:5d}  loss {loss:.4f}  acc {acc:.2f}")
 
-# epoch     0  loss 0.7215  acc 0.50   ← chance
-# epoch  1500  loss 0.0142  acc 1.00`,
+# epoch     0  loss 0.5992  acc 0.75
+# epoch  1500  loss 0.0005  acc 1.00   ← XOR fully learned`,
         cap: "XOR is not linearly separable, so solving it proves the hidden layer earns its place", lang: "python" },
       { h: "6) Gradient check — proving the backward pass is right" },
       { code: String.raw`def grad_check(net, X, y, eps=1e-5):

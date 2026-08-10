@@ -186,7 +186,7 @@ RBF:  K(a,b) = exp(−γ‖a−b‖²)     ← เทียบเท่ามิ
     foundations: [
       { p: "หมวดนี้เจาะกลไกที่ตัดสินพฤติกรรมของแต่ละตระกูล" },
       { h: "สร้างต้นไม้ทีละ node — คณิตศาสตร์จริง" },
-      { code: String.raw`ข้อมูล 10 แถว: ซื้อ 6 · ไม่ซื้อ 4
+      { code: String.raw`ตาราง 10 แถวอีกชุดหนึ่ง (คนละชุดกับหมวด dataflow): ซื้อ 6 · ไม่ซื้อ 4
 
 Gini ของ node ราก = 1 − (0.6² + 0.4²) = 1 − 0.52 = 0.48
 
@@ -383,12 +383,14 @@ residual ใหม่เล็กลงเล็กน้อย → ต้นท
       { code: String.raw`สเกลก่อน แล้ว k = 2:
 
 รอบที่ 1: สุ่มศูนย์กลางได้ใกล้แถว 2 กับแถว 9
-รอบที่ 2: จับกลุ่ม → กลุ่ม A = {1,2,3,8}  กลุ่ม B = {4,5,6,7,9,10}
+          จับกลุ่ม → กลุ่ม A = {1,2,3,4,5,6,8}  กลุ่ม B = {7,9,10}
           ย้ายศูนย์กลางไปค่าเฉลี่ยของแต่ละกลุ่ม
-รอบที่ 3: จับกลุ่มใหม่ → ไม่มีใครย้าย → หยุด
+รอบที่ 2: จับกลุ่มใหม่ → ไม่มีใครย้าย → หยุด
 
-silhouette เฉลี่ย = 0.62   ← แยกได้ค่อนข้างชัด`,
-        cap: "กลุ่มที่ได้บังเอิญตรงกับ label พอดี แต่ k-means ไม่เคยเห็น label เลย", lang: "txt" }
+silhouette เฉลี่ย = 0.589   ← แยกได้ค่อนข้างชัด
+
+แต่ label จริงคือ ซื้อ = {4,5,6,7,9,10}  → **ไม่ตรงกันเลย**`,
+        cap: "**k-means แยกตามรายได้สูง-ต่ำ ไม่ใช่ตามการซื้อ** — เพราะมันลดระยะทางในพื้นที่ feature เท่านั้น ไม่มีอะไรบอกให้มันสนใจสิ่งที่เราสนใจ · silhouette 0.589 บอกว่ากลุ่มที่ได้ชัดเจนดี แต่ชัดเจนคนละเรื่องกับที่ต้องการ", lang: "txt" }
     ],
 
     implementation: [
@@ -816,7 +818,7 @@ but the ranking of classes stays right even when the probabilities are distorted
   foundations: [
     { p: "This section digs into the mechanics that decide how each family behaves." },
     { h: "Growing a tree one node at a time — the actual arithmetic" },
-    { code: String.raw`10 rows: 6 buy · 4 do not
+    { code: String.raw`a different 10-row table from the one in the dataflow section: 6 buy · 4 do not
 
 Gini at the root = 1 − (0.6² + 0.4²) = 1 − 0.52 = 0.48
 
@@ -1013,12 +1015,14 @@ the new residuals are slightly smaller -> tree 2 learns from what is left`,
     { code: String.raw`scale first, then k = 2:
 
 pass 1: the initial centroids land near row 2 and row 9
-pass 2: assign -> group A = {1,2,3,8}  group B = {4,5,6,7,9,10}
+        assign -> group A = {1,2,3,4,5,6,8}  group B = {7,9,10}
         move each centroid to its group's mean
-pass 3: reassign -> nobody moves -> stop
+pass 2: reassign -> nobody moves -> stop
 
-mean silhouette = 0.62   <- reasonably well separated`,
-      cap: "The groups happen to match the labels exactly, and k-means never saw a single label", lang: "txt" }
+mean silhouette = 0.589   <- reasonably well separated
+
+but the real labels are buys = {4,5,6,7,9,10}  -> **they do not match at all**`,
+      cap: "**k-means split high income from low, not buyers from non-buyers** — it only minimises distance in feature space, and nothing tells it to care about what you care about · a silhouette of 0.589 says the clusters are genuinely clear, but clear about something else", lang: "txt" }
   ],
 
   implementation: [

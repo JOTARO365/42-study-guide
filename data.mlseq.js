@@ -402,9 +402,9 @@ v = torch.tensor([[[10., 0.], [0., 10.], [5., 5.]]])
 
 ctx, attn = attention(q, k, v)
 print(attn)   # tensor([[[0.5065, 0.1863, 0.3072]]])
-print(ctx)    # tensor([[[6.6010, 3.3990]]])
+print(ctx)    # tensor([[[6.6008, 3.3992]]])
 assert torch.allclose(attn.sum(-1), torch.ones(1))`,
-        cap: "ตรงกับที่คำนวณมือในหมวดก่อนหน้าทุกตัวเลข — ตรวจแบบนี้ก่อนเชื่อโค้ดของตัวเองเสมอ", lang: "python" },
+        cap: "ตรงกับที่คำนวณมือในหมวดก่อนหน้า (6.601 กับ 3.399 คือค่าเดียวกันปัดสามตำแหน่ง) — ตรวจแบบนี้ก่อนเชื่อโค้ดของตัวเองเสมอ", lang: "python" },
       { h: "6) LSTM ด้วย PyTorch พร้อม packing" },
       { code: String.raw`import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -958,9 +958,9 @@ v = torch.tensor([[[10., 0.], [0., 10.], [5., 5.]]])
 
 ctx, attn = attention(q, k, v)
 print(attn)   # tensor([[[0.5065, 0.1863, 0.3072]]])
-print(ctx)    # tensor([[[6.6010, 3.3990]]])
+print(ctx)    # tensor([[[6.6008, 3.3992]]])
 assert torch.allclose(attn.sum(-1), torch.ones(1))`,
-      cap: "It matches the hand calculation above to every digit — always verify your own code this way before trusting it", lang: "python" },
+      cap: "It matches the hand calculation above (6.601 and 3.399 are the same values to three decimals) — always verify your own code this way before trusting it", lang: "python" },
     { h: "6) An LSTM in PyTorch with packing" },
     { code: String.raw`import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence

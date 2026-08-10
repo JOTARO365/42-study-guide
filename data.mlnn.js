@@ -166,10 +166,10 @@ He:               Var(W) = 2 / fan_in
         cap: "ใช้ He กับ ReLU · ใช้ Xavier กับ tanh — สลับกันแล้วสัญญาณจะหดหรือขยายทีละชั้น", lang: "txt" },
       { code: String.raw`สาธิตด้วยเลข: 50 ชั้น ReLU กว้าง 512 ตัว
 
-init N(0, 0.01)  → std ของ activation ชั้นที่ 50 ≈ 1e−30   สัญญาณหายหมด
-init Xavier      → std ค่อย ๆ ลด เหลือราว 0.1              เริ่มเทรนยาก
-init He          → std คงที่ราว 1.0 ทุกชั้น                 เทรนได้`,
-        cap: "ค่าเริ่มต้นไม่ใช่รายละเอียดปลีกย่อย — เครือข่ายลึกเทรนไม่ขึ้นเลยถ้าตั้งผิด", lang: "txt" },
+init N(0, 0.01)  → ตัวคูณต่อชั้น 0.16  → std ชั้นที่ 50 ≈ 1e−40   สัญญาณหายหมด
+init Xavier      → ตัวคูณต่อชั้น 0.71  → std ชั้นที่ 50 ≈ 1e−8    ก็หายเหมือนกัน
+init He          → ตัวคูณต่อชั้น 1.00  → std คงที่ราว 1        เทรนได้`,
+        cap: "**Xavier กับ ReLU หดสัญญาณด้วยตัวคูณ 1/√2 ทุกชั้น** ซึ่งคือเลข 2 ที่ He ใส่กลับเข้าไปพอดี — ค่าเริ่มต้นจึงไม่ใช่รายละเอียดปลีกย่อย เครือข่ายลึกเทรนไม่ขึ้นเลยถ้าตั้งผิด", lang: "txt" },
       { h: "สเกล input ก็สำคัญไม่แพ้กัน" },
       { p: "**เครือข่ายต้องได้รับ input ที่สเกลแล้วเสมอ** — ภาพหาร 255 ให้อยู่ช่วง [0,1] หรือ standardize ให้ค่าเฉลี่ยเป็น 0 · ถ้าส่งค่าดิบที่มีหน่วยต่างกันมาก ชั้นแรกจะได้ `z` ที่ใหญ่จนอิ่มตัวทันทีตั้งแต่รอบแรก" },
       { h: "อ่านสมการของ softmax ให้ถูก" },
@@ -193,7 +193,7 @@ softmax(z)ᵢ = e^(zᵢ − max z) / Σⱼ e^(zⱼ − max z)      ← ค่า
         ["784 → 10", "7,850", "logistic regression หลายคลาส ไม่มีชั้นซ่อน"],
         ["784 → 128 → 10", "101,770", "พอสำหรับ MNIST 60,000 ภาพ"],
         ["784 → 512 → 512 → 10", "669,706", "**พารามิเตอร์มากกว่าจำนวนตัวอย่าง** ต้อง regularize"],
-        ["784 → 2048 → 2048 → 10", "5.9M", "ท่องจำชุดเทรนได้หมดถ้าไม่คุม"]
+        ["784 → 2048 → 2048 → 10", "5.8M", "ท่องจำชุดเทรนได้หมดถ้าไม่คุม"]
       ]}},
       { note: "**เครือข่ายที่มีพารามิเตอร์มากกว่าตัวอย่างยังทำงานได้ดี** ซึ่งขัดกับสัญชาตญาณจากโมเดลคลาสสิก — เหตุผลเกี่ยวกับพฤติกรรมของ gradient descent เองที่มีแนวโน้มเลือกคำตอบที่เรียบ ไม่ใช่ว่าไม่ต้อง regularize" },
       { h: "ตรวจ gradient ด้วย finite difference" },
@@ -438,9 +438,9 @@ def softmax(z):
     W[i, j] = orig
 
     num = (lp - lm) / (2 * eps)
-    print(f"analytic {g[i, j]:.8f}  numeric {num:.8f}  "
+    print(f"analytic {g[i, j]:.10f}  numeric {num:.10f}  "
           f"rel {abs(num - g[i,j]) / max(abs(num), abs(g[i,j])):.2e}")
-# analytic 0.01423871  numeric 0.01423870  rel 7.0e-08`,
+# analytic 0.0142387100  numeric 0.0142387099  rel 7.0e-09`,
         cap: "`rel` ต่ำกว่า 1e−7 คือถูกต้อง · สูงกว่า 1e−4 คือมีบั๊กใน backward แน่นอน", lang: "python" },
       { h: "6) เครือข่ายเดียวกันด้วย PyTorch" },
       { code: String.raw`import torch, torch.nn as nn
@@ -763,10 +763,10 @@ He:               Var(W) = 2 / fan_in
       cap: "Use He with ReLU and Xavier with tanh — swap them and the signal shrinks or grows layer by layer", lang: "txt" },
     { code: String.raw`demonstrated numerically: 50 ReLU layers, 512 units wide
 
-init N(0, 0.01)  -> activation std at layer 50 ≈ 1e−30   the signal is gone
-init Xavier      -> std decays steadily, down to about 0.1   hard to train
-init He          -> std stays near 1.0 at every layer         trains`,
-      cap: "Initialisation is not a detail — a deep network simply will not train if it is wrong", lang: "txt" },
+init N(0, 0.01)  -> per-layer factor 0.16  -> std at layer 50 ≈ 1e−40   the signal is gone
+init Xavier      -> per-layer factor 0.71  -> std at layer 50 ≈ 1e−8    it vanishes too
+init He          -> per-layer factor 1.00  -> std stays near 1        it trains`,
+      cap: "**Xavier with ReLU shrinks the signal by 1/√2 per layer**, which is exactly the factor of 2 that He puts back — so initialisation is not a detail; a deep network simply will not train if it is wrong", lang: "txt" },
     { h: "Input scaling matters just as much" },
     { p: "**A network must always be fed scaled inputs** — divide images by 255 to reach [0,1], or standardise to zero mean. Feed it raw values with wildly different units and the first layer produces a `z` so large that it saturates on the very first pass." },
     { h: "Reading the softmax equation correctly" },
@@ -790,7 +790,7 @@ cancel exactly against the 1/ŷ from the derivative of the log`,
       ["784 -> 10", "7,850", "Multiclass logistic regression, no hidden layer"],
       ["784 -> 128 -> 10", "101,770", "Enough for MNIST's 60,000 images"],
       ["784 -> 512 -> 512 -> 10", "669,706", "**More parameters than examples** — must be regularised"],
-      ["784 -> 2048 -> 2048 -> 10", "5.9M", "Will memorise the training set outright if unconstrained"]
+      ["784 -> 2048 -> 2048 -> 10", "5.8M", "Will memorise the training set outright if unconstrained"]
     ]}},
     { note: "**Networks with more parameters than examples still work well**, which contradicts the instinct classical models teach. The reason has to do with gradient descent itself preferring smooth solutions — not with regularisation being unnecessary." },
     { h: "Checking the gradient with finite differences" },
@@ -1035,9 +1035,9 @@ def softmax(z):
     W[i, j] = orig
 
     num = (lp - lm) / (2 * eps)
-    print(f"analytic {g[i, j]:.8f}  numeric {num:.8f}  "
+    print(f"analytic {g[i, j]:.10f}  numeric {num:.10f}  "
           f"rel {abs(num - g[i,j]) / max(abs(num), abs(g[i,j])):.2e}")
-# analytic 0.01423871  numeric 0.01423870  rel 7.0e-08`,
+# analytic 0.0142387100  numeric 0.0142387099  rel 7.0e-09`,
       cap: "A `rel` below 1e−7 is correct; above 1e−4 there is definitely a bug in backward", lang: "python" },
     { h: "6) The same network in PyTorch" },
     { code: String.raw`import torch, torch.nn as nn

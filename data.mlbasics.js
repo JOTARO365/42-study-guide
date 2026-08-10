@@ -104,7 +104,7 @@ variance สูง (overfit)  โมเดลจำข้อมูลเทร�
       { p: "ยิ่งมิติเยอะ ข้อมูลยิ่งกระจายห่างกันจนทุกจุด **เท่ากันหมด** — ระยะทางเลิกมีความหมาย ซึ่งทำลาย kNN และ k-means โดยตรง และทำให้ต้องใช้ข้อมูลมากขึ้นแบบเลขชี้กำลังเพื่อครอบคลุมพื้นที่เท่าเดิม" },
       { code: String.raw`ครอบคลุม 10% ของช่วงในแต่ละมิติ:
   1 มิติ  → ต้องใช้ 10% ของข้อมูล
-  10 มิติ → ต้องใช้ 0.1^10 = 0.0000000001% ... เป็นไปไม่ได้`,
+  10 มิติ → ต้องใช้ 0.1^10 = 1 ใน 10,000,000,000 ของช่วง ... เป็นไปไม่ได้`,
         cap: "นี่คือเหตุผลที่ต้องลดมิติ เลือก feature หรือใช้โมเดลที่ทนมิติสูง", lang: "txt" },
       { h: "8) ข้อมูลไม่สมดุล" },
       { table: { head: ["วิธี", "ทำอะไร", "ข้อควรระวัง"], rows: [
@@ -612,7 +612,7 @@ high variance (overfit)   the model memorised the training data`,
       { p: "The more dimensions, the further apart everything sits, until every point is **equidistant** — distance stops meaning anything, which breaks kNN and k-means directly, and covering the same fraction of the space needs exponentially more data." },
       { code: String.raw`covering 10% of the range in each dimension:
   1 dimension  → 10% of the data
-  10 dimensions → 0.1^10 = 0.0000000001% ... impossible`,
+  10 dimensions → 0.1^10 = 1 part in 10,000,000,000 of the range ... impossible`,
         cap: "Hence dimensionality reduction, feature selection, or models that tolerate high dimensions", lang: "txt" },
       { h: "8) Imbalanced data" },
       { table: { head: ["Approach", "What it does", "Watch out for"], rows: [

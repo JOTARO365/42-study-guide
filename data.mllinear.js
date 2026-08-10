@@ -287,64 +287,65 @@ model = Pipeline([
       { code: String.raw`ทำนายว่านักศึกษาจะสอบผ่านไหม จากชั่วโมงที่อ่านหนังสือ
 
 x = ชั่วโมงอ่าน     y = 1 ถ้าผ่าน
-ข้อมูล 4 คน:  (1, 0)  (2, 0)  (3, 1)  (4, 1)
+ข้อมูล 6 คน:  (1, 0)  (2, 0)  (3, 1)  (4, 0)  (5, 1)  (6, 1)
 
 เริ่มที่  w = 0.0   b = 0.0   η = 0.5`,
-        cap: "เล็กพอจะคำนวณด้วยมือ และมีรูปแบบชัดพอที่โมเดลจะเรียนได้", lang: "txt" },
+        cap: "**คนที่อ่าน 4 ชั่วโมงแล้วไม่ผ่าน คือจุดที่ทำให้ข้อมูลชุดนี้แยกด้วยเส้นเดียวไม่ขาด** — ซึ่งจำเป็น ไม่งั้นจะเจอ perfect separation ที่หมวดถัดไปเตือนไว้", lang: "txt" },
       { h: "รอบที่ 1 — ขาไป" },
       { code: String.raw`z = wx + b = 0 ทุกคน
 σ(0) = 0.5 ทุกคน           ← เดาว่า 50% หมด ตามที่ควรเป็นตอนเริ่ม
 
-log loss = −(1/4)[ log(0.5) + log(0.5) + log(0.5) + log(0.5) ]
+log loss = −(1/6)[ log(0.5) × 6 ]
          = −log(0.5) = 0.693`,
         cap: "0.693 คือเส้นเดาสุ่มของสองคลาสพอดี — ยืนยันว่าเริ่มต้นถูก", lang: "txt" },
       { h: "รอบที่ 1 — gradient" },
-      { code: String.raw`error = ŷ − y = [0.5−0, 0.5−0, 0.5−1, 0.5−1] = [0.5, 0.5, −0.5, −0.5]
+      { code: String.raw`error = ŷ − y = [0.5, 0.5, −0.5, 0.5, −0.5, −0.5]
 
-∂L/∂w = (1/4) Σ xᵢ·errorᵢ
-      = (1/4)[ 1(0.5) + 2(0.5) + 3(−0.5) + 4(−0.5) ]
-      = (1/4)(0.5 + 1.0 − 1.5 − 2.0) = −0.5
+∂L/∂w = (1/6) Σ xᵢ·errorᵢ
+      = (1/6)[ 1(0.5) + 2(0.5) + 3(−0.5) + 4(0.5) + 5(−0.5) + 6(−0.5) ]
+      = (1/6)(0.5 + 1.0 − 1.5 + 2.0 − 2.5 − 3.0) = −0.5833
 
-∂L/∂b = (1/4) Σ errorᵢ = (1/4)(0.5+0.5−0.5−0.5) = 0`,
+∂L/∂b = (1/6) Σ errorᵢ = (1/6)(0.5+0.5−0.5+0.5−0.5−0.5) = 0`,
         cap: "gradient ของ w เป็นลบ → ต้องเพิ่ม w ซึ่งตรงกับสามัญสำนึกว่าอ่านมากขึ้นควรผ่านมากขึ้น", lang: "txt" },
       { h: "รอบที่ 1 — อัปเดต" },
-      { code: String.raw`w ← 0.0 − 0.5(−0.5) = 0.25
-b ← 0.0 − 0.5(0)    = 0.0`,
-        cap: "b ไม่ขยับเพราะข้อมูลสมดุลพอดี 2 ต่อ 2", lang: "txt" },
+      { code: String.raw`w ← 0.0 − 0.5(−0.5833) = 0.2917
+b ← 0.0 − 0.5(0)       = 0.0`,
+        cap: "b ไม่ขยับเพราะข้อมูลสมดุลพอดี 3 ต่อ 3", lang: "txt" },
       { h: "รอบที่ 2" },
-      { code: String.raw`z = [0.25, 0.50, 0.75, 1.00]
-ŷ = [0.562, 0.622, 0.679, 0.731]
+      { code: String.raw`z = [0.2917, 0.5833, 0.8750, 1.1667, 1.4583, 1.7500]
+ŷ = [0.5724, 0.6418, 0.7058, 0.7625, 0.8113, 0.8520]
 
-log loss = −(1/4)[ log(0.438) + log(0.378) + log(0.679) + log(0.731) ]
-         = 0.649        ← ลดลงจาก 0.693`,
-        cap: "สองคนแรกทำนายแย่ลงเล็กน้อย แต่สองคนหลังดีขึ้นมากกว่า รวมแล้วดีขึ้น", lang: "txt" },
+log loss = −(1/6)[ log(0.4276) + log(0.3582) + log(0.7058)
+                 + log(0.2375) + log(0.8113) + log(0.8520) ]
+         = 0.6720       ← ลดลงจาก 0.693`,
+        cap: "คนที่ 4 แย่ลงชัดเจน (0.2375) เพราะโมเดลเริ่มเชื่อว่าอ่านมากแล้วผ่าน แต่รวมทั้งหมดยังดีขึ้น", lang: "txt" },
       { h: "หลังลู่เข้า" },
-      { code: String.raw`w ≈ 1.55   b ≈ −3.87
+      { code: String.raw`w ≈ 1.214   b ≈ −4.249
 
-เส้นแบ่ง: σ(1.55x − 3.87) = 0.5
-        ⟺ 1.55x − 3.87 = 0
-        ⟺ x = 2.5 ชั่วโมง`,
-        cap: "โมเดลสรุปว่าอ่านเกิน 2.5 ชั่วโมงมีโอกาสผ่านมากกว่าไม่ผ่าน", lang: "txt" },
+เส้นแบ่ง: σ(1.214x − 4.249) = 0.5
+        ⟺ 1.214x − 4.249 = 0
+        ⟺ x = 3.5 ชั่วโมง`,
+        cap: "โมเดลสรุปว่าอ่านเกิน 3.5 ชั่วโมงมีโอกาสผ่านมากกว่าไม่ผ่าน — และเส้นแบ่งลงตรงกลางระหว่างคนที่ 3 กับคนที่ 4 พอดี ซึ่งเป็นคู่ที่ขัดกัน", lang: "txt" },
       { h: "ตีความสัมประสิทธิ์" },
-      { code: String.raw`w = 1.55
+      { code: String.raw`w = 1.214
 
-odds ratio = e^1.55 = 4.71
+odds ratio = e^1.214 = 3.37
 
 พูดเป็นภาษาคน:
-  "อ่านเพิ่มขึ้นหนึ่งชั่วโมง ทำให้อัตราต่อรองของการสอบผ่านเพิ่มขึ้น 4.7 เท่า"`,
+  "อ่านเพิ่มขึ้นหนึ่งชั่วโมง ทำให้อัตราต่อรองของการสอบผ่านเพิ่มขึ้น 3.4 เท่า"`,
         cap: "นี่คือประโยคที่เอาไปพูดในที่ประชุมได้ และเป็นเหตุผลหลักที่โมเดลนี้ยังอยู่", lang: "txt" },
-      { note: "**ระวังคำว่า 'เท่า'** — odds ratio 4.71 ไม่ได้แปลว่าความน่าจะเป็นเพิ่ม 4.71 เท่า ที่ p ต่ำ ๆ สองอย่างนี้ใกล้กัน แต่ที่ p สูงจะต่างกันมาก เพราะความน่าจะเป็นเพิ่มเกิน 1 ไม่ได้ แต่ odds เพิ่มได้ไม่จำกัด" },
+      { note: "**ระวังคำว่า 'เท่า'** — odds ratio 3.37 ไม่ได้แปลว่าความน่าจะเป็นเพิ่ม 3.37 เท่า ที่ p ต่ำ ๆ สองอย่างนี้ใกล้กัน แต่ที่ p สูงจะต่างกันมาก เพราะความน่าจะเป็นเพิ่มเกิน 1 ไม่ได้ แต่ odds เพิ่มได้ไม่จำกัด" },
       { h: "ทำนายค่าใหม่" },
-      { code: String.raw`นักศึกษาอ่าน 3.5 ชั่วโมง:
-  z = 1.55(3.5) − 3.87 = 1.555
-  p = σ(1.555) = 0.826
+      { code: String.raw`นักศึกษาอ่าน 4.5 ชั่วโมง:
+  z = 1.214(4.5) − 4.249 = 1.214
+  p = σ(1.214) = 0.771
 
-  → ทำนายว่าผ่าน ด้วยความน่าจะเป็น 82.6%`,
-        cap: "และตัวเลข 82.6% นี้ใช้ต่อได้จริง เพราะ logistic regression มัก calibrate ดีอยู่แล้ว", lang: "txt" },
+  → ทำนายว่าผ่าน ด้วยความน่าจะเป็น 77.1%`,
+        cap: "และตัวเลข 77.1% นี้ใช้ต่อได้จริง เพราะ logistic regression มัก calibrate ดีอยู่แล้ว", lang: "txt" },
       { h: "เทียบกับ linear regression บนโจทย์เดียวกัน" },
-      { code: String.raw`ถ้าใช้ linear regression:
-  x = 0    →  ŷ = −0.3     ← ความน่าจะเป็นติดลบ
-  x = 6    →  ŷ = 1.4      ← ความน่าจะเป็นเกิน 1
+      { code: String.raw`ถ้าใช้ linear regression บนข้อมูลชุดเดียวกัน จะได้ ŷ = 0.2x − 0.2
+  x = 0    →  ŷ = −0.2     ← ความน่าจะเป็นติดลบ
+  x = 8    →  ŷ = 1.4      ← ความน่าจะเป็นเกิน 1
 
 และ outlier หนึ่งตัวที่ x = 20 จะดึงเส้นทั้งเส้นจนเส้นแบ่งขยับ`,
         cap: "สองปัญหานี้คือเหตุผลที่ logistic regression ถูกคิดขึ้นมา", lang: "txt" }
@@ -365,7 +366,7 @@ def fit_normal(X, y):
 X = np.array([[1.0], [2.0], [3.0], [4.0]])
 y = np.array([2.1, 3.9, 6.2, 7.8])
 w = fit_normal(X, y)
-print(w)          # [0.15  1.93]  →  ŷ = 1.93x + 0.15`,
+print(w)          # [0.15  1.94]  →  ŷ = 1.94x + 0.15`,
         cap: "`np.linalg.lstsq` ใช้ SVD ข้างใน จึงทำงานได้แม้เมทริกซ์ singular — ต่างจาก `inv` ที่จะระเบิด", lang: "python" },
       { h: "2) Linear regression ด้วย gradient descent" },
       { code: String.raw`def fit_gd(X, y, lr=0.01, epochs=1000):
@@ -396,11 +397,11 @@ def fit_logistic(X, y, lr=0.1, epochs=5000, l2=0.0):
         w   -= lr * grad
     return w
 
-X = np.array([[1.0], [2.0], [3.0], [4.0]])
-y = np.array([0, 0, 1, 1])
+X = np.array([[1.0], [2.0], [3.0], [4.0], [5.0], [6.0]])
+y = np.array([0, 0, 1, 0, 1, 1])
 w = fit_logistic(X, y)
-print(w)                       # [−3.87  1.55]
-print("เส้นแบ่งที่ x =", -w[0] / w[1])   # 2.5`,
+print(w)                       # [−4.2491  1.2140]
+print("เส้นแบ่งที่ x =", -w[0] / w[1])   # 3.5`,
         cap: "**ไม่ลงโทษ bias** เป็นรายละเอียดที่ถูกต้อง — bias ควรขยับได้อิสระตามสัดส่วนของคลาส", lang: "python" },
       { h: "4) log loss ที่ปลอดภัย" },
       { code: String.raw`def log_loss(y, p, eps=1e-15):
@@ -412,7 +413,7 @@ print("เส้นแบ่งที่ x =", -w[0] / w[1])   # 2.5`,
 
 # ปิด regularization เพื่อให้เทียบกับที่เขียนเองได้ตรง ๆ
 skl = LogisticRegression(penalty=None, max_iter=10000).fit(X, y)
-print(skl.intercept_, skl.coef_)     # ควรใกล้ [−3.87] [[1.55]]`,
+print(skl.intercept_, skl.coef_)     # [-4.2493] [[1.2141]]  ตรงกับที่เขียนเอง`,
         cap: "**scikit-learn เปิด L2 มาให้เป็นค่าเริ่มต้น** — ถ้าไม่ปิด ผลจะไม่ตรงกับที่เขียนเอง และหลายคนงงตรงนี้", lang: "python" },
       { h: "6) ตีความสัมประสิทธิ์ให้เป็นภาษาคน" },
       { code: String.raw`import pandas as pd
@@ -448,9 +449,9 @@ res = sm.Logit(y, Xb).fit()
 print(res.summary())
 
 #                 coef    std err       z      P>|z|    [0.025   0.975]
-# const         -3.8700     1.821   -2.125     0.034   -7.439   -0.301
-# hours          1.5500     0.702    2.208     0.027    0.174    2.926`,
-        cap: "scikit-learn ไม่ให้ p-value เพราะเน้นการทำนาย ส่วน statsmodels เน้นการอนุมานเชิงสถิติ", lang: "python" },
+# const         -4.2491     3.388   -1.254     0.210  -10.889    2.391
+# hours          1.2140     0.913    1.330     0.183   -0.575    3.003`,
+        cap: "**และผลนี้อ่านว่ายังสรุปไม่ได้** — p = 0.18 กับข้อมูล 6 แถวคือสิ่งที่ควรเกิด และช่วงความเชื่อมั่นคร่อมศูนย์ · scikit-learn ไม่ให้ตัวเลขชุดนี้เพราะเน้นการทำนาย ส่วน statsmodels เน้นการอนุมาน", lang: "python" },
       { note: "**p-value มีความหมายก็ต่อเมื่อสมมติฐานของโมเดลเป็นจริง** — ถ้า residual ไม่อิสระหรือความแปรปรวนไม่คงที่ ค่าที่ได้จะแคบเกินจริง อย่าเอาไปตัดสินใจโดยไม่ตรวจสมมติฐานก่อน" }
     ],
 
@@ -528,7 +529,7 @@ MLE จะพยายามผลัก w → ∞ เพื่อให้ σ �
         { q: "ถ้าอยากได้เส้นแบ่งโค้งต้องทำยังไง",
           a: "สร้าง feature โค้งขึ้นมาเอง เช่นเติม `x²` หรือ `x₁x₂` แล้วเส้นตรงในปริภูมิใหม่จะกลายเป็นเส้นโค้งในปริภูมิเดิม — หลักการเดียวกับ kernel trick ของ SVM" },
         { q: "ตีความสัมประสิทธิ์ของ logistic regression ยังไง",
-          a: "สัมประสิทธิ์คือการเปลี่ยนแปลงของ log-odds ต่อการเพิ่มหนึ่งหน่วย ดังนั้น `e^w` คือ odds ratio เช่น `w = 1.55` แปลว่าเพิ่มหนึ่งหน่วยทำให้อัตราต่อรองคูณ 4.71 เท่า" },
+          a: "สัมประสิทธิ์คือการเปลี่ยนแปลงของ log-odds ต่อการเพิ่มหนึ่งหน่วย ดังนั้น `e^w` คือ odds ratio เช่น `w = 1.214` แปลว่าเพิ่มหนึ่งหน่วยทำให้อัตราต่อรองคูณ 3.37 เท่า" },
         { q: "odds ratio 4.7 แปลว่าความน่าจะเป็นเพิ่ม 4.7 เท่าไหม",
           a: "ไม่ใช่ ที่ p ต่ำ ๆ สองอย่างนี้ใกล้กัน แต่ที่ p สูงจะต่างกันมาก เพราะความน่าจะเป็นเกิน 1 ไม่ได้ ในขณะที่ odds เพิ่มได้ไม่จำกัด" },
         { q: "เมื่อไรต้องสเกล feature",
@@ -836,64 +837,65 @@ model = Pipeline([
       { code: String.raw`Predict whether a student passes, from hours studied
 
 x = hours studied     y = 1 if they pass
-four students:  (1, 0)  (2, 0)  (3, 1)  (4, 1)
+six students:  (1, 0)  (2, 0)  (3, 1)  (4, 0)  (5, 1)  (6, 1)
 
 start with  w = 0.0   b = 0.0   η = 0.5`,
-        cap: "Small enough to compute by hand, with a pattern clear enough to learn", lang: "txt" },
+        cap: "**The student who studied 4 hours and failed is what stops this data being separable by a single line** — which is necessary, or you hit the perfect separation the tricks section warns about", lang: "txt" },
       { h: "Round 1 — forward" },
       { code: String.raw`z = wx + b = 0 for everyone
 σ(0) = 0.5 for everyone           ← 50% each, exactly as it should start
 
-log loss = −(1/4)[ log(0.5) + log(0.5) + log(0.5) + log(0.5) ]
+log loss = −(1/6)[ log(0.5) × 6 ]
          = −log(0.5) = 0.693`,
         cap: "0.693 is precisely the two-class chance line, confirming a correct start", lang: "txt" },
       { h: "Round 1 — the gradient" },
-      { code: String.raw`error = ŷ − y = [0.5−0, 0.5−0, 0.5−1, 0.5−1] = [0.5, 0.5, −0.5, −0.5]
+      { code: String.raw`error = ŷ − y = [0.5, 0.5, −0.5, 0.5, −0.5, −0.5]
 
-∂L/∂w = (1/4) Σ xᵢ·errorᵢ
-      = (1/4)[ 1(0.5) + 2(0.5) + 3(−0.5) + 4(−0.5) ]
-      = (1/4)(0.5 + 1.0 − 1.5 − 2.0) = −0.5
+∂L/∂w = (1/6) Σ xᵢ·errorᵢ
+      = (1/6)[ 1(0.5) + 2(0.5) + 3(−0.5) + 4(0.5) + 5(−0.5) + 6(−0.5) ]
+      = (1/6)(0.5 + 1.0 − 1.5 + 2.0 − 2.5 − 3.0) = −0.5833
 
-∂L/∂b = (1/4) Σ errorᵢ = (1/4)(0.5+0.5−0.5−0.5) = 0`,
+∂L/∂b = (1/6) Σ errorᵢ = (1/6)(0.5+0.5−0.5+0.5−0.5−0.5) = 0`,
         cap: "A negative gradient on w means w should rise, matching the intuition that more study should mean more passing", lang: "txt" },
       { h: "Round 1 — the update" },
-      { code: String.raw`w ← 0.0 − 0.5(−0.5) = 0.25
-b ← 0.0 − 0.5(0)    = 0.0`,
-        cap: "b does not move because the data is exactly balanced, two against two", lang: "txt" },
+      { code: String.raw`w ← 0.0 − 0.5(−0.5833) = 0.2917
+b ← 0.0 − 0.5(0)       = 0.0`,
+        cap: "b does not move because the data is exactly balanced, three against three", lang: "txt" },
       { h: "Round 2" },
-      { code: String.raw`z = [0.25, 0.50, 0.75, 1.00]
-ŷ = [0.562, 0.622, 0.679, 0.731]
+      { code: String.raw`z = [0.2917, 0.5833, 0.8750, 1.1667, 1.4583, 1.7500]
+ŷ = [0.5724, 0.6418, 0.7058, 0.7625, 0.8113, 0.8520]
 
-log loss = −(1/4)[ log(0.438) + log(0.378) + log(0.679) + log(0.731) ]
-         = 0.649        ← down from 0.693`,
-        cap: "The first two get slightly worse while the last two improve more, so the total falls", lang: "txt" },
+log loss = −(1/6)[ log(0.4276) + log(0.3582) + log(0.7058)
+                 + log(0.2375) + log(0.8113) + log(0.8520) ]
+         = 0.6720       ← down from 0.693`,
+        cap: "The fourth student gets clearly worse (0.2375) as the model starts believing more hours means passing, but the total still falls", lang: "txt" },
       { h: "After convergence" },
-      { code: String.raw`w ≈ 1.55   b ≈ −3.87
+      { code: String.raw`w ≈ 1.214   b ≈ −4.249
 
-the boundary: σ(1.55x − 3.87) = 0.5
-            ⟺ 1.55x − 3.87 = 0
-            ⟺ x = 2.5 hours`,
-        cap: "The model concludes that beyond 2.5 hours passing is more likely than not", lang: "txt" },
+the boundary: σ(1.214x − 4.249) = 0.5
+            ⟺ 1.214x − 4.249 = 0
+            ⟺ x = 3.5 hours`,
+        cap: "Beyond 3.5 hours passing is more likely than not — and the boundary lands exactly between students 3 and 4, the contradictory pair", lang: "txt" },
       { h: "Interpreting the coefficient" },
-      { code: String.raw`w = 1.55
+      { code: String.raw`w = 1.214
 
-odds ratio = e^1.55 = 4.71
+odds ratio = e^1.214 = 3.37
 
 in plain language:
-  "each additional hour of study multiplies the odds of passing by 4.7"`,
+  "each additional hour of study multiplies the odds of passing by 3.4"`,
         cap: "That is the sentence you can say in a meeting, and the main reason this model survives", lang: "txt" },
-      { note: "**Be careful with \"times\".** An odds ratio of 4.71 does not mean the probability multiplies by 4.71. At low p the two are close; at high p they diverge sharply, because a probability cannot exceed 1 while odds grow without limit." },
+      { note: "**Be careful with \"times\".** An odds ratio of 3.37 does not mean the probability multiplies by 3.37. At low p the two are close; at high p they diverge sharply, because a probability cannot exceed 1 while odds grow without limit." },
       { h: "Predicting a new value" },
-      { code: String.raw`a student who studies 3.5 hours:
-  z = 1.55(3.5) − 3.87 = 1.555
-  p = σ(1.555) = 0.826
+      { code: String.raw`a student who studies 4.5 hours:
+  z = 1.214(4.5) − 4.249 = 1.214
+  p = σ(1.214) = 0.771
 
-  → predicted to pass, with probability 82.6%`,
-        cap: "And that 82.6% is usable, because logistic regression is generally well calibrated already", lang: "txt" },
+  → predicted to pass, with probability 77.1%`,
+        cap: "And that 77.1% is usable, because logistic regression is generally well calibrated already", lang: "txt" },
       { h: "The same problem with linear regression" },
-      { code: String.raw`using linear regression instead:
-  x = 0    →  ŷ = −0.3     ← a negative probability
-  x = 6    →  ŷ = 1.4      ← a probability above 1
+      { code: String.raw`fitting linear regression to the same data gives ŷ = 0.2x − 0.2
+  x = 0    →  ŷ = −0.2     ← a negative probability
+  x = 8    →  ŷ = 1.4      ← a probability above 1
 
 and one outlier at x = 20 would drag the whole line and move the boundary`,
         cap: "Those two problems are exactly why logistic regression was invented", lang: "txt" }
@@ -913,7 +915,7 @@ def fit_normal(X, y):
 X = np.array([[1.0], [2.0], [3.0], [4.0]])
 y = np.array([2.1, 3.9, 6.2, 7.8])
 w = fit_normal(X, y)
-print(w)          # [0.15  1.93]  →  ŷ = 1.93x + 0.15`,
+print(w)          # [0.15  1.94]  →  ŷ = 1.94x + 0.15`,
         cap: "`np.linalg.lstsq` uses SVD internally, so it survives a singular matrix where `inv` would explode", lang: "python" },
       { h: "2) Linear regression by gradient descent" },
       { code: String.raw`def fit_gd(X, y, lr=0.01, epochs=1000):
@@ -944,11 +946,11 @@ def fit_logistic(X, y, lr=0.1, epochs=5000, l2=0.0):
         w   -= lr * grad
     return w
 
-X = np.array([[1.0], [2.0], [3.0], [4.0]])
-y = np.array([0, 0, 1, 1])
+X = np.array([[1.0], [2.0], [3.0], [4.0], [5.0], [6.0]])
+y = np.array([0, 0, 1, 0, 1, 1])
 w = fit_logistic(X, y)
-print(w)                       # [−3.87  1.55]
-print("boundary at x =", -w[0] / w[1])   # 2.5`,
+print(w)                       # [−4.2491  1.2140]
+print("boundary at x =", -w[0] / w[1])   # 3.5`,
         cap: "**Not penalising the bias** is the correct detail — it must be free to move with the class balance", lang: "python" },
       { h: "4) A numerically safe log loss" },
       { code: String.raw`def log_loss(y, p, eps=1e-15):
@@ -960,7 +962,7 @@ print("boundary at x =", -w[0] / w[1])   # 2.5`,
 
 # turn regularisation off so it matches the hand-written version
 skl = LogisticRegression(penalty=None, max_iter=10000).fit(X, y)
-print(skl.intercept_, skl.coef_)     # should be close to [−3.87] [[1.55]]`,
+print(skl.intercept_, skl.coef_)     # [-4.2493] [[1.2141]], matching the from-scratch fit`,
         cap: "**scikit-learn applies L2 by default** — leave it on and your own implementation will not match, which puzzles a lot of people", lang: "python" },
       { h: "6) Turning coefficients into plain language" },
       { code: String.raw`import pandas as pd
@@ -996,9 +998,9 @@ res = sm.Logit(y, Xb).fit()
 print(res.summary())
 
 #                 coef    std err       z      P>|z|    [0.025   0.975]
-# const         -3.8700     1.821   -2.125     0.034   -7.439   -0.301
-# hours          1.5500     0.702    2.208     0.027    0.174    2.926`,
-        cap: "scikit-learn omits p-values because it targets prediction; statsmodels targets statistical inference", lang: "python" },
+# const         -4.2491     3.388   -1.254     0.210  -10.889    2.391
+# hours          1.2140     0.913    1.330     0.183   -0.575    3.003`,
+        cap: "**And this reads as not yet conclusive** — p = 0.18 on six rows is exactly what should happen, and the interval straddles zero · scikit-learn omits these numbers because it targets prediction, statsmodels targets inference", lang: "python" },
       { note: "**A p-value means something only if the model's assumptions hold.** With correlated residuals or non-constant variance the intervals come out too narrow — check the assumptions before deciding anything on them." }
     ],
     tricks: [
@@ -1074,7 +1076,7 @@ MLE pushes w → ∞ so that σ approaches exactly 0 and 1
         { q: "How do you get a curved boundary then?",
           a: "Build curved features yourself, adding `x²` or `x₁x₂`, so a straight line in the enlarged space becomes a curve in the original — the same principle as the SVM kernel trick." },
         { q: "How do you interpret a logistic regression coefficient?",
-          a: "It is the change in log-odds per unit increase, so `e^w` is the odds ratio: `w = 1.55` means one more unit multiplies the odds by 4.71." },
+          a: "It is the change in log-odds per unit increase, so `e^w` is the odds ratio: `w = 1.214` means one more unit multiplies the odds by 3.37." },
         { q: "Does an odds ratio of 4.7 mean the probability multiplies by 4.7?",
           a: "No. At low probabilities the two are close, but at high probabilities they diverge sharply, because a probability cannot exceed 1 while odds grow without bound." },
         { q: "When is scaling required?",

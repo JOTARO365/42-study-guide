@@ -317,13 +317,14 @@ test        พฤศจิกายน
 และต้องเว้นช่วง 30 วันก่อน validation เพราะ label ยังไม่ครบกำหนด`,
         cap: "**ประโยคสุดท้ายถูกลืมบ่อยที่สุด** — คำสั่งซื้อของปลายกันยายนยังไม่รู้ผลตอนตัดข้อมูล จึงต้องตัดออก", lang: "txt" },
       { h: "ขั้นที่ 3 — เทรนและเลือกเกณฑ์ตัดสิน" },
-      { code: String.raw`gradient boosting · PR-AUC = 0.34  (baseline สุ่มได้ 0.08)
+      { code: String.raw`gradient boosting · PR-AUC = 0.34  (baseline สุ่มได้ 0.05 เท่ากับอัตราการคืน)
 
 เลือก threshold จากต้นทุนจริง ไม่ใช่จาก F1:
-   เตือนผิด    → ลูกค้ารำคาญเล็กน้อย  ประเมิน 2 บาท
-   พลาดการคืน  → ค่าขนส่งกลับ + รีสต๊อก ประเมิน 150 บาท
+   เตือนผิด    → รบกวนลูกค้ากลางหน้าชำระเงิน ประเมิน 20 บาท
+   พลาดการคืน  → ค่าขนส่งกลับ + รีสต๊อก      ประเมิน 150 บาท
 
-→ threshold ที่ทำให้ต้นทุนรวมต่ำสุด = 0.18 ไม่ใช่ 0.5`,
+threshold ที่ทำให้ต้นทุนรวมต่ำสุด = C_FP / (C_FP + C_FN)
+                              = 20 / 170 = 0.12   ไม่ใช่ 0.5`,
         cap: "**0.5 ไม่เคยเป็นเกณฑ์ที่ถูกต้องโดยอัตโนมัติ** — มันถูกก็ต่อเมื่อความเสียหายสองด้านเท่ากันพอดี ซึ่งแทบไม่เคยเกิด", lang: "txt" },
       { h: "ขั้นที่ 4 — shadow หนึ่งสัปดาห์" },
       { code: String.raw`ผลที่พบ:
@@ -421,7 +422,7 @@ def psi(expected, actual, bins=10):
     return float(np.sum((a - e) * np.log(a / e)))
 
 # psi < 0.10  ปกติ · 0.10-0.25 ควรตรวจสอบ · > 0.25 ควรเทรนใหม่`,
-        cap: "**ขอบถังต้องมาจากชุดเทรนเสมอ** — ถ้าคำนวณขอบใหม่จากข้อมูลปัจจุบัน จะไม่มีวันตรวจพบ drift เลย", lang: "python" },
+        cap: "**ขอบถังต้องมาจากชุดเทรนและต้องแช่ไว้** — ถ้าคำนวณขอบใหม่จากข้อมูลปัจจุบันทุกครั้ง สัดส่วนปัจจุบันจะเป็น 10% ทุกถังโดยนิยาม และถ้าเทียบกับ 10% ที่เป็นค่าคาดหวังตามชื่อ decile ก็จะได้ PSI = 0 เสมอ ซึ่งเป็นท่อที่พังแบบพบบ่อยที่สุด", lang: "python" },
       { h: "4) log ที่ใช้ดีบักได้จริง" },
       { code: String.raw`import json, time, uuid
 
@@ -599,7 +600,7 @@ def check_and_rollback(metrics):
         { q: "PSI คำนวณยังไง และอ่านค่าอย่างไร",
           a: "`Σ (actual − expected)·ln(actual/expected)` โดยแบ่งเป็นถังตาม decile ของชุดเทรน · ต่ำกว่า 0.10 คือปกติ, 0.10-0.25 ควรตรวจสอบ, เกิน 0.25 ควรพิจารณาเทรนใหม่" },
         { q: "ทำไมขอบถังของ PSI ต้องมาจากชุดเทรน",
-          a: "เพราะถ้าคำนวณขอบใหม่จากข้อมูลปัจจุบันทุกครั้ง สัดส่วนในแต่ละถังจะเท่ากันเสมอโดยนิยาม และจะไม่มีวันตรวจพบ drift ได้เลย" },
+          a: "เพราะถ้าคำนวณขอบใหม่ทุกครั้ง สัดส่วนปัจจุบันจะเป็น 10% ทุกถังโดยนิยาม และเมื่อเทียบกับค่าคาดหวัง 10% ตามชื่อ decile ก็ได้ PSI = 0 เสมอ — ขอบถังต้องแช่ไว้จากชุดเทรน" },
         { q: "ทำไม label ที่มาช้าถึงเปลี่ยนทุกอย่าง",
           a: "เพราะจะรู้ว่าโมเดลพังตอนที่สายไปแล้ว — งานทำนายการเลิกใช้บริการที่ label มาใน 30-90 วัน แปลว่าต้องพึ่งสัญญาณที่ไม่ต้องใช้ label เช่น PSI และการกระจายของคำทำนาย เป็นระบบเตือนหลัก" },
         { q: "การกระจายของคำทำนายบอกอะไร",
@@ -621,7 +622,7 @@ def check_and_rollback(metrics):
         { q: "อะไรที่คนวางแผน A/B ลืมบ่อยที่สุด",
           a: "ว่าการสะสมตัวอย่างครบไม่ได้แปลว่าวัดผลได้ — ถ้า label มาใน 30 วัน ต้องรออีก 30 วันหลังสะสมครบถึงจะสรุปได้จริง" },
         { q: "ควรเลือกเกณฑ์ตัดสินอย่างไร",
-          a: "จากต้นทุนจริงของความผิดสองแบบ ไม่ใช่จาก F1 หรือค่าเริ่มต้น 0.5 · ถ้าการพลาดเสียหาย 150 บาทและการเตือนผิดเสียหาย 2 บาท เกณฑ์ที่ทำให้ต้นทุนรวมต่ำสุดจะต่ำกว่า 0.5 มาก" },
+          a: "จากต้นทุนจริงของความผิดสองแบบ ไม่ใช่จาก F1 หรือค่าเริ่มต้น 0.5 · เกณฑ์ที่ทำให้ต้นทุนรวมต่ำสุดคือ `C_FP / (C_FP + C_FN)` — ที่ 20 กับ 150 จะได้ 0.12 ซึ่งต่ำกว่า 0.5 มาก" },
         { q: "ควรเริ่มด้วย batch หรือ online prediction",
           a: "batch เสมอถ้าเป็นไปได้ เพราะถูกกว่าหลายเท่าและดีบักง่ายกว่ามาก · งานจำนวนมากไม่ได้ต้องการ online จริง แค่คนขอคิดว่าต้องการ" },
         { q: "feature store แก้อะไรที่สำคัญที่สุด",
@@ -959,13 +960,14 @@ never split randomly — in production you always predict the future from the pa
 and leave a 30-day gap before validation, because those labels have not matured`,
       cap: "**That last line is forgotten most often** — late-September orders have no known outcome at the cut-off, so they must be excluded", lang: "txt" },
     { h: "Step 3 — train, and choose the threshold" },
-    { code: String.raw`gradient boosting · PR-AUC = 0.34  (random baseline is 0.08)
+    { code: String.raw`gradient boosting · PR-AUC = 0.34  (the random baseline is 0.05, the return rate)
 
 choose the threshold from real costs, not from F1:
-   a false warning  -> mild customer annoyance,  valued at 2
-   a missed return  -> return shipping + restock, valued at 150
+   a false warning  -> interrupting a customer mid-checkout, valued at 20
+   a missed return  -> return shipping + restock,             valued at 150
 
--> the total-cost-minimising threshold is 0.18, not 0.5`,
+the total-cost-minimising threshold = C_FP / (C_FP + C_FN)
+                                    = 20 / 170 = 0.12, not 0.5`,
       cap: "**0.5 is never automatically the right threshold** — it is right only when both errors cost the same, which is almost never", lang: "txt" },
     { h: "Step 4 — one week in shadow" },
     { code: String.raw`what it found:
@@ -1064,7 +1066,7 @@ def psi(expected, actual, bins=10):
     return float(np.sum((a - e) * np.log(a / e)))
 
 # psi < 0.10 normal · 0.10-0.25 investigate · > 0.25 consider retraining`,
-      cap: "**The bucket edges must always come from the training set** — recompute them on current data and drift becomes undetectable", lang: "python" },
+      cap: "**The bucket edges must come from the training set and stay frozen** — recompute them each time and the current shares are 10% per bucket by definition, so comparing against a nominal 10% expectation gives PSI = 0 forever, which is the most common broken pipeline", lang: "python" },
     { h: "4) Logging you can actually debug with" },
     { code: String.raw`import json, time, uuid
 
@@ -1242,7 +1244,7 @@ these three deliver over 80% of the value of full MLOps`,
       { q: "How is PSI computed and how is it read?",
         a: "`Σ (actual − expected)·ln(actual/expected)` over buckets defined by the training set's deciles. Below 0.10 is normal, 0.10-0.25 warrants investigation, and above 0.25 suggests retraining." },
       { q: "Why must PSI's bucket edges come from the training set?",
-        a: "Because recomputing them from current data makes every bucket's share equal by definition, so drift becomes mathematically undetectable." },
+        a: "Because recomputing them each time makes the current shares 10% per bucket by definition, and comparing that against a nominal 10% expectation yields PSI = 0 forever — the edges must stay frozen from the training set." },
       { q: "Why do late labels change everything?",
         a: "Because you learn the model broke long after it did — a churn model with 30-90 day labels must rely on label-free signals such as PSI and the prediction distribution as its primary alarm." },
       { q: "What does the prediction distribution tell you?",
@@ -1264,7 +1266,7 @@ these three deliver over 80% of the value of full MLOps`,
       { q: "What do A/B planners forget most often?",
         a: "That accumulating the sample is not the same as being able to measure it — with 30-day labels, another 30 days must pass after the sample is complete before any conclusion is possible." },
       { q: "How should a decision threshold be chosen?",
-        a: "From the real costs of the two error types, not from F1 or a default of 0.5 — if a miss costs 150 and a false alarm costs 2, the total-cost-minimising threshold sits far below 0.5." },
+        a: "From the real costs of the two error types, not from F1 or a default of 0.5 — the total-cost-minimising threshold is `C_FP / (C_FP + C_FN)`, which at 20 against 150 gives 0.12, far below 0.5." },
       { q: "Should you start with batch or online prediction?",
         a: "Batch whenever possible, because it is several times cheaper and far easier to debug, and many tasks do not genuinely need online — the requester merely assumes they do." },
       { q: "What is a feature store's most important property?",

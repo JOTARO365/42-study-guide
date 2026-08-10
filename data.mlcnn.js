@@ -80,8 +80,8 @@ padding แบบ 'same' ที่ stride 1:  padding = (kernel − 1)/2  →  o
       { h: "5) receptive field — และเหตุผลที่ 3×3 ชนะ" },
       { code: String.raw`ซ้อน 3×3 stride 1 จำนวน L ชั้น → receptive field = 2L + 1
 
-3×3 สองชั้น:   receptive field 5×5   พารามิเตอร์ 2 × (9·C²) = 18C²
-5×5 ชั้นเดียว:  receptive field 5×5   พารามิเตอร์          25C²
+3×3 สองชั้น:   receptive field 5×5   พารามิเตอร์ 2 × (9·C² + C)
+5×5 ชั้นเดียว:  receptive field 5×5   พารามิเตอร์      25·C² + C
 
 ที่ C = 64:  73,856 เทียบกับ 102,464`,
         cap: "เห็นภาพเท่ากัน แต่พารามิเตอร์น้อยกว่า และได้ non-linearity เพิ่มมาอีกหนึ่งชั้นฟรี", lang: "txt" },
@@ -347,7 +347,7 @@ max เก็บ 'มีอะไรอยู่ไหม' · average เก็�
       { h: "ไล่ shape ของเครือข่ายจริงทั้งตัว" },
       { code: String.raw`input                                  (N,   3, 224, 224)
 conv 7×7  s2 p3  → 64 ช่อง             (N,  64, 112, 112)
-maxpool 3×3 s2                          (N,  64,  56,  56)
+maxpool 3×3 s2 p1                       (N,  64,  56,  56)
 stage1  conv 3×3 ×2                     (N,  64,  56,  56)
 stage2  conv 3×3 s2 ×2 → 128            (N, 128,  28,  28)
 stage3  conv 3×3 s2 ×2 → 256            (N, 256,  14,  14)
@@ -433,7 +433,7 @@ print(f"total {sum(p.numel() for p in model.parameters()):,}")
 
 # stem.0.weight        (64, 3, 3, 3)        1,728
 # stages.0.conv1.0.weight (64, 64, 3, 3)   36,864
-# total 2,796,362`,
+# total 1,227,594`,
         cap: "ตรงกับสูตร `k·k·C_in·C_out` เสมอ ถ้าไม่ตรงแปลว่าเข้าใจโครงสร้างผิด", lang: "python" },
       { h: "6) augmentation ที่ถูกต้อง" },
       { code: String.raw`from torchvision import transforms as T
@@ -493,7 +493,7 @@ opt = torch.optim.AdamW([
     {"params": model.layer4.parameters(),  "lr": 1e-4},
     {"params": model.layer3.parameters(),  "lr": 1e-5},
 ], weight_decay=0.05)`,
-        cap: "**learning rate ต่างกันตามความลึก** — ชั้นลึกที่จับ feature ทั่วไปควรขยับน้อยที่สุด", lang: "python" },
+        cap: "**learning rate ต่างกันตามความลึก** — ชั้นที่อยู่ใกล้ input จับ feature ทั่วไป จึงควรขยับน้อยที่สุด ส่วนชั้นท้ายที่จับ feature เฉพาะงานควรขยับมากที่สุด", lang: "python" },
       { h: "10) ตรวจว่า batch norm อยู่โหมดไหนตอน fine-tune" },
       { code: String.raw`# แช่แข็งน้ำหนักแล้ว แต่ batch norm ยังอัปเดต running statistics อยู่
 # ถ้าไม่ต้องการ ต้องบังคับให้อยู่โหมด eval ด้วย
@@ -565,7 +565,7 @@ freeze_bn(model.layer1)        # ต้องเรียกหลัง model.t
         { q: "conv layer มีพารามิเตอร์เท่าไร และขึ้นกับขนาดภาพไหม",
           a: "`k·k·C_in·C_out + C_out` และ **ไม่ขึ้นกับขนาดภาพเลย** — 3×3 จาก 64 ไป 64 ช่องใช้ 36,928 ตัว ไม่ว่าภาพจะ 32×32 หรือ 1024×1024" },
         { q: "ทำไม 3×3 สองชั้นดีกว่า 5×5 ชั้นเดียว",
-          a: "receptive field เท่ากันคือ 5×5 แต่พารามิเตอร์เป็น 18C² เทียบกับ 25C² และได้ non-linearity เพิ่มมาอีกชั้นฟรี — ที่ C=64 คือ 73,856 เทียบกับ 102,464" },
+          a: "receptive field เท่ากันคือ 5×5 แต่พารามิเตอร์เป็น `2(9C² + C)` เทียบกับ `25C² + C` และได้ non-linearity เพิ่มมาอีกชั้นฟรี — ที่ C=64 คือ 73,856 เทียบกับ 102,464" },
         { q: "receptive field โตยังไงเมื่อเพิ่มชั้น",
           a: "3×3 stride 1 จำนวน L ชั้นให้ `2L+1` ซึ่งโตเชิงเส้นและช้ามาก ส่วนทุกครั้งที่ลดขนาดครึ่งหนึ่งด้วย stride 2 receptive field จะโตเป็นสองเท่า จึงต้องมีการลดขนาดถ้าอยากให้เห็นภาพรวม" },
         { q: "1×1 convolution มีประโยชน์อะไรทั้งที่ไม่มองเพื่อนบ้าน",
@@ -684,8 +684,8 @@ whether the image is 32×32 or 1024×1024`,
     { h: "5) Receptive field, and why 3×3 won" },
     { code: String.raw`stacking L layers of 3×3 at stride 1 -> receptive field = 2L + 1
 
-two 3×3 layers:  receptive field 5×5   parameters 2 × (9·C²) = 18C²
-one 5×5 layer:   receptive field 5×5   parameters           25C²
+two 3×3 layers:  receptive field 5×5   parameters 2 × (9·C² + C)
+one 5×5 layer:   receptive field 5×5   parameters       25·C² + C
 
 at C = 64:  73,856 against 102,464`,
       cap: "The same view of the image, fewer parameters, and one extra non-linearity for free", lang: "txt" },
@@ -951,7 +951,7 @@ max keeps "is it there at all" · average keeps "how bright overall"`,
     { h: "Tracing a real network's shapes end to end" },
     { code: String.raw`input                                  (N,   3, 224, 224)
 conv 7×7  s2 p3  -> 64 channels         (N,  64, 112, 112)
-maxpool 3×3 s2                          (N,  64,  56,  56)
+maxpool 3×3 s2 p1                       (N,  64,  56,  56)
 stage1  conv 3×3 ×2                     (N,  64,  56,  56)
 stage2  conv 3×3 s2 ×2 -> 128           (N, 128,  28,  28)
 stage3  conv 3×3 s2 ×2 -> 256           (N, 256,  14,  14)
@@ -1037,7 +1037,7 @@ print(f"total {sum(p.numel() for p in model.parameters()):,}")
 
 # stem.0.weight        (64, 3, 3, 3)        1,728
 # stages.0.conv1.0.weight (64, 64, 3, 3)   36,864
-# total 2,796,362`,
+# total 1,227,594`,
       cap: "It always matches `k·k·C_in·C_out`; if it does not, you have misread the architecture", lang: "python" },
     { h: "6) Augmentation done correctly" },
     { code: String.raw`from torchvision import transforms as T
@@ -1097,7 +1097,7 @@ opt = torch.optim.AdamW([
     {"params": model.layer4.parameters(),  "lr": 1e-4},
     {"params": model.layer3.parameters(),  "lr": 1e-5},
 ], weight_decay=0.05)`,
-      cap: "**A different learning rate per depth** — the deeper layers hold general features and should move least", lang: "python" },
+      cap: "**A different learning rate per depth** — the layers nearer the input hold general features and should move least, while the later, task-specific layers should move most", lang: "python" },
     { h: "10) Check which mode batch norm is in while fine-tuning" },
     { code: String.raw`# the weights are frozen, but batch norm still updates its running statistics
 # to stop that as well, it must be forced into eval mode
@@ -1169,7 +1169,7 @@ freeze_bn(model.layer1)        # must be called after every model.train()`,
       { q: "How many parameters does a conv layer have, and does image size matter?",
         a: "`k·k·C_in·C_out + C_out`, and it **does not depend on the image size at all** — 3×3 from 64 to 64 channels costs 36,928 whether the image is 32×32 or 1024×1024." },
       { q: "Why are two 3×3 layers better than one 5×5?",
-        a: "The receptive field is the same 5×5 but the parameters are 18C² against 25C², plus one extra non-linearity for free — at C=64 that is 73,856 against 102,464." },
+        a: "The receptive field is the same 5×5 but the parameters are `2(9C² + C)` against `25C² + C`, plus one extra non-linearity for free — at C=64 that is 73,856 against 102,464." },
       { q: "How does the receptive field grow with depth?",
         a: "L layers of 3×3 at stride 1 give `2L+1`, which grows linearly and very slowly, while every halving of the resolution with stride 2 doubles it — so downsampling is what makes a global view possible." },
       { q: "What is a 1×1 convolution good for, given that it sees no neighbours?",

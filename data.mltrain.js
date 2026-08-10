@@ -507,7 +507,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False     # benchmark ทำให้ผลไม่คงที่
 
 def worker_init(worker_id):
-    np.random.seed(torch.initial_seed() % 2**32 + worker_id)
+    np.random.seed((torch.initial_seed() + worker_id) % 2**32)
 
 loader = DataLoader(ds, batch_size=64, shuffle=True,
                     num_workers=4, worker_init_fn=worker_init)`,
@@ -1140,7 +1140,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False     # benchmark makes results vary
 
 def worker_init(worker_id):
-    np.random.seed(torch.initial_seed() % 2**32 + worker_id)
+    np.random.seed((torch.initial_seed() + worker_id) % 2**32)
 
 loader = DataLoader(ds, batch_size=64, shuffle=True,
                     num_workers=4, worker_init_fn=worker_init)`,
