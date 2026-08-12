@@ -187,6 +187,52 @@ $ git pull        # เอาของใหม่ลงมา
 $ git add -p && git commit
 $ git push`, cap: "clone กับ init+remote add ให้ผลเหมือนกัน ต่างแค่ของตั้งต้นอยู่ฝั่งไหน", lang: "bash" },
       { note: "`git@github.com:...` คือรูปแบบ **SSH** ซึ่งต้องมีคีย์ (ข้อ 1 ข้างล่าง) ส่วน `https://github.com/...` ใช้ token แทน. SSH ตั้งครั้งเดียวจบ ไม่ต้องกรอกอะไรอีก — เพราะงั้นถึงคุ้มที่จะตั้งตั้งแต่วันแรก" },
+      { h: "0.75) สร้าง branch แรก — วงจรเต็มตั้งแต่สร้างจนลบทิ้ง" },
+      { p: "branch คือ **ตัวชี้ไปยัง commit หนึ่งตัว** ที่ขยับตามเมื่อเรา commit. สร้าง branch จึงไม่ได้ก๊อปไฟล์อะไรเลย — มันแค่เขียนไฟล์ 41 ไบต์ที่บรรจุ hash. ทำให้ต้นทุนของการ 'ลองอะไรสักอย่างแยกไว้ก่อน' แทบเป็นศูนย์" },
+      { code: String.raw`# 1. เริ่มจาก main ที่ทันสมัย — ขั้นนี้คนข้ามบ่อยที่สุด
+$ git switch main
+$ git pull
+
+# 2. สร้าง branch แล้วย้ายไปเลยด้วยคำสั่งเดียว
+$ git switch -c feat/login
+Switched to a new branch 'feat/login'
+
+# 3. ทำงานตามปกติ — commit กี่ครั้งก็ได้ ยังไม่มีใครเห็น
+$ git add -p
+$ git commit -m "add login handler"
+
+# 4. push ครั้งแรกพร้อมผูก branch เข้ากับ remote
+$ git push -u origin feat/login
+   ครั้งต่อไปพิมพ์ git push เปล่า ๆ ได้เลย
+
+# 5. เปิด PR -> review -> merge (ทำบนเว็บ)
+
+# 6. เก็บกวาด
+$ git switch main
+$ git pull                      # ดึงงานที่เพิ่ง merge ลงมา
+$ git branch -d feat/login      # ลบในเครื่อง (-d ปฏิเสธถ้ายังไม่ merge)
+$ git fetch --prune             # ล้าง origin/feat/login ที่ตายแล้วออก`, cap: "วงจรเต็มหนึ่งรอบ — ขั้น 1 กับ 6 คือสองขั้นที่คนลืมและทำให้ repo รก", lang: "bash" },
+      { note: "**ขั้นที่ 1 สำคัญกว่าที่คิด**: `git switch -c` แตกจาก **ตำแหน่งที่เรายืนอยู่ตอนนั้น**. ถ้าลืม `git pull` ก่อน branch ใหม่จะแตกจาก main เวอร์ชันเก่า แล้วตอนเปิด PR จะเจอ conflict ที่ไม่ควรมี. อยากแตกจากที่อื่นโดยไม่ต้องย้ายตัวเองไปก่อน ใช้ `git switch -c feat/x origin/main` ได้เลย" },
+      { h: "ตั้งชื่อ branch ยังไงให้ทีมอ่านออก" },
+      { table: { head: ["รูปแบบ", "ตัวอย่าง", "ใช้เมื่อ"], rows: [
+        ["`feat/<เรื่อง>`", "`feat/login`, `feat/bench-flag`", "ฟีเจอร์ใหม่"],
+        ["`fix/<เรื่อง>`", "`fix/leak-on-error-path`", "แก้บั๊ก"],
+        ["`refactor/` `docs/` `test/` `chore/`", "`refactor/split-parse`", "งานที่ไม่เปลี่ยนพฤติกรรม"],
+        ["`hotfix/<เรื่อง>`", "`hotfix/null-deref`", "แก้ด่วนที่ต้องขึ้น production ทันที"],
+        ["`<login>/<เรื่อง>`", "`wiaon-in/disorder-metric`", "repo ที่มีคนเยอะ อยากรู้ว่าของใคร"],
+        ["`<ticket>-<เรื่อง>`", "`PROJ-1234-login`", "ทีมที่ผูกกับ issue tracker"],
+      ]}},
+      { note: "หลักเดียวที่สำคัญจริง: **ชื่อต้องบอกได้ว่ากำลังทำอะไร โดยไม่ต้องเปิดดู**. `feat/login` ดีกว่า `wiaon-branch-2` เสมอ. เลี่ยงช่องว่างและอักขระพิเศษ ใช้ `-` คั่นคำ ส่วน `/` ใช้แบ่งหมวด (git แสดงเป็นโฟลเดอร์ให้ในเครื่องมือหลายตัว)" },
+      { h: "แตก branch ผิดที่ / commit ผิด branch — แก้ยังไง" },
+      { table: { head: ["สถานการณ์", "ทางแก้"], rows: [
+        ["เผลอ commit ลง main ทั้งที่ยังไม่ push", "`git switch -c feat/x` (พา commit ติดมาด้วย) แล้ว `git switch main` และ `git reset --hard origin/main`"],
+        ["commit ผิด branch และ push ไปแล้ว", "`git switch <ถูก>`, `git cherry-pick <sha>`, แล้วบน branch เดิม `git revert <sha>`"],
+        ["แตก branch จาก main เวอร์ชันเก่า", "`git fetch` แล้ว `git rebase origin/main`"],
+        ["แตกจาก branch อื่นโดยไม่ตั้งใจ", "`git rebase --onto main <ฐานเก่า> <branch ของเรา>`"],
+        ["อยากดูว่าตัวเองแตกมาจากไหน", "`git merge-base --fork-point main HEAD` หรือดูรูปจาก `git log --graph --oneline --all`"],
+        ["ตั้งชื่อ branch ผิด", "`git branch -m <ชื่อใหม่>` แล้ว `git push -u origin <ชื่อใหม่>` และ `git push origin --delete <ชื่อเก่า>`"],
+      ]}},
+      { note: "`git rebase --onto main old-base my-branch` อ่านว่า 'เอา commit ที่อยู่ระหว่าง old-base กับ my-branch ไปวางบน main'. เป็นคำสั่งเดียวที่แก้ปัญหา 'แตก branch ซ้อน branch' ได้ตรง ๆ และเป็นเหตุผลที่มันมีอาร์กิวเมนต์สามตัว" },
       { h: "1) สร้าง SSH key ครั้งแรก" },
       { code: String.raw`ssh-keygen -t ed25519 -C "you@example.com"   # ได้ ~/.ssh/id_ed25519 และ .pub
 ssh-add ~/.ssh/id_ed25519                     # โหลดเข้า agent
@@ -291,6 +337,93 @@ git push origin v1.4.0                 # tag ไม่ไปกับ git push �
       { h: "submodule หรือ subtree" },
       { p: "**submodule** บันทึกว่า repo อื่นถูก pin ไว้ที่ commit ไหน — มันยังเป็นคนละ repo และทุกคนต้องจำ `git submodule update --init --recursive` (หรือ clone ด้วย `--recurse-submodules`). **subtree** ก๊อปโค้ดเข้ามาเลย — ผู้ใช้ปลายทางไม่ต้องรู้อะไรเพิ่ม แต่การอัปเดตยุ่งกว่า" },
       { note: "submodule เป็นแหล่งกำเนิดของ 'บนเครื่องฉันมันรันได้' ที่พบบ่อย เพราะ submodule ที่ยังไม่ได้ update จะอยู่ในสถานะ detached และ **มองไม่เห็นใน git status** ถ้าไม่ตั้งใจดู" },
+      { h: "ดูแลหลาย repo พร้อมกัน" },
+      { p: "พอมีโปรเจกต์หลายตัว ปัญหาจะเปลี่ยนจาก 'ใช้ git ยังไง' เป็น **'จะไม่หลงว่าตอนนี้อยู่ repo ไหน ด้วยตัวตนอะไร และตัวไหนยังไม่ push'**. สามอย่างนี้แก้ด้วยโครงสร้าง ไม่ใช่ด้วยความจำ" },
+      { h: "1) วางโฟลเดอร์ให้เดาที่อยู่ได้" },
+      { code: String.raw`~/code/
+├── 42/            <- ทุก repo ของโรงเรียน (vogsphere remote)
+│   ├── libft/
+│   ├── ft_printf/
+│   └── push_swap/
+├── work/          <- repo บริษัท (อีเมลบริษัท + เซ็น commit)
+│   └── api/
+└── personal/      <- ของตัวเอง (อีเมลส่วนตัว)
+    └── dotfiles/`, cap: "โครงนี้ไม่ได้มีไว้สวย — มันคือสิ่งที่ทำให้ includeIf ตั้งตัวตนอัตโนมัติได้ตามโฟลเดอร์", lang: "text" },
+      { code: String.raw`# ~/.gitconfig — ตัวตนตามที่อยู่ ไม่ต้องจำเอง
+[user]
+    name = Wisanu
+    email = personal@example.com
+
+[includeIf "gitdir:~/code/42/"]
+    path = ~/.gitconfig-42
+[includeIf "gitdir:~/code/work/"]
+    path = ~/.gitconfig-work`, cap: "ตกลง path ไว้ครั้งเดียว แล้วทุก repo ใหม่ที่ clone ลงไปได้ตัวตนถูกทันที", lang: "text" },
+      { note: "เขียน `gitdir:` ให้ลงท้ายด้วย `/` เสมอ — ถ้าลืมจะแมตช์แค่โฟลเดอร์นั้นตัวเดียว ไม่รวมของข้างใน. ตรวจว่าได้ผลจริงด้วย `git config user.email` ในแต่ละที่ หรือ `git config --list --show-origin` ถ้าจะดูว่าค่ามาจากไฟล์ไหน" },
+      { h: "2) git -C — สั่งข้าม repo โดยไม่ต้อง cd" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git -C ~/code/42/libft status`", "สั่ง git ใน repo นั้นโดยไม่ย้ายตัวเอง — พื้นฐานของทุกสคริปต์ข้างล่าง"],
+        ["`git -C <dir> rev-parse --is-inside-work-tree`", "เช็กว่าโฟลเดอร์นั้นเป็น repo จริงไหม ก่อนจะสั่งอะไรต่อ"],
+        ["`git -C <dir> log -1 --format=%cr`", "commit ล่าสุดเมื่อไร — ใช้หา repo ที่ทิ้งร้าง"],
+      ]}},
+      { code: String.raw`# repo ไหนยังมีของค้างหรือยังไม่ push บ้าง
+for d in ~/code/*/*/; do
+    git -C "$d" rev-parse --is-inside-work-tree >/dev/null 2>&1 || continue
+    dirty=$(git -C "$d" status --porcelain)
+    ahead=$(git -C "$d" log --oneline @{u}.. 2>/dev/null | wc -l)
+    if [ -n "$dirty" ] || [ "$ahead" -gt 0 ]; then
+        printf "%-28s %s ค้าง, %s ยังไม่ push\n" \
+            "$(basename "$d")" "$(echo "$dirty" | grep -c .)" "$ahead"
+    fi
+done`, cap: "รันก่อนเลิกงานทุกวัน — จับ 'ลืม push' ซึ่งใน 42 แปลว่างานไม่มีอยู่จริงตอนตรวจ", lang: "bash" },
+      { code: String.raw`# ดึงของใหม่ทุก repo รวดเดียว โดยไม่ยุ่งกับงานที่ค้างอยู่
+for d in ~/code/*/*/; do
+    git -C "$d" fetch --all --prune --quiet 2>/dev/null &&
+        echo "fetched $(basename "$d")"
+done`, cap: "ใช้ fetch ไม่ใช่ pull — fetch ไม่แตะ branch ที่กำลังทำงานอยู่ จึงรันทิ้งไว้ได้อย่างปลอดภัย", lang: "bash" },
+      { note: "**อย่ารัน git pull วนทุก repo** เด็ดขาด. pull = fetch + merge/rebase ซึ่งจะขยับ branch ที่เราค้างงานไว้และอาจสร้าง conflict ใน repo ที่เราไม่ได้เปิดดูอยู่. fetch อย่างเดียวปลอดภัยเสมอ แล้วค่อยไป merge ทีละตัวตอนเข้าไปทำงานจริง" },
+      { h: "3) หลาย branch ของ repo เดียว — worktree แทนการ stash" },
+      { p: "ต้องรีบแก้บั๊กด่วนแต่งานปัจจุบันยังไม่พร้อม commit? ทางเลือกมีสาม และ **worktree มักเป็นตัวที่ถูกลืม** ทั้งที่เหมาะที่สุด" },
+      { table: { head: ["วิธี", "ได้", "เสีย"], rows: [
+        ["`git stash`", "เร็ว ไม่กินพื้นที่", "งานหายไปจากสายตา ลืมง่าย และ pop ทีหลังอาจ conflict"],
+        ["clone ใหม่อีกชุด", "แยกขาดจากกัน", "โหลดใหม่ทั้ง repo, remote/config ต้องตั้งซ้ำ"],
+        ["`git worktree`", "อีกโฟลเดอร์ อีก branch **แต่ใช้ .git เดียวกัน** — ของเดิมยังอยู่ครบไม่ต้องแตะ", "ต้องจำลบทิ้งเมื่อเสร็จ"],
+      ]}},
+      { code: String.raw`$ git worktree add ../myproject-hotfix -b hotfix/crash origin/main
+# ได้โฟลเดอร์ใหม่ที่ ../myproject-hotfix อยู่บน branch hotfix/crash
+# โฟลเดอร์เดิมยังค้างงานไว้เหมือนเดิม ไม่ต้อง stash อะไรเลย
+
+$ cd ../myproject-hotfix && ...แก้... && git push -u origin hotfix/crash
+
+$ git worktree list                       # ดูว่ามีอะไรเปิดค้างอยู่บ้าง
+$ git worktree remove ../myproject-hotfix # เก็บกวาดเมื่อเสร็จ`, cap: "object เก็บที่เดียว จึงไม่เปลืองพื้นที่เท่าการ clone ใหม่ และ branch/tag/remote ใช้ร่วมกันหมด", lang: "bash" },
+      { note: "ข้อจำกัดเดียวที่ต้องรู้: **branch เดียวเปิดได้ที่เดียว** — เปิด `main` ไว้ใน worktree หนึ่งแล้ว อีกอันจะ switch ไป `main` ไม่ได้ git จะเตือนให้เอง. เป็นฟีเจอร์ ไม่ใช่บั๊ก เพราะสอง checkout ของ branch เดียวกันจะทำให้ index ตีกัน" },
+      { h: "4) fork ที่ต้องตามต้นทาง" },
+      { code: String.raw`$ git remote add upstream git@github.com:original/repo.git
+$ git remote -v
+origin    git@github.com:me/repo.git       (fetch/push)   <- ของเรา
+upstream  git@github.com:original/repo.git (fetch/push)   <- ต้นทาง
+
+$ git fetch upstream
+$ git switch main
+$ git rebase upstream/main      # หรือ merge ถ้า main ของเราแชร์กับคนอื่น
+$ git push`, cap: "origin คือ fork ของเรา upstream คือของจริง — ตั้งครั้งเดียวแล้วตามต้นทางได้ตลอด", lang: "bash" },
+      { h: "5) ตั้งค่าให้เหมือนกันทุก repo โดยไม่ต้องไล่ตั้งทีละอัน" },
+      { table: { head: ["สิ่งที่อยากให้เหมือนกัน", "ตั้งยังไง"], rows: [
+        ["ตัวตน (ชื่อ/อีเมล/การเซ็น)", "`includeIf` ตามโฟลเดอร์ (ข้อ 1)"],
+        ["ไฟล์ที่ไม่อยากเห็นทุก repo (`.DS_Store`, `.idea/`)", "`git config --global core.excludesfile ~/.gitignore_global` — ไม่ต้องยัดลง .gitignore ของทุกโปรเจกต์"],
+        ["hook ชุดเดียวกัน", "`git config --global core.hooksPath ~/.githooks`"],
+        ["alias และพฤติกรรม pull/push", "`git config --global ...` ครั้งเดียวใช้ทุกที่"],
+        ["การเก็บกวาดอัตโนมัติ", "`git maintenance start` ในแต่ละ repo ใหญ่ (ตั้ง schedule ให้เอง)"],
+      ]}},
+      { note: "`core.excludesfile` เป็นของที่คนรู้ช้าที่สุด: ไฟล์ขยะของ **เครื่องเรา** (ระบบปฏิบัติการ, editor) ไม่ควรไปอยู่ใน `.gitignore` ที่ commit ร่วมกับทีม เพราะมันเป็นเรื่องของเราคนเดียว. ใส่ไว้ที่ global แล้วทุก repo สะอาดพร้อมกันหมด" },
+      { h: "6) เครื่องมือเสริมเมื่อ repo เยอะจริง" },
+      { table: { head: ["เครื่องมือ", "แก้ปัญหา"], rows: [
+        ["`gh repo list <org> --limit 100`", "รู้ว่ามี repo อะไรบ้าง และ clone เป็นชุดได้ด้วย `gh repo clone`"],
+        ["`gh pr list --search \"is:open author:@me\"`", "PR ของเราที่ยังค้างอยู่ทุก repo ในที่เดียว"],
+        ["`git submodule`", "repo ที่ต้อง pin เวอร์ชันของกันและกันจริง ๆ — ไม่ใช่แค่ 'อยากเปิดพร้อมกัน'"],
+        ["สคริปต์ `for` ในข้อ 2", "พอสำหรับ repo หลักสิบ และไม่ต้องติดตั้งอะไรเพิ่ม"],
+      ]}},
+      { note: "ก่อนจะไปหาเครื่องมือ ให้ถามก่อนว่าปัญหาคืออะไรจริง ๆ. ถ้าคือ 'แก้ทีเดียวหลาย repo แล้วต้องปล่อยพร้อมกัน' นั่นคือสัญญาณว่าควรเป็น **monorepo** ไม่ใช่การหาเครื่องมือมาประสาน N repo — ดูตารางเปรียบเทียบด้านบน" },
       { h: "โครงสร้างที่ทำให้ repo อยู่ได้นาน" },
       { ul: [
         "**ห้าม commit build artifact หรือ dependency** — เป็นสาเหตุหลักของ repo ที่ clone ไม่ไหว และ git บีบอัด binary แทบไม่ได้",
@@ -483,29 +616,228 @@ git blame -w -C -L 40,60 file   # -w เมิน whitespace, -C ตามโค
         ["ต้องเปิดหลาย branch พร้อมกัน", "`git worktree add ../hotfix main`", "clone เดียว หลาย checkout"],
         ["repo ช้าลงเรื่อย ๆ", "`git maintenance start`", "ตั้ง gc/commit-graph/prefetch ตามเวลา"],
       ]}},
+      { h: "📖 อ้างอิงคำสั่ง — flag ที่ใช้จริงของแต่ละตัว" },
+      { p: "ส่วนนี้ไว้เปิดหา ไม่ได้ไว้อ่านรวด. สามข้อตกลงที่ใช้กับเกือบทุกคำสั่ง: `--` คั่นระหว่างชื่อ branch กับชื่อไฟล์ (`git restore -- main.c` เมื่อมีไฟล์ชื่อซ้ำกับ branch), `-n` หรือ `--dry-run` บอกว่าจะทำอะไรโดยยังไม่ทำจริง, และ `HEAD~2` = ถอย 2 รุ่นตามสายพ่อแม่หลัก ส่วน `HEAD^2` = parent ตัวที่ 2 ของ merge commit (คนละความหมาย)" },
+
+      { h: "git add — จุดที่ . กับ -A ต่างกันจริง" },
+      { table: { head: ["คำสั่ง", "ทำอะไร", "ระวัง"], rows: [
+        ["`git add <file>`", "เอาไฟล์นั้นเข้าตะกร้า", "-"],
+        ["`git add .`", "ทุกอย่างใน **โฟลเดอร์ปัจจุบันลงไป** (ใหม่ + แก้ + ลบ)", "อยู่ในโฟลเดอร์ย่อยแล้วพิมพ์ = ได้ไม่ครบ repo"],
+        ["`git add -A`", "ทุกอย่างใน **ทั้ง repo** ไม่ว่ายืนอยู่ตรงไหน", "ตัวที่คนมักตั้งใจจะใช้ตอนพิมพ์ `git add .`"],
+        ["`git add -u`", "เฉพาะไฟล์ที่ **track แล้ว** (แก้ + ลบ) ไม่เอาไฟล์ใหม่", "ดีเวลาไม่อยากเผลอ add ไฟล์ขยะ"],
+        ["`git add -p`", "เลือกทีละ hunk — `y` เอา, `n` ไม่เอา, `s` ซอยย่อย, `e` แก้มือ, `q` ออก", "นิสัยที่ควรใช้เป็นค่าตั้งต้น"],
+        ["`git add -n .`", "บอกว่าจะ add อะไรบ้างโดยยังไม่ add", "-"],
+        ["`git add -f <file>`", "ฝืน add ไฟล์ที่ติด .gitignore", "ใช้เมื่อรู้ว่าทำอะไรอยู่เท่านั้น"],
+      ]}},
+      { note: "สรุปที่จำง่าย: `.` **= ตำแหน่งที่ยืน**, `-A` **= ทั้ง repo**, `-u` **= เฉพาะที่ track แล้ว**. ตั้งแต่ git 2.0 `git add .` รวมไฟล์ที่ถูกลบด้วยแล้ว (เมื่อก่อนไม่รวม) — ถ้าเคยอ่านคำแนะนำเก่าที่บอกว่าต้องใช้ `git add -A` เพราะ `.` ไม่จับไฟล์ที่ลบ อันนั้นล้าสมัยแล้ว" },
+
+      { h: "git commit" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git commit`", "เปิด editor ให้เขียนข้อความเต็ม — แบบที่ควรใช้เมื่อข้อความยาวกว่าหนึ่งบรรทัด"],
+        ["`git commit -m \"ข้อความ\"`", "ข้อความบรรทัดเดียวจบ"],
+        ["`git commit -m \"หัวเรื่อง\" -m \"เนื้อความ\"`", "ใส่ -m สองครั้ง = หัวเรื่อง + ย่อหน้าเนื้อความ โดยไม่ต้องเปิด editor"],
+        ["`git commit -a` / `-am \"...\"`", "add ไฟล์ที่ track แล้วให้อัตโนมัติแล้ว commit — **ไม่รวมไฟล์ใหม่**"],
+        ["`git commit --amend`", "แก้ commit ล่าสุด (ทั้งข้อความและเนื้อหาที่ stage ไว้)"],
+        ["`git commit --amend --no-edit`", "ยัดของเพิ่มเข้า commit ล่าสุดโดยไม่แตะข้อความ"],
+        ["`git commit --amend --reset-author`", "แก้ชื่อ/อีเมลผู้เขียนของ commit ล่าสุดให้เป็นค่า config ปัจจุบัน"],
+        ["`git commit --fixup=<sha>`", "สร้าง commit ที่ทำเครื่องหมายไว้ว่าจะยุบเข้ากับ sha นั้น ใช้คู่ `rebase --autosquash`"],
+        ["`git commit --allow-empty`", "commit เปล่า — ใช้กระตุ้น CI หรือทำเครื่องหมายจุดหนึ่งในประวัติ"],
+        ["`git commit -S`", "เซ็น commit นี้ (ถ้าไม่ได้เปิด commit.gpgsign ไว้)"],
+        ["`git commit --no-verify`", "ข้าม pre-commit hook — เหตุผลที่ hook ไม่ใช่การบังคับใช้"],
+      ]}},
+
+      { h: "git status · git diff · git show" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git status -s`", "แบบสั้น: `??` ยังไม่ track, `M` แก้แล้ว, `A` เพิ่งเพิ่ม — คอลัมน์ซ้าย = index, ขวา = working tree"],
+        ["`git status -sb`", "แบบสั้น + บรรทัด branch บอกว่านำหน้า/ตามหลัง remote กี่ commit"],
+        ["`git status --ignored`", "แสดงไฟล์ที่ .gitignore กันไว้ด้วย — ใช้ตรวจว่ากฎ ignore ทำงานถูกไหม"],
+        ["`git diff`", "working tree เทียบ index — คือของที่ยังไม่ได้ add"],
+        ["`git diff --staged`", "index เทียบ HEAD — คือของที่กำลังจะ commit (`--cached` เหมือนกัน)"],
+        ["`git diff HEAD`", "รวมทั้งสองอย่าง — ทั้งหมดที่เปลี่ยนจาก commit ล่าสุด"],
+        ["`git diff main..feat`", "ปลาย main เทียบปลาย feat"],
+        ["`git diff main...feat`", "**merge base** ของทั้งคู่ เทียบปลาย feat — คือสิ่งที่ PR แสดง"],
+        ["`git diff --name-only` / `--stat`", "เอาแค่รายชื่อไฟล์ / สรุปจำนวนบรรทัด"],
+        ["`git diff -w`", "เมินการเปลี่ยนแปลงเรื่องช่องว่างล้วน ๆ"],
+        ["`git diff -- <path>`", "จำกัดเฉพาะพาธนั้น"],
+        ["`git show <sha>`", "ดู commit นั้นพร้อม diff"],
+        ["`git show <sha>:<path>`", "ดูเนื้อไฟล์ ณ commit นั้น โดยไม่ต้อง checkout"],
+      ]}},
+      { note: "`..` กับ `...` เป็นจุดที่สับสนบ่อยและสลับความหมายกันระหว่าง `diff` กับ `log`. จำอย่างนี้: ใน **diff** สามจุดคือ 'เทียบจาก merge base' (ตรงกับที่ PR โชว์); ใน **log** สามจุดคือ 'commit ที่มีในฝั่งใดฝั่งหนึ่งแต่ไม่มีทั้งคู่'" },
+
+      { h: "git log" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git log --oneline`", "บรรทัดละ commit"],
+        ["`git log --oneline --graph --decorate --all`", "เห็นรูปร่าง DAG จริง — ตั้งเป็น alias `git lg` ไปเลย"],
+        ["`git log -5`", "แค่ 5 ตัวล่าสุด"],
+        ["`git log -p`", "แนบ diff ของแต่ละ commit"],
+        ["`git log --stat`", "แนบสรุปว่าไฟล์ไหนเปลี่ยนกี่บรรทัด"],
+        ["`git log --author=\"wiaon\"`", "กรองตามผู้เขียน"],
+        ["`git log --since=\"2 weeks ago\"`", "กรองตามเวลา (`--until` ก็มี)"],
+        ["`git log --no-merges`", "ตัด merge commit ออก อ่านง่ายขึ้นมาก"],
+        ["`git log -S \"ข้อความ\"`", "commit ที่ทำให้จำนวนครั้งของข้อความนี้เปลี่ยน (pickaxe)"],
+        ["`git log -G \"regex\"`", "commit ที่ diff ตรงกับ regex"],
+        ["`git log --follow -- <path>`", "ไล่ประวัติข้ามการเปลี่ยนชื่อไฟล์"],
+        ["`git log main..feat`", "commit ที่มีใน feat แต่ไม่มีใน main — คือ 'PR นี้เพิ่มอะไรมาบ้าง'"],
+        ["`git log --left-right main...feat`", "commit ที่แตกต่างกันทั้งสองฝั่ง พร้อมสัญลักษณ์บอกว่าของใคร"],
+      ]}},
+
+      { h: "git branch · git switch · git restore" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git branch`", "รายชื่อ branch ในเครื่อง (`-a` รวม remote, `-r` เฉพาะ remote)"],
+        ["`git branch -vv`", "แต่ละ branch ผูกกับ remote ตัวไหน และนำหน้า/ตามหลังกี่ commit"],
+        ["`git branch -d <ชื่อ>`", "ลบ branch ที่ merge แล้ว — **ปฏิเสธถ้ายังไม่ merge** (นี่คือฟีเจอร์)"],
+        ["`git branch -D <ชื่อ>`", "ลบทิ้งเลยไม่ว่าจะ merge หรือยัง (กู้ได้ด้วย reflog)"],
+        ["`git branch -m <ใหม่>`", "เปลี่ยนชื่อ branch ปัจจุบัน"],
+        ["`git branch --merged` / `--no-merged`", "หา branch ที่เก็บกวาดได้ / ที่ยังมีงานค้าง"],
+        ["`git switch <ชื่อ>`", "ย้ายไป branch นั้น"],
+        ["`git switch -c <ใหม่>`", "สร้างแล้วย้ายไปเลย (`-c` = create)"],
+        ["`git switch -c <ใหม่> <sha|branch>`", "สร้างจากจุดอื่นที่ไม่ใช่ตำแหน่งปัจจุบัน"],
+        ["`git switch -`", "กลับไป branch ก่อนหน้า — เหมือน `cd -`"],
+        ["`git switch --detach <sha>`", "ไปยืนที่ commit หนึ่งโดยไม่ผูก branch"],
+        ["`git restore <file>`", "ทิ้งการแก้ในไฟล์นั้น — **ของที่ยังไม่ commit หายถาวร**"],
+        ["`git restore --staged <file>`", "เอาออกจากตะกร้า แต่ไม่แตะเนื้อไฟล์"],
+        ["`git restore --source=<sha> <file>`", "ดึงไฟล์เวอร์ชันจาก commit นั้นมาวาง"],
+      ]}},
+
+      { h: "git stash — เก็บงานค้างไว้ชั่วคราว" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git stash push -m \"ข้อความ\"`", "เก็บงานค้างแล้วคืน working tree ให้สะอาด (ตั้งชื่อไว้เสมอ)"],
+        ["`git stash push -u`", "เก็บไฟล์ที่ยังไม่ track ไปด้วย — **ไม่ใส่ -u แล้วไฟล์ใหม่จะถูกทิ้งไว้**"],
+        ["`git stash push -- <path>`", "เก็บเฉพาะบางพาธ"],
+        ["`git stash list`", "ดูรายการ `stash@{0}` `stash@{1}` ..."],
+        ["`git stash show -p stash@{1}`", "ดู diff ของ stash ตัวนั้น"],
+        ["`git stash pop`", "เอากลับมาแล้วลบออกจากรายการ"],
+        ["`git stash apply stash@{1}`", "เอากลับมาแต่ยังเก็บไว้ในรายการ"],
+        ["`git stash drop stash@{0}`", "ทิ้งตัวนั้น (`clear` = ทิ้งทั้งหมด)"],
+        ["`git stash branch <ชื่อ>`", "สร้าง branch จากจุดที่ stash ไว้แล้วเอา stash ลง — ทางออกเมื่อ pop แล้ว conflict"],
+      ]}},
+
+      { h: "git merge · git rebase · git cherry-pick · git revert" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git merge <branch>`", "รวมเข้ามา — fast-forward ถ้าทำได้"],
+        ["`git merge --no-ff <branch>`", "บังคับให้มี merge commit เพื่อคง 'เคยมี branch นี้' ไว้ในประวัติ"],
+        ["`git merge --squash <branch>`", "เอาการเปลี่ยนแปลงมาไว้ในตะกร้า **โดยไม่ commit** ให้เรา commit เอง"],
+        ["`git merge --abort` / `--continue`", "ถอยกลับจุดเดิม / ไปต่อหลังแก้ conflict"],
+        ["`git merge -X ours` / `-X theirs`", "เจอ conflict ให้เลือกฝั่งไหนอัตโนมัติ — ใช้เมื่อรู้แน่ว่าอีกฝั่งไม่สำคัญ"],
+        ["`git rebase <base>`", "ย้ายฐานของ commit เรามาไว้บน base"],
+        ["`git rebase -i HEAD~5`", "โหมดโต้ตอบ: pick / reword / squash / fixup / edit / drop"],
+        ["`git rebase -i --autosquash`", "จัดลำดับ commit ที่ทำ --fixup ไว้ให้อัตโนมัติ"],
+        ["`git rebase --onto <ใหม่> <เก่า> <branch>`", "ย้าย branch ข้ามฐาน เช่นตัดออกจาก branch ที่ผิด"],
+        ["`git rebase --abort` / `--continue` / `--skip`", "ถอย / ไปต่อ / ข้าม commit นี้"],
+        ["`git cherry-pick <sha>`", "ก๊อป commit นั้นมาที่ branch ปัจจุบัน"],
+        ["`git cherry-pick -n <sha>`", "ก๊อปมาไว้ในตะกร้าแต่ยังไม่ commit"],
+        ["`git cherry-pick -x <sha>`", "ใส่บรรทัดอ้างอิงว่ามาจาก commit ไหน — ควรใช้เสมอตอน backport"],
+        ["`git cherry-pick A..B`", "ก๊อปเป็นช่วง"],
+        ["`git revert <sha>`", "สร้าง commit ใหม่ที่ย้อนของเก่า — ปลอดภัยกับประวัติที่ push แล้ว"],
+        ["`git revert -n <sha>`", "ย้อนแต่ยังไม่ commit (รวมหลายตัวเป็น commit เดียว)"],
+        ["`git revert -m 1 <merge sha>`", "ย้อน merge commit — `-m 1` บอกว่าให้ยึด parent ตัวไหนเป็นสายหลัก"],
+      ]}},
+      { note: "`-m 1` ตอน revert merge จำเป็นเพราะ merge commit มีสอง parent git จึงไม่รู้ว่า 'ก่อนหน้า' หมายถึงฝั่งไหน. `-m 1` = สายที่ merge เข้าไป (ปกติคือ main) ซึ่งเป็นสิ่งที่ต้องการเกือบทุกครั้ง" },
+
+      { h: "git reset · git clean" },
+      { table: { head: ["คำสั่ง", "ทำอะไร", "อันตราย"], rows: [
+        ["`git reset --soft HEAD~1`", "ถอย 1 commit เก็บทุกอย่างไว้ในตะกร้า", "ไม่"],
+        ["`git reset HEAD~1`", "(`--mixed` ค่าตั้งต้น) ถอย commit + ล้างตะกร้า ไฟล์ยังอยู่", "ไม่"],
+        ["`git reset --hard HEAD~1`", "ถอยแล้ว **ทับไฟล์ในเครื่องด้วย**", "**ใช่ — ของที่ยังไม่ commit หาย**"],
+        ["`git reset <sha> -- <path>`", "เอาไฟล์นั้นออกจากตะกร้าโดยอิงกับ commit นั้น", "ไม่"],
+        ["`git reset --hard origin/main`", "ทำให้ branch ในเครื่องเหมือน remote เป๊ะ", "**ใช่ — งานในเครื่องหายหมด**"],
+        ["`git clean -n`", "บอกว่าจะลบไฟล์ที่ยังไม่ track อะไรบ้าง โดยยังไม่ลบ", "ไม่ — **รันอันนี้ก่อนเสมอ**"],
+        ["`git clean -fd`", "ลบไฟล์และโฟลเดอร์ที่ยังไม่ track", "**ใช่ — ไม่มีอยู่ใน git จึงกู้ไม่ได้เลย**"],
+        ["`git clean -fdx`", "ลบของที่ .gitignore กันไว้ด้วย (build artifact, .env)", "**ใช่ที่สุด — ไฟล์ .env ก็หายด้วย**"],
+      ]}},
+      { note: "`git clean` เป็นคำสั่งที่อันตรายที่สุดในหน้านี้ เพราะของที่มันลบ **ไม่เคยอยู่ใน git** จึงไม่มีทั้ง reflog และ object ให้กู้. ทำเป็นนิสัย: `git clean -n` ก่อน `git clean -f` ทุกครั้ง" },
+
+      { h: "git remote · git fetch · git pull · git push" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git remote -v`", "ดูว่า remote ชื่ออะไรชี้ไปไหน"],
+        ["`git remote add <ชื่อ> <url>`", "เพิ่ม remote (`set-url` เปลี่ยน, `rename` เปลี่ยนชื่อ, `remove` ลบ)"],
+        ["`git remote show origin`", "รายละเอียด: branch ไหนคู่กับอะไร ตัวไหนตายไปแล้ว"],
+        ["`git fetch`", "ดึงของใหม่มาเก็บ ไม่แตะ branch ที่เราทำงานอยู่"],
+        ["`git fetch --all --prune`", "ดึงทุก remote + ลบ remote-tracking branch ที่ถูกลบไปแล้ว"],
+        ["`git fetch origin <branch>`", "ดึงเฉพาะ branch เดียว"],
+        ["`git pull --rebase`", "fetch แล้วเอา commit เราไปวางต่อท้ายของเขา (ไม่เกิด merge commit)"],
+        ["`git pull --ff-only`", "fetch แล้วขยับตัวชี้ ถ้าขยับไม่ได้ก็หยุด — ตัวเลือกที่คาดเดาได้ที่สุด"],
+        ["`git pull --autostash`", "stash งานค้างให้อัตโนมัติแล้วคืนหลังเสร็จ"],
+        ["`git push`", "ส่งขึ้น remote ที่ผูกไว้"],
+        ["`git push -u origin <branch>`", "ส่งครั้งแรกพร้อมผูก branch กับ remote"],
+        ["`git push --tags` / `--follow-tags`", "ส่ง tag ด้วย — **tag ไม่ไปกับ push ธรรมดา**"],
+        ["`git push origin --delete <branch>`", "ลบ branch บน remote"],
+        ["`git push --dry-run`", "บอกว่าจะส่งอะไรโดยยังไม่ส่ง"],
+        ["`git push --force-with-lease`", "ทับได้ แต่ปฏิเสธถ้า remote ขยับตั้งแต่เรา fetch ครั้งล่าสุด"],
+      ]}},
+
+      { h: "git tag" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git tag`", "รายชื่อ tag (`-l \"v1.*\"` กรองด้วยแพตเทิร์น)"],
+        ["`git tag -a v1.4.0 -m \"...\"`", "annotated tag — เป็น object จริง มีผู้แท็ก วันที่ ข้อความ"],
+        ["`git tag -s v1.4.0 -m \"...\"`", "annotated + เซ็น"],
+        ["`git tag v1.4.0`", "lightweight — แค่ ref ไม่มีข้อมูลอะไรเลย **อย่าใช้กับ release**"],
+        ["`git tag -a v1.4.0 <sha>`", "แท็กย้อนหลังที่ commit เก่า"],
+        ["`git tag -d v1.4.0`", "ลบในเครื่อง (บน remote ต้อง `git push origin --delete v1.4.0`)"],
+        ["`git describe --tags`", "ชื่อเวอร์ชันที่อ่านออกของ commit ปัจจุบัน เช่น `v1.4.0-12-gab34cd`"],
+      ]}},
+
+      { h: "คำสั่งไว้สืบหา" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git reflog`", "ทุกการขยับของ HEAD ราว 90 วัน — จุดเริ่มของการกู้ทุกกรณี"],
+        ["`git reflog show <branch>`", "ประวัติการขยับของ branch นั้นโดยเฉพาะ"],
+        ["`git blame -w -C -L 40,60 <file>`", "ใครแตะบรรทัดไหน (`-w` เมิน whitespace, `-C` ตามโค้ดที่ถูกย้าย)"],
+        ["`git bisect start` / `bad` / `good <sha>`", "binary search หา commit ที่ทำพัง"],
+        ["`git bisect run ./test.sh`", "ให้ script ตัดสินเอง จบใน ~10 ขั้นสำหรับ 1000 commit"],
+        ["`git grep \"ข้อความ\"`", "ค้นในไฟล์ที่ track อยู่ — เร็วกว่า grep ทั้งโฟลเดอร์เพราะข้าม build artifact"],
+        ["`git grep \"ข้อความ\" <sha>`", "ค้นในเนื้อหา ณ commit นั้น"],
+        ["`git shortlog -sn`", "นับ commit ต่อคน"],
+        ["`git fsck --lost-found`", "หา object ที่ยังอยู่แต่ไม่มีอะไรชี้ถึง — ใช้เมื่อแม้แต่ reflog ก็หมดแล้ว"],
+      ]}},
+
+      { h: "clone · worktree · submodule" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git clone <url> <โฟลเดอร์>`", "ตั้งชื่อโฟลเดอร์ปลายทางเอง"],
+        ["`git clone -b <branch> <url>`", "clone แล้วไปอยู่ที่ branch นั้นเลย"],
+        ["`git clone --depth 1 <url>`", "เอาแค่ commit ล่าสุด — **พัง merge-base, blame และ diff ของ PR**"],
+        ["`git clone --filter=blob:none <url>`", "ได้ประวัติครบแต่ดึงเนื้อไฟล์ตอนต้องใช้ — ทางเลือกที่ดีกว่า --depth"],
+        ["`git clone --recurse-submodules <url>`", "clone พร้อมดึง submodule ให้เลย"],
+        ["`git worktree add ../hotfix main`", "เปิด branch ที่สองในอีกโฟลเดอร์ โดยใช้ clone เดียวกัน"],
+        ["`git worktree list` / `remove <path>`", "ดูรายการ / ถอดออก"],
+        ["`git submodule update --init --recursive`", "ดึงเนื้อ submodule มาให้ครบ — คำสั่งที่ทุกคนลืม"],
+        ["`git submodule update --remote`", "อัปเดต submodule ไปยังปลายทางล่าสุดของมัน"],
+      ]}},
+
+      { h: "config ที่ใช้บ่อย" },
+      { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
+        ["`git config --list --show-origin`", "ค่าทั้งหมดพร้อมบอกว่ามาจากไฟล์ไหน — ตัวแก้ปัญหา 'ทำไมค่าเป็นแบบนี้'"],
+        ["`git config --global <key> <value>`", "ตั้งระดับผู้ใช้ (`--local` เฉพาะ repo, `--system` ทั้งเครื่อง)"],
+        ["`git config --global --unset <key>`", "ลบค่าที่ตั้งไว้"],
+        ["`git config --global alias.lg \"log --oneline --graph --decorate --all\"`", "สร้าง `git lg`"],
+        ["`git config --global alias.pushf \"push --force-with-lease --force-if-includes\"`", "ทำให้ทางที่ปลอดภัยพิมพ์สั้นกว่าทางที่อันตราย"],
+        ["`git config --global core.editor \"code --wait\"`", "ใช้ VS Code เขียนข้อความ commit"],
+        ["`git config --global rerere.enabled true`", "จำวิธีแก้ conflict แล้วเล่นซ้ำ"],
+        ["`git config --global fetch.prune true`", "ลบ remote branch ที่ตายแล้วออกทุกครั้งที่ fetch"],
+      ]}},
+      { note: "อยากรู้ flag ของคำสั่งไหนแบบครบจริง ๆ: `git help <คำสั่ง>` (เปิดเอกสารเต็ม) หรือ `git <คำสั่ง> -h` (สรุปสั้นในเทอร์มินัล). สองอันนี้ตอบได้ทุกอย่างที่ตารางข้างบนตัดออกไป" },
     ],
 
     /* ============================== TRICKS ============================== */
     tricks: [
-      { h: "ทริค 1: `git add -p` ทุกครั้ง" },
+      { h: "ทริค 1: git add -p ทุกครั้ง" },
       { p: "มันบังคับให้เราอ่าน diff ของตัวเองก่อนคนอื่นอ่าน และทำให้ 'หนึ่ง commit หนึ่งการเปลี่ยนแปลง' เป็นเรื่องธรรมชาติแทนที่จะเป็นอุดมคติ. บั๊กจำนวนมากถูกจับได้ตรงนี้ก่อนถึง CI ด้วยซ้ำ" },
       { h: "ทริค 2: commit บ่อยแล้วค่อยจัดทีหลัง" },
       { p: "commit คือ save point ที่ reflog กู้ได้ ส่วนงานที่ยังไม่ commit ไม่มีอะไรกู้. commit รก ๆ 8 อันแล้ว `rebase -i` ให้เหลือ 2 อันที่อ่านรู้เรื่อง ปลอดภัยกว่าการเขียนยาว ๆ แล้วค่อย commit ครั้งเดียวเสมอ" },
-      { h: "ทริค 3: `--force-with-lease` เป็น alias ให้พิมพ์สั้นกว่า" },
+      { h: "ทริค 3: --force-with-lease เป็น alias ให้พิมพ์สั้นกว่า" },
       { p: "ความปลอดภัยที่พิมพ์ยากกว่าจะแพ้ความเร็วเสมอในวันที่รีบ. ทำให้ทางที่ปลอดภัยเป็นทางที่ขี้เกียจกว่า" },
       { h: "ทริค 4: เปิด rerere ตั้งแต่วันแรก" },
       { p: "มันไม่มีข้อเสีย และวันที่เราต้องการมันคือวันที่ rebase branch ยาว ๆ ครั้งที่สาม ซึ่งสายเกินจะเปิดย้อนหลังแล้ว" },
-      { h: "ทริค 5: `includeIf` แทนการจำว่าอยู่ repo ไหน" },
+      { h: "ทริค 5: includeIf แทนการจำว่าอยู่ repo ไหน" },
       { p: "อีเมลผิดใน commit แก้ย้อนหลังได้แค่ด้วยการเขียนประวัติใหม่ ซึ่งบน branch ที่แชร์แล้วแปลว่าแก้ไม่ได้จริง. ตั้งค่าเชิงโครงสร้างครั้งเดียวจบ" },
-      { h: "ทริค 6: `git switch` / `git restore` แทน `git checkout`" },
+      { h: "ทริค 6: git switch / git restore แทน git checkout" },
       { p: "`checkout` ทำได้ทั้งย้าย branch, สร้าง branch, กู้ไฟล์ และทิ้งการแก้ — ความกำกวมนี้คือเหตุผลที่มันทำให้คนสับสนอยู่สิบปี. คำสั่งใหม่แยกหน้าที่ชัด และที่สำคัญกว่าคือ **อ่านออกตอนอยู่ในเอกสารทีม**" },
       { h: "ทริค 7: PR เล็กคือเครื่องมือด้านคุณภาพ ไม่ใช่มารยาท" },
       { p: "ความสามารถในการจับ defect ของผู้รีวิวตกลงตามขนาด diff อย่างชัดเจน. PR 2000 บรรทัดไม่ได้ 'ถูกรีวิวช้า' — มันไม่ได้ถูกรีวิวเลย. แตกงานให้ merge ได้ทีละชิ้นแม้ฟีเจอร์ยังไม่เสร็จ โดยซ่อนหลัง feature flag" },
-      { h: "ทริค 8: `git log --oneline --graph --decorate --all` เป็น alias" },
+      { h: "ทริค 8: git log --oneline --graph --decorate --all เป็น alias" },
       { p: "การเห็นรูปร่างของ DAG ก่อนตัดสินใจ merge/rebase ทำให้ผิดพลาดน้อยลงมาก. ตั้งเป็น `git lg` แล้วใช้มันแทน `git log` เปล่า ๆ" },
       { h: "ทริค 9: อ่าน error ของ push ให้ออก" },
       { p: "`! [rejected] non-fast-forward` แปลว่า **remote มี commit ที่เราไม่มี** ไม่ได้แปลว่า git งอแง. ทางแก้คือ `git pull --rebase` แล้ว push — ไม่ใช่ `--force` ซึ่งเป็นการตอบว่า 'ลบของที่ฉันไม่มีทิ้งไป'" },
-      { h: "ทริค 10: `.gitattributes` ก่อนคนที่สองเข้าโปรเจกต์" },
+      { h: "ทริค 10: .gitattributes ก่อนคนที่สองเข้าโปรเจกต์" },
       { p: "ถ้าใส่หลังจากมีคน Windows commit ไปแล้ว เราจะได้ commit 'แก้ line ending ทั้ง repo' หนึ่งอันที่บัง blame ของทุกไฟล์ — แล้วต้องเอามันไปใส่ `.git-blame-ignore-revs` อีกที" },
     ],
 
@@ -709,6 +1041,52 @@ $ git pull        # bring down what is new
 $ git add -p && git commit
 $ git push`, cap: "clone and init+remote add end in the same place; they differ only in which side already has the work", lang: "bash" },
       { note: "`git@github.com:...` is the **SSH** form and needs a key (step 1 below); `https://github.com/...` uses a token instead. SSH is set up once and then never asks you for anything again — which is why it is worth doing on day one." },
+      { h: "0.75) Your first branch — the full cycle, creation to deletion" },
+      { p: "A branch is **a pointer to one commit** that moves along as you commit. Creating one copies no files at all — it writes a 41-byte file containing a hash. That is what makes 'let me try something on the side' cost essentially nothing." },
+      { code: String.raw`# 1. start from an up-to-date main — the step people skip most
+$ git switch main
+$ git pull
+
+# 2. create the branch and move onto it in one command
+$ git switch -c feat/login
+Switched to a new branch 'feat/login'
+
+# 3. work normally — commit as often as you like, nobody sees it yet
+$ git add -p
+$ git commit -m "add login handler"
+
+# 4. first push, pairing the branch with the remote
+$ git push -u origin feat/login
+   after this, a bare git push works
+
+# 5. open a PR -> review -> merge (done in the web UI)
+
+# 6. clean up
+$ git switch main
+$ git pull                      # bring down the work you just merged
+$ git branch -d feat/login      # delete locally (-d refuses if unmerged)
+$ git fetch --prune             # drop the now-dead origin/feat/login`, cap: "One full cycle — steps 1 and 6 are the two everyone forgets, and they are why repos get cluttered", lang: "bash" },
+      { note: "**Step 1 matters more than it looks**: `git switch -c` branches from **wherever you are standing at that moment**. Forget the `git pull` and your branch starts from a stale main, and the PR shows conflicts that should never have existed. To branch from elsewhere without moving first, `git switch -c feat/x origin/main` does it in one go." },
+      { h: "Naming branches so your team can read them" },
+      { table: { head: ["Pattern", "Example", "Use for"], rows: [
+        ["`feat/<topic>`", "`feat/login`, `feat/bench-flag`", "new features"],
+        ["`fix/<topic>`", "`fix/leak-on-error-path`", "bug fixes"],
+        ["`refactor/` `docs/` `test/` `chore/`", "`refactor/split-parse`", "work that does not change behaviour"],
+        ["`hotfix/<topic>`", "`hotfix/null-deref`", "urgent fixes going straight to production"],
+        ["`<login>/<topic>`", "`wiaon-in/disorder-metric`", "busy repos where whose-branch-is-this matters"],
+        ["`<ticket>-<topic>`", "`PROJ-1234-login`", "teams tied to an issue tracker"],
+      ]}},
+      { note: "The only rule that really matters: **the name should say what the work is without opening it.** `feat/login` beats `wiaon-branch-2` every time. Avoid spaces and special characters, separate words with `-`, and use `/` for grouping — many tools display those as folders." },
+      { h: "Branched from the wrong place, or committed to the wrong branch" },
+      { table: { head: ["Situation", "Fix"], rows: [
+        ["Committed to main by accident, not pushed yet", "`git switch -c feat/x` (the commits come with you), then `git switch main` and `git reset --hard origin/main`"],
+        ["Committed to the wrong branch and pushed", "`git switch <right>`, `git cherry-pick <sha>`, then on the old branch `git revert <sha>`"],
+        ["Branched from a stale main", "`git fetch` then `git rebase origin/main`"],
+        ["Accidentally branched off another branch", "`git rebase --onto main <old-base> <your-branch>`"],
+        ["Want to see where you branched from", "`git merge-base --fork-point main HEAD`, or read the picture from `git log --graph --oneline --all`"],
+        ["Named the branch wrong", "`git branch -m <new>`, then `git push -u origin <new>` and `git push origin --delete <old>`"],
+      ]}},
+      { note: "Read `git rebase --onto main old-base my-branch` as 'take the commits between old-base and my-branch and put them on main'. It is the one command that directly fixes 'I branched off a branch', and it is why it takes three arguments." },
       { h: "1) Your first SSH key" },
       { code: String.raw`ssh-keygen -t ed25519 -C "you@example.com"   # writes ~/.ssh/id_ed25519 and .pub
 ssh-add ~/.ssh/id_ed25519                     # load it into the agent
@@ -812,6 +1190,93 @@ git push origin v1.4.0                 # tags do NOT go with a plain git push`, 
       { h: "Submodule or subtree" },
       { p: "A **submodule** records another repo pinned at one commit — it stays a separate repo, and everyone must remember `git submodule update --init --recursive` (or clone with `--recurse-submodules`). A **subtree** copies the code in: consumers need no extra commands, but updating is messier." },
       { note: "Submodules are a frequent source of 'it works on my machine', because a submodule that has not been updated sits detached and is **invisible in git status** unless you go looking." },
+      { h: "Running several repositories at once" },
+      { p: "Once you have several projects, the problem stops being 'how do I use git' and becomes **'how do I never lose track of which repo I am in, under which identity, and which ones are unpushed'**. All three are solved structurally, not by memory." },
+      { h: "1) A folder layout you can predict" },
+      { code: String.raw`~/code/
+├── 42/            <- every school repo (vogsphere remotes)
+│   ├── libft/
+│   ├── ft_printf/
+│   └── push_swap/
+├── work/          <- company repos (work email + signed commits)
+│   └── api/
+└── personal/      <- your own (personal email)
+    └── dotfiles/`, cap: "This layout is not for tidiness — it is what lets includeIf set your identity automatically by folder", lang: "text" },
+      { code: String.raw`# ~/.gitconfig — identity follows location, so you never have to remember
+[user]
+    name = Wisanu
+    email = personal@example.com
+
+[includeIf "gitdir:~/code/42/"]
+    path = ~/.gitconfig-42
+[includeIf "gitdir:~/code/work/"]
+    path = ~/.gitconfig-work`, cap: "Agree the paths once and every repo you clone into them gets the right identity immediately", lang: "text" },
+      { note: "Always end a `gitdir:` with `/` — without it the rule matches only that one directory, not what is inside it. Verify with `git config user.email` in each place, or `git config --list --show-origin` when you need to know which file a value came from." },
+      { h: "2) git -C — act on another repo without cd" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git -C ~/code/42/libft status`", "run git in that repo without moving yourself — the basis of every script below"],
+        ["`git -C <dir> rev-parse --is-inside-work-tree`", "check the folder really is a repo before doing anything to it"],
+        ["`git -C <dir> log -1 --format=%cr`", "how long since the last commit — how you find abandoned repos"],
+      ]}},
+      { code: String.raw`# which repos have uncommitted work or unpushed commits
+for d in ~/code/*/*/; do
+    git -C "$d" rev-parse --is-inside-work-tree >/dev/null 2>&1 || continue
+    dirty=$(git -C "$d" status --porcelain)
+    ahead=$(git -C "$d" log --oneline @{u}.. 2>/dev/null | wc -l)
+    if [ -n "$dirty" ] || [ "$ahead" -gt 0 ]; then
+        printf "%-28s %s dirty, %s unpushed\n" \
+            "$(basename "$d")" "$(echo "$dirty" | grep -c .)" "$ahead"
+    fi
+done`, cap: "Run it before you stop for the day — it catches 'forgot to push', which at 42 means the work does not exist at correction time", lang: "bash" },
+      { code: String.raw`# refresh every repo in one go without disturbing work in progress
+for d in ~/code/*/*/; do
+    git -C "$d" fetch --all --prune --quiet 2>/dev/null &&
+        echo "fetched $(basename "$d")"
+done`, cap: "fetch, not pull — fetch never touches the branch you are working on, so it is safe to run unattended", lang: "bash" },
+      { note: "**Never loop git pull over every repo.** Pull is fetch plus merge/rebase, so it moves branches you have unfinished work on and can create conflicts in repos you are not even looking at. Fetching alone is always safe; merge each one when you actually sit down to work on it." },
+      { h: "3) Several branches of one repo — worktree instead of stash" },
+      { p: "Urgent bug to fix while your current work is not ready to commit? There are three options, and **worktree is the one people forget** even though it usually fits best." },
+      { table: { head: ["Approach", "You get", "You pay"], rows: [
+        ["`git stash`", "fast, no disk cost", "the work vanishes from sight, is easy to forget, and popping it later can conflict"],
+        ["a second clone", "fully independent", "downloads the repo again; remotes and config must be set up twice"],
+        ["`git worktree`", "another folder on another branch **sharing one .git** — your existing work stays exactly as it is", "you have to remember to remove it afterwards"],
+      ]}},
+      { code: String.raw`$ git worktree add ../myproject-hotfix -b hotfix/crash origin/main
+# a new folder at ../myproject-hotfix, sitting on hotfix/crash
+# the original folder keeps its work in progress; nothing was stashed
+
+$ cd ../myproject-hotfix && ...fix... && git push -u origin hotfix/crash
+
+$ git worktree list                       # what is currently checked out where
+$ git worktree remove ../myproject-hotfix # clean up when done`, cap: "Objects are stored once, so it costs far less disk than another clone, and branches, tags and remotes are all shared", lang: "bash" },
+      { note: "The one limitation worth knowing: **a branch can be checked out in only one worktree at a time.** With `main` open in one, another cannot switch to `main` — git says so plainly. That is a feature, not a bug: two checkouts of the same branch would fight over the index." },
+      { h: "4) Forks that have to track upstream" },
+      { code: String.raw`$ git remote add upstream git@github.com:original/repo.git
+$ git remote -v
+origin    git@github.com:me/repo.git       (fetch/push)   <- yours
+upstream  git@github.com:original/repo.git (fetch/push)   <- the original
+
+$ git fetch upstream
+$ git switch main
+$ git rebase upstream/main      # or merge, if others share your main
+$ git push`, cap: "origin is your fork, upstream is the real thing — set it once and you can follow along forever", lang: "bash" },
+      { h: "5) Making settings consistent without visiting every repo" },
+      { table: { head: ["What you want everywhere", "How"], rows: [
+        ["Identity (name/email/signing)", "`includeIf` by folder (point 1)"],
+        ["Files you never want to see (`.DS_Store`, `.idea/`)", "`git config --global core.excludesfile ~/.gitignore_global` — no need to push them into every project's .gitignore"],
+        ["The same hooks", "`git config --global core.hooksPath ~/.githooks`"],
+        ["Aliases and pull/push behaviour", "`git config --global ...` once, applies everywhere"],
+        ["Automatic housekeeping", "`git maintenance start` in each large repo (it schedules itself)"],
+      ]}},
+      { note: "`core.excludesfile` is the setting people learn last: junk from **your machine** (the OS, your editor) does not belong in a `.gitignore` you commit for the team, because it is your problem alone. Put it in the global file and every repo is clean at once." },
+      { h: "6) Tooling for when there really are a lot" },
+      { table: { head: ["Tool", "Problem it solves"], rows: [
+        ["`gh repo list <org> --limit 100`", "find out what exists, and clone in bulk with `gh repo clone`"],
+        ["`gh pr list --search \"is:open author:@me\"`", "all of your open PRs across every repo in one place"],
+        ["`git submodule`", "repos that genuinely must pin each other's versions — not merely 'I want both open'"],
+        ["The `for` loop in point 2", "enough for dozens of repos, and installs nothing"],
+      ]}},
+      { note: "Before reaching for a tool, ask what the problem actually is. If it is 'one change spans several repos and they must ship together', that is a signal for a **monorepo**, not for tooling to coordinate N repos — see the comparison table above." },
       { h: "The structure that keeps a repository alive" },
       { ul: [
         "**Never commit build artifacts or dependencies** — the main cause of repositories that become unclonably slow, and git can barely delta-compress binaries",
@@ -1002,28 +1467,227 @@ git blame -w -C -L 40,60 file   # -w ignores whitespace, -C follows moved code`,
         ["Several branches checked out at once", "`git worktree add ../hotfix main`", "one clone, several working trees"],
         ["Repo gets slower over time", "`git maintenance start`", "schedules gc, commit-graph and prefetch"],
       ]}},
+      { h: "📖 Command reference — the flags you actually use" },
+      { p: "This part is for looking things up, not reading straight through. Three conventions that apply almost everywhere: `--` separates branch names from file names (`git restore -- main.c` when a file shares a name with a branch), `-n` or `--dry-run` shows what would happen without doing it, and `HEAD~2` means two generations back along first parents while `HEAD^2` means the second parent of a merge commit — different things." },
+
+      { h: "git add — where . and -A genuinely differ" },
+      { table: { head: ["Command", "What it does", "Watch out"], rows: [
+        ["`git add <file>`", "stage that file", "-"],
+        ["`git add .`", "everything **from the current directory down** (new + modified + deleted)", "run it from a subfolder and you stage less than you think"],
+        ["`git add -A`", "everything in the **whole repo**, wherever you are standing", "usually what people mean when they type `git add .`"],
+        ["`git add -u`", "only files already **tracked** (modified + deleted), no new files", "good when you do not want to sweep up junk"],
+        ["`git add -p`", "hunk by hunk — `y` yes, `n` no, `s` split further, `e` edit, `q` quit", "the habit worth making default"],
+        ["`git add -n .`", "list what would be staged without staging", "-"],
+        ["`git add -f <file>`", "force-add a file that .gitignore excludes", "only when you know exactly why"],
+      ]}},
+      { note: "The short version: `.` **is where you stand**, `-A` **is the whole repo**, `-u` **is tracked files only**. Since git 2.0 `git add .` does include deletions (it did not before) — so older advice telling you to use `git add -A` because `.` misses deleted files is out of date." },
+
+      { h: "git commit" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git commit`", "opens the editor for a full message — what you want whenever it is longer than one line"],
+        ["`git commit -m \"message\"`", "single-line message"],
+        ["`git commit -m \"subject\" -m \"body\"`", "two -m flags give you subject + body paragraph without opening the editor"],
+        ["`git commit -a` / `-am \"...\"`", "auto-stage tracked files and commit — **does not include new files**"],
+        ["`git commit --amend`", "rewrite the last commit (message and whatever is staged)"],
+        ["`git commit --amend --no-edit`", "fold extra changes into the last commit, leaving the message alone"],
+        ["`git commit --amend --reset-author`", "fix the author name/email on the last commit to your current config"],
+        ["`git commit --fixup=<sha>`", "make a commit marked to fold into that sha; pair with `rebase --autosquash`"],
+        ["`git commit --allow-empty`", "an empty commit — useful to trigger CI or mark a point in history"],
+        ["`git commit -S`", "sign this commit (if commit.gpgsign is not already on)"],
+        ["`git commit --no-verify`", "skip pre-commit hooks — the reason hooks are not enforcement"],
+      ]}},
+
+      { h: "git status · git diff · git show" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git status -s`", "short form: `??` untracked, `M` modified, `A` added — left column is the index, right is the working tree"],
+        ["`git status -sb`", "short form plus a branch line showing how far ahead/behind the remote you are"],
+        ["`git status --ignored`", "also list files .gitignore is excluding — how you check your ignore rules work"],
+        ["`git diff`", "working tree vs index — what you have not staged"],
+        ["`git diff --staged`", "index vs HEAD — what you are about to commit (`--cached` is the same)"],
+        ["`git diff HEAD`", "both at once — everything changed since the last commit"],
+        ["`git diff main..feat`", "tip of main vs tip of feat"],
+        ["`git diff main...feat`", "their **merge base** vs the tip of feat — this is what a PR shows"],
+        ["`git diff --name-only` / `--stat`", "just the file list / a per-file line summary"],
+        ["`git diff -w`", "ignore whitespace-only changes"],
+        ["`git diff -- <path>`", "restrict to that path"],
+        ["`git show <sha>`", "that commit plus its diff"],
+        ["`git show <sha>:<path>`", "the file's contents at that commit, without checking anything out"],
+      ]}},
+      { note: "`..` and `...` are a classic confusion, and they swap meaning between `diff` and `log`. Remember it this way: in **diff**, three dots means 'compare from the merge base' (what a PR shows); in **log**, three dots means 'commits on either side but not both'." },
+
+      { h: "git log" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git log --oneline`", "one line per commit"],
+        ["`git log --oneline --graph --decorate --all`", "see the actual DAG shape — alias this to `git lg`"],
+        ["`git log -5`", "just the last five"],
+        ["`git log -p`", "attach each commit's diff"],
+        ["`git log --stat`", "attach a per-file line-count summary"],
+        ["`git log --author=\"wiaon\"`", "filter by author"],
+        ["`git log --since=\"2 weeks ago\"`", "filter by time (`--until` too)"],
+        ["`git log --no-merges`", "drop merge commits; much easier to read"],
+        ["`git log -S \"text\"`", "commits that changed the number of occurrences of that text (the pickaxe)"],
+        ["`git log -G \"regex\"`", "commits whose diff matches the regex"],
+        ["`git log --follow -- <path>`", "history across renames"],
+        ["`git log main..feat`", "commits in feat but not main — 'what does this PR add'"],
+        ["`git log --left-right main...feat`", "commits unique to each side, marked by which side"],
+      ]}},
+
+      { h: "git branch · git switch · git restore" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git branch`", "list local branches (`-a` includes remotes, `-r` only remotes)"],
+        ["`git branch -vv`", "which remote each branch tracks and how far ahead/behind it is"],
+        ["`git branch -d <name>`", "delete a merged branch — **refuses if it is not merged**, which is the feature"],
+        ["`git branch -D <name>`", "delete regardless (recoverable via reflog)"],
+        ["`git branch -m <new>`", "rename the current branch"],
+        ["`git branch --merged` / `--no-merged`", "find branches safe to clean up / branches with work still on them"],
+        ["`git switch <name>`", "move to that branch"],
+        ["`git switch -c <new>`", "create it and move onto it (`-c` = create)"],
+        ["`git switch -c <new> <sha|branch>`", "create from somewhere other than where you are"],
+        ["`git switch -`", "back to the previous branch — like `cd -`"],
+        ["`git switch --detach <sha>`", "stand on a commit without attaching to a branch"],
+        ["`git restore <file>`", "discard your edits to that file — **uncommitted work is gone for good**"],
+        ["`git restore --staged <file>`", "unstage it without touching the file"],
+        ["`git restore --source=<sha> <file>`", "pull that file's version from a given commit"],
+      ]}},
+
+      { h: "git stash — parking work in progress" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git stash push -m \"message\"`", "park the work and leave a clean working tree (always name it)"],
+        ["`git stash push -u`", "include untracked files — **without -u your new files are left behind**"],
+        ["`git stash push -- <path>`", "stash only certain paths"],
+        ["`git stash list`", "see `stash@{0}`, `stash@{1}`, ..."],
+        ["`git stash show -p stash@{1}`", "the diff of that stash"],
+        ["`git stash pop`", "bring it back and drop it from the list"],
+        ["`git stash apply stash@{1}`", "bring it back but keep it in the list"],
+        ["`git stash drop stash@{0}`", "discard that one (`clear` discards all)"],
+        ["`git stash branch <name>`", "create a branch from where the stash was taken and apply it — the way out when pop conflicts"],
+      ]}},
+
+      { h: "git merge · git rebase · git cherry-pick · git revert" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git merge <branch>`", "merge it in, fast-forwarding when possible"],
+        ["`git merge --no-ff <branch>`", "force a merge commit so 'this branch existed' stays in the history"],
+        ["`git merge --squash <branch>`", "bring the changes into the index **without committing**, so you commit them yourself"],
+        ["`git merge --abort` / `--continue`", "back out / carry on after resolving"],
+        ["`git merge -X ours` / `-X theirs`", "auto-pick a side on conflict — only when you know the other side does not matter"],
+        ["`git rebase <base>`", "replay your commits on top of base"],
+        ["`git rebase -i HEAD~5`", "interactive: pick / reword / squash / fixup / edit / drop"],
+        ["`git rebase -i --autosquash`", "order the --fixup commits for you"],
+        ["`git rebase --onto <new> <old> <branch>`", "move a branch to a different base — e.g. cut it off the wrong parent"],
+        ["`git rebase --abort` / `--continue` / `--skip`", "back out / carry on / drop this commit"],
+        ["`git cherry-pick <sha>`", "copy that commit onto the current branch"],
+        ["`git cherry-pick -n <sha>`", "copy it into the index without committing"],
+        ["`git cherry-pick -x <sha>`", "record which commit it came from — always use this when backporting"],
+        ["`git cherry-pick A..B`", "copy a range"],
+        ["`git revert <sha>`", "a new commit that undoes an old one — safe on pushed history"],
+        ["`git revert -n <sha>`", "undo without committing (to combine several into one)"],
+        ["`git revert -m 1 <merge sha>`", "revert a merge — `-m 1` says which parent counts as the mainline"],
+      ]}},
+      { note: "`-m 1` is required when reverting a merge because a merge commit has two parents, so git cannot know which one 'before' refers to. `-m 1` means the branch you merged into — normally main, and normally what you want." },
+
+      { h: "git reset · git clean" },
+      { table: { head: ["Command", "What it does", "Dangerous?"], rows: [
+        ["`git reset --soft HEAD~1`", "drop the last commit, keep everything staged", "no"],
+        ["`git reset HEAD~1`", "(`--mixed`, the default) drop the commit and unstage; files untouched", "no"],
+        ["`git reset --hard HEAD~1`", "drop it and **overwrite your files too**", "**yes — uncommitted work is lost**"],
+        ["`git reset <sha> -- <path>`", "unstage that path relative to that commit", "no"],
+        ["`git reset --hard origin/main`", "make the local branch exactly match the remote", "**yes — local work is lost**"],
+        ["`git clean -n`", "list which untracked files would be deleted, deleting nothing", "no — **always run this first**"],
+        ["`git clean -fd`", "delete untracked files and directories", "**yes — never in git, so nothing to recover from**"],
+        ["`git clean -fdx`", "also delete .gitignored things (build output, .env)", "**the most dangerous — your .env file goes too**"],
+      ]}},
+      { note: "`git clean` is the most dangerous command on this page, because what it deletes **was never in git** — there is no reflog and no object to recover from. Make it a habit: `git clean -n` before every `git clean -f`." },
+
+      { h: "git remote · git fetch · git pull · git push" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git remote -v`", "which remote names point where"],
+        ["`git remote add <name> <url>`", "add one (`set-url` to change, `rename`, `remove`)"],
+        ["`git remote show origin`", "details: which branch tracks what, and which are already gone"],
+        ["`git fetch`", "download new work without touching the branch you are on"],
+        ["`git fetch --all --prune`", "every remote, and drop remote-tracking branches that were deleted"],
+        ["`git fetch origin <branch>`", "just one branch"],
+        ["`git pull --rebase`", "fetch, then replay your commits on top (no merge commit)"],
+        ["`git pull --ff-only`", "fetch, then move the pointer; stop if it cannot — the most predictable option"],
+        ["`git pull --autostash`", "stash your work in progress and restore it afterwards"],
+        ["`git push`", "send to the tracked remote"],
+        ["`git push -u origin <branch>`", "first push, and remember the pairing"],
+        ["`git push --tags` / `--follow-tags`", "send tags too — **a plain push does not**"],
+        ["`git push origin --delete <branch>`", "delete a branch on the remote"],
+        ["`git push --dry-run`", "say what would be sent, send nothing"],
+        ["`git push --force-with-lease`", "overwrite, but refuse if the remote moved since your last fetch"],
+      ]}},
+
+      { h: "git tag" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git tag`", "list tags (`-l \"v1.*\"` filters by pattern)"],
+        ["`git tag -a v1.4.0 -m \"...\"`", "annotated — a real object with a tagger, date and message"],
+        ["`git tag -s v1.4.0 -m \"...\"`", "annotated and signed"],
+        ["`git tag v1.4.0`", "lightweight — just a ref, no metadata at all. **Not for releases**"],
+        ["`git tag -a v1.4.0 <sha>`", "tag an older commit retroactively"],
+        ["`git tag -d v1.4.0`", "delete locally (on the remote: `git push origin --delete v1.4.0`)"],
+        ["`git describe --tags`", "a readable version name for the current commit, e.g. `v1.4.0-12-gab34cd`"],
+      ]}},
+
+      { h: "Investigation commands" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git reflog`", "every move of HEAD for ~90 days — the starting point of every recovery"],
+        ["`git reflog show <branch>`", "the movement history of that branch specifically"],
+        ["`git blame -w -C -L 40,60 <file>`", "who touched which line (`-w` ignores whitespace, `-C` follows moved code)"],
+        ["`git bisect start` / `bad` / `good <sha>`", "binary search for the commit that broke it"],
+        ["`git bisect run ./test.sh`", "let a script decide; ~10 steps for 1000 commits"],
+        ["`git grep \"text\"`", "search tracked files — faster than grepping the folder because it skips build output"],
+        ["`git grep \"text\" <sha>`", "search the contents as of that commit"],
+        ["`git shortlog -sn`", "commit counts per person"],
+        ["`git fsck --lost-found`", "find objects nothing points at — for when even the reflog is exhausted"],
+      ]}},
+
+      { h: "clone · worktree · submodule" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git clone <url> <dir>`", "choose the destination folder name"],
+        ["`git clone -b <branch> <url>`", "clone and land on that branch"],
+        ["`git clone --depth 1 <url>`", "only the latest commit — **breaks merge-base, blame and PR diffs**"],
+        ["`git clone --filter=blob:none <url>`", "full history, contents fetched on demand — usually better than --depth"],
+        ["`git clone --recurse-submodules <url>`", "clone and populate submodules in one go"],
+        ["`git worktree add ../hotfix main`", "a second branch checked out in another folder, sharing one clone"],
+        ["`git worktree list` / `remove <path>`", "list them / detach one"],
+        ["`git submodule update --init --recursive`", "populate submodules — the command everyone forgets"],
+        ["`git submodule update --remote`", "advance submodules to their own latest tip"],
+      ]}},
+
+      { h: "Config you will actually set" },
+      { table: { head: ["Command", "What it does"], rows: [
+        ["`git config --list --show-origin`", "every value and which file it came from — the fix for 'why is this set like that'"],
+        ["`git config --global <key> <value>`", "user level (`--local` for one repo, `--system` for the machine)"],
+        ["`git config --global --unset <key>`", "remove a setting"],
+        ["`git config --global alias.lg \"log --oneline --graph --decorate --all\"`", "gives you `git lg`"],
+        ["`git config --global alias.pushf \"push --force-with-lease --force-if-includes\"`", "makes the safe path shorter to type than the dangerous one"],
+        ["`git config --global core.editor \"code --wait\"`", "write commit messages in VS Code"],
+        ["`git config --global rerere.enabled true`", "remember conflict resolutions and replay them"],
+        ["`git config --global fetch.prune true`", "clear out dead remote branches on every fetch"],
+      ]}},
+      { note: "For the genuinely complete flag list of any command: `git help <command>` opens the full documentation, and `git <command> -h` prints a short summary in the terminal. Between them they answer everything the tables above left out." },
     ],
 
     tricks: [
-      { h: "Trick 1: `git add -p`, every time" },
+      { h: "Trick 1: git add -p, every time" },
       { p: "It makes you read your own diff before anyone else does, and it makes one-change-per-commit natural rather than aspirational. A surprising number of bugs get caught right here, before CI ever runs." },
       { h: "Trick 2: commit often, tidy later" },
       { p: "A commit is a save point the reflog can recover; uncommitted work is not recoverable at all. Eight messy commits followed by a `rebase -i` down to two readable ones is strictly safer than writing for hours and committing once." },
-      { h: "Trick 3: alias `--force-with-lease` shorter than `--force`" },
+      { h: "Trick 3: alias --force-with-lease shorter than --force" },
       { p: "Safety that is harder to type always loses on the day you are in a hurry. Make the safe path the lazy path." },
       { h: "Trick 4: enable rerere on day one" },
       { p: "It has no downside, and the day you want it is the third rebase of a long branch — by which point enabling it retroactively does nothing for the rounds you already suffered through." },
-      { h: "Trick 5: `includeIf` instead of remembering which repo you are in" },
+      { h: "Trick 5: includeIf instead of remembering which repo you are in" },
       { p: "A wrong email in a commit can only be fixed by rewriting history, which on a shared branch means it cannot really be fixed. Configure it structurally, once." },
-      { h: "Trick 6: `git switch` / `git restore` over `git checkout`" },
+      { h: "Trick 6: git switch / git restore over git checkout" },
       { p: "`checkout` switches branches, creates branches, restores files and discards changes — that ambiguity is why it confused people for a decade. The newer commands separate the jobs, and more importantly they are **readable in a team runbook**." },
       { h: "Trick 7: small PRs are a quality tool, not etiquette" },
       { p: "Reviewer defect-detection drops sharply with diff size. A 2000-line PR is not 'reviewed slowly' — it is not reviewed. Split work so it can merge in pieces even when the feature is unfinished, hidden behind a feature flag." },
-      { h: "Trick 8: alias `git log --oneline --graph --decorate --all`" },
+      { h: "Trick 8: alias git log --oneline --graph --decorate --all" },
       { p: "Seeing the shape of the DAG before deciding to merge or rebase prevents most mistakes. Bind it to `git lg` and use it instead of bare `git log`." },
       { h: "Trick 9: read the push error properly" },
       { p: "`! [rejected] non-fast-forward` means **the remote has commits you do not** — it is not git being difficult. The fix is `git pull --rebase` then push. `--force` is answering 'then delete whatever I do not have'." },
-      { h: "Trick 10: add `.gitattributes` before the second person joins" },
+      { h: "Trick 10: add .gitattributes before the second person joins" },
       { p: "Add it after a Windows contributor has committed and you earn a 'fix line endings repo-wide' commit that masks blame on every file — which then has to go into `.git-blame-ignore-revs`." },
     ],
 
