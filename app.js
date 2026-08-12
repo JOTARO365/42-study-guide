@@ -1847,6 +1847,7 @@
 
   var TABS = [
     ["principle", { th: "หลักการ", en: "Overview" }],
+    ["subject", { th: "โจทย์ต้นฉบับ", en: "The Subject" }],
     ["theory", { th: "ทฤษฎีที่ต้องรู้", en: "Theory" }],
     ["foundations", { th: "Struct · Pointer · Memory", en: "Struct · Pointer · Memory" }],
     ["architecture", { th: "โครงสร้างโค้ด", en: "Code Structure" }],
