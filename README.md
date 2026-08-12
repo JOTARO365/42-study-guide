@@ -4,7 +4,7 @@
 
 **เปิดอ่าน → [jotaro365.github.io/42-study-guide](https://jotaro365.github.io/42-study-guide/)**
 
-- **52 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
+- **53 หน้า** · **ไทย/อังกฤษครบทุกหน้า** — กดสลับ TH/EN มุมขวาบน
 - ไม่มี build step — React 18 แบบ vanilla JS เปิดไฟล์ `index.html` ในเครื่องก็อ่านได้เลย
 - เดโมกดเล่นได้ + flow visualizer ไล่โค้ดทีละ step (37 หน้า)
 - ค้นหาเต็มข้อความทั้งเว็บจากหน้าแรก — กด `/` เพื่อโฟกัสช่องค้น
@@ -111,6 +111,7 @@
 | [Rank 04](https://jotaro365.github.io/42-study-guide/exam_rank04.html) | fork/pipe (ft_popen, picoshell, sandbox) + recursive-descent parser (vbc, argo) | 5 |
 | [Rank 05](https://jotaro365.github.io/42-study-guide/exam_rank05.html) | C++ OCF/operator (vect2, bigint, polyset) + DP/simulation (bsq, life) | 5 |
 | [Rank 06](https://jotaro365.github.io/42-study-guide/exam_rank06.html) | select() server — mini_serv (แชท), mini_db (key-value) | 3 |
+| [Git — คีย์ถึงองค์กร](https://jotaro365.github.io/42-study-guide/tool_git.html) | ssh-keygen/agent/หลายบัญชี, deploy key vs PAT, การเซ็น commit, object model (blob/tree/commit/tag), index กับ reset สามแบบ, merge base, rebase -i/reflog/bisect, merge vs rebase, PR/CODEOWNERS/protected branch/merge queue, monorepo/partial clone/LFS/submodule, secret หลุด + filter-repo | 8 |
 
 กฎ 2 ข้อที่คนพลาดบ่อย:
 

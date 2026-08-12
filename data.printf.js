@@ -433,6 +433,36 @@ valgrind --leak-check=full --error-exitcode=42 -q ./cmp && echo "ผ่าน"
 # บน Windows ผ่าน WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_printf*.c ft_printf.h'`, lang: "bash" },
       { note: "**เทียบกับ `printf` จริงในโปรแกรมเดียวกัน** — ไม่ใช่เทียบกับสิ่งที่เราคิดว่ามันควรพิมพ์. รูปแบบของ `%p` ต่างกันได้ระหว่างระบบปฏิบัติการ การเทียบสด ๆ จึงเชื่อถือได้กว่า" },
+      { h: "ส่วน bonus: flag, width, precision" },
+      { p: "`%[flags][width][.precision]conversion` โดย flag คือ `-` `0` `.` `#` `+` และช่องว่าง. **อย่าแปะเพิ่มลงบน dispatch เดิมทีละ conversion** เพราะสุดท้ายทุก conversion ต้องการ logic การจัดวางชุดเดียวกัน — เขียนการจัดวางนั้น **ครั้งเดียว** แล้วให้ทุก conversion ป้อนเข้าไป" },
+      { code: String.raw`typedef struct s_fmt {
+    int minus; int zero; int hash; int plus; int space;
+    int width;   /* 0 เมื่อไม่มี */
+    int prec;    /* -1 เมื่อไม่มี  <-- ตัวนี้คือสิ่งที่ปิดการทำงานของ flag 0 */
+    int zeros;   /* zero-padding จาก precision, ตัวแปลงเป็นคนตั้ง */
+} t_fmt;
+
+/* [ช่องว่าง] prefix [ศูนย์] body [ช่องว่าง] */
+int pf_emit(t_fmt *f, const char *pre, const char *b, int blen);`, cap: "ตัวแปลงแต่ละตัวมีหน้าที่เดียว: ผลิต prefix + body + จำนวนศูนย์ แล้วส่งให้ pf_emit", lang: "c" },
+      { p: "`prec` ต้องเป็น `-1` เมื่อไม่มี **ไม่ใช่ 0** เพราะ `%.0d` กับ `%d` ให้ผลต่างกัน และกฎของ flag `0` เขียนไว้ในรูป 'มี precision หรือไม่'" },
+      { table: { head: ["เคส", "ผลที่ถูก", "ที่พลาดกันเพราะ"], rows: [
+        ["%05.3d", "precision เติมให้ครบ 3 หลักก่อน แล้วเติม **ช่องว่าง** จนครบ width 5", "printf(3) บอกว่า flag 0 ถูกเมินสำหรับ d i u x X เมื่อมี precision"],
+        ["%.0d ค่า 0", "ไม่พิมพ์อะไรเลย (width ยังทำงาน)", "ลูปพิมพ์หลักมักพิมพ์อย่างน้อย 1 หลักเสมอ"],
+        ["%#x ค่า 0", "**ไม่มี** prefix 0x", "ใส่ # แบบไม่มีเงื่อนไข"],
+        ["%+5d ค่า 42", "'  +42' — เครื่องหมายนับเป็นส่วนหนึ่งของ field", "เขียนเครื่องหมายก่อนคำนวณ padding"],
+        ["%.3s บน abcdefg", "abc", "คิดว่า precision ใช้กับตัวเลขอย่างเดียว"],
+        ["%5%", "glibc พิมพ์ % เปล่า ๆ — เมิน width", "ส่ง %% ไปทางเดียวกับ %c ที่มี padding"],
+      ]}},
+      { note: "เคส `%5%` เป็น undefined ในภาษา C จริง ๆ และ tester ของ 42 เถียงกันเอง — **ให้ยึดตาม glibc** เพราะการประเมินคือการ diff output ของเรากับ printf จริง พฤติกรรมของ glibc คือตัวที่ได้คะแนน" },
+      { h: "mandatory กับ bonus นิยาม ft_printf ทั้งคู่" },
+      { code: String.raw`bonus: .bonus
+
+.bonus: $(OBJS_B)
+	$(RM) $(NAME)
+	$(AR) $(NAME) $(OBJS_B)
+	@touch .bonus`, cap: "ต้องสร้าง archive ใหม่ ไม่ใช่เติมเข้าไป ไม่งั้น ft_printf ซ้ำสองตัวตอน link — และ sentinel .bonus ทำให้ make bonus สองครั้งไม่ relink (clean ต้องลบ .bonus ด้วย)", lang: "makefile" },
+      { h: "norminette ให้ 4 argument ไม่ใช่ 5" },
+      { p: "`Function has more than 4 arguments` เป็น error จริงใน norminette 3.3.x แม้เอกสาร norm จะถูกอ้างว่า 5 อยู่บ่อย ๆ. `pf_emit` ที่มี 5 พารามิเตอร์ดูสมเหตุสมผลแต่ไม่ผ่าน lint. ทางแก้ไม่ใช่การซอยฟังก์ชัน — คือย้ายพารามิเตอร์ที่เกินเข้าไปใน struct ที่ส่งอยู่แล้ว (`f->zeros` ข้างบน) ซึ่งอ่านดีกว่าด้วย เพราะ padding จาก precision **เป็นส่วนหนึ่งของ format spec จริง ๆ**" },
     ],
 
     tricks: [
@@ -450,6 +480,14 @@ wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_prin
       { p: "`ft_printf(\"100%\")` ทำให้ `i++` แล้วอ่าน `s[i]` ที่เป็น `\\0` — ไม่ crash แต่ก็ไม่ควรปล่อย. เช็คก่อน dispatch แล้วจบเรื่อง" },
       { h: "ทริค 7: ใช้ ft_printf ตัวเองตอนไล่บั๊กโปรเจกต์หลัง" },
       { p: "ไม่มีบัฟเฟอร์ = บรรทัดสุดท้ายก่อน segfault ออกมาครบเสมอ ในขณะที่ `printf` จริงอาจกลืนหายไปกับบัฟเฟอร์ที่ยังไม่ถูกล้าง" },
+      { h: "ทริค 8: เทียบทั้ง byte ไม่ใช่แค่ค่าที่คืน" },
+      { p: "`%05d` กับ `%5d` คืน 5 เท่ากัน — มีแต่การเทียบ byte ที่จับได้ว่า padding ไปอยู่ผิดข้าง. วิธีเก็บ byte: ชี้ fd 1 ไปไฟล์ชั่วคราวรอบการเรียกแต่ละครั้งด้วย `dup`/`dup2` แล้วอ่านกลับ ทำให้ macro ตัวเดียวขับทั้ง `printf` จริงและ `ft_printf` ด้วย varargs ชุดเดียวกัน" },
+      { code: String.raw`#define TEST(...) do { \
+    int ra, rb, la, lb; \
+    start(); ra = printf(__VA_ARGS__);    la = stop(g_a); \
+    start(); rb = ft_printf(__VA_ARGS__); lb = stop(g_b); \
+    report(#__VA_ARGS__, g_a, la, ra, g_b, lb, rb); \
+} while (0)`, cap: "คอมไพล์ tester ด้วย -w เพราะ -Wformat ของ gcc จะปฏิเสธ format แปลก ๆ อย่าง %5% และ \"\" ซึ่งคือเคสที่ควรเทสพอดี", lang: "c" },
     ],
 
     eval: [

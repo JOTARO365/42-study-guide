@@ -19,18 +19,40 @@ window.TEACHING_EN = {
         ["rev rotate", "rra / rrb / rrr", "bottom element → top"],
       ]}},
       { note: "Core idea: ss/rr/rrr act on both stacks at once but count as ONE operation — with good timing you save half the moves." },
-      { h: "Scoring (tiered, not pass/fail)" },
-      { table: { head: ["Points", "100 numbers", "500 numbers"], rows: [
-        ["5 (full)", "< 700 ops", "< 5500 ops"],
-        ["4", "< 900", "< 7000"],
-        ["3", "< 1100", "< 8500"],
-        ["2", "< 1300", "< 10000"],
-        ["1", "< 1500", "< 11500"],
+      { h: "Scoring (subject v1.1 — three tiers)" },
+      { table: { head: ["Tier", "100 numbers", "500 numbers"], rows: [
+        ["excellent", "< 700 ops", "< 5500 ops"],
+        ["good", "< 1500", "< 8000"],
+        ["minimum to pass", "< 2000", "< 12000"],
       ]}},
-      { note: "Fewer ops means more points — there is no single pass/fail line. Aim for tier 5; the lower tiers are your safety net." },
+      { note: "Measured on the default strategy (`--adaptive`) only — a forced flag does not count. The bonus is graded only once the mandatory part validates every benchmark." },
       { h: "Two ideas you must grasp" },
       { p: "**(a) Normalization** — turn raw values into 'ranks'. e.g. [-999, 0, 42, 1000000] → ranks [0,1,2,3]. The algorithm only cares who is bigger, so ranks make position math easy and dodge overflow." },
       { p: "**(b) Cost-based greedy (Turkish sort)** for n>5: push almost everything to B → each round pick the element that's 'cheapest' to push back into A → repeat until B is empty → rotate the smallest to the top." },
+      { h: "Subject v1.1 changed the project substantially — read this first" },
+      { ul: [
+        "It is a **group activity for exactly 2 learners** — the README's first line must name both logins",
+        "You must measure the input's **disorder** before the first move",
+        "One binary must embed **four strategies**, selectable at runtime with `--simple` `--medium` `--complex` `--adaptive`",
+        "A `--bench` mode must report disorder / strategy name / complexity class / per-operation counts on **stderr**",
+        "**The complexity class you claim must hold in the operation model** — not the Big-O of an array-based version. This is what evaluators probe",
+      ]},
+      { h: "Disorder — the single number that picks the algorithm" },
+      { code: String.raw`disorder = inverted pairs / total pairs
+         = |{(i,j) : i < j and a[i] > a[j]}| / (n(n-1)/2)
+
+0.0  already sorted
+0.5  expected value of a random permutation   <-- the decisive line
+1.0  exactly reversed`, cap: "Inversions over total pairs — must be measured before the first operation is emitted", lang: "text" },
+      { p: "0.5 is not an arbitrary cut: **a uniformly random permutation has expected disorder exactly 0.5**, and at n=100 the distribution around it is tight. So 0.5 separates 'this input is indistinguishable from random' from 'there is still structure left to exploit'." },
+      { h: "The four strategies in one binary" },
+      { table: { head: ["Flag", "Method", "Class (operation model)", "Bound"], rows: [
+        ["--simple", "selection sort — push the smallest to B, one at a time", "O(n²)", "n rounds × ≤ n/2 rotations + 2n pushes"],
+        ["--medium", "chunk sort — ~√n chunks of ~√n values", "O(n·√n)", "≤ n rotations per chunk × √n chunks"],
+        ["--complex", "binary radix (LSD) — partition one bit at a time", "O(n log n)", "≤ 2n per pass × ceil(log₂ n) passes"],
+        ["--adaptive", "routed by disorder (default)", "whichever regime applies", "see the table under implementation"],
+      ]}},
+      { note: "Radix is the only one whose **cost is independent of the arrangement** — which is exactly why it is the right choice once the input has no structure left to exploit." },
       { h: "Background: why this differs from normal sorting" },
       { p: "The sorts you learn in class (bubble, quick, merge) are judged by **time**. push_swap is judged by the **number of operations you print**, and you can only move data through 11 commands on 2 stacks (no random access). So it's a 'sort with your hands tied' puzzle — strategy matters, not just correctness." },
       { p: "The real target is 'be correct' (easy) **plus** 'use few enough ops to land in the top tier: <700 for 100, <5500 for 500' (hard). That second part is where the choice of algorithm decides everything." },
@@ -487,6 +509,44 @@ else                return |ca| + |cb|;      // opposite ways, rotate separately
 rotate_a_by(ps, ca);         // remaining A rotations -> ra/rra
 rotate_b_by(ps, cb);         // remaining B rotations -> rb/rrb
 pa(ps);                      // push into A`, lang: "c" },
+      { h: "7) disorder.c — measure before you move (v1.1)" },
+      { code: String.raw`double compute_disorder(t_node *a) {
+    long mistakes = 0, pairs = 0;
+    for i in a:                      // written with while, per the norm
+        for j in a after i:
+            pairs++;
+            if (i->val > j->val) mistakes++;
+    if (pairs == 0) return (0.0);
+    return ((double)mistakes / (double)pairs);
+}`, cap: "O(n²), straight from the subject's pseudocode — it runs once, before sorting, so it is not on the hot path", lang: "c" },
+      { p: "At n=500 that is 124,750 pairs against the thousands of operations that follow. A merge-count would make it O(n log n) and buy nothing measurable, at the cost of code nobody reads in one pass. Use `long` for the pair counter so a larger n does not overflow it." },
+      { h: "8) Four strategies — one method per file" },
+      { code: String.raw`void sort_complex(t_ps *ps) {          // binary radix (LSD)
+    bits = bit count of (size - 1);    // known exactly because ranks are normalized
+    while (i < bits && !is_sorted(ps->a)) {
+        j = 0;
+        while (j++ < size) {
+            if ((ps->a->idx >> i) & 1) ra(ps);   // bit 1 stays in A
+            else                       pb(ps);   // bit 0 goes to B
+        }
+        while (ps->b) pa(ps);          // bring back = stable partition on one bit
+        i++;
+    }
+}`, cap: "Each pass is a stable partition on a single bit; after ceil(log₂ n) passes A is sorted", lang: "c" },
+      { p: "Chunk sort (`--medium`) has one trap that hangs it: **advance the chunk boundary by counting pushes**, not by any other condition. Advance it wrongly and nothing in A satisfies the limit, so the `else ra(ps)` branch spins forever. The other detail is to `rb` the lower half of each chunk right after pushing it — that buries the small values, leaving B roughly descending, so the pop phase rotates by at most one chunk width." },
+      { h: "9) strategy.c — routing on disorder" },
+      { code: String.raw`size <= 5        -> sort_small        (hardcoded, upper bound O(n^2))
+disorder < 0.2   -> greedy insertion  (O(n^2))
+disorder < 0.5   -> chunk sort        (O(n*sqrt(n)))
+disorder >= 0.5  -> binary radix      (O(n log n))`, cap: "The subject fixes the ceiling per regime; what you must justify is which method sits inside it, and where the thresholds go", lang: "text" },
+      { note: "The price of telling the truth: random input lands at disorder ~0.5, so greedy insertion — the fastest of the lot at ~550-620 ops for n=100 — is forbidden there for being O(n²), and radix at ~1050 is what the rules allow. That is roughly +400 operations, moving the default from the excellent tier into good. Put those numbers in the README. Routing random input to greedy and labelling it O(n log n) scores higher and is a false claim, which is the one thing this version of the subject is built to catch." },
+      { h: "10) bench.c — the report goes to stderr" },
+      { code: String.raw`$ ./push_swap --bench 4 67 3 87 23 > /dev/null
+[bench] disorder: 40.00%
+[bench] strategy: simple (selection sort) O(n^2)
+[bench] operations: 9
+[bench] sa=0 sb=0 ss=0 pa=2 pb=2 ra=4 rb=0 rr=0 rra=1 rrb=0 rrr=0`, cap: "stdout stays a pure operation stream, so it still pipes to the checker while 2> saves the metrics", lang: "text" },
+      { p: "`ft_printf` writes to fd 1 only — for fd 2 use libft's `ft_putstr_fd` / `ft_putnbr_fd` with `write(2, ...)`. A two-decimal percent needs no float in the output path: multiply by 10000, round once into a `long`, then print quotient, dot, remainder — and pad a leading zero when the remainder is under 10, or 40.05% prints as 40.5%." },
     ],
     tricks: [
       { h: "Trick 1: merge rotations with rr / rrr" },
@@ -505,6 +565,12 @@ pa(ps);                      // push into A`, lang: "c" },
       { p: "Accumulate in a `long` and compare against `INT_MAX` / `INT_MIN` — checking on the `int` itself is too late, because it has already wrapped by the time you look" },
       { h: "Trick 8: judge by the worst of several runs, not one" },
       { p: "Random input produces noticeably different op counts — run 5 to 10 times and take the worst, because the evaluator randomises too and will never get your lucky set" },
+      { h: "Trick 9: count operations in exactly one place" },
+      { p: "Funnel every operation through a single `emit(ps, OP_XX)` that increments `ps->cnt[op]` and then writes. Two payoffs: the `--bench` numbers are the instructions **actually printed** rather than an estimate from the algorithm, and the checker's silent mode still counts correctly. Return the operation names from an if-chain, not a `static const` array — the subject forbids global variables." },
+      { h: "Trick 10: a flag is only a flag when it starts with --" },
+      { p: "That single rule keeps `-5` a valid negative integer while `--simple` is a selector, with no ordering constraint — flags may appear anywhere among the numbers. An unknown `--flag` is an `Error`. The `checker` accepts no flags at all, so count them during parsing and reject a non-zero count there." },
+      { h: "Trick 11: attach each node to ps->a immediately" },
+      { p: "`error_exit` frees `ps`, so anything still held in a local head leaks. This is a real leak the project ships with surprisingly often, because valgrind only shows it on the **invalid** inputs most testers skip." },
     ],
     eval: [
       { qa: [
@@ -523,6 +589,21 @@ pa(ps);                      // push into A`, lang: "c" },
 ARG=$(shuf -i 1-500 -n 500 | tr '\n' ' '); ./push_swap $ARG | ./checker_linux $ARG # OK
 ./push_swap 2147483648   # Error (overflow)
 ./push_swap 1 2 2        # Error (duplicate)`, lang: "bash" },
+      { h: "v1.1 test commands (four strategies + bench)" },
+      { code: String.raw`# every strategy must return OK; record the WORST op count over many runs
+ARG=$(shuf -i 1-100000 -n 100 | tr "\n" " ")
+for m in --simple --medium --complex --adaptive; do
+    echo "$m $(./push_swap $m $ARG | wc -l) $(./push_swap $m $ARG | ./checker_linux $ARG)"
+done
+
+# bench goes to stderr, so it pipes to the checker at the same time
+./push_swap --bench $ARG 2> bench.txt | ./checker_linux $ARG
+
+# errors / no output
+./push_swap --nope 1 2      # Error
+./push_swap --simple 3 2 3  # Error (duplicate)
+./push_swap 1 2 3           # prints nothing`, cap: "Random input always lands at disorder ~0.5", lang: "bash" },
+      { note: "Random input only exercises one regime. Construct the other two yourself and confirm from `--bench` that the intended strategy ran: a sorted list with a few adjacent swaps gives disorder < 0.2, and reshuffling 40-80 of 100 positions gives 0.2-0.5." },
     ],
   },
 
@@ -7690,6 +7771,15 @@ FILES_B := $(addsuffix .c, $(addprefix ft_, $(addsuffix _bonus, $(SRC_B))))`, ca
       { h: "libft in later projects — deliberately duplicated" },
       { p: "This workspace holds **eight copies** of `libft/` (push_swap, pipex, minitalk, fdf, so_long, cub3d, miniRT, minishell). That is normal and necessary: each project must build standalone from its own directory." },
       { note: "**The side effect to watch:** fixing a bug in one copy leaves the other seven wrong. When you change a shared function, copy the file into every project that uses it, or write down which copy is authoritative." },
+      { h: "The submitted libft is not the working libft" },
+      { p: "Later projects grow their `libft/` copy: this workspace's `push_swap/libft/` also holds `ft_printf.c`, `ft_printf_utils.c`, `get_next_line.c` and `get_next_line_utils.c`, with both prototypes appended to `libft.h`. That is a convenience for downstream linking — **not** what libft submits." },
+      { p: "The submitted `Libft/` is 34 mandatory sources + 9 `*_bonus.c`, a `libft.h` declaring only those, and nothing else. Splitting it back out is mechanical: copy the 43 files, write a clean header, write a Makefile whose `bonus` rule adds the list objects to the same archive." },
+      { code: String.raw`$(NAME): $(OBJS)
+	$(AR) $@ $(OBJS)
+
+bonus: $(OBJS) $(OBJS_B)
+	$(AR) $(NAME) $(OBJS) $(OBJS_B)`, cap: "ar r is insert-or-replace, so re-archiving the same mandatory objects is harmless — unlike ft_printf, no symbol is defined twice", lang: "makefile" },
+      { note: "Keep the header down to `<stddef.h>`, `<stdlib.h>` and `<unistd.h>`: a libft that pulls in `<stdio.h>` compiles fine and tells a peer evaluator you never checked what you included." },
     ],
 
     dataflow: [
@@ -8286,6 +8376,36 @@ valgrind --leak-check=full --error-exitcode=42 -q ./cmp && echo "clean"
 # on Windows via WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_printf*.c ft_printf.h'`, lang: "bash" },
       { note: "**Compare against real `printf` inside the same program** — not against what you think it should print. `%p` formatting varies between platforms, so a live comparison is the only reliable oracle." },
+      { h: "The bonus: flags, width, precision" },
+      { p: "`%[flags][width][.precision]conversion` with the flags `-` `0` `.` `#` `+` and space. **Do not bolt these onto the existing dispatch one conversion at a time** — they all end up needing the same layout logic, so write that layout **once** and have every conversion feed it." },
+      { code: String.raw`typedef struct s_fmt {
+    int minus; int zero; int hash; int plus; int space;
+    int width;   /* 0 when absent */
+    int prec;    /* -1 when absent  <-- this is what disables the 0 flag */
+    int zeros;   /* precision zero-padding, set by the converter */
+} t_fmt;
+
+/* [spaces] prefix [zeros] body [spaces] */
+int pf_emit(t_fmt *f, const char *pre, const char *b, int blen);`, cap: "Each converter has one job: produce a prefix, a body and a zero count, then hand them to pf_emit", lang: "c" },
+      { p: "`prec` must be `-1` when absent, **not 0**: `%.0d` and `%d` differ, and the `0`-flag rule is stated in terms of 'a precision was given'." },
+      { table: { head: ["Case", "Correct behaviour", "Why it is missed"], rows: [
+        ["%05.3d", "precision pads to 3 digits, then **spaces** to width 5", "printf(3) ignores 0 for d i u x X when a precision is present"],
+        ["%.0d of 0", "prints nothing (width still applies)", "the digit loop always emits at least one digit"],
+        ["%#x of 0", "**no** 0x prefix", "# applied unconditionally"],
+        ["%+5d of 42", "'  +42' — the sign is part of the field", "sign written before padding is computed"],
+        ["%.3s on abcdefg", "abc", "precision treated as a number-only feature"],
+        ["%5%", "glibc prints a bare % — width ignored", "routing %% through the padded char path"],
+      ]}},
+      { note: "That last case is genuinely undefined in C and 42 testers disagree about it — **match glibc**, because the evaluation diffs your output against real printf, so glibc's behaviour is the one that scores." },
+      { h: "Mandatory and bonus both define ft_printf" },
+      { code: String.raw`bonus: .bonus
+
+.bonus: $(OBJS_B)
+	$(RM) $(NAME)
+	$(AR) $(NAME) $(OBJS_B)
+	@touch .bonus`, cap: "Rebuild the archive rather than adding to it, or ft_printf is defined twice at link time — and the .bonus sentinel stops make bonus relinking on a second run (clean must remove it)", lang: "makefile" },
+      { h: "Norminette allows four arguments, not five" },
+      { p: "`Function has more than 4 arguments` is a hard error in norminette 3.3.x, even though the norm document is often quoted as five. A five-parameter `pf_emit` looks reasonable and fails the lint. The fix is not to split the function — move the extra parameter into the struct already being passed (`f->zeros` above). That reads better anyway: precision padding **is** part of the format spec." },
     ],
 
     tricks: [
@@ -8303,6 +8423,14 @@ wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_prin
       { p: "`ft_printf(\"100%\")` does `i++` and then reads `s[i]`, which is the `\\0`. It doesn't crash, but it shouldn't be left there — one check before dispatching settles it." },
       { h: "Trick 7: use your own ft_printf for debugging later projects" },
       { p: "No buffering means the last line before a segfault always makes it out, while real `printf` can swallow it in an unflushed buffer." },
+      { h: "Trick 8: compare the bytes, not only the return value" },
+      { p: "`%05d` and `%5d` both return 5 — only a byte comparison catches padding on the wrong side. Capture the bytes by pointing fd 1 at a temp file around each call with `dup`/`dup2` and reading it back, so one macro drives both real `printf` and `ft_printf` with the same varargs." },
+      { code: String.raw`#define TEST(...) do { \
+    int ra, rb, la, lb; \
+    start(); ra = printf(__VA_ARGS__);    la = stop(g_a); \
+    start(); rb = ft_printf(__VA_ARGS__); lb = stop(g_b); \
+    report(#__VA_ARGS__, g_a, la, ra, g_b, lb, rb); \
+} while (0)`, cap: "Compile the tester with -w: gcc's -Wformat rejects the deliberately odd formats (%5%, \"\") that are exactly the ones worth testing", lang: "c" },
     ],
 
     eval: [
@@ -8388,6 +8516,8 @@ read #2  gives "\nWorl"       ← there's the \n, but "Worl" came along with it
         "**Bonus:** only one static variable, and several file descriptors must work concurrently",
       ]},
       { note: "This workspace keeps the get_next_line sources in the shared `libft/` folder and uses libft's `ft_strlen` / `ft_strchr` / `ft_strjoin` / `ft_strlcpy` directly — **but it is submitted as its own project**, where those helpers have to live in your own `get_next_line_utils.c`." },
+      { h: "libft is not on the allowed-functions list" },
+      { p: "Unlike ft_printf, get_next_line is submitted **self-contained**: `ft_strlen`, `ft_strchr` and `ft_strjoin` must be rewritten (as `gnl_*`) inside `get_next_line_utils.c`. Reusing the libft versions is the most common way this project fails a check that the code itself passes." },
     ],
 
     theory: [
@@ -8894,6 +9024,23 @@ norminette get_next_line*.c get_next_line*.h
 # on Windows via WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_next_line*.c get_next_line*.h'`, lang: "bash" },
       { note: "**`./gnl file | diff - file`** is the most complete test you can write in one line — if concatenating every returned line reproduces the file exactly, nothing was lost, nothing was duplicated, and every `\\n` sits where it belongs." },
+      { h: "Make the join *consume* its first argument" },
+      { p: "This one decision removes most of the leak surface: write `gnl_strjoin` so it frees `s1` on **both** paths — success and allocation failure — and returns either the joined string or NULL." },
+      { code: String.raw`char *gnl_strjoin(char *s1, const char *s2)   /* s1 is always consumed */
+{
+    size_t len1 = gnl_strlen(s1);             /* gnl_strlen(NULL) == 0 */
+    char *out = malloc(len1 + gnl_strlen(s2) + 1);
+    if (!out)
+        return (free(s1), NULL);
+    ...
+    free(s1);
+    return (out);
+}`, cap: "No caller has to remember whether the old stash is still live, so the read loop's failure paths stay one line each and fit inside 25 lines without extra blocks", lang: "c" },
+      { p: "Two supporting details: make `gnl_strlen(NULL)` return 0 and `gnl_strchr(NULL, c)` return NULL, so the very first call — stash still NULL — needs no special case anywhere." },
+      { h: "Bonus: same code, one static, different file names" },
+      { code: String.raw`static char *stash;                     /* mandatory */
+static char *stash[FD_MAX];             /* bonus — still ONE static */`, cap: "Exactly one line changes: every stash becomes stash[fd] and the guard gains fd >= FD_MAX", lang: "c" },
+      { note: "The subject requires the bonus in its own files (`get_next_line_bonus.c` / `_utils_bonus.c` / `_bonus.h`) and the mandatory files must not include the bonus header. If you script that generation, fix the 42 banner on line 4 to be exactly 80 columns — a blind replace makes it longer and norminette rejects every file with LINE_TOO_LONG." },
     ],
 
     tricks: [
@@ -8913,6 +9060,10 @@ wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_nex
       { p: "`printf 'a\\nb\\n' | ./gnl` — testing straight from a terminal looks like a hang when `read` is simply waiting for input, as it should." },
       { h: "Trick 8: get_next_line gets reused everywhere" },
       { p: "fdf reads `.fdf`, so_long reads `.ber`, cub3D reads `.cub`, minishell reads heredocs. A correct, leak-free version now saves debugging in four later projects." },
+      { h: "Trick 9: use getline(3) as the oracle, not just diff" },
+      { p: "`./gnl file | diff - file` proves the bytes round-trip but not **where the line boundaries fell**. Comparing against `getline(3)` line by line catches a line split one character early, which is the failure mode of an off-by-one in `update_stash`." },
+      { h: "Trick 10: no fixture with a \\0 in the middle" },
+      { p: "The subject leaves that undefined and a `char *` return cannot represent it — the test will 'fail' on correct code. Related: if the fixtures live in `/tmp`, recreate them in the same command that runs the tests. If WSL restarts in between, `/tmp` is emptied and every `open` returns -1, which reads as a gnl bug — and an interleaving loop that only decrements its counter on a real EOF will spin forever instead of reporting it." },
     ],
 
     eval: [

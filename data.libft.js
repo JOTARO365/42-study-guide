@@ -451,6 +451,15 @@ FILES_B := $(addsuffix .c, $(addprefix ft_, $(addsuffix _bonus, $(SRC_B))))`, ca
       { h: "libft ในโปรเจกต์อื่น — สำเนาแยกโดยตั้งใจ" },
       { p: "ในเวิร์กสเปซนี้มี `libft/` อยู่ **8 ชุด** (push_swap, pipex, minitalk, fdf, so_long, cub3d, miniRT, minishell) — เป็นเรื่องปกติและจำเป็น เพราะแต่ละโปรเจกต์ต้องคอมไพล์ได้ด้วยตัวเองจากโฟลเดอร์ของมันเอง" },
       { note: "**ผลข้างเคียงที่ต้องระวัง:** แก้บั๊กในสำเนาหนึ่งแล้วอีก 7 ชุดไม่ได้แก้ตาม. เวลาแก้ฟังก์ชันที่ใช้ร่วมกัน ให้ก๊อปไฟล์นั้นไปทับทุกโปรเจกต์ที่ใช้ หรือจดไว้ว่าชุดไหนเป็นตัวหลัก" },
+      { h: "libft ที่ส่ง ไม่ใช่ libft ที่ใช้งานจริง" },
+      { p: "โปรเจกต์หลัง ๆ จะทำให้สำเนา `libft/` ของมันโตขึ้น: `push_swap/libft/` ใน workspace นี้มี `ft_printf.c` `ft_printf_utils.c` `get_next_line.c` `get_next_line_utils.c` อยู่ด้วย และประกาศ prototype ทั้งสองไว้ท้าย `libft.h`. นั่นคือความสะดวกตอน link ของโปรเจกต์ปลายทาง — **ไม่ใช่สิ่งที่ libft ส่ง**" },
+      { p: "`Libft/` ที่ส่งคือ 34 ไฟล์ mandatory + 9 ไฟล์ `*_bonus.c`, `libft.h` ที่ประกาศเฉพาะพวกนั้น และไม่มีอะไรอีก. แยกกลับออกมาเป็นงานเชิงกล: ก๊อป 43 ไฟล์ เขียน header ใหม่ เขียน Makefile ที่ rule `bonus` เติม object ของลิสต์เข้า archive เดิม" },
+      { code: String.raw`$(NAME): $(OBJS)
+	$(AR) $@ $(OBJS)
+
+bonus: $(OBJS) $(OBJS_B)
+	$(AR) $(NAME) $(OBJS) $(OBJS_B)`, cap: "ar r คือ insert-or-replace การ archive object เดิมซ้ำจึงไม่เป็นไร — ต่างจาก ft_printf ที่ไม่มี symbol ไหนถูกนิยามซ้ำ", lang: "makefile" },
+      { note: "เก็บ header ให้เหลือแค่ `<stddef.h>` `<stdlib.h>` `<unistd.h>` — libft ที่ลาก `<stdio.h>` เข้ามาคอมไพล์ผ่านสบาย ๆ แต่บอกผู้ตรวจว่าเราไม่เคยดูว่า include อะไรไปบ้าง" },
     ],
 
     dataflow: [

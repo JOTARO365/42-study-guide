@@ -1871,6 +1871,18 @@
     eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
   };
 
+  /* ชื่อแท็บสำหรับหมวดเครื่องมือ — ใช้เมื่อ id ขึ้นต้นด้วย tool_ */
+  var TOOL_TAB_LABELS = {
+    principle:      { th: "ภาพรวม", en: "Overview" },
+    theory:         { th: "โมเดลข้อมูล", en: "The Data Model" },
+    foundations:    { th: "ตัวตน & กุญแจ", en: "Identity & Keys" },
+    architecture:   { th: "โครงสร้างทีม & repo", en: "Team & Repo Structure" },
+    dataflow:       { th: "workflow ประจำวัน & PR", en: "Daily Workflow & PRs" },
+    implementation: { th: "คำสั่งตามสถานการณ์", en: "Recipes by Situation" },
+    tricks:         { th: "ทริค & Best Practice", en: "Tips & Best Practices" },
+    eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
+  };
+
   /* ชื่อแท็บสำหรับสื่อติวสอบ Exam Rank — ใช้เมื่อ id ขึ้นต้นด้วย exam_ */
   var EXAM_TAB_LABELS = {
     principle:      { th: "ภาพรวม & กติกา", en: "Overview & Rules" },
@@ -1889,7 +1901,8 @@
   /* ---- ชื่อแท็บของโปรเจกต์หนึ่ง (สาย exam/AI ใช้ชื่อของตัวเอง) ---- */
   function tabLabel(pid, key) {
     var map = pid.indexOf("exam_") === 0 ? EXAM_TAB_LABELS
-      : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS : null;
+      : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS
+      : pid.indexOf("tool_") === 0 ? TOOL_TAB_LABELS : null;
     if (map && map[key]) return t(map[key]);
     for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === key) return t(TABS[i][1]);
     return key;
@@ -2129,7 +2142,7 @@
   /* ---- หน้าแรก: แยกหมวดเพราะหน้ารวมยาวขึ้นเรื่อย ๆ ---- */
   var HOME_GROUPS = [
     {
-      key: "core", match: function (id) { return !/^(cpp_module_|ai_|ml_|exam_)/.test(id); },
+      key: "core", match: function (id) { return !/^(cpp_module_|ai_|ml_|exam_|tool_)/.test(id); },
       title: { th: "42 Common Core", en: "42 Common Core" },
       sub: { th: "ไล่ตั้งแต่ libft ถึง Inception — C, เครือข่าย และ system admin", en: "From libft through Inception — C, networking and system administration" }
     },
@@ -2148,6 +2161,11 @@
       title: { th: "Machine Learning & Deep Learning", en: "Machine Learning & Deep Learning" },
       sub: { th: "ตั้งแต่คณิตศาสตร์พื้นฐานถึงสถาปัตยกรรมสมัยใหม่ — ทุกสมการมีที่มา",
              en: "From the underlying mathematics to modern architectures — every equation derived, not quoted" }
+    },
+    {
+      key: "tool", match: function (id) { return id.indexOf("tool_") === 0; },
+      title: { th: "เครื่องมือที่ใช้ทุกวัน", en: "Everyday Tooling" },
+      sub: { th: "สิ่งที่ทุกโปรเจกต์ต้องใช้แต่ไม่มีโจทย์ไหนสอน", en: "What every project needs and no subject teaches" }
     },
     {
       key: "exam", match: function (id) { return id.indexOf("exam_") === 0; },
@@ -2197,6 +2215,7 @@
 
   /* ---- title ของแท็บ: <title> ใน .html เป็นไทยตายตัว ต้องเซ็ตซ้ำเมื่อสลับภาษา ---- */
   var SITE_NAMES = {
+    tool_: { th: "สื่อการสอน 42", en: "42 Study Guide" },
     ai_:   { th: "สื่อการสอน AI Engineer", en: "AI Engineer Study Guide" },
     ml_:   { th: "สื่อการสอน ML & Deep Learning", en: "ML & Deep Learning Study Guide" },
     exam_: { th: "สื่อติวสอบ 42", en: "42 Exam Prep" }

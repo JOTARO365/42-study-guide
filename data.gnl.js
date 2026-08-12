@@ -38,6 +38,8 @@ read ครั้งที่ 2  ได้ "\nWorl"       ← เจอ \n แ�
         "**bonus:** ใช้ตัวแปร static ได้ตัวเดียว และต้องรองรับหลาย fd พร้อมกัน",
       ]},
       { note: "ในเวิร์กสเปซนี้โค้ด get_next_line ถูกวางไว้ในโฟลเดอร์ `libft/` เดียวกันและใช้ `ft_strlen` / `ft_strchr` / `ft_strjoin` / `ft_strlcpy` ของ libft ตรง ๆ — **แต่ตอนส่งเป็นคนละโปรเจกต์** และต้องเขียนฟังก์ชันช่วยเหล่านั้นไว้ใน `get_next_line_utils.c` ของตัวเอง" },
+      { h: "libft ไม่อยู่ในรายการฟังก์ชันที่อนุญาต" },
+      { p: "ต่างจาก ft_printf — get_next_line ส่งแบบ **self-contained**: `ft_strlen` `ft_strchr` `ft_strjoin` ต้องเขียนใหม่ (ตั้งชื่อ `gnl_*`) ไว้ใน `get_next_line_utils.c`. การหยิบของจาก libft มาใช้คือวิธีที่โปรเจกต์นี้ตกเช็กบ่อยที่สุดทั้งที่โค้ดเองถูกต้อง" },
     ],
 
     theory: [
@@ -543,6 +545,23 @@ norminette get_next_line*.c get_next_line*.h
 # บน Windows ผ่าน WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_next_line*.c get_next_line*.h'`, lang: "bash" },
       { note: "**`./gnl file | diff - file`** เป็นเทสที่ครอบคลุมที่สุดในบรรทัดเดียว — ถ้าต่อทุกบรรทัดที่คืนมาแล้วได้ไฟล์เดิมเป๊ะ แปลว่าไม่มีตัวอักษรหาย ไม่มีตัวซ้ำ และ `\\n` อยู่ครบตำแหน่ง" },
+      { h: "ทำให้ join *กลืน* argument ตัวแรก" },
+      { p: "การตัดสินใจข้อเดียวนี้ลบพื้นที่ leak ออกไปเกือบหมด: เขียน `gnl_strjoin` ให้ free `s1` **ทั้งสองทาง** — ทั้งตอนสำเร็จและตอนจองไม่ได้ — แล้วคืนสตริงที่ต่อแล้วหรือ NULL" },
+      { code: String.raw`char *gnl_strjoin(char *s1, const char *s2)   /* s1 ถูกกลืนเสมอ */
+{
+    size_t len1 = gnl_strlen(s1);             /* gnl_strlen(NULL) == 0 */
+    char *out = malloc(len1 + gnl_strlen(s2) + 1);
+    if (!out)
+        return (free(s1), NULL);
+    ...
+    free(s1);
+    return (out);
+}`, cap: "ไม่มี caller ไหนต้องจำว่า stash เก่ายังใช้ได้อยู่ไหม — ทางพังในลูป read จึงเหลือบรรทัดเดียวและอยู่ใน 25 บรรทัดได้โดยไม่ต้องเพิ่มบล็อก", lang: "c" },
+      { p: "สองอย่างที่ต้องทำคู่กัน: ให้ `gnl_strlen(NULL)` คืน 0 และ `gnl_strchr(NULL, c)` คืน NULL — การเรียกครั้งแรกสุด (stash ยังเป็น NULL) จะได้ไม่ต้องมีเคสพิเศษที่ไหนเลย" },
+      { h: "bonus: โค้ดเดิม static ตัวเดียว แต่คนละชื่อไฟล์" },
+      { code: String.raw`static char *stash;                     /* mandatory */
+static char *stash[FD_MAX];             /* bonus — ยังนับเป็น static ตัวเดียว */`, cap: "เปลี่ยนแค่บรรทัดเดียว: ทุก stash กลายเป็น stash[fd] และ guard เพิ่ม fd >= FD_MAX", lang: "c" },
+      { note: "subject บังคับให้ bonus อยู่ในไฟล์ของตัวเอง (`get_next_line_bonus.c` / `_utils_bonus.c` / `_bonus.h`) และไฟล์ mandatory ต้องไม่ include header ของ bonus. ถ้าเขียนสคริปต์ generate ไฟล์ bonus จาก mandatory — อย่าลืมจัด banner 42 บรรทัดที่ 4 ให้ยาว 80 คอลัมน์พอดี ไม่งั้น norminette จะตีกลับทุกไฟล์ด้วย LINE_TOO_LONG" },
     ],
 
     tricks: [
@@ -562,6 +581,10 @@ wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_nex
       { p: "`printf 'a\\nb\\n' | ./gnl` — เทสจาก terminal โดยตรงจะดูเหมือนโปรแกรมค้าง ทั้งที่ `read` แค่รออินพุตตามปกติ" },
       { h: "ทริค 8: get_next_line จะถูกใช้ต่อในหลายโปรเจกต์" },
       { p: "fdf อ่าน `.fdf` · so_long อ่าน `.ber` · cub3D อ่าน `.cub` · minishell อ่าน heredoc — ทำให้ถูกและสะอาดตั้งแต่ตอนนี้แล้วใช้ยาว" },
+      { h: "ทริค 9: ใช้ getline(3) เป็นตัวเทียบ ไม่ใช่แค่ diff" },
+      { p: "`./gnl file | diff - file` พิสูจน์ว่า byte ครบ แต่ไม่ได้พิสูจน์ว่า **เส้นแบ่งบรรทัดตกตรงไหน**. การเทียบกับ `getline(3)` ทีละบรรทัดจับกรณีที่บรรทัดถูกตัดเร็วไป 1 ตัวอักษรได้ ซึ่งคืออาการของ off-by-one ใน `update_stash`" },
+      { h: "ทริค 10: อย่าใส่ fixture ที่มี \\0 อยู่กลางไฟล์" },
+      { p: "subject ปล่อยให้เป็น undefined และ `char *` ที่คืนแทนมันไม่ได้ — เทสจะ 'พัง' บนโค้ดที่ถูกต้อง. อีกเรื่อง: ถ้า fixture อยู่ใน `/tmp` ให้สร้างใหม่ในคำสั่งเดียวกับที่รันเทส เพราะถ้า WSL รีสตาร์ทระหว่างนั้น `/tmp` จะว่างและทุก `open` คืน -1 ซึ่งอ่านเหมือนบั๊กของ gnl — และลูปสลับ fd ที่ลดตัวนับเฉพาะตอน EOF จริงจะวนไม่รู้จบแทนที่จะรายงาน" },
     ],
 
     eval: [
