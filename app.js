@@ -2079,6 +2079,7 @@
     var isAI = proj.id.indexOf("ai_") === 0;
     var isML = proj.id.indexOf("ml_") === 0;
     var isExam = proj.id.indexOf("exam_") === 0;
+    var isTool = proj.id.indexOf("tool_") === 0;
     /* แท็บ demo / flowviz โผล่เฉพาะโปรเจกต์ที่มีของจริงลงทะเบียนไว้
        — ไม่ต้องไล่ระบุ id ทีละตัวเวลามีหน้าใหม่ */
     var tabs = TABS.filter(function (tb) {
@@ -2125,6 +2126,7 @@
         tabs.map(function (tb) {
             var k = tb[0];
             var label = (isExam && EXAM_TAB_LABELS[k]) ? EXAM_TAB_LABELS[k]
+              : (isTool && TOOL_TAB_LABELS[k]) ? TOOL_TAB_LABELS[k]
               : ((isAI || isML) && AI_TAB_LABELS[k]) ? AI_TAB_LABELS[k] : tb[1];
             return h("button", {
               key: k,

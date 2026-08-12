@@ -16,10 +16,41 @@ window.TEACHING_DATA.push({
 
     /* ============================ PRINCIPLE ============================ */
     principle: [
-      { p: "เกริ่นก่อน: คนส่วนใหญ่เรียน git เป็น **รายการคำสั่งที่ต้องท่อง** แล้วก็พังทุกครั้งที่เจอสถานการณ์นอกลิสต์. หน้านี้ไปอีกทาง — เริ่มจากโครงสร้างข้อมูลจริงของ git แล้วคำสั่งเกือบทั้งหมดจะกลายเป็นสิ่งที่ **เดาได้** ไม่ใช่สิ่งที่ต้องจำ" },
-      { h: "git คืออะไรจริง ๆ (ประโยคเดียว)" },
-      { p: "git คือ **ที่เก็บ object ที่อ้างอิงด้วยเนื้อหา (content-addressed object store) บวกกับข้อตกลงเรื่อง pointer ที่วางทับไว้ข้างบน**. แค่นี้ — ที่เหลือคือรายละเอียด" },
-      { p: "เก็บ object โดยใช้ hash ของเนื้อหาตัวเองเป็นชื่อ, แล้วมี 'ตัวชี้' (branch, tag, HEAD) เป็นแค่ไฟล์ที่บรรจุ hash. `git branch feat` = เขียนไฟล์ขนาด 41 ไบต์ — **นี่คือเหตุผลเดียวที่ทำให้การแตก branch ใน git ถูกจนเปลี่ยนวิธีทำงานของทั้งวงการ** ในขณะที่ SVN แพงพอที่จะทำให้คนไม่กล้าแตก" },
+      { p: "หน้านี้พาไต่จาก **ยังไม่เคยพิมพ์ git สักครั้ง** ไปจนถึง **ทำงานเป็นทีมในองค์กรที่มี branch protection และ merge queue**. อ่านเรียงลงมาได้เลย แต่ถ้าอยากข้าม ให้ดูตาราง 'บันไดการเรียนรู้' ข้างล่างว่าตอนนี้อยู่ขั้นไหนแล้วเริ่มตรงนั้น" },
+      { h: "ก่อนอื่น: git แก้ปัญหาอะไร" },
+      { code: String.raw`ก่อนมี git                        มี git แล้ว
+------------------------------    ------------------------------
+report.doc                        ประวัติทุกจุดอยู่ในโฟลเดอร์เดียว
+report_v2.doc                     ย้อนกลับไปวันไหนก็ได้
+report_v2_final.doc               รู้ว่าใครแก้บรรทัดไหน ตอนไหน ทำไม
+report_v2_final_ใช้อันนี้.doc      สองคนแก้คนละส่วนพร้อมกันได้
+report_final_แก้แล้ว(2).doc        แล้วรวมกันได้โดยไม่ทับกัน`, cap: "git คือปุ่ม save ที่ย้อนได้ทุกจุด + ระบบรวมงานหลายคนที่ไม่ทับกัน", lang: "text" },
+      { p: "สองความสามารถนี้แยกกันไม่ออก: การที่ git **จำทุกสถานะได้** คือสิ่งที่ทำให้มันกล้าปล่อยให้สองคนแก้ไฟล์เดียวกัน แล้วค่อยมาเทียบทีหลังว่าใครเปลี่ยนอะไรจากจุดร่วมจุดไหน" },
+      { h: "เทคนิคเบื้องหลังคืออะไร (ประโยคเดียว)" },
+      { p: "git คือ **ที่เก็บ object ที่อ้างอิงด้วยเนื้อหา (content-addressed object store) บวกกับข้อตกลงเรื่อง pointer ที่วางทับไว้ข้างบน**. ยังไม่ต้องเข้าใจตอนนี้ก็ได้ — แต่พออ่านแท็บ 'โมเดลข้อมูล' จบแล้วกลับมาอ่านประโยคนี้ คำสั่งเกือบทั้งหมดจะกลายเป็นสิ่งที่ **เดาได้** ไม่ใช่สิ่งที่ต้องท่อง" },
+      { p: "ตัวอย่างที่เห็นผลทันที: 'ตัวชี้' (branch, tag, HEAD) เป็นแค่ไฟล์ที่บรรจุ hash. `git branch feat` = เขียนไฟล์ขนาด 41 ไบต์ ไม่ได้ก๊อปโค้ดเลยสักบรรทัด — **นี่คือเหตุผลเดียวที่ทำให้การแตก branch ถูกจนเปลี่ยนวิธีทำงานของทั้งวงการ** ในขณะที่ SVN แพงพอที่จะทำให้คนไม่กล้าแตก" },
+      { h: "บันไดการเรียนรู้ — ตอนนี้อยู่ขั้นไหน" },
+      { table: { head: ["ขั้น", "ทำอะไรได้", "ต้องรู้แค่", "อ่านแท็บ"], rows: [
+        ["**0 · คนเดียว เครื่องเดียว**", "save ประวัติงานตัวเอง ย้อนกลับได้", "`init` `status` `add` `commit` `log`", "ตัวตน & กุญแจ ข้อ 0"],
+        ["**1 · มี remote**", "push ขึ้น GitHub / vogsphere, clone ลงเครื่องใหม่", "SSH key, `clone` `push` `pull`", "ตัวตน & กุญแจ ข้อ 0.5-3"],
+        ["**2 · หลาย branch**", "ทำหลายเรื่องพร้อมกันโดยไม่ปนกัน", "`switch` `merge`, conflict คืออะไร", "โมเดลข้อมูล + โครงสร้างทีม"],
+        ["**3 · ทำงานเป็นทีม**", "PR, review, แก้ conflict, เลิกทำอย่างปลอดภัย", "`rebase` `revert` `reflog` `force-with-lease`", "workflow & PR + คำสั่งตามสถานการณ์"],
+        ["**4 · ระดับองค์กร**", "วางนโยบาย branch, CI gate, repo ขนาดใหญ่, audit", "protected branch, merge queue, signing, LFS", "โครงสร้างทีม + workflow & PR"],
+      ]}},
+      { note: "ขั้น 0-1 ใช้เวลาหนึ่งชั่วโมงก็พอ. **ขั้น 2 คือจุดที่คนส่วนใหญ่ติด** เพราะเริ่มต้องมีแบบจำลองในหัวว่า commit เชื่อมกันยังไง — นั่นคือเหตุผลที่แท็บ 'โมเดลข้อมูล' อยู่ก่อนคำสั่งทั้งหมด. ถ้าอ่านแล้วงง ให้ข้ามไปเล่น **Visualizer** ก่อน มันไล่ให้ดูทีละคำสั่งว่าไฟล์ย้ายจากช่องไหนไปช่องไหน" },
+      { h: "10 คำสั่งที่กินเวลา 95%" },
+      { table: { head: ["คำสั่ง", "แปลว่า"], rows: [
+        ["`git status`", "ตอนนี้อะไรเปลี่ยนบ้าง อยู่ขั้นไหน — พิมพ์บ่อยที่สุด ไม่มีผลข้างเคียง"],
+        ["`git add <file>`", "เอาการแก้นี้ใส่ตะกร้าที่จะ commit"],
+        ["`git commit`", "บันทึกตะกร้าเป็นจุด save ถาวร"],
+        ["`git log --oneline`", "ดูประวัติย่อ"],
+        ["`git diff`", "ยังไม่ได้ add มีอะไรเปลี่ยน"],
+        ["`git switch <branch>`", "ย้ายไป branch อื่น"],
+        ["`git switch -c <ใหม่>`", "สร้าง branch ใหม่แล้วย้ายไปเลย"],
+        ["`git pull`", "ดึงของใหม่จาก remote มารวม"],
+        ["`git push`", "ส่งของเราขึ้น remote"],
+        ["`git restore <file>`", "ทิ้งการแก้ในไฟล์นั้น กลับไปเหมือนตอน commit ล่าสุด"],
+      ]}},
       { h: "สามที่ที่ไฟล์หนึ่งอยู่ได้" },
       { code: String.raw`working tree  --git add-->  index (staging)  --git commit-->  repository
    ไฟล์จริง                 .git/index                    .git/objects
@@ -114,6 +145,48 @@ timeout = 60
 
     /* =========================== FOUNDATIONS =========================== */
     foundations: [
+      { h: "0) ศูนย์ถึง commit แรก — ยังไม่ต้องมีคีย์เลย" },
+      { p: "ขั้นนี้ทำงานได้ **โดยไม่ต้องมีอินเทอร์เน็ต ไม่ต้องมี GitHub ไม่ต้องมีคีย์**. git ทำงานในเครื่องเราล้วน ๆ — remote เป็นของเสริมที่ค่อยเพิ่มทีหลัง" },
+      { code: String.raw`$ git config --global user.name "Wisanu"
+$ git config --global user.email "you@example.com"
+$ git config --global init.defaultBranch main
+
+$ mkdir myproject && cd myproject
+$ git init
+Initialized empty Git repository in /home/me/myproject/.git/
+
+$ echo "hello" > main.c
+$ git status
+Untracked files:
+        main.c                      <- git เห็นไฟล์ แต่ยังไม่ได้ดูแลให้
+
+$ git add main.c
+$ git status
+Changes to be committed:
+        new file:   main.c          <- อยู่ในตะกร้าแล้ว (index)
+
+$ git commit -m "add main.c"
+[main (root-commit) a1b2c3d] add main.c
+
+$ git log --oneline
+a1b2c3d add main.c`, cap: "หกคำสั่งนี้คือขั้น 0 ทั้งขั้น — ทำซ้ำจนคล่องก่อนไปต่อ", lang: "bash" },
+      { p: "สิ่งที่เพิ่งเกิดขึ้น: `git init` สร้างโฟลเดอร์ซ่อน `.git/` ซึ่งเก็บประวัติทั้งหมด (ลบโฟลเดอร์นี้ = ลบประวัติ แต่ไฟล์งานยังอยู่). `git add` ย้ายการแก้เข้า **ตะกร้า** ส่วน `git commit` ผูกตะกร้านั้นเป็นจุด save ถาวรที่ย้อนกลับมาได้เสมอ" },
+      { note: "**ทำไมต้องมีตะกร้า ทำไมไม่ commit ตรง ๆ?** เพราะบ่อยครั้งเราแก้ไปสามเรื่องพร้อมกันแล้วอยากแยกเป็นสาม commit. ตะกร้าให้เราเลือกได้ว่ารอบนี้จะเอาอะไรเข้าไป — และ `git add -p` ให้เลือกได้ละเอียดถึงระดับ hunk. ถ้ายังไม่ต้องการความละเอียดนั้น `git commit -am \"...\"` ข้ามตะกร้าไปได้เลย" },
+      { h: "0.5) จาก commit แรกถึง push แรก" },
+      { code: String.raw`# แบบที่ 1: มีของในเครื่องแล้ว อยากส่งขึ้น remote
+$ git remote add origin git@github.com:me/myproject.git
+$ git push -u origin main        # -u จำไว้ว่า branch นี้คู่กับ origin/main
+
+# แบบที่ 2: ของอยู่บน remote แล้ว อยากดึงลงเครื่อง
+$ git clone git@github.com:me/myproject.git
+# clone ทำ init + remote add + fetch + switch ให้ในคำสั่งเดียว
+
+# หลังจากนั้นวงจรก็แค่
+$ git pull        # เอาของใหม่ลงมา
+... แก้งาน ...
+$ git add -p && git commit
+$ git push`, cap: "clone กับ init+remote add ให้ผลเหมือนกัน ต่างแค่ของตั้งต้นอยู่ฝั่งไหน", lang: "bash" },
+      { note: "`git@github.com:...` คือรูปแบบ **SSH** ซึ่งต้องมีคีย์ (ข้อ 1 ข้างล่าง) ส่วน `https://github.com/...` ใช้ token แทน. SSH ตั้งครั้งเดียวจบ ไม่ต้องกรอกอะไรอีก — เพราะงั้นถึงคุ้มที่จะตั้งตั้งแต่วันแรก" },
       { h: "1) สร้าง SSH key ครั้งแรก" },
       { code: String.raw`ssh-keygen -t ed25519 -C "you@example.com"   # ได้ ~/.ssh/id_ed25519 และ .pub
 ssh-add ~/.ssh/id_ed25519                     # โหลดเข้า agent
@@ -177,7 +250,7 @@ a.out
 push_swap
 checker
 .DS_Store`, cap: "ไฟล์แรกที่ควรมีใน repo 42 — binary ที่ commit ไปคือสิ่งที่กรรมการเห็นก่อนโค้ด", lang: "text" },
-      { note: "**`.gitignore` มีผลกับไฟล์ที่ยังไม่ถูก track เท่านั้น**. ถ้าไฟล์ถูก track ไปแล้ว การเพิ่มเข้า .gitignore ไม่ทำอะไรเลย ต้อง `git rm --cached <file>` ก่อน. ส่วน ignore เฉพาะเครื่องตัวเองที่ไม่อยากแชร์ ให้ใส่ `.git/info/exclude`" },
+      { note: "`.gitignore` **มีผลกับไฟล์ที่ยังไม่ถูก track เท่านั้น**. ถ้าไฟล์ถูก track ไปแล้ว การเพิ่มเข้า .gitignore ไม่ทำอะไรเลย ต้อง `git rm --cached <file>` ก่อน. ส่วน ignore เฉพาะเครื่องตัวเองที่ไม่อยากแชร์ ให้ใส่ `.git/info/exclude`" },
       { h: "7) .gitattributes — ตัวแก้ปัญหา line ending ที่ยั่งยืน" },
       { code: String.raw`* text=auto
 *.sh text eol=lf
@@ -217,7 +290,7 @@ git push origin v1.4.0                 # tag ไม่ไปกับ git push �
       ]}},
       { h: "submodule หรือ subtree" },
       { p: "**submodule** บันทึกว่า repo อื่นถูก pin ไว้ที่ commit ไหน — มันยังเป็นคนละ repo และทุกคนต้องจำ `git submodule update --init --recursive` (หรือ clone ด้วย `--recurse-submodules`). **subtree** ก๊อปโค้ดเข้ามาเลย — ผู้ใช้ปลายทางไม่ต้องรู้อะไรเพิ่ม แต่การอัปเดตยุ่งกว่า" },
-      { note: "submodule เป็นแหล่งกำเนิดของ 'บนเครื่องฉันมันรันได้' ที่พบบ่อย เพราะ submodule ที่ยังไม่ได้ update จะอยู่ในสถานะ detached และ **มองไม่เห็นใน `git status`** ถ้าไม่ตั้งใจดู" },
+      { note: "submodule เป็นแหล่งกำเนิดของ 'บนเครื่องฉันมันรันได้' ที่พบบ่อย เพราะ submodule ที่ยังไม่ได้ update จะอยู่ในสถานะ detached และ **มองไม่เห็นใน git status** ถ้าไม่ตั้งใจดู" },
       { h: "โครงสร้างที่ทำให้ repo อยู่ได้นาน" },
       { ul: [
         "**ห้าม commit build artifact หรือ dependency** — เป็นสาเหตุหลักของ repo ที่ clone ไม่ไหว และ git บีบอัด binary แทบไม่ได้",
@@ -277,17 +350,71 @@ git config --global fetch.prune true`, cap: "ตั้งครั้งเด�
 Refs: PROJ-1234`, cap: "หัวเรื่อง <= 50 ตัวอักษร, ประโยคคำสั่ง (add ไม่ใช่ added), ไม่ต้องมีจุดท้าย", lang: "text" },
       { p: "ที่ต้องเป็นประโยคคำสั่งเพราะข้อความนี้ไปเติมประโยค 'การใช้ commit นี้จะ…' ซึ่งเป็นสิ่งที่ `merge`, `revert` และ `cherry-pick` สร้างให้อัตโนมัติ. หัวเรื่องคือส่วนที่ทุกคนจะอ่านใน `git log --oneline` ไปตลอดกาล — ใช้เวลากับมัน" },
       { note: "**Conventional Commits** (`feat:` `fix:` `docs:` `refactor:` `test:` `chore:` + `!` หรือ footer `BREAKING CHANGE:`) มีประโยชน์เมื่อมีเครื่องมือกินมันจริง — changelog อัตโนมัติและการขยับ semver ด้วย semantic-release. รับมาโดยไม่มีเครื่องมือ = พิธีกรรม. รับมาพร้อมเครื่องมือ = ตัดการเถียงเรื่อง release ออกไปทั้งชั้น" },
+      { h: "เรื่องเล่า: สองคน หนึ่ง repo หนึ่ง conflict" },
+      { p: "ทุกอย่างในแท็บนี้มาบรรจบกันในสถานการณ์เดียวนี้ — อ่านไล่บรรทัดแล้วจะเห็นว่าทำไมแต่ละกฎถึงมีอยู่" },
+      { code: String.raw`วันจันทร์ 09:00  A และ B ต่าง clone repo เดียวกัน ทั้งคู่อยู่ที่ commit E
+
+A: git switch -c feat/login        B: git switch -c feat/logout
+   แก้ auth.c บรรทัด 40               แก้ auth.c บรรทัด 42
+   git add -p; git commit            git add -p; git commit
+
+วันจันทร์ 11:00  B เสร็จก่อน
+B: git push -u origin feat/logout
+   เปิด PR -> reviewer อนุมัติ -> squash merge เข้า main
+   main ตอนนี้ = E + logout
+
+วันจันทร์ 14:00  A เสร็จ
+A: git push -u origin feat/login   -> ผ่าน (คนละ branch ไม่ชนกัน)
+   เปิด PR
+   CI ขึ้น: "This branch is out-of-date with the base branch"
+
+A: git switch feat/login
+   git fetch origin
+   git rebase origin/main          <- เอางานตัวเองไปวางบน main ใหม่
+
+   CONFLICT (content): Merge conflict in auth.c
+   <<<<<<< ours (main = ของ B)
+   int logout(void) { ... }
+   =======
+   int login(void) { ... }
+   >>>>>>> theirs (commit ของ A)
+
+   แก้ไฟล์ให้เก็บทั้งสองฟังก์ชัน
+   git add auth.c
+   git rebase --continue
+
+A: git push --force-with-lease     <- ต้อง force เพราะ rebase เปลี่ยน hash
+                                      แต่ with-lease ปฏิเสธถ้ามีคนอื่นแตะ branch นี้
+   CI เขียว -> squash merge -> เสร็จ`, cap: "conflict ไม่ใช่ความผิดพลาด — คือจุดที่ git บอกว่า 'ตรงนี้ฉันเดาแทนไม่ได้'", lang: "text" },
+      { p: "จุดที่ควรสังเกตสามจุด. **(1)** A กับ B ไม่เคยขัดกันเลยจนกระทั่ง A ต้องเอางานไปวางบน main ใหม่ — branch แยกกันจริง ๆ จนถึงตอนรวม. **(2)** ตอน rebase คำว่า *ours* คือ **main** ไม่ใช่ของ A เพราะ rebase กำลังเอา commit ของ A ไปวางทับบน main ทีละตัว ฝั่ง 'ที่มีอยู่แล้ว' จึงเป็น main — สลับกับตอน merge และเป็นจุดที่คนสับสนมากที่สุด. **(3)** `--force-with-lease` ที่ท้ายไม่ใช่การทำอะไรอันตราย มันคือรูปแบบปกติของ 'rebase branch ตัวเองแล้ว push'" },
+      { note: "ถ้า A ทำงานบน branch นี้ค้างไว้สามสัปดาห์แทนที่จะเป็นห้าชั่วโมง conflict จะไม่ใช่หนึ่งจุดแต่เป็นหลายสิบจุด — และนี่คือเหตุผลทั้งหมดที่ trunk-based development ยืนยันเรื่อง branch อายุสั้น. ไม่ใช่เรื่องรสนิยม แต่เป็นเรื่องปริมาณงานที่ต้องมานั่งรวมทีหลัง" },
     ],
 
     /* ========================== IMPLEMENTATION ========================== */
     implementation: [
+      { h: "0) ตารางฉุกเฉิน — \"ทำพังแล้ว ทำไงดี\"" },
+      { p: "อ่านตารางนี้ก่อนตอนตกใจ. เกือบทุกช่องปลอดภัยและย้อนได้ — ยกเว้นช่องที่เขียนกำกับไว้" },
+      { table: { head: ["เกิดอะไรขึ้น", "พิมพ์อะไร", "อันตรายไหม"], rows: [
+        ["แก้ไฟล์มั่วไปหมด อยากได้ของเดิม", "`git restore <file>`", "**ทิ้งการแก้ถาวร** — ของที่ยังไม่ commit กู้ไม่ได้"],
+        ["`git add` ผิดไฟล์", "`git restore --staged <file>`", "ปลอดภัย ไฟล์ไม่ถูกแตะ"],
+        ["ข้อความ commit ล่าสุดผิด", "`git commit --amend`", "ปลอดภัยถ้ายังไม่ push"],
+        ["ลืมใส่ไฟล์ใน commit ล่าสุด", "`git add <file>` แล้ว `git commit --amend --no-edit`", "ปลอดภัยถ้ายังไม่ push"],
+        ["commit ผิด branch", "`git switch <ถูก>` แล้ว `git cherry-pick <sha>` แล้วลบของเก่า", "ปลอดภัย"],
+        ["อยากเลิกทำ commit ที่ push ไปแล้ว", "`git revert <sha>`", "ปลอดภัยที่สุด — สร้าง commit ใหม่ที่ย้อนของเก่า"],
+        ["ติดกลาง merge/rebase แล้วอยากถอย", "`git merge --abort` / `git rebase --abort`", "ปลอดภัย กลับจุดเดิมเป๊ะ"],
+        ["งานค้างอยู่ แต่ต้องรีบไปแก้อย่างอื่น", "`git stash push -m \"wip\"` แล้ว `git stash pop`", "ปลอดภัย"],
+        ["\"commit หายไปแล้ว\"", "`git reflog` แล้ว `git branch กู้มา <sha>`", "ปลอดภัย — แทบไม่มีอะไรหายจริง"],
+        ["push ไม่ได้ ขึ้น non-fast-forward", "`git pull --rebase` แล้ว push ใหม่", "ปลอดภัย — **อย่าใช้ --force**"],
+        ["อยาก push ทับจริง ๆ (branch ตัวเอง)", "`git push --force-with-lease`", "ปฏิเสธเองถ้าจะไปทับงานคนอื่น"],
+      ]}},
+      { note: "สังเกตว่ามีแค่ **สองแถวแรก** ที่ทำงานหายถาวรได้ และทั้งคู่คือของที่ **ยังไม่เคย commit**. นี่คือกฎเดียวกันกับที่บอกไว้ตั้งแต่หน้าแรก: commit บ่อย ๆ แล้วแทบทุกความผิดพลาดจะกู้ได้" },
       { h: "1) ตารางเลิกทำ — เลือกให้ถูกตัว" },
       { table: { head: ["สถานการณ์", "คำสั่ง", "เขียนประวัติใหม่ไหม"], rows: [
         ["แก้ commit ล่าสุด (ข้อความหรือเนื้อหา)", "`git commit --amend`", "ใช่"],
         ["ยุบ 3 commit ล่าสุดเป็นอันเดียว", "`git reset --soft HEAD~3` แล้ว commit ใหม่", "ใช่"],
         ["จัดเรียง/ยุบ/ลบ commit หลายตัว", "`git rebase -i HEAD~5`", "ใช่"],
         ["ก๊อป commit เดียวมาที่ branch นี้", "`git cherry-pick <sha>`", "ไม่ (สร้างใหม่)"],
-        ["เลิกทำ commit ที่ push ไปแล้ว", "**`git revert <sha>`**", "**ไม่ — ทางเดียวที่ปลอดภัย**"],
+        ["เลิกทำ commit ที่ push ไปแล้ว", "`git revert <sha>`", "**ไม่ — ทางเดียวที่ปลอดภัย**"],
         ["ทิ้งการแก้ในไฟล์ที่ยังไม่ stage", "`git restore <path>`", "ไม่"],
         ["เอาไฟล์ออกจาก staging", "`git restore --staged <path>`", "ไม่"],
         ["เก็บงานค้างไว้ก่อนชั่วคราว", "`git stash push -m \"wip\"`", "ไม่"],
@@ -350,7 +477,7 @@ git blame -w -C -L 40,60 file   # -w เมิน whitespace, -C ตามโค
       { h: "9) repo ใหญ่ — เครื่องมือตามอาการ" },
       { table: { head: ["อาการ", "เครื่องมือ", "ข้อควรระวัง"], rows: [
         ["clone ใหญ่เพราะประวัติยาว", "`git clone --filter=blob:none`", "ดึง blob ตอนที่ต้องใช้ ต้องต่อเน็ตได้"],
-        ["CI ต้องการแค่ยอด", "`git clone --depth 1`", "**พัง `merge-base`, blame และ diff ของ PR**"],
+        ["CI ต้องการแค่ยอด", "`git clone --depth 1`", "**พัง merge-base, blame และ diff ของ PR**"],
         ["ทำงานแค่บางโฟลเดอร์", "`git sparse-checkout set apps/web`", "-"],
         ["ไฟล์ binary ใหญ่", "**git LFS**", "ต้องตั้งค่าฝั่ง server ด้วย"],
         ["ต้องเปิดหลาย branch พร้อมกัน", "`git worktree add ../hotfix main`", "clone เดียว หลาย checkout"],
@@ -413,10 +540,41 @@ Object.assign(window.TEACHING_EN, {
   tool_git: {
 
     principle: [
-      { p: "Heads up: most people learn git as a **list of commands to memorise**, then break every time they hit a situation the list does not cover. This page goes the other way — start from the data structure git actually uses, and almost every command becomes something you can **derive** rather than recall." },
-      { h: "What git actually is, in one sentence" },
-      { p: "Git is a **content-addressed object store with a pointer convention layered on top**. That is the whole thing — everything else is detail." },
-      { p: "Objects are stored under the hash of their own content, and the 'pointers' (branches, tags, HEAD) are just files containing a hash. `git branch feat` writes a 41-byte file — **that alone is why branching in git is cheap enough to have changed how the industry works**, where SVN's was expensive enough to discourage it." },
+      { p: "This page climbs from **never having typed git once** to **working on a team with branch protection and a merge queue**. Read it straight through, or use the learning-ladder table below to find the rung you are on and start there." },
+      { h: "First: what problem does git solve?" },
+      { code: String.raw`before git                        with git
+------------------------------    ------------------------------
+report.doc                        every version lives in one folder
+report_v2.doc                     go back to any day you like
+report_v2_final.doc               see who changed which line, when, and why
+report_v2_final_USE_THIS.doc      two people edit different parts at once
+report_final_fixed(2).doc         and their work merges without clobbering`, cap: "Git is a save button you can rewind to any point, plus a way to combine several people's work without overwriting", lang: "text" },
+      { p: "Those two abilities are the same ability. Because git **remembers every state**, it can afford to let two people edit the same file and work out afterwards who changed what, relative to which shared starting point." },
+      { h: "What is the technique underneath? (one sentence)" },
+      { p: "Git is a **content-addressed object store with a pointer convention layered on top**. You do not have to understand that yet — but come back to this sentence after the 'Data Model' tab and almost every command becomes something you can **derive** rather than memorise." },
+      { p: "One payoff you can see immediately: the 'pointers' (branches, tags, HEAD) are just files containing a hash. `git branch feat` writes a 41-byte file and copies not one line of code — **that alone is why branching is cheap enough to have changed how the industry works**, where SVN's was expensive enough to discourage it." },
+      { h: "The learning ladder — which rung are you on?" },
+      { table: { head: ["Rung", "What you can do", "All you need to know", "Which tab"], rows: [
+        ["**0 · alone, one machine**", "save your own history and rewind it", "`init` `status` `add` `commit` `log`", "Identity & Keys, step 0"],
+        ["**1 · with a remote**", "push to GitHub / vogsphere, clone onto a new machine", "SSH keys, `clone` `push` `pull`", "Identity & Keys, steps 0.5-3"],
+        ["**2 · several branches**", "work on several things at once without mixing them", "`switch` `merge`, and what a conflict is", "Data Model + Team & Repo Structure"],
+        ["**3 · on a team**", "PRs, review, resolving conflicts, undoing safely", "`rebase` `revert` `reflog` `force-with-lease`", "Daily Workflow & PRs + Recipes"],
+        ["**4 · enterprise**", "set branch policy, CI gates, large repos, audit trails", "protected branches, merge queues, signing, LFS", "Team & Repo Structure + Workflow & PRs"],
+      ]}},
+      { note: "Rungs 0-1 take about an hour. **Rung 2 is where most people stall**, because it is the first that needs a mental model of how commits connect — which is why the 'Data Model' tab comes before any of the commands. If it does not land in text, go play with the **Visualizer** first: it steps through a real session showing which box each file moves between." },
+      { h: "The ten commands that cover 95% of the time" },
+      { table: { head: ["Command", "Means"], rows: [
+        ["`git status`", "what has changed and what stage it is at — the one you type most, and it changes nothing"],
+        ["`git add <file>`", "put this change in the basket for the next commit"],
+        ["`git commit`", "save the basket as a permanent point in history"],
+        ["`git log --oneline`", "see the history in brief"],
+        ["`git diff`", "what changed that is not staged yet"],
+        ["`git switch <branch>`", "move to another branch"],
+        ["`git switch -c <new>`", "create a branch and move onto it"],
+        ["`git pull`", "fetch what is new on the remote and merge it in"],
+        ["`git push`", "send your work to the remote"],
+        ["`git restore <file>`", "throw away your edits to that file, back to the last commit"],
+      ]}},
       { h: "The three places a file can live" },
       { code: String.raw`working tree  --git add-->  index (staging)  --git commit-->  repository
   the real files            .git/index                    .git/objects
@@ -509,6 +667,48 @@ timeout = 60
     ],
 
     foundations: [
+      { h: "0) Zero to your first commit — no keys needed yet" },
+      { p: "This step works **with no internet, no GitHub and no keys at all**. Git runs entirely on your machine; a remote is an optional extra you add later." },
+      { code: String.raw`$ git config --global user.name "Wisanu"
+$ git config --global user.email "you@example.com"
+$ git config --global init.defaultBranch main
+
+$ mkdir myproject && cd myproject
+$ git init
+Initialized empty Git repository in /home/me/myproject/.git/
+
+$ echo "hello" > main.c
+$ git status
+Untracked files:
+        main.c                      <- git can see it but is not looking after it
+
+$ git add main.c
+$ git status
+Changes to be committed:
+        new file:   main.c          <- now it is in the basket (the index)
+
+$ git commit -m "add main.c"
+[main (root-commit) a1b2c3d] add main.c
+
+$ git log --oneline
+a1b2c3d add main.c`, cap: "These six commands are the whole of rung 0 — repeat them until they are automatic before moving on", lang: "bash" },
+      { p: "What just happened: `git init` created a hidden `.git/` folder holding all the history (delete it and the history goes, though your files stay). `git add` moved the change into the **basket**, and `git commit` sealed that basket as a permanent point you can always come back to." },
+      { note: "**Why a basket at all — why not commit directly?** Because you often change three things at once and want three separate commits. The basket lets you choose what goes in this round, and `git add -p` lets you choose down to individual hunks. When you do not need that precision, `git commit -am \"...\"` skips the basket entirely." },
+      { h: "0.5) From your first commit to your first push" },
+      { code: String.raw`# Case 1: you already have work locally and want to send it up
+$ git remote add origin git@github.com:me/myproject.git
+$ git push -u origin main        # -u remembers this branch pairs with origin/main
+
+# Case 2: the work is already on a remote and you want it locally
+$ git clone git@github.com:me/myproject.git
+# clone does init + remote add + fetch + switch in one command
+
+# after that the loop is just
+$ git pull        # bring down what is new
+... do the work ...
+$ git add -p && git commit
+$ git push`, cap: "clone and init+remote add end in the same place; they differ only in which side already has the work", lang: "bash" },
+      { note: "`git@github.com:...` is the **SSH** form and needs a key (step 1 below); `https://github.com/...` uses a token instead. SSH is set up once and then never asks you for anything again — which is why it is worth doing on day one." },
       { h: "1) Your first SSH key" },
       { code: String.raw`ssh-keygen -t ed25519 -C "you@example.com"   # writes ~/.ssh/id_ed25519 and .pub
 ssh-add ~/.ssh/id_ed25519                     # load it into the agent
@@ -572,7 +772,7 @@ a.out
 push_swap
 checker
 .DS_Store`, cap: "The first file a 42 repo should have — a committed binary is the first thing an evaluator sees, before your code", lang: "text" },
-      { note: "**`.gitignore` only affects files that are not yet tracked.** Once a file is tracked, adding it to .gitignore does nothing — you must `git rm --cached <file>` first. Machine-local ignores you do not want to share go in `.git/info/exclude`." },
+      { note: "`.gitignore` **only affects files that are not yet tracked.** Once a file is tracked, adding it to .gitignore does nothing — you must `git rm --cached <file>` first. Machine-local ignores you do not want to share go in `.git/info/exclude`." },
       { h: "7) .gitattributes — the durable fix for line endings" },
       { code: String.raw`* text=auto
 *.sh text eol=lf
@@ -611,7 +811,7 @@ git push origin v1.4.0                 # tags do NOT go with a plain git push`, 
       ]}},
       { h: "Submodule or subtree" },
       { p: "A **submodule** records another repo pinned at one commit — it stays a separate repo, and everyone must remember `git submodule update --init --recursive` (or clone with `--recurse-submodules`). A **subtree** copies the code in: consumers need no extra commands, but updating is messier." },
-      { note: "Submodules are a frequent source of 'it works on my machine', because a submodule that has not been updated sits detached and is **invisible in `git status`** unless you go looking." },
+      { note: "Submodules are a frequent source of 'it works on my machine', because a submodule that has not been updated sits detached and is **invisible in git status** unless you go looking." },
       { h: "The structure that keeps a repository alive" },
       { ul: [
         "**Never commit build artifacts or dependencies** — the main cause of repositories that become unclonably slow, and git can barely delta-compress binaries",
@@ -670,16 +870,70 @@ cannot show. Wrapped at 72 columns.
 Refs: PROJ-1234`, cap: "Subject <= 50 characters, imperative mood (add, not added), no trailing full stop", lang: "text" },
       { p: "Imperative because the message completes the sentence 'applying this commit will…', which is exactly what `merge`, `revert` and `cherry-pick` generate for you. The subject line is the part everyone reads in `git log --oneline` forever — spend the time there." },
       { note: "**Conventional Commits** (`feat:` `fix:` `docs:` `refactor:` `test:` `chore:`, plus `!` or a `BREAKING CHANGE:` footer) earn their keep when a tool consumes them — automatic changelogs and semver bumps via semantic-release. Adopted without that tooling they are ceremony; adopted with it they remove an entire class of release argument." },
+      { h: "A story: two people, one repo, one conflict" },
+      { p: "Everything in this tab converges on this one situation — follow it line by line and you can see why each rule exists." },
+      { code: String.raw`Monday 09:00  A and B both clone the same repo. Both sit at commit E.
+
+A: git switch -c feat/login        B: git switch -c feat/logout
+   edits auth.c line 40               edits auth.c line 42
+   git add -p; git commit            git add -p; git commit
+
+Monday 11:00  B finishes first
+B: git push -u origin feat/logout
+   opens a PR -> reviewer approves -> squash merge into main
+   main is now = E + logout
+
+Monday 14:00  A finishes
+A: git push -u origin feat/login   -> fine (different branch, no clash)
+   opens a PR
+   CI says: "This branch is out-of-date with the base branch"
+
+A: git switch feat/login
+   git fetch origin
+   git rebase origin/main          <- replay my work on top of the new main
+
+   CONFLICT (content): Merge conflict in auth.c
+   <<<<<<< ours (main = B's work)
+   int logout(void) { ... }
+   =======
+   int login(void) { ... }
+   >>>>>>> theirs (A's commit)
+
+   edit the file to keep both functions
+   git add auth.c
+   git rebase --continue
+
+A: git push --force-with-lease     <- force is required: rebase changed the hashes
+                                      but with-lease refuses if anyone else touched it
+   CI green -> squash merge -> done`, cap: "A conflict is not a failure — it is git saying 'I cannot guess this one for you'", lang: "text" },
+      { p: "Three things worth noticing. **(1)** A and B never clash at all until A has to replay onto the new main — the branches really are independent right up to integration. **(2)** During a rebase, *ours* is **main**, not A's work, because rebase is replaying A's commits one at a time on top of main, so the side that 'already exists' is main. That is the reverse of a merge, and it is the single most confusing thing about rebase. **(3)** The `--force-with-lease` at the end is not a dangerous act — it is the normal shape of 'I rebased my own branch, now push it'." },
+      { note: "Had A sat on that branch for three weeks instead of five hours, the conflict would not be one spot but dozens. That is the entire reason trunk-based development insists on short-lived branches — not taste, but the volume of integration work you defer." },
     ],
 
     implementation: [
+      { h: "0) The panic table — \"I broke something, now what\"" },
+      { p: "Read this one while you are panicking. Almost every row is safe and reversible — except the ones marked otherwise." },
+      { table: { head: ["What happened", "What to type", "Is it dangerous?"], rows: [
+        ["Edited a file into a mess, want the old one", "`git restore <file>`", "**discards the edits permanently** — uncommitted work is not recoverable"],
+        ["`git add`ed the wrong file", "`git restore --staged <file>`", "safe; the file is untouched"],
+        ["Wrong message on the last commit", "`git commit --amend`", "safe if you have not pushed"],
+        ["Forgot a file in the last commit", "`git add <file>` then `git commit --amend --no-edit`", "safe if you have not pushed"],
+        ["Committed on the wrong branch", "`git switch <right>`, `git cherry-pick <sha>`, then drop the old one", "safe"],
+        ["Want to undo a commit that is already pushed", "`git revert <sha>`", "the safest option — it makes a new commit that undoes the old"],
+        ["Stuck mid merge/rebase and want out", "`git merge --abort` / `git rebase --abort`", "safe; returns you exactly where you started"],
+        ["Work in progress but you must fix something urgent", "`git stash push -m \"wip\"` then `git stash pop`", "safe"],
+        ["\"My commit disappeared\"", "`git reflog`, then `git branch rescued <sha>`", "safe — almost nothing is really gone"],
+        ["Push rejected as non-fast-forward", "`git pull --rebase`, then push again", "safe — **do not use --force**"],
+        ["You really do need to overwrite (your own branch)", "`git push --force-with-lease`", "refuses by itself if it would clobber someone else"],
+      ]}},
+      { note: "Notice that only the **first two rows** can destroy work permanently, and both involve changes that were **never committed**. That is the same rule as on the overview page: commit often and nearly every mistake becomes recoverable." },
       { h: "1) The undo table — pick the right one" },
       { table: { head: ["Situation", "Command", "Rewrites history?"], rows: [
         ["Fix the last commit (message or content)", "`git commit --amend`", "yes"],
         ["Collapse the last 3 commits into one", "`git reset --soft HEAD~3` then commit", "yes"],
         ["Reorder / squash / drop several commits", "`git rebase -i HEAD~5`", "yes"],
         ["Copy one commit onto this branch", "`git cherry-pick <sha>`", "no (creates new)"],
-        ["Undo a commit that is already pushed", "**`git revert <sha>`**", "**no — the only safe route**"],
+        ["Undo a commit that is already pushed", "`git revert <sha>`", "**no — the only safe route**"],
         ["Discard unstaged changes in a file", "`git restore <path>`", "no"],
         ["Take a file back out of staging", "`git restore --staged <path>`", "no"],
         ["Park work in progress", "`git stash push -m \"wip\"`", "no"],
@@ -742,7 +996,7 @@ git blame -w -C -L 40,60 file   # -w ignores whitespace, -C follows moved code`,
       { h: "9) Large repositories — tools by symptom" },
       { table: { head: ["Symptom", "Tool", "Watch out for"], rows: [
         ["Clone is huge because of history", "`git clone --filter=blob:none`", "blobs are fetched on demand, so you need the network"],
-        ["CI only needs the tip", "`git clone --depth 1`", "**breaks `merge-base`, blame and PR diffs**"],
+        ["CI only needs the tip", "`git clone --depth 1`", "**breaks merge-base, blame and PR diffs**"],
         ["You only work in one subtree", "`git sparse-checkout set apps/web`", "-"],
         ["Large binaries", "**git LFS**", "needs server-side setup too"],
         ["Several branches checked out at once", "`git worktree add ../hotfix main`", "one clone, several working trees"],
@@ -798,3 +1052,64 @@ git blame -w -C -L 40,60 file   # -w ignores whitespace, -C follows moved code`,
     ],
   }
 });
+
+/* ---- Flow Visualizer: ไล่ session จริงทีละคำสั่ง ว่าไฟล์ย้ายช่องไหน ---- */
+window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
+window.EXTRA_FLOWS.tool_git = {
+  input: "แก้ไฟล์ 1 ไฟล์ แล้วส่งขึ้น remote — ไล่ทีละคำสั่งว่าของอยู่ช่องไหน",
+  steps: [
+    { fn: "git init", file: "สร้าง repo", depth: 0,
+      note: { th: "สร้างโฟลเดอร์ซ่อน `.git/` ขึ้นมา — **ประวัติทั้งหมดอยู่ในนั้น** ลบโฟลเดอร์นี้คือลบประวัติ (ไฟล์งานยังอยู่ครบ). ยังไม่มี commit สักอัน HEAD จึงชี้ไปที่ branch ที่ยังไม่มีอยู่จริง",
+              en: "Creates the hidden `.git/` folder — **all history lives in there.** Delete it and the history goes while your files stay. There are no commits yet, so HEAD points at a branch that does not exist." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\n(ว่าง)         (ว่าง)         (ว่าง)         (ยังไม่มี)",
+      vars: [ { n: "HEAD", v: "ref: refs/heads/main", d: { th: "ชี้ไป branch ที่ยังไม่มี commit", en: "points at a branch with no commits yet" }, w: true } ] },
+
+    { fn: "แก้ main.c", file: "working tree", depth: 0,
+      note: { th: "ตอนนี้ไฟล์เปลี่ยนแล้วแต่ git **ยังไม่ได้บันทึกอะไรเลย** — `git status` จะขึ้นเป็น untracked หรือ modified. ขั้นนี้คือขั้นเดียวที่การแก้ยังหายถาวรได้",
+              en: "The file has changed but git **has recorded nothing yet** — `git status` shows it as untracked or modified. This is the only stage where an edit can still be lost for good." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c (แก้)   (ว่าง)         (ว่าง)         (ยังไม่มี)",
+      vars: [ { n: "main.c", v: "modified", d: { th: "ยังไม่ถูกติดตาม กู้ไม่ได้ถ้าลบทิ้ง", en: "not yet recorded anywhere; unrecoverable if discarded" } } ] },
+
+    { fn: "git add main.c", file: "working tree -> index", depth: 0,
+      note: { th: "ย้ายสถานะไฟล์เข้า **ตะกร้า (index)** ซึ่งเป็นไฟล์จริงชื่อ `.git/index`. ตะกร้ามีไว้ให้เลือกว่ารอบนี้จะ commit อะไร — แก้สามเรื่องแต่ commit ทีละเรื่องได้. `git add -p` เลือกได้ละเอียดถึงระดับ hunk",
+              en: "Moves the file's state into the **basket (the index)**, a real file at `.git/index`. The basket exists so you can choose what goes into this commit — three changes, three commits. `git add -p` picks hunk by hunk." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c         main.c ✓       (ว่าง)         (ยังไม่มี)",
+      vars: [ { n: ".git/index", v: "main.c staged", d: { th: "tree ของ commit ถัดไปกำลังถูกประกอบ", en: "the next commit's tree is being assembled" }, w: true } ] },
+
+    { fn: "git commit -m \"...\"", file: "index -> local repo", depth: 0,
+      note: { th: "สร้าง **object 3 ชนิดพร้อมกัน**: blob (เนื้อไฟล์), tree (ไดเรกทอรี), commit (tree + parent + ผู้เขียน + ข้อความ). ตั้งแต่วินาทีนี้เป็นต้นไป **งานชิ้นนี้กู้ได้เสมอ** ผ่าน reflog แม้จะ reset --hard ทับ",
+              en: "Creates **three objects at once**: a blob (contents), a tree (the directory), and a commit (tree + parent + author + message). From this second on, **this work is always recoverable** through the reflog, even after a reset --hard." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c         main.c         a1b2c3d ✓      (ยังไม่มี)\n\nobject ที่เพิ่ง สร้าง: blob(hello) -> tree -> commit a1b2c3d",
+      vars: [ { n: "HEAD", v: "a1b2c3d", d: { th: "branch main ขยับมาชี้ commit ใหม่", en: "branch main moves to the new commit" }, w: true } ] },
+
+    { fn: "git remote add origin ...", file: "ตั้งค่า", depth: 0,
+      note: { th: "แค่จดที่อยู่ไว้ใน `.git/config` — **ยังไม่มีอะไรถูกส่งไปไหน**. `git clone` ทำขั้นนี้ให้อัตโนมัติพร้อมกับ init และ fetch",
+              en: "Just records an address in `.git/config` — **nothing is sent anywhere yet.** `git clone` does this step for you along with init and fetch." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c         main.c         a1b2c3d        (รู้จักที่อยู่แล้ว)",
+      vars: [ { n: "origin", v: "git@github.com:me/p.git", d: { th: "ชื่อเล่นของ remote — 'origin' เป็นแค่ธรรมเนียม", en: "a nickname for the remote; 'origin' is only a convention" }, w: true } ] },
+
+    { fn: "git push -u origin main", file: "local repo -> remote", depth: 0,
+      note: { th: "ส่ง object ที่ remote ยังไม่มี แล้วขอให้ remote ขยับ branch ตาม. `-u` จำคู่ไว้ว่า `main` ผูกกับ `origin/main` ครั้งต่อไปพิมพ์ `git push` เปล่า ๆ ได้เลย. **ถ้า remote มี commit ที่เราไม่มี push จะถูกปฏิเสธ** ว่า non-fast-forward",
+              en: "Sends the objects the remote lacks and asks it to move its branch. `-u` remembers that `main` pairs with `origin/main`, so a bare `git push` works next time. **If the remote has commits you do not, the push is rejected** as non-fast-forward." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c         main.c         a1b2c3d        a1b2c3d ✓",
+      vars: [ { n: "origin/main", v: "a1b2c3d", d: { th: "remote-tracking ref — สำเนาความรู้ว่า remote อยู่ตรงไหน", en: "a remote-tracking ref: our record of where the remote is" }, w: true } ] },
+
+    { fn: "เพื่อนร่วมทีม push งานของเขา", file: "remote", depth: 0,
+      note: { th: "remote ขยับไปข้างหน้าโดยที่เครื่องเราไม่รู้ — `origin/main` ในเครื่องเรายัง **ค้างอยู่ที่ค่าเก่า** จนกว่าจะ fetch. นี่คือสาเหตุที่ push ครั้งถัดไปของเราจะโดนปฏิเสธ",
+              en: "The remote moves ahead without our machine knowing — our local `origin/main` **stays at the old value** until we fetch. This is why our next push gets rejected." },
+      data: "working tree   index          local repo     remote\n-------------  -------------  -------------  -------------\nmain.c         main.c         a1b2c3d        a1b2c3d + f9e8d7c",
+      vars: [ { n: "origin/main (ในเครื่อง)", v: "a1b2c3d", d: { th: "ล้าสมัยแล้ว — git ยังไม่รู้", en: "stale; git does not know yet" } } ] },
+
+    { fn: "git pull --rebase", file: "remote -> local repo", depth: 0,
+      note: { th: "`fetch` ดึง commit ใหม่ลงมาก่อน แล้ว `rebase` เอา commit ของเราไปวางต่อท้ายของเขา **hash ของเราจึงเปลี่ยน**. ถ้าใช้ `pull` เฉย ๆ จะได้ merge commit แทน ซึ่งบางทีก็ไม่ได้อยากได้ — ตั้ง `pull.ff only` หรือ `pull.rebase true` ครั้งเดียวแล้วจบ",
+              en: "`fetch` brings the new commits down, then `rebase` replays ours on top of theirs — **so our hashes change.** A plain `pull` would create a merge commit instead, which is often not what you wanted; set `pull.ff only` or `pull.rebase true` once and be done." },
+      data: "working tree   index          local repo               remote\n-------------  -------------  -----------------------  -------------\nmain.c         main.c         f9e8d7c + a1b2c3d'       a1b2c3d + f9e8d7c\n                              ^ commit ของเราถูกสร้างใหม่ (hash เปลี่ยน)",
+      vars: [ { n: "a1b2c3d -> a1b2c3d'", d: { th: "commit เดิมยังอยู่ใน object store จนกว่า gc จะเก็บ — reflog พาไปหาได้", en: "the old commit stays in the object store until gc; the reflog can find it" }, w: true } ] },
+
+    { fn: "git push", file: "local repo -> remote", depth: 0,
+      note: { th: "คราวนี้ผ่าน เพราะประวัติของเรามี commit ของเขาอยู่ข้างล่างแล้ว (fast-forward ได้). **ไม่ต้องใช้ --force** — ถ้าต้องใช้ แปลว่าเราเขียนประวัติที่ push ไปแล้วทับ ซึ่งต้องใช้ `--force-with-lease` เท่านั้น",
+              en: "This time it works, because our history now contains their commit underneath (a fast-forward). **No --force needed** — if you do need it, you are rewriting already-pushed history, and then only `--force-with-lease` is acceptable." },
+      data: "working tree   index          local repo               remote\n-------------  -------------  -----------------------  -----------------------\nmain.c         main.c         f9e8d7c + a1b2c3d'       f9e8d7c + a1b2c3d' ✓",
+      vars: [ { n: "origin/main", v: "a1b2c3d'", d: { th: "ทุกช่องตรงกันหมดแล้ว", en: "every column now agrees" }, w: true } ] }
+  ]
+};
