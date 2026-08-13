@@ -13,7 +13,7 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "โจทย์คืออะไร" },
-      { p: "Inception เป็น **โปรเจกต์ system administration** ไม่ใช่โปรเจกต์เขียนโปรแกรม — ไม่มี norminette ไม่มี valgrind ไม่มีรายการฟังก์ชันที่อนุญาต. สิ่งที่ต้องทำคือประกอบ **stack เว็บที่ทำงานได้จริง** ด้วย `docker-compose` โดย **เขียน Dockerfile เองทุกใบ**" },
+      { p: "Inception เป็น **โปรเจกต์ system administration** ไม่ใช่โปรเจกต์เขียนโปรแกรม — ไม่มี norminette ไม่มี valgrind ไม่มีรายการฟังก์ชันที่อนุญาต. สิ่งที่ต้องทำคือประกอบ **stack เว็บที่ทำงานได้จริง **ด้วย** `docker-compose` **โดย** เขียน Dockerfile เองทุกใบ**" },
       { code: String.raw`                 https://login.42.fr  (พอร์ต 443 พอร์ตเดียวที่เปิด)
                           |
                     +-----v------+   TLS 1.2/1.3 เท่านั้น
@@ -69,7 +69,7 @@ srcs/requirements/bonus/<service>/...`,
         ["จำนวน", "1 image สร้างได้หลาย container", "1 container มาจาก 1 image"]
       ]}},
       { h: "2) Layer และ cache" },
-      { p: "ทุกคำสั่ง `RUN`/`COPY`/`ADD` สร้าง **ชั้น** ใหม่. Docker cache ชั้นไว้ ถ้าชั้นบนไม่เปลี่ยน ชั้นล่างก็ไม่ต้อง build ใหม่ — จึงควรใส่สิ่งที่เปลี่ยนบ่อย (เช่น `COPY conf/`) **ไว้ท้าย ๆ** และสิ่งที่เปลี่ยนน้อย (เช่น `apt-get install`) ไว้ต้น" },
+      { p: "ทุกคำสั่ง `RUN`/`COPY`/`ADD` สร้าง **ชั้น **ใหม่. Docker cache ชั้นไว้ ถ้าชั้นบนไม่เปลี่ยน ชั้นล่างก็ไม่ต้อง build ใหม่ — จึงควรใส่สิ่งที่เปลี่ยนบ่อย (เช่น** `COPY conf/`**)** ไว้ท้าย ๆ** และสิ่งที่เปลี่ยนน้อย (เช่น `apt-get install`) ไว้ต้น" },
       { code: String.raw`RUN apt-get update \
     && apt-get install -y --no-install-recommends nginx \
     && rm -rf /var/lib/apt/lists/*`,
@@ -109,7 +109,7 @@ CMD ["mariadbd", "--user=mysql"]
         ["ใช้เก็บ", "ค่าคอนฟิกที่ไม่ลับ (ชื่อ DB, ชื่อโดเมน)", "**รหัสผ่านทุกตัว**"]
       ]}},
       { h: "8) php-fpm กับ FastCGI" },
-      { p: "WordPress เป็น PHP — แต่ container ของมัน **ห้ามมี web server**. `php-fpm` คือ process manager ที่ฟัง **FastCGI** บนพอร์ต 9000 แล้ว NGINX เป็นคนรับ HTTP แล้วแปลงเป็น FastCGI ส่งต่อ" },
+      { p: "WordPress เป็น PHP — แต่ container ของมัน **ห้ามมี web server**.** `php-fpm` **คือ process manager ที่ฟัง** FastCGI** บนพอร์ต 9000 แล้ว NGINX เป็นคนรับ HTTP แล้วแปลงเป็น FastCGI ส่งต่อ" },
       { code: String.raw`location ~ \.php$ {
     include        fastcgi_params;
     fastcgi_pass   wordpress:9000;
@@ -126,7 +126,7 @@ ssl_certificate_key /etc/nginx/ssl/inception.key;`,
 
     foundations: [
       { p: "**7 กับดัก** ที่กินเวลาข้อละหลายชั่วโมงและ **ไม่มีอยู่ใน subject เลย** ทุกข้อสร้าง stack ที่ 'ดูเหมือนถูก' แต่พังเงียบ ๆ" },
-      { h: "กับดัก 1 — `mariadbd --bootstrap` อ่านทีละ 'บรรทัด'" },
+      { h: "กับดัก 1 — mariadbd --bootstrap อ่านทีละ 'บรรทัด'" },
       { p: "โหมด bootstrap **ไม่ใช่ SQL parser** — มันส่งข้อความ **ทีละบรรทัด** ให้ server เป็นคำสั่ง. คำสั่งที่ตัดขึ้นบรรทัดใหม่จะกลายเป็น 2 query ที่พัง และ error แรกทำให้ที่เหลือถูกยกเลิกหมด สุดท้ายได้รหัส root ที่ตั้งแล้วแต่ **ไม่มีฐานข้อมูลและไม่มี user ของแอป**" },
       { code: String.raw`# ผิด - กลายเป็น 2 query, ตัวที่สอง syntax error, ทุกอย่างหลังจากนั้นหายหมด
 CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw`
@@ -135,13 +135,13 @@ CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw`
 # ถูก - หนึ่งบรรทัดจบในตัวเอง
 CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`,
         cap: "อาการ: WordPress ขึ้น Host '172.x.x.x' is not allowed to connect (error 1130) — เพราะ user นั้นไม่เคยถูกสร้าง", lang: "sh" },
-      { h: "กับดัก 2 — แพ็กเกจ Debian เตรียม `/var/lib/mysql` ไว้แล้ว และ Docker ก๊อปมันเข้า volume ว่างของเรา" },
-      { p: "`apt-get install mariadb-server` รัน `mysql_install_db` ตั้งแต่ตอน **build**. พอ Docker เอา volume **ว่าง** ไป mount ทับไดเรกทอรีใน image ที่ **ไม่ว่าง** มันจะ **ก๊อปเนื้อหาของ image เข้าไปใน volume**. volume จึงมี `mysql/` datadir มาตั้งแต่แรก แล้วเงื่อนไข `if [ ! -d /var/lib/mysql/mysql ]` ในเราก็เห็นว่ามีแล้ว → **bootstrap ไม่เคยรันเลยตั้งแต่บูตแรก ตลอดไป**" },
+      { h: "กับดัก 2 — แพ็กเกจ Debian เตรียม /var/lib/mysql ไว้แล้ว และ Docker ก๊อปมันเข้า volume ว่างของเรา" },
+      { p: "`apt-get install mariadb-server` รัน `mysql_install_db` ตั้งแต่ตอน **build**. พอ Docker เอา volume **ว่าง** ไป mount ทับไดเรกทอรีใน image ที่ **ไม่ว่าง** มันจะ **ก๊อปเนื้อหาของ image เข้าไปใน volume**. volume จึงมี** `mysql/` **datadir มาตั้งแต่แรก แล้วเงื่อนไข** `if [ ! -d /var/lib/mysql/mysql ]` **ในเราก็เห็นว่ามีแล้ว →** bootstrap ไม่เคยรันเลยตั้งแต่บูตแรก ตลอดไป**" },
       { code: String.raw`RUN rm -rf /var/lib/mysql/* \
     && mkdir -p /run/mysqld /var/lib/mysql \
     && chown -R mysql:mysql /run/mysqld /var/lib/mysql`,
         cap: "แยกจากกับดัก 1 ด้วย log: บอกว่า 'existing datadir found' บน volume ที่เพิ่งสร้าง = image ปนเปื้อน", lang: "dockerfile" },
-      { h: "กับดัก 3 — `mariadb-admin ping` คืน success แม้ authentication พัง" },
+      { h: "กับดัก 3 — mariadb-admin ping คืน success แม้ authentication พัง" },
       { p: "`ping` พิสูจน์แค่ว่า server ตอบ socket — คำตอบแบบ access denied ก็ยัง exit 0 ในหลายเวอร์ชัน. healthcheck ที่สร้างบนมันจึง **เขียวทั้งที่ไม่มีใคร login ได้** แล้ว `depends_on: service_healthy` ก็ปล่อย WordPress ออกวิ่งไปหาฐานข้อมูลที่ใช้ไม่ได้" },
       { code: String.raw`test: ["CMD-SHELL", "mariadb -h localhost -u root -p\"$$(tr -d '\\r\\n' < /run/secrets/db_root_password)\" -e 'SELECT 1' >/dev/null 2>&1"]`,
         cap: "ใช้ query ที่ต้องใช้ credential จริง — และ wait-loop ใน entrypoint ของ WordPress ก็ต้องใช้ SELECT 1 เหมือนกัน ไม่ใช่ ping", lang: "yaml" },
@@ -162,7 +162,7 @@ fastcgi_buffer_size       16k;
 fastcgi_buffers         8 16k;
 fastcgi_busy_buffers_size 32k;`,
         cap: "สองบั๊กคนละเรื่อง แต่แก้ที่ location ~ \\.php$ เดียวกัน", lang: "nginx" },
-      { h: "กับดัก 6 — `docker kill` **ไม่** trigger `restart: always`" },
+      { h: "กับดัก 6 — docker kill ไม่ trigger restart: always" },
       { p: "daemon ถือว่าการ stop **หรือ kill ด้วยมือ** คือความตั้งใจ จึงเมิน restart policy จนกว่าจะสั่ง start เอง. เทสต์ที่ดู 'ชัดเจน' อย่าง 'kill แล้วดูมันฟื้น' จึงล้มบน stack ที่ถูกต้องสมบูรณ์ — แล้วนักศึกษาก็ไป 'แก้' policy ที่ไม่เคยพัง" },
       { p: "`kill -9 1` จากข้างในก็ไม่ได้ เพราะ kernel ไม่ยอมส่ง SIGKILL ให้ PID 1 ของ namespace. ให้ส่งสัญญาณที่มันจัดการเองได้ ซึ่งพิสูจน์ไปพร้อมกันว่า daemon เป็น PID 1 จริง:" },
       { code: String.raw`before=$(docker inspect -f '{{.RestartCount}}' nginx)
@@ -170,9 +170,9 @@ docker exec nginx sh -c 'kill -TERM 1'
 sleep 10
 [ "$(docker inspect -f '{{.RestartCount}}' nginx)" -gt "$before" ]`,
         cap: "RestartCount เพิ่มขึ้น = policy ทำงานจริง และ PID 1 คือ daemon จริง", lang: "bash" },
-      { h: "กับดัก 7 — ภายใน container ตัวแปร `MYSQL_HOST` แย่ง client ของ MariaDB ไป" },
+      { h: "กับดัก 7 — ภายใน container ตัวแปร MYSQL_HOST แย่ง client ของ MariaDB ไป" },
       { p: "`env_file: .env` แจก `MYSQL_HOST=mariadb` ให้ทุก container และ CLI ชื่อ `mariadb` **อ่านตัวแปรนี้เป็น host เริ่มต้น**. คำสั่งที่เราคิดว่าจะวิ่งผ่าน unix socket ในฐานะ `root@localhost` จึงวิ่งผ่าน TCP แทนแล้วถูกปฏิเสธ" },
-      { p: "**ใส่ `-h localhost` ให้ชัดทุกครั้งที่รัน client อยู่ ข้างใน container ของ mariadb** (healthcheck, เทสต์, debug ด้วยมือ)" },
+      { p: "**ใส่** `-h localhost` **ให้ชัดทุกครั้งที่รัน client อยู่ ข้างใน container ของ mariadb** (healthcheck, เทสต์, debug ด้วยมือ)" },
       { h: "ตารางแปลอาการ → สาเหตุ" },
       { table: { head: ["อาการ", "สาเหตุที่พบบ่อยที่สุด"], rows: [
         ["`Host '172.x' is not allowed to connect` (1130)", "user ไม่ถูกสร้าง — กับดัก 1 หรือ 2"],
@@ -275,7 +275,7 @@ exec "$@"                                    # CMD กลายเป็น PID 
       ]}},
       { note: "ทั้งสามตัวคือคำตอบของกฎ 'ห้ามใช้ hack เลี้ยง container' — daemon เป็นเจ้าของ process เอง เราไม่ได้หลอกให้มันไม่ตาย" },
       { h: "certificate ควรสร้างที่ entrypoint ไม่ใช่ Dockerfile" },
-      { p: "**เหตุผล 2 ข้อ**: (1) CN จะได้ตาม `DOMAIN_NAME` ใน `.env` ทำให้เปลี่ยนโดเมนได้โดยไม่ต้อง build ใหม่ (2) **private key จะไม่ถูกอบเข้าไปในชั้นของ image** ที่อาจถูก push ขึ้นไปที่ไหนสักแห่ง" }
+      { p: "**เหตุผล 2 ข้อ**: (1) CN จะได้ตาม** `DOMAIN_NAME` **ใน** `.env` **ทำให้เปลี่ยนโดเมนได้โดยไม่ต้อง build ใหม่ (2)** private key จะไม่ถูกอบเข้าไปในชั้นของ image** ที่อาจถูก push ขึ้นไปที่ไหนสักแห่ง" }
     ],
 
     dataflow: [
@@ -324,7 +324,7 @@ php-fpm ประกอบ HTML  ->  NGINX  ->  เบราว์เซอร�
        entrypoint: ไม่มี cert -> openssl req สร้าง self-signed ตาม DOMAIN_NAME
        exec nginx -g 'daemon off;'`,
         cap: "บูตครั้งที่สองทุกอย่างเจอ state เดิม พิมพ์ 'existing ... found' แล้วข้ามไป exec ทันที", lang: "txt" },
-      { h: "ทำไมต้อง `depends_on: service_healthy` ไม่ใช่แค่ `depends_on`" },
+      { h: "ทำไมต้อง depends_on: service_healthy ไม่ใช่แค่ depends_on" },
       { p: "`depends_on` เปล่า ๆ รอแค่ **container เริ่มทำงาน** ไม่ได้รอให้ **บริการพร้อมใช้** — MariaDB ใช้เวลาอีกหลายวินาทีกว่าจะรับ connection ได้จริง. `condition: service_healthy` ผูกกับ healthcheck ทำให้ WordPress ไม่วิ่งไปชนฐานข้อมูลที่ยังไม่ตื่น" },
       { note: "แต่ **healthcheck ที่โกหกอันตรายกว่าไม่มี healthcheck** — ถ้าใช้ `ping` มันจะเขียวทั้งที่ auth พัง แล้ว WordPress ก็ยังพังเหมือนเดิมแต่หาสาเหตุยากขึ้น (กับดัก 3)" },
       { h: "ข้อมูลอยู่รอดได้ยังไงเมื่อ down แล้ว up" },
@@ -430,7 +430,7 @@ fi
 
 exec "$@"`,
         cap: "wait-loop ต้องมีเพดาน — วนไม่รู้จบทำให้ container ค้างแทนที่จะแจ้ง error", lang: "sh" },
-      { note: "**`wp-cli` เป็นไฟล์ phar ไม่ใช่ image สำเร็จรูป** จึงใช้ได้ตามกฎ — ดาวน์โหลดมันใน Dockerfile ด้วย `curl` แล้ว `chmod +x`" },
+      { note: "`wp-cli` **เป็นไฟล์ phar ไม่ใช่ image สำเร็จรูป** จึงใช้ได้ตามกฎ — ดาวน์โหลดมันใน Dockerfile ด้วย `curl` แล้ว `chmod +x`" },
       { h: "4) NGINX server block" },
       { code: String.raw`server {
     listen 443 ssl;
@@ -519,7 +519,7 @@ bonus: $(DATA)
 
 .PHONY: all up down logs clean fclean re bonus`,
         cap: "fclean ต้องลบทั้ง volume และไดเรกทอรีข้อมูล ไม่งั้นเทสต์ 'บูตครั้งแรก' จะไม่เคยรันจริง", lang: "make" },
-      { h: "7) `.env` ที่ปลอดภัย" },
+      { h: "7) .env ที่ปลอดภัย" },
       { code: String.raw`DOMAIN_NAME=wiaon-in.42.fr
 DATA_PATH=/home/wiaon-in/data
 
@@ -685,7 +685,7 @@ Object.assign(window.TEACHING_EN, {
   inception: {
     principle: [
       { h: "What the project asks for" },
-      { p: "Inception is a **system administration** project, not a programming one — no norminette, no valgrind, no allowed-functions list. The task is to assemble **a web stack that really works** with `docker-compose`, writing **every Dockerfile yourself**." },
+      { p: "Inception is a **system administration** project, not a programming one — no norminette, no valgrind, no allowed-functions list. The task is to assemble **a web stack that really works **with** `docker-compose`**, writing** every Dockerfile yourself**." },
       { code: String.raw`                 https://login.42.fr  (443 is the only published port)
                           |
                     +-----v------+   TLS 1.2/1.3 only
@@ -740,7 +740,7 @@ srcs/requirements/bonus/<service>/...`,
         ["Cardinality", "One image, many containers", "One container, one image"]
       ]}},
       { h: "2) Layers and the cache" },
-      { p: "Every `RUN`/`COPY`/`ADD` creates a **layer**. Docker caches them, so if the layers above are unchanged the ones below are not rebuilt — put what changes often (`COPY conf/`) **late** and what changes rarely (`apt-get install`) early." },
+      { p: "Every `RUN`/`COPY`/`ADD` creates a **layer**. Docker caches them, so if the layers above are unchanged the ones below are not rebuilt — put what changes often (**`COPY conf/`**)** late** and what changes rarely (`apt-get install`) early." },
       { code: String.raw`RUN apt-get update \
     && apt-get install -y --no-install-recommends nginx \
     && rm -rf /var/lib/apt/lists/*`,
@@ -780,7 +780,7 @@ CMD ["mariadbd", "--user=mysql"]
         ["Holds", "Non-secret config (DB name, domain name)", "**Every password**"]
       ]}},
       { h: "8) php-fpm and FastCGI" },
-      { p: "WordPress is PHP — but its container **may not contain a web server**. `php-fpm` is a process manager speaking **FastCGI** on port 9000, and NGINX is what accepts HTTP and translates it." },
+      { p: "WordPress is PHP — but its container **may not contain a web server**.** `php-fpm` **is a process manager speaking** FastCGI** on port 9000, and NGINX is what accepts HTTP and translates it." },
       { code: String.raw`location ~ \.php$ {
     include        fastcgi_params;
     fastcgi_pass   wordpress:9000;
@@ -796,7 +796,7 @@ ssl_certificate_key /etc/nginx/ssl/inception.key;`,
     ],
     foundations: [
       { p: "**Seven traps**, each costing hours, and **none of them are in the subject**. Every one produces a plausible-looking stack that is quietly broken." },
-      { h: "Trap 1 — `mariadbd --bootstrap` reads one statement per LINE" },
+      { h: "Trap 1 — mariadbd --bootstrap reads one statement per LINE" },
       { p: "Bootstrap mode is **not a SQL parser** — it hands each input **line** to the server as a query. A statement wrapped across two lines becomes two broken queries, the first error aborts the rest, and you end up with a root password set but **no database and no application user**." },
       { code: String.raw`# WRONG - two queries, the second a syntax error, everything after it lost
 CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw`
@@ -805,13 +805,13 @@ CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw`
 # RIGHT - one self-contained line
 CREATE DATABASE IF NOT EXISTS ` + "`wordpress`" + String.raw` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`,
         cap: "Symptom: WordPress logs Host '172.x.x.x' is not allowed to connect (error 1130) — the user simply does not exist", lang: "sh" },
-      { h: "Trap 2 — the Debian package pre-initialises `/var/lib/mysql`, and Docker copies it into your empty volume" },
-      { p: "`apt-get install mariadb-server` runs `mysql_install_db` at **build** time. When Docker mounts an **empty** volume over a **non-empty** image directory it copies the image contents in. The volume therefore arrives already containing a `mysql/` datadir, your `if [ ! -d /var/lib/mysql/mysql ]` guard sees it, and **the bootstrap never runs — on the very first boot, forever**." },
+      { h: "Trap 2 — the Debian package pre-initialises /var/lib/mysql, and Docker copies it into your empty volume" },
+      { p: "`apt-get install mariadb-server` runs `mysql_install_db` at **build** time. When Docker mounts an **empty** volume over a **non-empty **image directory it copies the image contents in. The volume therefore arrives already containing a** `mysql/` **datadir, your** `if [ ! -d /var/lib/mysql/mysql ]` **guard sees it, and** the bootstrap never runs — on the very first boot, forever**." },
       { code: String.raw`RUN rm -rf /var/lib/mysql/* \
     && mkdir -p /run/mysqld /var/lib/mysql \
     && chown -R mysql:mysql /run/mysqld /var/lib/mysql`,
         cap: "Tell it apart from trap 1 by the log line: 'existing datadir found' on a brand-new volume means the image polluted it", lang: "dockerfile" },
-      { h: "Trap 3 — `mariadb-admin ping` returns success when authentication fails" },
+      { h: "Trap 3 — mariadb-admin ping returns success when authentication fails" },
       { p: "`ping` only proves the server answered the socket; an access-denied reply still exits 0 in common versions. A healthcheck built on it **goes green while nothing can log in**, and `depends_on: service_healthy` then starts WordPress against a database it cannot use." },
       { code: String.raw`test: ["CMD-SHELL", "mariadb -h localhost -u root -p\"$$(tr -d '\\r\\n' < /run/secrets/db_root_password)\" -e 'SELECT 1' >/dev/null 2>&1"]`,
         cap: "Use a query that needs credentials — and the WordPress wait-loop must probe with SELECT 1 too, not ping", lang: "yaml" },
@@ -832,7 +832,7 @@ fastcgi_buffer_size       16k;
 fastcgi_buffers         8 16k;
 fastcgi_busy_buffers_size 32k;`,
         cap: "Two unrelated bugs fixed in the same location ~ \\.php$ block", lang: "nginx" },
-      { h: "Trap 6 — `docker kill` does **not** trigger `restart: always`" },
+      { h: "Trap 6 — docker kill does not trigger restart: always" },
       { p: "The daemon treats a manual stop **or kill** as intentional and ignores the restart policy until the container is started by hand. So the obvious test 'kill it and watch it come back' fails on a perfectly correct stack — and worse, a student then 'fixes' a policy that was never broken." },
       { p: "`kill -9 1` from inside is no good either: the kernel refuses SIGKILL to PID 1 of a namespace. Signal PID 1 with something it handles, which also proves the daemon really is PID 1:" },
       { code: String.raw`before=$(docker inspect -f '{{.RestartCount}}' nginx)
@@ -840,9 +840,9 @@ docker exec nginx sh -c 'kill -TERM 1'
 sleep 10
 [ "$(docker inspect -f '{{.RestartCount}}' nginx)" -gt "$before" ]`,
         cap: "RestartCount going up proves both the policy and that the daemon is PID 1", lang: "bash" },
-      { h: "Trap 7 — inside the containers, `MYSQL_HOST` hijacks the MariaDB client" },
+      { h: "Trap 7 — inside the containers, MYSQL_HOST hijacks the MariaDB client" },
       { p: "`env_file: .env` gives every container `MYSQL_HOST=mariadb`, and the `mariadb` CLI reads that variable as its **default host**. A command you expect to go over the unix socket as `root@localhost` goes over TCP instead and is refused." },
-      { p: "**Pass `-h localhost` explicitly whenever you run a client inside the mariadb container** (healthchecks, tests, manual debugging)." },
+      { p: "**Pass** `-h localhost` **explicitly whenever you run a client inside the mariadb container** (healthchecks, tests, manual debugging)." },
       { h: "Symptom to cause" },
       { table: { head: ["Symptom", "Most likely cause"], rows: [
         ["`Host '172.x' is not allowed to connect` (1130)", "The user was never created — trap 1 or 2"],
@@ -944,7 +944,7 @@ exec "$@"                                    # CMD becomes PID 1`,
       ]}},
       { note: "Those three lines are the answer to the 'no keep-alive hack' rule — the daemon owns the process; you are not tricking the container into staying up." },
       { h: "The certificate belongs in the entrypoint, not the Dockerfile" },
-      { p: "**Two reasons**: (1) the CN then follows `DOMAIN_NAME` from `.env`, so changing domain needs no rebuild; (2) **no private key ever lands in an image layer** that could be pushed somewhere." }
+      { p: "**Two reasons**: (1) the CN then follows** `DOMAIN_NAME` **from** `.env`**, so changing domain needs no rebuild; (2)** no private key ever lands in an image layer** that could be pushed somewhere." }
     ],
     dataflow: [
       { p: "One request's journey, then the first-boot sequence." },
@@ -992,7 +992,7 @@ php-fpm builds the HTML  ->  NGINX  ->  browser`,
        entrypoint: no cert -> openssl req generates a self-signed one from DOMAIN_NAME
        exec nginx -g 'daemon off;'`,
         cap: "On the second boot everything finds existing state, prints 'existing ... found' and goes straight to exec", lang: "txt" },
-      { h: "Why `depends_on: service_healthy` rather than plain `depends_on`" },
+      { h: "Why depends_on: service_healthy rather than plain depends_on" },
       { p: "Plain `depends_on` only waits for the container to **start**, not for the service to be **usable** — MariaDB needs several more seconds before it accepts connections. `condition: service_healthy` ties the wait to the healthcheck so WordPress never races a sleeping database." },
       { note: "But **a lying healthcheck is worse than none** — with `ping` it goes green while auth is broken, so WordPress still fails and the cause is now harder to find (trap 3)." },
       { h: "How data survives a down and up" },
@@ -1098,7 +1098,7 @@ fi
 
 exec "$@"`,
         cap: "The wait loop needs a ceiling — an unbounded one hangs the container instead of reporting the failure", lang: "sh" },
-      { note: "**`wp-cli` is a phar, not a ready-made image**, so it is allowed — download it in the Dockerfile with `curl` and `chmod +x` it." },
+      { note: "`wp-cli` **is a phar, not a ready-made image**, so it is allowed — download it in the Dockerfile with `curl` and `chmod +x` it." },
       { h: "4) The NGINX server block" },
       { code: String.raw`server {
     listen 443 ssl;
@@ -1187,7 +1187,7 @@ bonus: $(DATA)
 
 .PHONY: all up down logs clean fclean re bonus`,
         cap: "fclean must remove both the volumes and the data directory, or the first-boot test never really runs", lang: "make" },
-      { h: "7) A safe `.env`" },
+      { h: "7) A safe .env" },
       { code: String.raw`DOMAIN_NAME=wiaon-in.42.fr
 DATA_PATH=/home/wiaon-in/data
 
@@ -1417,8 +1417,8 @@ window.EXTRA_FLOWS.inception = {
         vars: [
           { n: "DATA_PATH", v: "/home/<login>/data", d: { th: "ปลายทางจริงของ named volume", en: "where the named volumes really live" } } ] },
       { fn: "mariadb entrypoint.sh", file: "requirements/mariadb/tools/entrypoint.sh", depth: 1,
-        note: { th: "อ่าน secret จาก `/run/secrets/` แล้ว **`tr -d '\\r\\n'`** ทันที — CR ที่ติดมาจาก Windows ทำให้รหัสผ่านเพี้ยนแล้ว login พังด้วย error 1045 โดยที่พิมพ์ออกมาดูเหมือนกันเป๊ะ",
-                en: "Reads the secrets from `/run/secrets/` and **`tr -d '\\r\\n'`** at once — a CR left by Windows poisons the password and every later login fails with error 1045 while both values print identically" },
+        note: { th: "อ่าน secret จาก `/run/secrets/` แล้ว `tr -d '\\r\\n'` ทันที — CR ที่ติดมาจาก Windows ทำให้รหัสผ่านเพี้ยนแล้ว login พังด้วย error 1045 โดยที่พิมพ์ออกมาดูเหมือนกันเป๊ะ",
+                en: "Reads the secrets from `/run/secrets/` and `tr -d '\\r\\n'` at once — a CR left by Windows poisons the password and every later login fails with error 1045 while both values print identically" },
         data: "ROOT_PW=$(tr -d '\\r\\n' < /run/secrets/db_root_password)",
         vars: [
           { n: "/run/secrets", d: { th: "tmpfs ที่ `docker inspect` มองไม่เห็น ต่างจาก `.env`", en: "tmpfs that `docker inspect` cannot show, unlike `.env`" } } ] },
@@ -1441,8 +1441,8 @@ window.EXTRA_FLOWS.inception = {
         vars: [
           { n: "-h localhost", d: { th: "ต้องใส่ให้ชัด ไม่งั้น `MYSQL_HOST` จาก `.env` แย่ง client ไปวิ่ง TCP แล้วถูกปฏิเสธ", en: "must be explicit, or `MYSQL_HOST` from `.env` hijacks the client onto TCP and it is refused" } } ] },
       { fn: "wordpress entrypoint.sh", file: "requirements/wordpress/tools/entrypoint.sh", depth: 1,
-        note: { th: "`depends_on: service_healthy` ปล่อยให้เริ่มได้แล้ว แต่ยัง **รอ `SELECT 1` ผ่านจริงด้วยตัวเอง** และ wait-loop มีเพดาน ไม่งั้น container ค้างแทนที่จะแจ้ง error",
-                en: "`depends_on: service_healthy` let it start, but it still **waits for a real `SELECT 1`** of its own, with a ceiling on the loop so a failure is reported rather than hanging the container" },
+        note: { th: "`depends_on: service_healthy` ปล่อยให้เริ่มได้แล้ว แต่ยัง **รอ** `SELECT 1` **ผ่านจริงด้วยตัวเอง** และ wait-loop มีเพดาน ไม่งั้น container ค้างแทนที่จะแจ้ง error",
+                en: "`depends_on: service_healthy` let it start, but it still **waits for a real** `SELECT 1` of its own, with a ceiling on the loop so a failure is reported rather than hanging the container" },
         data: "until mariadb ... -e 'SELECT 1'; do sleep 2; done",
         vars: [
           { n: "i", v: "<= 60", d: { th: "เพดานของ wait-loop", en: "the loop's ceiling" } } ] },

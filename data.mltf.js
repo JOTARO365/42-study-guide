@@ -427,7 +427,7 @@ print(torch.tril(torch.ones(4, 4)))
         x = x + self.attn(self.ln1(x), mask)     # pre-norm: LN อยู่ในสาขา
         x = x + self.ffn(self.ln2(x))            # ไม่ใช่บนเส้นทาง residual
         return x`,
-        cap: "**สังเกตว่า `x +` อยู่นอก LayerNorm** — นี่คือความต่างทั้งหมดระหว่าง pre-norm กับ post-norm", lang: "python" },
+        cap: "**สังเกตว่า** `x +` **อยู่นอก LayerNorm** — นี่คือความต่างทั้งหมดระหว่าง pre-norm กับ post-norm", lang: "python" },
       { h: "4) positional encoding แบบ sinusoidal" },
       { code: String.raw`def sinusoidal_pe(max_len, d_model):
     pe = torch.zeros(max_len, d_model)
@@ -1050,7 +1050,7 @@ print(torch.tril(torch.ones(4, 4)))
         x = x + self.attn(self.ln1(x), mask)     # pre-norm: the LN sits in the branch
         x = x + self.ffn(self.ln2(x))            # not on the residual path
         return x`,
-      cap: "**Note that `x +` is outside the LayerNorm** — that is the entire difference between pre-norm and post-norm", lang: "python" },
+      cap: "**Note that** `x +` **is outside the LayerNorm** — that is the entire difference between pre-norm and post-norm", lang: "python" },
     { h: "4) Sinusoidal positional encoding" },
     { code: String.raw`def sinusoidal_pe(max_len, d_model):
     pe = torch.zeros(max_len, d_model)

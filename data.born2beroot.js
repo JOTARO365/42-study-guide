@@ -82,7 +82,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 + UTM`,
         ["เหมาะกับ", "มือใหม่ด้าน sysadmin, แพ็กเกจเยอะมาก", "องค์กรที่ใช้ RHEL, ค่าเริ่มต้นเข้มกว่า"]
       ]}},
       { p: "subject แนะนำ Debian ตรง ๆ ถ้าเพิ่งเริ่ม เพราะ Rocky ต้องตั้ง SELinux ให้ถูกด้วย ซึ่งเป็นงานอีกก้อนใหญ่" },
-      { h: "4) `apt` เทียบกับ `aptitude` — คำถามที่ถามแทบทุกครั้ง" },
+      { h: "4) apt เทียบกับ aptitude — คำถามที่ถามแทบทุกครั้ง" },
       { table: { head: ["", "`apt`", "`aptitude`"], rows: [
         ["คืออะไร", "คำสั่งบรรทัดเดียว รวมของที่ใช้บ่อยจาก `apt-get`/`apt-cache`", "ตัวจัดการแพ็กเกจเต็มรูปแบบ มีโหมด TUI ด้วย"],
         ["แก้ปัญหา dependency", "แก้แบบตรงไปตรงมา ล้มก็บอกล้ม", "**เสนอทางเลือกหลายทาง** ให้เลือก"],
@@ -150,7 +150,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 + UTM`,
         ["**LV**", "Logical Volume", "ก้อนที่ตัดออกมาจาก VG แล้วฟอร์แมตเป็น filesystem"],
         ["**PE**", "Physical Extent", "หน่วยย่อยที่สุดที่ LVM จัดสรร (ปกติ 4 MB)"]
       ]}},
-      { p: "ประโยชน์ที่ตอบได้ทันที: **`/home` เต็มก็ขยายได้โดยไม่ต้องลงเครื่องใหม่** ตราบใดที่ VG ยังมีที่ว่าง — ทำได้ขณะเครื่องยังรันอยู่ด้วยซ้ำ" },
+      { p: "ประโยชน์ที่ตอบได้ทันที: `/home` **เต็มก็ขยายได้โดยไม่ต้องลงเครื่องใหม่** ตราบใดที่ VG ยังมีที่ว่าง — ทำได้ขณะเครื่องยังรันอยู่ด้วยซ้ำ" },
       { h: "LUKS — การเข้ารหัสระดับบล็อก" },
       { p: "**LUKS (Linux Unified Key Setup)** เข้ารหัส **ทั้งบล็อกอุปกรณ์** ไม่ใช่ทีละไฟล์ ทุกอย่างข้างในจึงถูกเข้ารหัสหมดรวมทั้งชื่อไฟล์และโครงสร้างไดเรกทอรี" },
       { ul: [
@@ -158,7 +158,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 + UTM`,
         "รองรับหลาย **key slot** เพิ่มรหัสผ่านสำรองได้",
         "ป้องกัน 'ดิสก์ถูกขโมย' ได้จริง แต่ **ไม่ป้องกันอะไรเลยเมื่อเครื่องเปิดอยู่และปลดล็อกแล้ว**"
       ]},
-      { note: "**`/boot` ต้องไม่เข้ารหัส** เพราะ bootloader ต้องอ่าน kernel กับ initramfs ให้ได้ก่อน จึงจะมีโค้ดไปถามหา passphrase — ไข่กับไก่" },
+      { note: "`/boot` **ต้องไม่เข้ารหัส** เพราะ bootloader ต้องอ่าน kernel กับ initramfs ให้ได้ก่อน จึงจะมีโค้ดไปถามหา passphrase — ไข่กับไก่" },
       { h: "ทำไมต้องแยก mount point หลายอัน" },
       { table: { head: ["Mount point", "แยกออกมาเพราะ"], rows: [
         ["`/var/log`", "log ท่วมจะเต็มแค่ก้อนตัวเอง ไม่ลามไปทำให้ `/` เต็มจนระบบค้าง"],
@@ -285,7 +285,7 @@ hostname                    # ยืนยัน (บาง shell ต้อง l
         ["IP + MAC", "`hostname -I`, `ip link`", ""],
         ["จำนวนคำสั่ง sudo", "`journalctl _COMM=sudo | grep -c COMMAND`", "หรืออ่านจาก `/var/log/sudo/sudo.log`"]
       ]}},
-      { note: "**`top -bn1` รายงานค่ารอบแรกเป็นค่าเฉลี่ยตั้งแต่บูต** ตัวเลขจึงมักดูต่ำผิดปกติ — ถ้าถูกถามให้ตอบตรง ๆ และบอกว่า `mpstat 1 1` คือทางที่ซื่อสัตย์กว่า" },
+      { note: "`top -bn1` **รายงานค่ารอบแรกเป็นค่าเฉลี่ยตั้งแต่บูต** ตัวเลขจึงมักดูต่ำผิดปกติ — ถ้าถูกถามให้ตอบตรง ๆ และบอกว่า `mpstat 1 1` คือทางที่ซื่อสัตย์กว่า" },
       { h: "wall ไปถึงใครบ้าง" },
       { p: "`wall` เขียนข้อความลง **ทุก terminal ที่เปิดอยู่** ของทุกผู้ใช้ที่ล็อกอินอยู่ (ยกเว้นคนที่สั่ง `mesg n` ปิดรับไว้) — นี่คือเหตุผลที่ต้องรันจาก cron ของ root ไม่ใช่ของผู้ใช้ธรรมดา" }
     ],
@@ -442,9 +442,9 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
       { h: "คำถามที่ซ่อนอยู่ในสคริปต์" },
       { ul: [
         "**CPU จริงเทียบ vCPU** — `physical id` นับซ็อกเก็ต ส่วน `processor` นับคอร์เชิงตรรกะ บน VM หนึ่งซ็อกเก็ตตัวเลขจะไม่เท่ากันและผู้ตรวจเช็คว่าเรารู้ว่าอันไหนคืออันไหน",
-        "**`top -bn1` รอบแรกเป็นค่าเฉลี่ยตั้งแต่บูต** ไม่ใช่ค่า ณ ขณะนั้น",
+        "`top -bn1` **รอบแรกเป็นค่าเฉลี่ยตั้งแต่บูต** ไม่ใช่ค่า ณ ขณะนั้น",
         "**นับคำสั่ง sudo** จาก `/var/log/sudo/sudo.log` ได้ก็ต่อเมื่อ logging ทำงานแล้ว ส่วน `journalctl _COMM=sudo` ใช้ได้ตั้งแต่บูตแรก",
-        "**`wall` ต้องการ tab นำหน้า** ถ้าอยากให้จัดแนวสวยตามตัวอย่างใน subject"
+        "`wall` **ต้องการ tab นำหน้า** ถ้าอยากให้จัดแนวสวยตามตัวอย่างใน subject"
       ]},
       { h: "เตรียม README ให้ตรงเกณฑ์" },
       { ul: [
@@ -499,7 +499,7 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
         { q: "log ของ sudo อยู่ที่ไหน เปิดดูยังไง",
           a: "`/var/log/sudo/` ตามที่ subject บังคับ โดย `log_input, log_output` เก็บทั้ง session ไว้ เล่นย้อนดูได้ด้วย `sudo sudoreplay -l` แล้วเลือก session — ต้อง `mkdir -p /var/log/sudo` ก่อน ไม่งั้นไม่มีอะไรถูกเขียนเลย" },
         { q: "อธิบาย `monitoring.sh` บรรทัดที่นับ CPU",
-          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` นับจำนวน **ซ็อกเก็ต** ส่วน `grep -c '^processor'` นับ **คอร์เชิงตรรกะ** ซึ่งรวม hyper-threading บน VM นี้เลยได้ตัวเลขที่ต่างกัน" },
+          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` นับจำนวน **ซ็อกเก็ต **ส่วน** `grep -c '^processor'` **นับ** คอร์เชิงตรรกะ** ซึ่งรวม hyper-threading บน VM นี้เลยได้ตัวเลขที่ต่างกัน" },
         { q: "หยุด monitoring.sh โดยห้ามแก้ไฟล์ ทำยังไง",
           a: "ทำได้ 3 ทาง: ใส่ `#` หน้าบรรทัดใน `sudo crontab -e`, `sudo systemctl stop cron` (แต่หยุดงานอื่นด้วย), หรือ `sudo chmod -x /usr/local/bin/monitoring.sh` ซึ่งไม่แตะเนื้อไฟล์เลย" },
         { q: "cron คืออะไร รูปแบบ `*/10 * * * *` อ่านว่าอะไร",
@@ -589,8 +589,8 @@ window.EXTRA_FLOWS.born2beroot = {
       data: "*/10 * * * * /usr/local/bin/monitoring.sh",
       vars: [ { n: "*/10", d: { th: "ช่องแรกคือนาที: ทุก ๆ 10 นาที", en: "the first field is minutes: every ten of them" } } ] },
     { fn: "wall กระจายไปทุก tty", file: "monitoring.sh", depth: 1,
-      note: { th: "`wall` เขียนลง **ทุก terminal ที่เปิดอยู่ของทุกผู้ใช้** (ยกเว้นคนที่ `mesg n`) และคำถามปิดท้ายคือหยุดมันโดย **ห้ามแก้ไฟล์** — ตอบด้วยการคอมเมนต์ crontab, หยุด cron, หรือ `chmod -x`",
-              en: "`wall` writes to **every open terminal of every logged-in user** (unless they ran `mesg n`), and the closing question is how to stop it **without editing the file** — comment the crontab line, stop cron, or `chmod -x`." },
+      note: { th: "`wall` เขียนลง **ทุก terminal ที่เปิดอยู่ของทุกผู้ใช้ **(ยกเว้นคนที่** `mesg n`**) และคำถามปิดท้ายคือหยุดมันโดย** ห้ามแก้ไฟล์** — ตอบด้วยการคอมเมนต์ crontab, หยุด cron, หรือ `chmod -x`",
+              en: "`wall` writes to **every open terminal of every logged-in user **(unless they ran** `mesg n`**), and the closing question is how to stop it** without editing the file** — comment the crontab line, stop cron, or `chmod -x`." },
       data: "#Architecture: ...  #vCPU: 1  #LVM use: yes  #Sudo: 42 cmd",
       vars: [ { n: "chmod -x", d: { th: "ทางที่ตรงโจทย์ที่สุด เพราะเนื้อไฟล์ไม่ถูกแตะเลย", en: "the closest fit to the question, since the file's content is untouched" }, w: true } ] }
   ]
@@ -664,7 +664,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 with UTM`,
         ["Suits", "A first server, an enormous package set", "Shops that run RHEL, stricter defaults"]
       ]}},
       { p: "The subject recommends Debian outright for beginners, because Rocky also demands a correct SELinux configuration, which is a large project of its own." },
-      { h: "4) `apt` versus `aptitude` — asked almost every time" },
+      { h: "4) apt versus aptitude — asked almost every time" },
       { table: { head: ["", "`apt`", "`aptitude`"], rows: [
         ["What it is", "One command gathering the common parts of `apt-get` and `apt-cache`", "A full package manager, with a TUI mode"],
         ["Dependency conflicts", "Resolves directly; if it fails, it says so", "**Offers several alternative resolutions** to choose from"],
@@ -731,7 +731,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 with UTM`,
         ["**LV**", "Logical Volume", "A slice carved from the VG and formatted"],
         ["**PE**", "Physical Extent", "LVM's smallest allocation unit, usually 4 MB"]
       ]}},
-      { p: "The answer to have ready: **`/home` filling up can be grown without reinstalling**, as long as the VG has free space — and it can be done while the machine is running." },
+      { p: "The answer to have ready: `/home` **filling up can be grown without reinstalling**, as long as the VG has free space — and it can be done while the machine is running." },
       { h: "LUKS — block-level encryption" },
       { p: "**LUKS (Linux Unified Key Setup)** encrypts **an entire block device** rather than individual files, so everything inside is covered, filenames and directory structure included." },
       { ul: [
@@ -739,7 +739,7 @@ shasum rocky.utm/Images/disk-0.qcow2                     # Mac M1 with UTM`,
         "It supports several **key slots**, so you can add a spare passphrase",
         "It genuinely protects a stolen disk, and **protects nothing at all while the machine is running and unlocked**"
       ]},
-      { note: "**`/boot` must stay unencrypted**, because the bootloader has to read the kernel and initramfs before any code exists that could ask for a passphrase — a chicken and egg problem." },
+      { note: "`/boot` **must stay unencrypted**, because the bootloader has to read the kernel and initramfs before any code exists that could ask for a passphrase — a chicken and egg problem." },
       { h: "Why split the mount points" },
       { table: { head: ["Mount point", "Split out because"], rows: [
         ["`/var/log`", "A log flood then fills its own volume instead of filling `/` and wedging the system"],
@@ -864,8 +864,8 @@ hostname                    # confirm (some shells need a fresh login for the pr
         ["IP and MAC", "`hostname -I`, `ip link`", ""],
         ["sudo command count", "`journalctl _COMM=sudo | grep -c COMMAND`", "Or read `/var/log/sudo/sudo.log`"]
       ]}},
-      { note: "**`top -bn1` reports its first sample as an average since boot**, so the number usually looks suspiciously low — say so if asked, and offer `mpstat 1 1` as the honest alternative." },
-      { h: "Who `wall` reaches" },
+      { note: "`top -bn1` **reports its first sample as an average since boot**, so the number usually looks suspiciously low — say so if asked, and offer `mpstat 1 1` as the honest alternative." },
+      { h: "Who wall reaches" },
       { p: "`wall` writes to **every open terminal of every logged-in user** (except anyone who ran `mesg n`) — which is why it has to run from root's cron rather than an ordinary user's." }
     ],
     implementation: [
@@ -1019,9 +1019,9 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
       { h: "The questions hidden inside the script" },
       { ul: [
         "**Physical versus virtual CPU** — `physical id` counts sockets, `processor` counts logical cores; on a one-socket VM they differ and the evaluator checks that you know which is which",
-        "**`top -bn1`'s first sample is an average since boot**, not the instantaneous load",
+        "`top -bn1`**'s first sample is an average since boot**, not the instantaneous load",
         "**Counting sudo commands** from `/var/log/sudo/sudo.log` only works once your logging does; `journalctl _COMM=sudo` works from the first boot",
-        "**`wall` needs a leading tab** on each line to line up like the example in the subject"
+        "`wall` **needs a leading tab** on each line to line up like the example in the subject"
       ]},
       { h: "Getting the README right" },
       { ul: [
@@ -1075,7 +1075,7 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
         { q: "Where are the sudo logs and how do you read them?",
           a: "In `/var/log/sudo/`, as the subject requires, with `log_input, log_output` recording whole sessions — replay one with `sudo sudoreplay -l` and pick a session. The directory must exist first, or nothing is written at all." },
         { q: "Explain the CPU counting lines in `monitoring.sh`.",
-          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` counts **sockets**, while `grep -c '^processor'` counts **logical cores**, which includes hyper-threading — so on this VM the two numbers differ." },
+          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` counts **sockets**, while** `grep -c '^processor'` **counts** logical cores**, which includes hyper-threading — so on this VM the two numbers differ." },
         { q: "Stop monitoring.sh without editing the file.",
           a: "Three ways: comment the line out with `sudo crontab -e`, `sudo systemctl stop cron` (which also stops every other job), or `sudo chmod -x /usr/local/bin/monitoring.sh`, which leaves the file's content untouched." },
         { q: "What is cron, and how do you read `*/10 * * * *`?",
@@ -1131,12 +1131,12 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
       ["`apt install <pkg>`", "ติดตั้งแพ็กเกจใหม่", "`--no-install-recommends` ไม่ลากของที่แค่ 'แนะนำ' มาด้วย เครื่องจะเบากว่า"],
       ["`adduser <name>`", "สร้างผู้ใช้ + home + ตั้งรหัสผ่านแบบถาม-ตอบ", "เป็นสคริปต์ห่อ `useradd` ที่ทำงานให้ครบกว่า"],
       ["`groupadd <group>`", "สร้างกลุ่มใหม่", "`user42` ที่ subject บังคับ"],
-      ["`usermod -aG <g> <user>`", "เพิ่มผู้ใช้เข้ากลุ่มเสริม", "**`-a` = append** ลืมแล้วกลุ่มเดิมหายหมดรวม `sudo`"],
+      ["`usermod -aG <g> <user>`", "เพิ่มผู้ใช้เข้ากลุ่มเสริม", "`-a` **= append** ลืมแล้วกลุ่มเดิมหายหมดรวม `sudo`"],
       ["`groups <user>`", "ดูว่าผู้ใช้อยู่กลุ่มไหนบ้าง", "มีผลหลัง login ใหม่เท่านั้น"],
       ["`hostnamectl set-hostname <name>`", "เปลี่ยนชื่อเครื่องแบบถาวร", "ต้องแก้ `/etc/hosts` ตามด้วย"],
       ["`systemctl restart <svc>`", "รีสตาร์ตบริการ", "อ่านคอนฟิกใหม่"],
       ["`systemctl enable <svc>`", "ให้บริการขึ้นเองตอนบูต", "`--now` = enable แล้วสตาร์ตเลย"],
-      ["`systemctl is-enabled <svc>`", "ถามว่าจะขึ้นเองตอนบูตไหม", "**ต่างจาก `is-active`** ที่ถามว่าตอนนี้รันอยู่ไหม"],
+      ["`systemctl is-enabled <svc>`", "ถามว่าจะขึ้นเองตอนบูตไหม", "**ต่างจาก** `is-active` ที่ถามว่าตอนนี้รันอยู่ไหม"],
       ["`ss -tlnp`", "ดูพอร์ตที่มีโปรแกรมฟังอยู่", "`t` tcp · `l` listening · `n` ไม่แปลงเลขพอร์ตเป็นชื่อ · `p` บอกว่าโปรเซสไหน (ต้อง sudo)"],
       ["`ufw allow <port>`", "เปิดพอร์ตในไฟร์วอลล์", "ทำ **ก่อน** `ufw enable` เสมอ"],
       ["`ufw status numbered`", "ดูกฎพร้อมเลขลำดับ", "เลขนี้เอาไว้ `ufw delete <n>`"],
@@ -1173,7 +1173,7 @@ systemctl is-active ssh         # active   <- ตอนนี้รันอย�
 systemctl is-enabled ssh        # enabled  <- บูตใหม่แล้วยังขึ้น`,
       cap: "ผู้ตรวจอาจสั่งรีบูตแล้วดูว่า ufw กับ ssh ยังขึ้นเองไหม — enabled คือคำตอบ", lang: "bash" },
     { h: "monitoring.sh ตามคู่มือ gitbook — ประกอบทีละบรรทัด" },
-    { p: "สคริปต์ชุดนี้เป็นรุ่นที่ใช้กันแพร่หลายที่สุด (จาก **noreply.gitbook.io/born2beroot**) ต่างจากรุ่นในหมวดก่อนตรงที่ใช้ `vmstat` วัด CPU และ `free --mega` แทน `free -m` — **ทั้งสองรุ่นถูกทั้งคู่** แต่ต้องอธิบายให้ได้ว่าบรรทัดที่เขียนทำอะไร" },
+    { p: "สคริปต์ชุดนี้เป็นรุ่นที่ใช้กันแพร่หลายที่สุด (จาก **noreply.gitbook.io/born2beroot**) ต่างจากรุ่นในหมวดก่อนตรงที่ใช้** `vmstat` **วัด CPU และ** `free --mega` **แทน** `free -m` **—** ทั้งสองรุ่นถูกทั้งคู่** แต่ต้องอธิบายให้ได้ว่าบรรทัดที่เขียนทำอะไร" },
     { code: String.raw`#!/bin/bash
 
 arch=$(uname -a)
@@ -1329,12 +1329,12 @@ sudo crontab -u root -l                       # ยืนยันว่าบ�
       ["`apt install <pkg>`", "Installs a new package", "`--no-install-recommends` skips merely recommended extras, keeping the machine lean"],
       ["`adduser <name>`", "Creates a user, a home directory and a password interactively", "A friendlier wrapper around `useradd` that does the whole job"],
       ["`groupadd <group>`", "Creates a group", "`user42`, which the subject requires"],
-      ["`usermod -aG <g> <user>`", "Adds a user to supplementary groups", "**`-a` means append** — without it every existing group, `sudo` included, is wiped"],
+      ["`usermod -aG <g> <user>`", "Adds a user to supplementary groups", "`-a` **means append** — without it every existing group, `sudo` included, is wiped"],
       ["`groups <user>`", "Shows which groups a user belongs to", "Only reflects the change after a fresh login"],
       ["`hostnamectl set-hostname <name>`", "Changes the machine name persistently", "`/etc/hosts` must be updated to match"],
       ["`systemctl restart <svc>`", "Restarts a service", "So it re-reads its configuration"],
       ["`systemctl enable <svc>`", "Makes it start at boot", "`--now` enables and starts in one go"],
-      ["`systemctl is-enabled <svc>`", "Asks whether it starts at boot", "**Different from `is-active`**, which asks whether it is running now"],
+      ["`systemctl is-enabled <svc>`", "Asks whether it starts at boot", "**Different from** `is-active`, which asks whether it is running now"],
       ["`ss -tlnp`", "Shows which ports something is listening on", "`t` tcp · `l` listening · `n` no name resolution · `p` which process (needs sudo)"],
       ["`ufw allow <port>`", "Opens a port in the firewall", "Always **before** `ufw enable`"],
       ["`ufw status numbered`", "Lists the rules with index numbers", "Those numbers are what `ufw delete <n>` takes"],
@@ -1371,7 +1371,7 @@ systemctl is-active ssh         # active   <- running now
 systemctl is-enabled ssh        # enabled  <- comes back after a reboot`,
       cap: "An evaluator may reboot and check ufw and ssh return by themselves — enabled is the answer", lang: "bash" },
     { h: "monitoring.sh from the gitbook guide, built line by line" },
-    { p: "This is the most widely used version of the script (from **noreply.gitbook.io/born2beroot**). It differs from the one earlier on this page by measuring CPU with `vmstat` and memory with `free --mega` rather than `free -m` — **both are correct**, but you must be able to explain the lines you wrote." },
+    { p: "This is the most widely used version of the script (from **noreply.gitbook.io/born2beroot**). It differs from the one earlier on this page by measuring CPU with** `vmstat` **and memory with** `free --mega` **rather than** `free -m` **—** both are correct**, but you must be able to explain the lines you wrote." },
     { code: String.raw`#!/bin/bash
 
 arch=$(uname -a)
@@ -1563,7 +1563,7 @@ VirtualBox -> Settings -> Storage -> Empty (ไอคอนแผ่น) -> เ�
       ["ผู้ใช้ใหม่", "username = login ของตัวเอง", "subject บังคับว่าต้องมีผู้ใช้ชื่อ login"],
       ["Clock / timezone", "ตามแคมปัส", "มีผลกับเวลาที่ `monitoring.sh` รายงาน"],
       ["Partition disks", "**Manual**", "อัตโนมัติจะไม่ได้ LUKS + LVM ตามที่ต้องการ"],
-      ["Software selection", "**ติ๊กออกให้หมด เหลือแค่ `standard system utilities`**", "เผลอติ๊ก GNOME/KDE = ได้ 0 ต้องลงใหม่"],
+      ["Software selection", "**ติ๊กออกให้หมด เหลือแค่** `standard system utilities`", "เผลอติ๊ก GNOME/KDE = ได้ 0 ต้องลงใหม่"],
       ["GRUB", "ติดตั้งลง `/dev/sda`", "ไม่ใช่ลงพาร์ทิชัน แต่ลงที่ตัวดิสก์"]
     ]}},
     { note: "**หน้าจอ Software selection คือจุดที่คนพลาดมากที่สุด** — ค่าเริ่มต้นติ๊ก desktop environment ไว้ให้ ต้องกด space เอาออกทุกอันแล้วเหลือ `standard system utilities` อย่างเดียว มี X.org ติดเครื่องเมื่อไหร่คือ 0" },
@@ -1645,7 +1645,7 @@ VirtualBox -> Settings -> Storage -> Empty (the disc icon) -> pick the Debian IS
       ["New user", "username = your own login", "The subject requires a user named after your login"],
       ["Clock / timezone", "Your campus", "It shows up in what `monitoring.sh` reports"],
       ["Partition disks", "**Manual**", "The guided options will not give you LUKS under LVM"],
-      ["Software selection", "**Untick everything except `standard system utilities`**", "A ticked GNOME or KDE is a zero and a reinstall"],
+      ["Software selection", "**Untick everything except** `standard system utilities`", "A ticked GNOME or KDE is a zero and a reinstall"],
       ["GRUB", "Install to `/dev/sda`", "The disk itself, not a partition"]
     ]}},
     { note: "**Software selection is where most people lose the project**: a desktop environment is ticked by default, so press space to clear every box and leave only `standard system utilities`. Any X.org on the machine is a zero." },

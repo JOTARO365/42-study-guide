@@ -212,7 +212,7 @@ $ git switch main
 $ git pull                      # ดึงงานที่เพิ่ง merge ลงมา
 $ git branch -d feat/login      # ลบในเครื่อง (-d ปฏิเสธถ้ายังไม่ merge)
 $ git fetch --prune             # ล้าง origin/feat/login ที่ตายแล้วออก`, cap: "วงจรเต็มหนึ่งรอบ — ขั้น 1 กับ 6 คือสองขั้นที่คนลืมและทำให้ repo รก", lang: "bash" },
-      { note: "**ขั้นที่ 1 สำคัญกว่าที่คิด**: `git switch -c` แตกจาก **ตำแหน่งที่เรายืนอยู่ตอนนั้น**. ถ้าลืม `git pull` ก่อน branch ใหม่จะแตกจาก main เวอร์ชันเก่า แล้วตอนเปิด PR จะเจอ conflict ที่ไม่ควรมี. อยากแตกจากที่อื่นโดยไม่ต้องย้ายตัวเองไปก่อน ใช้ `git switch -c feat/x origin/main` ได้เลย" },
+      { note: "**ขั้นที่ 1 สำคัญกว่าที่คิด**:** `git switch -c` **แตกจาก** ตำแหน่งที่เรายืนอยู่ตอนนั้น**. ถ้าลืม `git pull` ก่อน branch ใหม่จะแตกจาก main เวอร์ชันเก่า แล้วตอนเปิด PR จะเจอ conflict ที่ไม่ควรมี. อยากแตกจากที่อื่นโดยไม่ต้องย้ายตัวเองไปก่อน ใช้ `git switch -c feat/x origin/main` ได้เลย" },
       { h: "ตั้งชื่อ branch ยังไงให้ทีมอ่านออก" },
       { table: { head: ["รูปแบบ", "ตัวอย่าง", "ใช้เมื่อ"], rows: [
         ["`feat/<เรื่อง>`", "`feat/login`, `feat/bench-flag`", "ฟีเจอร์ใหม่"],
@@ -335,7 +335,7 @@ git push origin v1.4.0                 # tag ไม่ไปกับ git push �
         ["**polyrepo**", "clone เล็ก, แต่ละทีมปล่อยเวอร์ชันเองได้", "การแก้ที่ตัดขวางกลายเป็น N PR ที่ต้องประสานกัน + การ pin เวอร์ชัน"],
       ]}},
       { h: "submodule หรือ subtree" },
-      { p: "**submodule** บันทึกว่า repo อื่นถูก pin ไว้ที่ commit ไหน — มันยังเป็นคนละ repo และทุกคนต้องจำ `git submodule update --init --recursive` (หรือ clone ด้วย `--recurse-submodules`). **subtree** ก๊อปโค้ดเข้ามาเลย — ผู้ใช้ปลายทางไม่ต้องรู้อะไรเพิ่ม แต่การอัปเดตยุ่งกว่า" },
+      { p: "**submodule **บันทึกว่า repo อื่นถูก pin ไว้ที่ commit ไหน — มันยังเป็นคนละ repo และทุกคนต้องจำ** `git submodule update --init --recursive` **(หรือ clone ด้วย** `--recurse-submodules`**).** subtree** ก๊อปโค้ดเข้ามาเลย — ผู้ใช้ปลายทางไม่ต้องรู้อะไรเพิ่ม แต่การอัปเดตยุ่งกว่า" },
       { note: "submodule เป็นแหล่งกำเนิดของ 'บนเครื่องฉันมันรันได้' ที่พบบ่อย เพราะ submodule ที่ยังไม่ได้ update จะอยู่ในสถานะ detached และ **มองไม่เห็นใน git status** ถ้าไม่ตั้งใจดู" },
       { h: "ดูแลหลาย repo พร้อมกัน" },
       { p: "พอมีโปรเจกต์หลายตัว ปัญหาจะเปลี่ยนจาก 'ใช้ git ยังไง' เป็น **'จะไม่หลงว่าตอนนี้อยู่ repo ไหน ด้วยตัวตนอะไร และตัวไหนยังไม่ push'**. สามอย่างนี้แก้ด้วยโครงสร้าง ไม่ใช่ด้วยความจำ" },
@@ -629,7 +629,7 @@ git blame -w -C -L 40,60 file   # -w เมิน whitespace, -C ตามโค
         ["`git add -n .`", "บอกว่าจะ add อะไรบ้างโดยยังไม่ add", "-"],
         ["`git add -f <file>`", "ฝืน add ไฟล์ที่ติด .gitignore", "ใช้เมื่อรู้ว่าทำอะไรอยู่เท่านั้น"],
       ]}},
-      { note: "สรุปที่จำง่าย: `.` **= ตำแหน่งที่ยืน**, `-A` **= ทั้ง repo**, `-u` **= เฉพาะที่ track แล้ว**. ตั้งแต่ git 2.0 `git add .` รวมไฟล์ที่ถูกลบด้วยแล้ว (เมื่อก่อนไม่รวม) — ถ้าเคยอ่านคำแนะนำเก่าที่บอกว่าต้องใช้ `git add -A` เพราะ `.` ไม่จับไฟล์ที่ลบ อันนั้นล้าสมัยแล้ว" },
+      { note: "สรุปที่จำง่าย: `.` **= ตำแหน่งที่ยืน**,** `-A` = ทั้ง repo**,** `-u` = เฉพาะที่ track แล้ว**. ตั้งแต่ git 2.0 `git add .` รวมไฟล์ที่ถูกลบด้วยแล้ว (เมื่อก่อนไม่รวม) — ถ้าเคยอ่านคำแนะนำเก่าที่บอกว่าต้องใช้ `git add -A` เพราะ `.` ไม่จับไฟล์ที่ลบ อันนั้นล้าสมัยแล้ว" },
 
       { h: "git commit" },
       { table: { head: ["คำสั่ง", "ทำอะไร"], rows: [
@@ -1066,7 +1066,7 @@ $ git switch main
 $ git pull                      # bring down the work you just merged
 $ git branch -d feat/login      # delete locally (-d refuses if unmerged)
 $ git fetch --prune             # drop the now-dead origin/feat/login`, cap: "One full cycle — steps 1 and 6 are the two everyone forgets, and they are why repos get cluttered", lang: "bash" },
-      { note: "**Step 1 matters more than it looks**: `git switch -c` branches from **wherever you are standing at that moment**. Forget the `git pull` and your branch starts from a stale main, and the PR shows conflicts that should never have existed. To branch from elsewhere without moving first, `git switch -c feat/x origin/main` does it in one go." },
+      { note: "**Step 1 matters more than it looks**:** `git switch -c` **branches from** wherever you are standing at that moment**. Forget the `git pull` and your branch starts from a stale main, and the PR shows conflicts that should never have existed. To branch from elsewhere without moving first, `git switch -c feat/x origin/main` does it in one go." },
       { h: "Naming branches so your team can read them" },
       { table: { head: ["Pattern", "Example", "Use for"], rows: [
         ["`feat/<topic>`", "`feat/login`, `feat/bench-flag`", "new features"],
@@ -1188,7 +1188,7 @@ git push origin v1.4.0                 # tags do NOT go with a plain git push`, 
         ["**polyrepo**", "small clones, independent release cadence per team", "every cross-cutting change becomes N coordinated PRs plus version pinning"],
       ]}},
       { h: "Submodule or subtree" },
-      { p: "A **submodule** records another repo pinned at one commit — it stays a separate repo, and everyone must remember `git submodule update --init --recursive` (or clone with `--recurse-submodules`). A **subtree** copies the code in: consumers need no extra commands, but updating is messier." },
+      { p: "A **submodule **records another repo pinned at one commit — it stays a separate repo, and everyone must remember** `git submodule update --init --recursive` **(or clone with** `--recurse-submodules`**). A** subtree** copies the code in: consumers need no extra commands, but updating is messier." },
       { note: "Submodules are a frequent source of 'it works on my machine', because a submodule that has not been updated sits detached and is **invisible in git status** unless you go looking." },
       { h: "Running several repositories at once" },
       { p: "Once you have several projects, the problem stops being 'how do I use git' and becomes **'how do I never lose track of which repo I am in, under which identity, and which ones are unpushed'**. All three are solved structurally, not by memory." },
@@ -1480,7 +1480,7 @@ git blame -w -C -L 40,60 file   # -w ignores whitespace, -C follows moved code`,
         ["`git add -n .`", "list what would be staged without staging", "-"],
         ["`git add -f <file>`", "force-add a file that .gitignore excludes", "only when you know exactly why"],
       ]}},
-      { note: "The short version: `.` **is where you stand**, `-A` **is the whole repo**, `-u` **is tracked files only**. Since git 2.0 `git add .` does include deletions (it did not before) — so older advice telling you to use `git add -A` because `.` misses deleted files is out of date." },
+      { note: "The short version: `.` **is where you stand**,** `-A` is the whole repo**,** `-u` is tracked files only**. Since git 2.0 `git add .` does include deletions (it did not before) — so older advice telling you to use `git add -A` because `.` misses deleted files is out of date." },
 
       { h: "git commit" },
       { table: { head: ["Command", "What it does"], rows: [

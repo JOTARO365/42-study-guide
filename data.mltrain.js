@@ -98,7 +98,7 @@ AdamW:
    w ← w − η λ w       ทำแยกต่างหาก ไม่ผ่านตัวหารปรับสเกล
    → ทุกพารามิเตอร์ decay เท่ากันตามที่ตั้งใจ`,
         cap: "นี่คือความต่างเชิงพฤติกรรมจริง ไม่ใช่การจัดโค้ดใหม่", lang: "txt" },
-      { note: "**ใช้ AdamW พร้อม `weight_decay` แทนการใส่พจน์ L2 ลงใน loss ของ Adam** และ **ห้าม decay bias กับพารามิเตอร์ของ normalization** เพราะการบีบมันเข้าหาศูนย์ไม่มีเหตุผลรองรับและมักทำให้แย่ลง" },
+      { note: "**ใช้ AdamW พร้อม** `weight_decay` **แทนการใส่พจน์ L2 ลงใน loss ของ Adam** และ **ห้าม decay bias กับพารามิเตอร์ของ normalization** เพราะการบีบมันเข้าหาศูนย์ไม่มีเหตุผลรองรับและมักทำให้แย่ลง" },
       { h: "7) ตารางสรุป optimizer" },
       { table: { head: ["ตัว", "เพิ่มอะไร", "แก้อะไร"], rows: [
         ["**SGD**", "`w −= η g`", "เส้นฐาน ไม่แก้อะไร"],
@@ -116,7 +116,7 @@ AdamW:
         ["**ReduceLROnPlateau**", "ลดเมื่อ validation ไม่ดีขึ้น", "เมื่อไม่รู้ว่าจะเทรนกี่ epoch"]
       ]}},
       { h: "9) warmup มีไว้ทำไม" },
-      { p: "**เพราะที่ก้าวแรก ๆ ตัวประมาณความแปรปรวน `v` ของ Adam สร้างจากข้อมูลแทบไม่มีเลย จึงเชื่อไม่ได้** — ก้าวใหญ่ที่ตัดสินจากค่านั้นทำลายค่าเริ่มต้นที่ตั้งมาดีได้ · การไต่ learning rate จาก 0 ขึ้นไปช่วงไม่กี่ร้อยถึงไม่กี่พันก้าวแรกแทบไม่มีต้นทุน และป้องกันเรื่องนี้ได้" },
+      { p: "**เพราะที่ก้าวแรก ๆ ตัวประมาณความแปรปรวน** `v` **ของ Adam สร้างจากข้อมูลแทบไม่มีเลย จึงเชื่อไม่ได้** — ก้าวใหญ่ที่ตัดสินจากค่านั้นทำลายค่าเริ่มต้นที่ตั้งมาดีได้ · การไต่ learning rate จาก 0 ขึ้นไปช่วงไม่กี่ร้อยถึงไม่กี่พันก้าวแรกแทบไม่มีต้นทุน และป้องกันเรื่องนี้ได้" },
       { note: "**warmup แทบเป็นข้อบังคับสำหรับ transformer และสำหรับ batch ใหญ่** ส่วนเครือข่ายเล็ก ๆ ที่ batch ปกติมักไม่ต้องใช้" },
       { h: "10) กฎสเกลเชิงเส้นของ batch size" },
       { code: String.raw`คูณ batch size ด้วย k → คูณ learning rate ด้วย k
@@ -409,7 +409,7 @@ def cosine_with_warmup(opt, warmup_steps, total_steps):
 
 total = len(train_loader) * epochs
 sched = cosine_with_warmup(opt, warmup_steps=int(0.05 * total), total_steps=total)`,
-        cap: "**ต้องเรียก `sched.step()` ทุก batch ไม่ใช่ทุก epoch** เมื่อ schedule นับเป็นก้าวแบบนี้", lang: "python" },
+        cap: "**ต้องเรียก** `sched.step()` **ทุก batch ไม่ใช่ทุก epoch** เมื่อ schedule นับเป็นก้าวแบบนี้", lang: "python" },
       { h: "3) ลูปเทรนที่ครบทุกชิ้น" },
       { code: String.raw`for epoch in range(epochs):
     model.train()
@@ -481,7 +481,7 @@ for xb, yb in train_loader:
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     scaler.step(opt)
     scaler.update()`,
-        cap: "**ลืม `unscale_` ก่อน clip แล้วจะ clip ค่าที่ถูกคูณไว้ ทำให้ threshold ผิดไปหลายพันเท่า**", lang: "python" },
+        cap: "**ลืม** `unscale_` **ก่อน clip แล้วจะ clip ค่าที่ถูกคูณไว้ ทำให้ threshold ผิดไปหลายพันเท่า**", lang: "python" },
       { h: "7) gradient accumulation" },
       { code: String.raw`accum = 4                       # batch จริง 64 → เท่ากับ 256
 
@@ -564,9 +564,9 @@ for k, v in results.items():
       { ul: [
         "**ใส่ L2 ลงใน loss แล้วใช้ Adam** โดยคิดว่าเท่ากับ weight decay — ไม่เท่า ให้ใช้ AdamW",
         "**decay bias และพารามิเตอร์ของ norm ไปด้วย** เพราะใส่ `weight_decay` ให้ทุกพารามิเตอร์รวดเดียว",
-        "**เรียก `sched.step()` ทุก epoch** ทั้งที่ schedule นับเป็นก้าว — learning rate จะลดช้ากว่าที่ตั้งใจหลายสิบเท่า",
+        "**เรียก** `sched.step()` **ทุก epoch** ทั้งที่ schedule นับเป็นก้าว — learning rate จะลดช้ากว่าที่ตั้งใจหลายสิบเท่า",
         "**ลืมหาร loss ตอนทำ gradient accumulation** ทำให้ learning rate จริงคูณตามจำนวนรอบ",
-        "**clip ก่อน `unscale_`** ตอนใช้ mixed precision ทำให้ threshold ผิดไปหลายพันเท่า",
+        "**clip ก่อน** `unscale_` ตอนใช้ mixed precision ทำให้ threshold ผิดไปหลายพันเท่า",
         "**เทียบ optimizer ด้วย learning rate เดียวกัน** แล้วสรุปว่าตัวไหนดีกว่า"
       ]},
       { h: "ตัวเลขที่ควรจำได้" },
@@ -730,7 +730,7 @@ AdamW:
    w <- w − η λ w       applied separately, outside the adaptive scaling
    -> every parameter decays equally, as intended`,
       cap: "This is a genuine behavioural difference, not a code reorganisation", lang: "txt" },
-    { note: "**Use AdamW with `weight_decay` rather than adding an L2 term to Adam's loss.** And **never decay biases or normalisation parameters** — shrinking them toward zero has no justification and usually makes things worse." },
+    { note: "**Use AdamW with** `weight_decay` **rather than adding an L2 term to Adam's loss.** And **never decay biases or normalisation parameters** — shrinking them toward zero has no justification and usually makes things worse." },
     { h: "7) The optimizer summary" },
     { table: { head: ["Optimizer", "What it adds", "What it fixes"], rows: [
       ["**SGD**", "`w −= η g`", "The baseline; it fixes nothing"],
@@ -748,7 +748,7 @@ AdamW:
       ["**ReduceLROnPlateau**", "Cuts it when validation stops improving", "When you cannot predict the length of the run"]
     ]}},
     { h: "9) What warmup is for" },
-    { p: "**Because in the earliest steps Adam's variance estimate `v` is built from almost no data and cannot be trusted** — a large step decided on that estimate can destroy a good initialisation. Ramping the learning rate up from zero over the first few hundred to few thousand steps costs essentially nothing and prevents it." },
+    { p: "**Because in the earliest steps Adam's variance estimate** `v` **is built from almost no data and cannot be trusted** — a large step decided on that estimate can destroy a good initialisation. Ramping the learning rate up from zero over the first few hundred to few thousand steps costs essentially nothing and prevents it." },
     { note: "**Warmup is effectively mandatory for transformers and for large batches**, while small networks at ordinary batch sizes usually do not need it." },
     { h: "10) The linear scaling rule for batch size" },
     { code: String.raw`multiply the batch size by k -> multiply the learning rate by k
@@ -1042,7 +1042,7 @@ def cosine_with_warmup(opt, warmup_steps, total_steps):
 
 total = len(train_loader) * epochs
 sched = cosine_with_warmup(opt, warmup_steps=int(0.05 * total), total_steps=total)`,
-      cap: "**Call `sched.step()` every batch, not every epoch**, when the schedule counts in steps like this one", lang: "python" },
+      cap: "**Call** `sched.step()` **every batch, not every epoch**, when the schedule counts in steps like this one", lang: "python" },
     { h: "3) A training loop with every piece present" },
     { code: String.raw`for epoch in range(epochs):
     model.train()
@@ -1114,7 +1114,7 @@ for xb, yb in train_loader:
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     scaler.step(opt)
     scaler.update()`,
-      cap: "**Forget `unscale_` before clipping and you clip the scaled values, putting the threshold off by thousands**", lang: "python" },
+      cap: "**Forget** `unscale_` **before clipping and you clip the scaled values, putting the threshold off by thousands**", lang: "python" },
     { h: "7) Gradient accumulation" },
     { code: String.raw`accum = 4                       # real batch 64 -> equivalent to 256
 
@@ -1197,9 +1197,9 @@ for k, v in results.items():
     { ul: [
       "**Adding L2 to the loss while using Adam** and believing it equals weight decay — it does not; use AdamW",
       "**Decaying biases and norm parameters** by handing `weight_decay` to every parameter at once",
-      "**Calling `sched.step()` per epoch** when the schedule counts steps — the learning rate then decays dozens of times slower than intended",
+      "**Calling** `sched.step()` **per epoch** when the schedule counts steps — the learning rate then decays dozens of times slower than intended",
       "**Forgetting to divide the loss during gradient accumulation**, multiplying the real learning rate by the accumulation count",
-      "**Clipping before `unscale_`** under mixed precision, putting the threshold off by thousands",
+      "**Clipping before** `unscale_` under mixed precision, putting the threshold off by thousands",
       "**Comparing optimizers at one shared learning rate** and drawing a conclusion from it"
     ]},
     { h: "Numbers worth remembering" },

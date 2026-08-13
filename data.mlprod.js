@@ -455,7 +455,7 @@ def build_model_card(model, X_train, params, metrics):
         "metrics": metrics,
         "feature_names": list(X_train.columns),
     }`,
-        cap: "**`git_dirty` สำคัญกว่าที่คิด** — โมเดลที่เทรนจากโค้ดที่ยังไม่ commit คือโมเดลที่สร้างใหม่ไม่ได้", lang: "python" },
+        cap: "`git_dirty` **สำคัญกว่าที่คิด** — โมเดลที่เทรนจากโค้ดที่ยังไม่ commit คือโมเดลที่สร้างใหม่ไม่ได้", lang: "python" },
       { h: "6) ตรวจ schema ก่อนให้โมเดลทำนาย" },
       { code: String.raw`EXPECTED = {"age_bucket": int, "price_log": float,
             "category": str, "prior_returns": int}
@@ -508,7 +508,7 @@ def predict(payload: dict):
         logger.warning(f"shadow ล้ม: {e}")            # ← ห้ามกระทบผลจริงเด็ดขาด
 
     return result`,
-        cap: "**`try/except` รอบ shadow เป็นข้อบังคับ** — โมเดลตัวใหม่ล้มแล้วต้องไม่ทำให้คำขอจริงล้มตาม", lang: "python" },
+        cap: "`try/except` **รอบ shadow เป็นข้อบังคับ** — โมเดลตัวใหม่ล้มแล้วต้องไม่ทำให้คำขอจริงล้มตาม", lang: "python" },
       { h: "9) เกณฑ์ rollback อัตโนมัติ" },
       { code: String.raw`ROLLBACK_RULES = [
     ("error_rate",        lambda m: m["error_rate"] > 0.01),
@@ -1099,7 +1099,7 @@ def build_model_card(model, X_train, params, metrics):
         "metrics": metrics,
         "feature_names": list(X_train.columns),
     }`,
-      cap: "**`git_dirty` matters more than it looks** — a model trained from uncommitted code is a model that cannot be rebuilt", lang: "python" },
+      cap: "`git_dirty` **matters more than it looks** — a model trained from uncommitted code is a model that cannot be rebuilt", lang: "python" },
     { h: "6) Validating the schema before predicting" },
     { code: String.raw`EXPECTED = {"age_bucket": int, "price_log": float,
             "category": str, "prior_returns": int}
@@ -1152,7 +1152,7 @@ def predict(payload: dict):
         logger.warning(f"shadow failed: {e}")         # <- must never affect the real result
 
     return result`,
-      cap: "**The `try/except` around the shadow is mandatory** — a failing candidate must not take the real request down with it", lang: "python" },
+      cap: "**The** `try/except` **around the shadow is mandatory** — a failing candidate must not take the real request down with it", lang: "python" },
     { h: "9) Automatic rollback criteria" },
     { code: String.raw`ROLLBACK_RULES = [
     ("error_rate",        lambda m: m["error_rate"] > 0.01),

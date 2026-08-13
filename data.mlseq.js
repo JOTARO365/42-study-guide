@@ -89,7 +89,7 @@ o_t = σ(W_o [h_{t−1}, x_t])     output: เปิดเผย cell ออก�
 C_t = f_t ⊙ C_{t−1} + i_t ⊙ g_t     ← **บวก ไม่ใช่คูณด้วยเมทริกซ์**
 h_t = o_t ⊙ tanh(C_t)`,
         cap: "บรรทัด C_t คือหัวใจทั้งหมด — cell state ถูกบวกเพิ่ม ไม่ได้ถูกคูณด้วย W ซ้ำ ๆ", lang: "txt" },
-      { note: "**เมื่อ `f_t ≈ 1` เส้นทาง gradient ตาม C ประมาณเป็น identity** ซึ่งคือกลไกเดียวกับ `+1` ของ ResNet ในหน้าที่แล้ว แต่ถูกคิดค้นก่อนสองทศวรรษ · **ใครที่สอน LSTM ว่า 'สามประตูควบคุมการไหลของข้อมูล' โดยไม่พูดถึงเส้นทางบวก คือสอนคำศัพท์ ไม่ได้สอนกลไก**" },
+      { note: "**เมื่อ** `f_t ≈ 1` **เส้นทาง gradient ตาม C ประมาณเป็น identity** ซึ่งคือกลไกเดียวกับ `+1` ของ ResNet ในหน้าที่แล้ว แต่ถูกคิดค้นก่อนสองทศวรรษ · **ใครที่สอน LSTM ว่า 'สามประตูควบคุมการไหลของข้อมูล' โดยไม่พูดถึงเส้นทางบวก คือสอนคำศัพท์ ไม่ได้สอนกลไก**" },
       { h: "5) ทำไม forget gate ควรเริ่มด้วย bias เป็นบวก" },
       { code: String.raw`f_t เริ่มใกล้ 0  →  ลืมทุกอย่างทันที  →  cell state ไม่เคยสะสมอะไรเลย
 
@@ -394,7 +394,7 @@ def attention(q, k, v, mask=None):
         scores = scores.masked_fill(mask == 0, float("-inf"))
     attn = scores.softmax(dim=-1)
     return attn @ v, attn`,
-        cap: "**`-inf` ก่อน softmax ไม่ใช่ 0** — ใส่ 0 แล้ว `exp(0)=1` ตำแหน่ง pad จะยังได้น้ำหนักอยู่", lang: "python" },
+        cap: "`-inf` **ก่อน softmax ไม่ใช่ 0** — ใส่ 0 แล้ว `exp(0)=1` ตำแหน่ง pad จะยังได้น้ำหนักอยู่", lang: "python" },
       { h: "5) ตรวจว่า attention ทำงานถูก" },
       { code: String.raw`q = torch.tensor([[[1., 0., 1., 0.]]])
 k = torch.tensor([[[1., 0., 1., 0.], [0., 1., 0., 1.], [1., 1., 0., 0.]]])
@@ -425,7 +425,7 @@ loss = loss_fn(logits.reshape(-1, vocab), targets.reshape(-1))
 # หรือทำเองถ้าต้องการควบคุม:
 mask = (targets != PAD_ID).float()
 loss = (per_token_loss * mask).sum() / mask.sum()   # หารด้วยจำนวน token จริง`,
-        cap: "**หารด้วย `mask.sum()` ไม่ใช่จำนวนทั้งหมด** ไม่งั้น loss ของ batch ที่ pad เยอะจะดูต่ำผิดจริง", lang: "python" },
+        cap: "**หารด้วย** `mask.sum()` **ไม่ใช่จำนวนทั้งหมด** ไม่งั้น loss ของ batch ที่ pad เยอะจะดูต่ำผิดจริง", lang: "python" },
       { h: "8) gradient clipping ที่ขาดไม่ได้" },
       { code: String.raw`loss.backward()
 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -488,7 +488,7 @@ loss = loss_fn(logits.reshape(-1, vocab), decoder_target.reshape(-1))`,
         "**ใช้ bidirectional ในงานพยากรณ์** ซึ่งเป็นการอ่านอนาคตโดยตรง",
         "**แบ่ง train/test แบบสุ่มในอนุกรมเวลา** ทำให้คะแนนดีเกินจริงทั้งหมด",
         "**ลืม mask ตำแหน่ง pad** ทั้งใน loss และใน attention",
-        "**ใส่ 0 แทน `-inf`** ตอน mask attention ทำให้ pad ยังได้น้ำหนัก",
+        "**ใส่ 0 แทน** `-inf` ตอน mask attention ทำให้ pad ยังได้น้ำหนัก",
         "**ไม่ปรับ score ตามความยาวใน beam search** ทำให้ได้แต่ประโยคสั้น",
         "**ไม่ทำ baseline ที่ไม่ใช้บริบท** ในงานอนุกรมเวลา แล้วไม่รู้ว่าโมเดลชนะอะไรหรือเปล่า"
       ]},
@@ -645,7 +645,7 @@ o_t = σ(W_o [h_{t−1}, x_t])     output: how much of the cell to expose
 C_t = f_t ⊙ C_{t−1} + i_t ⊙ g_t     <- **added to, not multiplied by a matrix**
 h_t = o_t ⊙ tanh(C_t)`,
       cap: "The C_t line is the whole mechanism — the cell state is added to, never repeatedly multiplied by W", lang: "txt" },
-    { note: "**When `f_t ≈ 1` the gradient path along C is approximately the identity**, which is the same mechanism as ResNet's `+1` from the previous page, arrived at two decades earlier. **Anyone teaching LSTM as \"three gates controlling information flow\" without the additive path has taught the vocabulary and not the mechanism.**" },
+    { note: "**When** `f_t ≈ 1` **the gradient path along C is approximately the identity**, which is the same mechanism as ResNet's `+1` from the previous page, arrived at two decades earlier. **Anyone teaching LSTM as \"three gates controlling information flow\" without the additive path has taught the vocabulary and not the mechanism.**" },
     { h: "5) Why the forget gate should start with a positive bias" },
     { code: String.raw`f_t starting near 0  ->  it forgets everything immediately  ->  the cell state never accumulates
 
@@ -950,7 +950,7 @@ def attention(q, k, v, mask=None):
         scores = scores.masked_fill(mask == 0, float("-inf"))
     attn = scores.softmax(dim=-1)
     return attn @ v, attn`,
-      cap: "**`-inf` before the softmax, not 0** — with 0, `exp(0)=1` and padded positions still receive weight", lang: "python" },
+      cap: "`-inf` **before the softmax, not 0** — with 0, `exp(0)=1` and padded positions still receive weight", lang: "python" },
     { h: "5) Checking that attention is correct" },
     { code: String.raw`q = torch.tensor([[[1., 0., 1., 0.]]])
 k = torch.tensor([[[1., 0., 1., 0.], [0., 1., 0., 1.], [1., 1., 0., 0.]]])
@@ -981,7 +981,7 @@ loss = loss_fn(logits.reshape(-1, vocab), targets.reshape(-1))
 # or by hand, for more control:
 mask = (targets != PAD_ID).float()
 loss = (per_token_loss * mask).sum() / mask.sum()   # divide by real tokens only`,
-      cap: "**Divide by `mask.sum()`, not the total count**, or a heavily padded batch reports a falsely low loss", lang: "python" },
+      cap: "**Divide by** `mask.sum()`**, not the total count**, or a heavily padded batch reports a falsely low loss", lang: "python" },
     { h: "8) The gradient clipping you cannot skip" },
     { code: String.raw`loss.backward()
 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -1044,7 +1044,7 @@ loss = loss_fn(logits.reshape(-1, vocab), decoder_target.reshape(-1))`,
       "**Using bidirectional for forecasting**, which reads the future directly",
       "**Splitting a time series randomly**, which inflates every score",
       "**Forgetting to mask padding** in both the loss and the attention",
-      "**Masking with 0 instead of `-inf`**, so padding still receives weight",
+      "**Masking with 0 instead of** `-inf`, so padding still receives weight",
       "**Not length-normalising in beam search**, which produces only short outputs",
       "**Skipping the no-context baseline** in time series, so nobody knows what the model actually beat"
     ]},

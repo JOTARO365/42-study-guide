@@ -14,7 +14,7 @@ window.TEACHING_DATA.push({
   accent: "#a78bfa",
   sections: {
     principle: [
-      { h: "ทำไมต้องรู้คณิตศาสตร์ ในเมื่อเรียก `model.fit()` ก็ได้" },
+      { h: "ทำไมต้องรู้คณิตศาสตร์ ในเมื่อเรียก model.fit() ก็ได้" },
       { p: "เรียกได้จริง และใช้งานได้จริงในหลายกรณี แต่ **วันที่มันพัง คณิตศาสตร์คือสิ่งเดียวที่บอกได้ว่าพังตรงไหน** — loss กลายเป็น `NaN`, gradient หายไปจนชั้นต้น ๆ ไม่ขยับ, โมเดลมั่นใจ 95% แต่ถูกแค่ 60% ทั้งสามอย่างนี้อ่านจากเอกสาร API ไม่เจอ" },
       { p: "หน้านี้ไม่ได้สอนคณิตศาสตร์ทั้งหมด — สอนเฉพาะส่วนที่ **โผล่ขึ้นมาจริงตอนดีบัก** และทุกสมการจะถูกอนุมานให้เห็นที่มา เพราะ **สูตรที่อนุมานเองไม่ได้ คือสูตรที่ดีบักไม่ได้**" },
       { h: "สี่วิชา สี่หน้าที่" },
@@ -123,7 +123,7 @@ Z2 = A1 @ W2 + b2      (32, 10)     logits
 ŷ  = softmax(Z2)       (32, 10)     แต่ละแถวรวมได้ 1`,
         cap: "เขียนรูปร่างกำกับทุกบรรทัดก่อนดีบักค่า — 90% ของบั๊กจบตรงนี้", lang: "python" },
       { h: "ทำไม W ถึงเป็น (in, out) ไม่ใช่ (out, in)" },
-      { p: "เป็นแบบแผนที่มาจากการวาง **หนึ่งแถวคือหนึ่งตัวอย่าง** ทำให้เขียน `X @ W` ได้ตรง ๆ โดยไม่ต้อง transpose — ถ้าเก็บข้อมูลเป็นหนึ่งคอลัมน์ต่อหนึ่งตัวอย่าง (แบบตำราคณิตศาสตร์) จะกลายเป็น `W @ X` และ `W` จะมีรูปร่างกลับกัน **ทั้งสองแบบถูก แต่ต้องเลือกอันเดียวแล้วอยู่กับมัน**" },
+      { p: "เป็นแบบแผนที่มาจากการวาง **หนึ่งแถวคือหนึ่งตัวอย่าง **ทำให้เขียน** `X @ W` **ได้ตรง ๆ โดยไม่ต้อง transpose — ถ้าเก็บข้อมูลเป็นหนึ่งคอลัมน์ต่อหนึ่งตัวอย่าง (แบบตำราคณิตศาสตร์) จะกลายเป็น** `W @ X` **และ** `W` **จะมีรูปร่างกลับกัน** ทั้งสองแบบถูก แต่ต้องเลือกอันเดียวแล้วอยู่กับมัน**" },
       { h: "การ transpose ที่ต้องเข้าใจ ไม่ใช่ท่อง" },
       { code: String.raw`(A @ B)ᵀ = Bᵀ @ Aᵀ        สลับลำดับด้วย ไม่ใช่แค่ทรานสโพสทีละตัว
 
@@ -155,8 +155,8 @@ A @ B        คูณเมทริกซ์ ตามกฎ (m,k)@(k,n)
       { h: "ตัวเลขทศนิยมที่ต้องระวัง" },
       { ul: [
         "**float32 มีความละเอียดราว 7 หลักทศนิยม** — บวกเลขเล็กเข้ากับเลขใหญ่แล้วเลขเล็กหายไปเฉย ๆ",
-        "**`log(0) = −inf`** จึงต้อง clip ความน่าจะเป็นให้อยู่ใน `[ε, 1−ε]` ก่อนใส่ log เสมอ",
-        "**`e^x` ล้นที่ประมาณ x = 88 ใน float32** จึงต้องลบค่าสูงสุดออกก่อนใน softmax",
+        "`log(0) = −inf` จึงต้อง clip ความน่าจะเป็นให้อยู่ใน `[ε, 1−ε]` ก่อนใส่ log เสมอ",
+        "`e^x` **ล้นที่ประมาณ x = 88 ใน float32** จึงต้องลบค่าสูงสุดออกก่อนใน softmax",
         "**การบวกไม่สลับที่ใน floating point** — `(a+b)+c ≠ a+(b+c)` ซึ่งเป็นเหตุผลหนึ่งที่ผลรันซ้ำบน GPU ไม่เหมือนเดิมเป๊ะ"
       ]},
       { code: String.raw`softmax ที่ปลอดภัย:
@@ -174,7 +174,7 @@ A @ B        คูณเมทริกซ์ ตามกฎ (m,k)@(k,n)
       { h: "Gradient descent ในหนึ่งบรรทัด" },
       { code: String.raw`θ ← θ − η ∇L(θ)`,
         cap: "gradient ชี้ไปทางที่ loss เพิ่มเร็วที่สุด จึงต้องเดินสวนทาง — เครื่องหมายลบคือทั้งหมดของเรื่องนี้", lang: "txt" },
-      { p: "**`η` (learning rate) คือความยาวก้าว** — ใหญ่ไปจะกระโดดข้ามจุดต่ำสุดแล้วแกว่ง เล็กไปจะช้าจนไม่ทันใช้ นี่คือ hyperparameter ที่มีผลมากที่สุดตัวเดียวในการเทรน" },
+      { p: "`η` **(learning rate) คือความยาวก้าว** — ใหญ่ไปจะกระโดดข้ามจุดต่ำสุดแล้วแกว่ง เล็กไปจะช้าจนไม่ทันใช้ นี่คือ hyperparameter ที่มีผลมากที่สุดตัวเดียวในการเทรน" },
       { h: "Chain rule — หัวใจของ backpropagation" },
       { code: String.raw`ถ้า  L = L(g(f(x)))
 
@@ -217,7 +217,7 @@ Backward (ไล่จากท้ายมาหน้า):
   dW1 = Xᵀ @ dZ1
   db1 = sum(dZ1, axis=0)`,
         cap: "เจ็ดบรรทัดนี้คือ backpropagation ทั้งหมด — ที่เหลือคือการทำซ้ำต่อชั้น", lang: "txt" },
-      { note: "**`dZ2 = ŷ − y` คือความมหัศจรรย์เล็ก ๆ ของหน้านี้** — อนุพันธ์ของ softmax เองยุ่งมาก (เป็น Jacobian เต็ม) แต่พอต่อกับ cross-entropy แล้วพจน์ยุ่ง ๆ ตัดกันหมด เหลือแค่ 'ทำนาย ลบ ความจริง' นี่คือเหตุผลที่ framework รวมสองอันเป็น op เดียว" },
+      { note: "`dZ2 = ŷ − y` **คือความมหัศจรรย์เล็ก ๆ ของหน้านี้** — อนุพันธ์ของ softmax เองยุ่งมาก (เป็น Jacobian เต็ม) แต่พอต่อกับ cross-entropy แล้วพจน์ยุ่ง ๆ ตัดกันหมด เหลือแค่ 'ทำนาย ลบ ความจริง' นี่คือเหตุผลที่ framework รวมสองอันเป็น op เดียว" },
       { h: "อนุมานให้เห็นว่าทำไมถึงตัดกันหมด" },
       { code: String.raw`L = −Σ yₖ log ŷₖ        และ  ŷᵢ = e^zᵢ / Σⱼ e^zⱼ
 
@@ -291,7 +291,7 @@ softmax:  e^0.91 = 2.484 · e^1.23 = 3.421 · รวม = 5.905
 
 L = −log(ŷ ของคลาสที่ถูก) = −log(0.4207) = 0.8659`,
         cap: "one-hot ทำให้เหลือพจน์เดียว — loss คือ 'ประหลาดใจแค่ไหนกับคำตอบที่ถูก'", lang: "txt" },
-      { note: "**อ่านค่า loss ให้เป็น**: เดาสุ่มบน 2 คลาสได้ `−log(0.5) = 0.693` ค่าที่ได้ 0.866 จึง **แย่กว่าการเดาสุ่ม** เพราะโมเดลเอนไปทางคลาสที่ผิด · สำหรับ 10 คลาส เส้นเดาสุ่มคือ `−log(0.1) = 2.303` — จำสองเลขนี้ไว้ใช้ตรวจว่าโมเดลเริ่มเรียนหรือยัง" },
+      { note: "**อ่านค่า loss ให้เป็น**: เดาสุ่มบน 2 คลาสได้** `−log(0.5) = 0.693` **ค่าที่ได้ 0.866 จึง** แย่กว่าการเดาสุ่ม** เพราะโมเดลเอนไปทางคลาสที่ผิด · สำหรับ 10 คลาส เส้นเดาสุ่มคือ `−log(0.1) = 2.303` — จำสองเลขนี้ไว้ใช้ตรวจว่าโมเดลเริ่มเรียนหรือยัง" },
       { h: "ขากลับ — เริ่มที่ logits" },
       { code: String.raw`dZ2 = ŷ − y = [0.4207 − 1, 0.5793 − 0] = [−0.5793, 0.5793]`,
         cap: "ค่าลบแปลว่า 'ต้องดันคะแนนของคลาสนี้ขึ้น' ค่าบวกแปลว่า 'ต้องกดลง'", lang: "txt" },
@@ -512,10 +512,10 @@ MinMaxScaler:    z = (x − min)/(max−min) → อยู่ใน [0, 1]`,
       { p: "**เหตุผลที่ init เป็นเรื่อง**: ถ้าความแปรปรวนของ activation เปลี่ยนทุกชั้น พอผ่านไป 20 ชั้นมันจะกลายเป็นศูนย์หรือระเบิด — Xavier กับ He ออกแบบมาเพื่อให้ความแปรปรวนคงที่ตลอดความลึก" },
       { h: "กับดักตัวเลขที่เจอจริง" },
       { ul: [
-        "**ใส่ softmax สองครั้ง** — เอาผลของ `softmax` ไปให้ loss ที่มี `log_softmax` อยู่ข้างในแล้ว ผลคือเทรนได้แต่ได้จุดที่แย่กว่า **ไม่ crash จึงหายาก**",
-        "**ลืม `keepdims=True`** — รูปร่างยุบจาก `(32,1)` เป็น `(32,)` แล้ว broadcasting กลายเป็น `(32,32)`",
+        "**ใส่ softmax สองครั้ง **— เอาผลของ** `softmax` **ไปให้ loss ที่มี** `log_softmax` **อยู่ข้างในแล้ว ผลคือเทรนได้แต่ได้จุดที่แย่กว่า** ไม่ crash จึงหายาก**",
+        "**ลืม** `keepdims=True` — รูปร่างยุบจาก `(32,1)` เป็น `(32,)` แล้ว broadcasting กลายเป็น `(32,32)`",
         "**ลืมหารด้วยขนาด batch** — gradient จะใหญ่ตามขนาด batch ทำให้ learning rate ที่จูนไว้ใช้ไม่ได้เมื่อเปลี่ยน batch size",
-        "**ใช้ `==` เทียบ float** — ใช้ `np.isclose` แทนเสมอ",
+        "**ใช้** `==` **เทียบ float** — ใช้ `np.isclose` แทนเสมอ",
         "**คำนวณ mean/std จากข้อมูลทั้งหมดก่อนแบ่ง train/test** — เป็น data leakage ที่ทำให้ผลดูดีเกินจริง"
       ]},
       { h: "ลำดับที่ควรเรียนต่อ" },
@@ -585,7 +585,7 @@ MinMaxScaler:    z = (x − min)/(max−min) → อยู่ใน [0, 1]`,
 Object.assign(window.TEACHING_EN, {
   ml_math: {
     principle: [
-      { h: "Why learn the mathematics when `model.fit()` exists" },
+      { h: "Why learn the mathematics when model.fit() exists" },
       { p: "It does exist, and it works for plenty of cases. But **the day it breaks, the mathematics is the only thing that tells you where** — a loss that turns to `NaN`, a gradient so small the early layers stop moving, a model that is 95% confident and 60% correct. None of those are in the API documentation." },
       { p: "This page does not teach all of mathematics. It teaches the part that **actually surfaces while debugging**, and every equation is derived, because **a formula you cannot re-derive is one you cannot debug**." },
       { h: "Four subjects, four jobs" },
@@ -692,7 +692,7 @@ Z2 = A1 @ W2 + b2      (32, 10)     logits
 ŷ  = softmax(Z2)       (32, 10)     each row sums to 1`,
         cap: "Annotate every line with its shape before debugging any value — 90% of bugs end here", lang: "python" },
       { h: "Why W is (in, out) rather than (out, in)" },
-      { p: "It follows from putting **one example per row**, which lets you write `X @ W` with no transpose. Store one example per column instead (as the maths textbooks do) and it becomes `W @ X` with the shape reversed. **Both are correct; pick one and stay with it.**" },
+      { p: "It follows from putting **one example per row**, which lets you write** `X @ W` **with no transpose. Store one example per column instead (as the maths textbooks do) and it becomes** `W @ X` **with the shape reversed.** Both are correct; pick one and stay with it.**" },
       { h: "The transposes worth understanding rather than memorising" },
       { code: String.raw`(A @ B)ᵀ = Bᵀ @ Aᵀ        the order flips too, not just each factor
 
@@ -724,8 +724,8 @@ per layer, per example`,
       { h: "Floating point facts that bite" },
       { ul: [
         "**float32 carries about seven decimal digits** — add a small number to a large one and the small one simply disappears",
-        "**`log(0) = −inf`**, so clip probabilities into `[ε, 1−ε]` before every log",
-        "**`e^x` overflows float32 around x = 88**, which is why softmax subtracts the maximum first",
+        "`log(0) = −inf`, so clip probabilities into `[ε, 1−ε]` before every log",
+        "`e^x` **overflows float32 around x = 88**, which is why softmax subtracts the maximum first",
         "**Floating-point addition is not associative** — `(a+b)+c ≠ a+(b+c)` — one reason repeated GPU runs are not bit-identical"
       ]},
       { code: String.raw`A numerically safe softmax:
@@ -742,7 +742,7 @@ Why the result is unchanged:
       { h: "Gradient descent in one line" },
       { code: String.raw`θ ← θ − η ∇L(θ)`,
         cap: "The gradient points where loss rises fastest, so you walk against it — the minus sign is the whole idea", lang: "txt" },
-      { p: "**`η`, the learning rate, is the step length.** Too large and you leap over the minimum and oscillate; too small and it is too slow to be useful. It is the single most consequential hyperparameter in training." },
+      { p: "`η`**, the learning rate, is the step length.** Too large and you leap over the minimum and oscillate; too small and it is too slow to be useful. It is the single most consequential hyperparameter in training." },
       { h: "The chain rule, the heart of backpropagation" },
       { code: String.raw`if  L = L(g(f(x)))
 
@@ -785,7 +785,7 @@ Backward (from the end):
   dW1 = Xᵀ @ dZ1
   db1 = sum(dZ1, axis=0)`,
         cap: "Those seven lines are all of backpropagation; deeper networks just repeat them", lang: "txt" },
-      { note: "**`dZ2 = ŷ − y` is the small miracle of this page.** Softmax's own derivative is messy — a full Jacobian — but composed with cross-entropy the messy terms cancel, leaving \"prediction minus truth\". That is why frameworks fuse the pair into a single op." },
+      { note: "`dZ2 = ŷ − y` **is the small miracle of this page.** Softmax's own derivative is messy — a full Jacobian — but composed with cross-entropy the messy terms cancel, leaving \"prediction minus truth\". That is why frameworks fuse the pair into a single op." },
       { h: "Deriving why everything cancels" },
       { code: String.raw`L = −Σ yₖ log ŷₖ        and  ŷᵢ = e^zᵢ / Σⱼ e^zⱼ
 
@@ -858,7 +858,7 @@ softmax:  e^0.91 = 2.484 · e^1.23 = 3.421 · sum = 5.905
 
 L = −log(ŷ of the true class) = −log(0.4207) = 0.8659`,
         cap: "One-hot leaves a single term — the loss is simply how surprised the model was by the right answer", lang: "txt" },
-      { note: "**Read that loss value.** Guessing at random over two classes gives `−log(0.5) = 0.693`, so 0.8659 is **worse than chance**: the model leans toward the wrong class. For ten classes the chance line is `−log(0.1) = 2.303`. Remember those two numbers to tell whether a model has started learning at all." },
+      { note: "**Read that loss value. **Guessing at random over two classes gives** `−log(0.5) = 0.693`**, so 0.8659 is** worse than chance**: the model leans toward the wrong class. For ten classes the chance line is `−log(0.1) = 2.303`. Remember those two numbers to tell whether a model has started learning at all." },
       { h: "Backward — starting at the logits" },
       { code: String.raw`dZ2 = ŷ − y = [0.4207 − 1, 0.5793 − 0] = [−0.5793, 0.5793]`,
         cap: "Negative means push this class's score up; positive means push it down", lang: "txt" },
@@ -1077,10 +1077,10 @@ MinMaxScaler:    z = (x − min)/(max−min) → into [0, 1]`,
       { p: "**Why initialisation is a real subject**: if the variance of the activations changes at each layer, twenty layers later it is either zero or enormous. Xavier and He are designed to hold that variance constant with depth." },
       { h: "Numerical traps you will actually hit" },
       { ul: [
-        "**Applying softmax twice** — feeding a softmax output into a loss that already applies `log_softmax`. It trains, badly, and **never crashes, which is why it hides**.",
-        "**Forgetting `keepdims=True`** — the shape collapses from `(32,1)` to `(32,)` and broadcasting quietly produces `(32,32)`.",
+        "**Applying softmax twice **— feeding a softmax output into a loss that already applies** `log_softmax`**. It trains, badly, and** never crashes, which is why it hides**.",
+        "**Forgetting** `keepdims=True` — the shape collapses from `(32,1)` to `(32,)` and broadcasting quietly produces `(32,32)`.",
         "**Forgetting to divide by the batch size** — the gradient scales with the batch, so a tuned learning rate stops working when the batch changes.",
-        "**Comparing floats with `==`** — use `np.isclose` instead, always.",
+        "**Comparing floats with** `==` — use `np.isclose` instead, always.",
         "**Computing mean and standard deviation before the train/test split** — leakage that makes the results look better than they are."
       ]},
       { h: "Where to go next" },

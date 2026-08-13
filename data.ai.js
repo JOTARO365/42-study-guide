@@ -459,7 +459,7 @@ class Review(BaseModel):
         "ลิมิต: ไฟล์ ≤10MB/รูป, มิติ ≤8000px, ภาพควรคม; ระบุชื่อคน/นับวัตถุ/spatial เป๊ะ ๆ ไม่แม่น",
       ]},
       { h: "8) Extended thinking — ให้โมเดลคิดก่อนตอบ (จาก docs)" },
-      { p: "โหมดที่โมเดลสร้าง **thinking block** (ให้เหตุผลภายใน) ก่อนคำตอบจริง. รุ่นใหม่ใช้ **adaptive thinking** — โมเดลตัดสินใจเองว่าจะคิดลึกแค่ไหน แล้วเราคุมงบด้วย `effort` แทนการกำหนดจำนวน token. **thinking token คิดเงินเป็น output**" },
+      { p: "โหมดที่โมเดลสร้าง **thinking block** (ให้เหตุผลภายใน) ก่อนคำตอบจริง. รุ่นใหม่ใช้ **adaptive thinking **— โมเดลตัดสินใจเองว่าจะคิดลึกแค่ไหน แล้วเราคุมงบด้วย** `effort` **แทนการกำหนดจำนวน token.** thinking token คิดเงินเป็น output**" },
       { code: String.raw`client.messages.create(
     model="claude-sonnet-5",
     max_tokens=16000,

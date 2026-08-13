@@ -22,8 +22,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
     /* ── ส่วนที่ 1: ตรวจชนิดตัวอักษร ─────────────────────────── */
     f("ft_isalpha", G1, "ft_isalpha('B')  ·  ft_isalpha('7')", [
       st("ft_isalpha(c)", "ft_isalpha.c", 0,
-        { th: "รับ **`int` ไม่ใช่ `char`** เพราะต้องรับค่า `EOF` (-1) ได้ด้วย — นี่คือเหตุผลที่ libc ทั้งตระกูล `is*` ใช้ `int`",
-          en: "Takes an **`int`, not a `char`**, because it must also accept `EOF` (-1) — which is why the whole `is*` family in libc takes an int." },
+        { th: "รับ `int` **ไม่ใช่** `char` เพราะต้องรับค่า `EOF` (-1) ได้ด้วย — นี่คือเหตุผลที่ libc ทั้งตระกูล `is*` ใช้ `int`",
+          en: "Takes an `int`**, not a** `char`, because it must also accept `EOF` (-1) — which is why the whole `is*` family in libc takes an int." },
         "c = 'B' = 66", [v("c", "66", { th: "ตัวอักษรมาถึงในรูปเลข ASCII", en: "the character arrives as its ASCII number" })]),
       st("เช็คสองช่วง", "ft_isalpha.c", 1,
         { th: "`(c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')` — เทียบกับตัวอักษรตรง ๆ อ่านง่ายกว่าเขียนเลข 65/90",
@@ -37,8 +37,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_isdigit", G1, "ft_isdigit('7')", [
       st("ft_isdigit(c)", "ft_isdigit.c", 0,
-        { th: "ช่วงเดียว `'0'` ถึง `'9'` — และ **`'0'` ไม่ใช่ 0** มันคือ 48 ซึ่งเป็นที่มาของสูตร `c - '0'` ตอนแปลงเป็นตัวเลข",
-          en: "One range, `'0'` to `'9'` — and **`'0'` is not 0**, it is 48, which is where the `c - '0'` conversion trick comes from." },
+        { th: "ช่วงเดียว `'0'` ถึง `'9'` — และ `'0'` **ไม่ใช่ 0** มันคือ 48 ซึ่งเป็นที่มาของสูตร `c - '0'` ตอนแปลงเป็นตัวเลข",
+          en: "One range, `'0'` to `'9'` — and `'0'` **is not 0**, it is 48, which is where the `c - '0'` conversion trick comes from." },
         "'7' = 55  ·  55 - 48 = 7", [v("c - '0'", "7", { th: "สูตรที่ ft_atoi ใช้ต่อ", en: "the formula ft_atoi builds on" })])
     ]),
 
@@ -58,8 +58,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_isprint", G1, "ft_isprint(' ')  ·  ft_isprint('\\n')", [
       st("ft_isprint(c)", "ft_isprint.c", 0,
-        { th: "พิมพ์ออกหน้าจอแล้วเห็น = ตั้งแต่ **space (32)** ถึง **`~` (126)** — `'\\n'` (10) เป็นอักขระควบคุม จึงไม่นับ",
-          en: "Printable means visible on screen: from **space (32)** through **`~` (126)**. `'\\n'` (10) is a control character, so it does not count." },
+        { th: "พิมพ์ออกหน้าจอแล้วเห็น = ตั้งแต่ **space (32)** ถึง `~` **(126)** — `'\\n'` (10) เป็นอักขระควบคุม จึงไม่นับ",
+          en: "Printable means visible on screen: from **space (32)** through `~` **(126)**. `'\\n'` (10) is a control character, so it does not count." },
         "' ' = 32 -> 1   ·   '\\n' = 10 -> 0", [v("ช่วง", "32..126", { th: "space นับด้วย แม้จะมองไม่เห็นก็ตาม", en: "space counts, even though you cannot see it" })])
     ]),
 
@@ -121,8 +121,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_memcpy", G1, "ft_memcpy(dst, src, 6)", [
       st("ft_memcpy(dst, src, n)", "ft_memcpy.c", 0,
-        { th: "คัดลอก `n` ไบต์แบบ **ไม่สนใจ `'\\0'`** จึงใช้กับข้อมูลดิบได้ ไม่ใช่แค่สตริง",
-          en: "Copies `n` bytes with **no regard for `'\\0'`**, so it works on raw data, not only strings." },
+        { th: "คัดลอก `n` ไบต์แบบ **ไม่สนใจ** `'\\0'` จึงใช้กับข้อมูลดิบได้ ไม่ใช่แค่สตริง",
+          en: "Copies `n` bytes with **no regard for** `'\\0'`, so it works on raw data, not only strings." },
         "src = \"42 sch\"  n = 6", []),
       st("dst == NULL && src == NULL", "ft_memcpy.c", 1,
         { th: "ถ้าทั้งคู่เป็น NULL ต้อง **คืนออกไปเลย ไม่ dereference** — เป็นเคสที่ tester ของ moulinette ยิงตรง ๆ",
@@ -140,8 +140,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "Behaves like `memcpy` but **stays correct when the regions overlap** — the sole reason it exists." },
         "s = \"ABCDEF\"  ->  ต้องการ \"ABABCD\"", []),
       st("เลือกทิศทางจากตำแหน่ง", "ft_memmove.c", 1,
-        { th: "**`dst > src` ให้คัดลอกจากท้ายมาหน้า** มิฉะนั้นคัดลอกจากหน้าไปท้าย — การเลือกทิศคือทั้งหมดของฟังก์ชันนี้",
-          en: "**If `dst > src`, copy back to front**; otherwise front to back. Choosing the direction is the whole function." },
+        { th: "`dst > src` **ให้คัดลอกจากท้ายมาหน้า** มิฉะนั้นคัดลอกจากหน้าไปท้าย — การเลือกทิศคือทั้งหมดของฟังก์ชันนี้",
+          en: "**If** `dst > src`**, copy back to front**; otherwise front to back. Choosing the direction is the whole function." },
         "dst(s+2) > src(s)  ->  เดินถอยหลัง", [v("i", "len - 1", { th: "เริ่มจากไบต์สุดท้าย", en: "start at the last byte" }, true)]),
       st("ทำไมทิศทางถึงสำคัญ", "ft_memmove.c", 2,
         { th: "ถ้าเดินหน้าไปหลังในเคสนี้ `dst[0]` จะทับ `src[2]` ที่ยังไม่ได้อ่าน ผลลัพธ์จะกลายเป็น `\"ABAAAA\"` แทน",
@@ -151,8 +151,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_strlcpy", G1, "ft_strlcpy(dst, \"Bangkok\", 4)", [
       st("ft_strlcpy(dst, src, size)", "ft_strlcpy.c", 0,
-        { th: "`size` คือ **ขนาดของบัฟเฟอร์ปลายทางทั้งก้อน รวมที่ว่างสำหรับ `'\\0'`** ไม่ใช่จำนวนตัวอักษรที่จะคัดลอก",
-          en: "`size` is **the whole destination buffer, including room for the `'\\0'`**, not the number of characters to copy." },
+        { th: "`size` คือ **ขนาดของบัฟเฟอร์ปลายทางทั้งก้อน รวมที่ว่างสำหรับ** `'\\0'` ไม่ใช่จำนวนตัวอักษรที่จะคัดลอก",
+          en: "`size` is **the whole destination buffer, including room for the** `'\\0'`, not the number of characters to copy." },
         "src = \"Bangkok\" (7 ตัว)  size = 4", []),
       st("คัดลอกได้มากสุด size - 1 ตัว", "ft_strlcpy.c", 1,
         { th: "เหลือที่ให้ `'\\0'` หนึ่งช่องเสมอ — และถ้า `size` เป็น 0 ต้อง **ไม่แตะ dst เลย**",
@@ -170,8 +170,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "Appends `src` to `dst`, where `size` is **the whole buffer**, not the space remaining." },
         "dst = \"Hello\" (5)  src = \"42\"  size = 10", []),
       st("หาความยาวเดิมของ dst ก่อน", "ft_strlcat.c", 1,
-        { th: "**ถ้า `size` เล็กกว่าความยาวของ dst แปลว่าบัฟเฟอร์เต็มอยู่แล้ว** ต้องคืน `size + strlen(src)` โดยไม่เขียนอะไรเลย — เคสนี้คือที่คนพลาดกันมากที่สุด",
-          en: "**If `size` is smaller than dst's length the buffer is already full**: return `size + strlen(src)` and write nothing. This is the case people miss most." },
+        { th: "**ถ้า** `size` **เล็กกว่าความยาวของ dst แปลว่าบัฟเฟอร์เต็มอยู่แล้ว** ต้องคืน `size + strlen(src)` โดยไม่เขียนอะไรเลย — เคสนี้คือที่คนพลาดกันมากที่สุด",
+          en: "**If** `size` **is smaller than dst's length the buffer is already full**: return `size + strlen(src)` and write nothing. This is the case people miss most." },
         "dlen = 5  ·  5 < 10  ->  เขียนต่อได้", [v("dlen", "5", { th: "ความยาวเดิม", en: "the existing length" })]),
       st("ต่อจนเต็มแล้วปิดด้วย '\\0'", "ft_strlcat.c", 1,
         { th: "ค่าที่คืนคือ **ความยาวที่ควรจะได้ทั้งหมด** คือ `dlen + strlen(src)` เทียบกับ `size` แล้วรู้ว่าล้นไหม",
@@ -211,8 +211,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "Compares byte by byte up to `n`, stopping at the first difference or at either `'\\0'`." },
         "\"test\" กับ \"team\"  n = 4", []),
       st("ต่างที่ index 2", "ft_strncmp.c", 1,
-        { th: "**ต้อง cast เป็น `unsigned char` ก่อนลบ** ไม่งั้นตัวอักษรที่เกิน 127 จะให้เครื่องหมายผิด — เป็นกับดักคลาสสิกของฟังก์ชันนี้",
-          en: "**Cast to `unsigned char` before subtracting**, or characters above 127 produce the wrong sign — the classic trap here." },
+        { th: "**ต้อง cast เป็น** `unsigned char` **ก่อนลบ** ไม่งั้นตัวอักษรที่เกิน 127 จะให้เครื่องหมายผิด — เป็นกับดักคลาสสิกของฟังก์ชันนี้",
+          en: "**Cast to** `unsigned char` **before subtracting**, or characters above 127 produce the wrong sign — the classic trap here." },
         "'s'(115) - 'a'(97) = 18", [v("return", "18", { th: "บวก = s1 มากกว่า", en: "positive means s1 is greater" }, true)]),
       st("n เป็น 0 คือเท่ากันเสมอ", "ft_strncmp.c", 1,
         { th: "ไม่ได้เทียบอะไรเลยจึงต้องคืน 0 — และค่าที่คืนคือ **ผลต่าง ไม่ใช่แค่ -1/0/1**",
@@ -222,8 +222,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_memchr", G1, "ft_memchr(buf, 'B', 8)", [
       st("ft_memchr(s, c, n)", "ft_memchr.c", 0,
-        { th: "เหมือน `strchr` แต่ค้นในหน่วยความจำดิบ — **ไม่หยุดที่ `'\\0'`** หยุดเมื่อครบ `n` ไบต์เท่านั้น",
-          en: "Like `strchr` but over raw memory: **it does not stop at `'\\0'`**, only when `n` bytes are exhausted." },
+        { th: "เหมือน `strchr` แต่ค้นในหน่วยความจำดิบ — **ไม่หยุดที่** `'\\0'` หยุดเมื่อครบ `n` ไบต์เท่านั้น",
+          en: "Like `strchr` but over raw memory: **it does not stop at** `'\\0'`, only when `n` bytes are exhausted." },
         "buf อาจมี 0 อยู่ข้างในได้", [v("p", "(unsigned char *)s", { th: "cast ก่อนเดิน", en: "cast before walking" }, true)]),
       st("เจอแล้วคืนตัวชี้ ไม่เจอคืน NULL", "ft_memchr.c", 1,
         { th: "เทียบแบบ `unsigned char` ทั้งสองฝั่ง เพราะข้อมูลดิบมีค่าเกิน 127 ได้เป็นปกติ",
@@ -233,8 +233,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_memcmp", G1, "ft_memcmp(a, b, 4)", [
       st("ft_memcmp(s1, s2, n)", "ft_memcmp.c", 0,
-        { th: "เทียบหน่วยความจำดิบ `n` ไบต์ — ต่างจาก `strncmp` ตรงที่ **`'\\0'` ไม่หยุดการเทียบ**",
-          en: "Compares `n` raw bytes; unlike `strncmp`, **a `'\\0'` does not stop it**." },
+        { th: "เทียบหน่วยความจำดิบ `n` ไบต์ — ต่างจาก `strncmp` ตรงที่ `'\\0'` **ไม่หยุดการเทียบ**",
+          en: "Compares `n` raw bytes; unlike `strncmp`, **a** `'\\0'` **does not stop it**." },
         "a = \"ab\\0d\"  b = \"ab\\0e\"  n = 4", []),
       st("ต่างที่ไบต์สุดท้าย", "ft_memcmp.c", 1,
         { th: "`strncmp` จะบอกว่าเท่ากันเพราะหยุดที่ `'\\0'` แต่ `memcmp` เดินต่อจนครบ 4 ไบต์แล้วเจอความต่าง — เข้าใจข้อนี้แล้วจะเลือกใช้ถูกตัว",
@@ -252,8 +252,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "By definition an empty needle is found at position zero — **check it before the loop** or you wrongly return NULL." },
         "if (!*little) return ((char *)big);", []),
       st("ลูปซ้อนพร้อมกันขอบเขต", "ft_strnstr.c", 1,
-        { th: "ที่ทุกตำแหน่ง `i` ต้องมั่นใจว่า **`i + j` ยังไม่เกิน `len`** — ลืมเช็คแล้วจะอ่านทะลุขอบที่ผู้เรียกอนุญาต",
-          en: "At each position `i`, ensure **`i + j` stays within `len`** — forget it and you read past the bound the caller allowed." },
+        { th: "ที่ทุกตำแหน่ง `i` ต้องมั่นใจว่า `i + j` **ยังไม่เกิน** `len` — ลืมเช็คแล้วจะอ่านทะลุขอบที่ผู้เรียกอนุญาต",
+          en: "At each position `i`, ensure `i + j` **stays within** `len` — forget it and you read past the bound the caller allowed." },
         "เจอที่ index 3", [v("return", "big + 3", { th: "ตัวชี้เข้าไปใน big", en: "a pointer into big" }, true)])
     ]),
 
@@ -301,11 +301,11 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "Makes a **fresh copy on the heap** that the caller owns and must `free` — the moment ownership changes hands." },
         "s1 = \"42\"  ->  ต้องจอง 3 ไบต์", [v("len", "2", { th: "ไม่รวมตัวปิด", en: "excluding the terminator" })]),
       st("malloc(len + 1)", "ft_strdup.c", 1,
-        { th: "**+1 คือที่ของ `'\\0'`** ลืมแล้วจะเขียนล้นไปหนึ่งไบต์ ซึ่งเป็นบั๊กที่ valgrind จับได้ทันทีแต่โปรแกรมอาจดูปกติ",
-          en: "**The +1 is the `'\\0'`.** Forget it and you write one byte past the end — valgrind catches it instantly even though the program may look fine." },
+        { th: "**+1 คือที่ของ** `'\\0'` ลืมแล้วจะเขียนล้นไปหนึ่งไบต์ ซึ่งเป็นบั๊กที่ valgrind จับได้ทันทีแต่โปรแกรมอาจดูปกติ",
+          en: "**The +1 is the** `'\\0'`**.** Forget it and you write one byte past the end — valgrind catches it instantly even though the program may look fine." },
         "malloc(3)", []),
       st("คัดลอกแล้วปิดท้าย", "ft_strdup.c", 1,
-        { th: "`malloc` คืน `NULL` ได้เสมอ ต้องเช็คก่อนเขียน — และผลลัพธ์ **ไม่ผูกกับอายุของ `s1`** อีกต่อไป",
+        { th: "`malloc` คืน `NULL` ได้เสมอ ต้องเช็คก่อนเขียน — และผลลัพธ์ **ไม่ผูกกับอายุของ** `s1` อีกต่อไป",
           en: "`malloc` can always return `NULL`, so check before writing — and the result no longer depends on `s1`'s lifetime." },
         "return \"42\" ที่จองใหม่", [v("ownership", "caller", { th: "ผู้เรียกต้อง free", en: "the caller must free it" }, true)])
     ])
@@ -370,8 +370,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "Use `ft_strchr(set, s1[i])` to decide whether a character belongs to the set — built from what you already wrote." },
         "start = 2", [v("start", "2", { th: "ตำแหน่งแรกที่ไม่อยู่ใน set", en: "the first index not in the set" }, true)]),
       st("เดินถอยหลังหาจุดจบ", "ft_strtrim.c", 1,
-        { th: "**ต้องกัน `end` ไม่ให้เดินต่ำกว่า `start`** ไม่งั้นสตริงที่เป็น set ล้วน เช่น `\"   \"` จะคำนวณความยาวติดลบแล้วพัง",
-          en: "**Guard `end` from crossing below `start`**, or an all-set string like `\"   \"` computes a negative length and crashes." },
+        { th: "**ต้องกัน** `end` **ไม่ให้เดินต่ำกว่า** `start` ไม่งั้นสตริงที่เป็น set ล้วน เช่น `\"   \"` จะคำนวณความยาวติดลบแล้วพัง",
+          en: "**Guard** `end` **from crossing below** `start`, or an all-set string like `\"   \"` computes a negative length and crashes." },
         "end = 4", []),
       st("ตัดออกมาด้วย ft_substr", "ft_strtrim.c", 1,
         { th: "ความยาว = `end - start` แล้วให้ `ft_substr` จองและคัดลอกให้ — ไม่ต้องเขียนลูปคัดลอกใหม่",
@@ -412,8 +412,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "You need the length before allocating, **plus a slot for the minus sign**; `n == 0` is the special case with one digit." },
         "10 หลัก + '-' + '\\0' = 12", [v("len", "11", { th: "ไม่รวมตัวปิด", en: "excluding the terminator" }, true)]),
       st("INT_MIN คือกับดัก", "ft_itoa.c", 1,
-        { th: "**`-INT_MIN` ล้น `int`** จะเขียน `n = -n` ตรง ๆ ไม่ได้ — ทางออกคือทำงานบน `long` หรือสะสมเป็นค่าลบตลอด",
-          en: "**`-INT_MIN` overflows an `int`**, so `n = -n` is not allowed — work in a `long`, or keep the value negative throughout." },
+        { th: "`-INT_MIN` **ล้น** `int` จะเขียน `n = -n` ตรง ๆ ไม่ได้ — ทางออกคือทำงานบน `long` หรือสะสมเป็นค่าลบตลอด",
+          en: "`-INT_MIN` **overflows an** `int`, so `n = -n` is not allowed — work in a `long`, or keep the value negative throughout." },
         "long nb = n;", [v("nb", "-2147483648", { th: "long รับได้ int ไม่ได้", en: "a long can hold it; an int cannot" }, true)]),
       st("เขียนจากหลังมาหน้า", "ft_itoa.c", 1,
         { th: "หารสิบเอาเศษได้หลักท้ายก่อน จึงเติมจากท้าย array มาหน้า แล้วใส่ `'-'` ที่ index 0 เป็นตัวสุดท้าย",
@@ -497,8 +497,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_lstadd_front", G3, "ft_lstadd_front(&head, new)", [
       st("ft_lstadd_front(lst, new)", "ft_lstadd_front.c", 0,
-        { th: "รับ **`t_list **`** เพราะต้องแก้ตัว head เอง — ส่งแค่ `t_list *` แล้วผู้เรียกจะไม่เห็นการเปลี่ยนแปลง",
-          en: "Takes a **`t_list **`** because it must change the head itself; a plain `t_list *` would leave the caller's head unchanged." },
+        { th: "รับ **`t_list** `** เพราะต้องแก้ตัว head เอง — ส่งแค่ `t_list *` แล้วผู้เรียกจะไม่เห็นการเปลี่ยนแปลง",
+          en: "Takes a **`t_list** `** because it must change the head itself; a plain `t_list *` would leave the caller's head unchanged." },
         "*lst เดิม -> A -> B", [v("lst", "t_list **", { th: "ตัวชี้ของตัวชี้ = แก้ตัวแปรของผู้เรียกได้", en: "a pointer to a pointer, so the caller's variable can change" })]),
       st("ต่อ new->next ก่อนย้าย head", "ft_lstadd_front.c", 1,
         { th: "**ลำดับสำคัญ**: ถ้าย้าย `*lst = new` ก่อน จะหาทางกลับไปหา list เดิมไม่เจออีกเลย = leak ทั้งเส้น",
@@ -515,8 +515,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_lstlast", G3, "ft_lstlast(head)", [
       st("ft_lstlast(lst)", "ft_lstlast.c", 0,
-        { th: "เดินจนกว่า `next` จะเป็น `NULL` — เงื่อนไขลูปคือ **`lst->next`** ไม่ใช่ `lst` ไม่งั้นจะเลยไปหนึ่งช่องแล้วคืน `NULL`",
-          en: "Walks until `next` is `NULL`. The loop condition is **`lst->next`**, not `lst`, or you overshoot and return `NULL`." },
+        { th: "เดินจนกว่า `next` จะเป็น `NULL` — เงื่อนไขลูปคือ `lst->next` ไม่ใช่ `lst` ไม่งั้นจะเลยไปหนึ่งช่องแล้วคืน `NULL`",
+          en: "Walks until `next` is `NULL`. The loop condition is `lst->next`, not `lst`, or you overshoot and return `NULL`." },
         "return C", [v("lst", "NULL ก็ต้องรอด", { th: "เช็คก่อน dereference", en: "check before dereferencing" })])
     ]),
 
@@ -533,8 +533,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_lstdelone", G3, "ft_lstdelone(node, del)", [
       st("ft_lstdelone(lst, del)", "ft_lstdelone.c", 0,
-        { th: "ลบ **node เดียว** โดยเรียก `del` กับเนื้อหาก่อน แล้วค่อย `free` ตัว node — **ไม่แตะ `next`** การเชื่อมต่อเป็นเรื่องของผู้เรียก",
-          en: "Deletes **one node**: call `del` on the content, then `free` the node. It **does not touch `next`** — relinking is the caller's job." },
+        { th: "ลบ **node เดียว **โดยเรียก** `del` **กับเนื้อหาก่อน แล้วค่อย** `free` **ตัว node —** ไม่แตะ `next`** การเชื่อมต่อเป็นเรื่องของผู้เรียก",
+          en: "Deletes **one node**: call** `del` **on the content, then** `free` **the node. It** does not touch `next`** — relinking is the caller's job." },
         "del(lst->content);  free(lst);", []),
       st("ทำไม del ถึงถูกส่งเข้ามา", "ft_lstdelone.c", 1,
         { th: "libft ไม่รู้ว่า `content` คืออะไร — อาจเป็น struct ที่มี pointer ข้างในอีกชั้น **ผู้เรียกเท่านั้นที่รู้วิธี free ที่ถูกต้อง**",
@@ -544,12 +544,12 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
 
     f("ft_lstclear", G3, "ft_lstclear(&head, del)", [
       st("ft_lstclear(lst, del)", "ft_lstclear.c", 0,
-        { th: "ลบทั้งเส้น — **ต้องเก็บ `next` ไว้ก่อน free** ไม่งั้นอ่าน `node->next` จากหน่วยความจำที่คืนไปแล้ว ซึ่งคือ use-after-free",
-          en: "Deletes the whole list — **save `next` before freeing**, or you read `node->next` out of memory you just released, a use-after-free." },
+        { th: "ลบทั้งเส้น — **ต้องเก็บ** `next` **ไว้ก่อน free** ไม่งั้นอ่าน `node->next` จากหน่วยความจำที่คืนไปแล้ว ซึ่งคือ use-after-free",
+          en: "Deletes the whole list — **save** `next` **before freeing**, or you read `node->next` out of memory you just released, a use-after-free." },
         "tmp = lst->next;  ft_lstdelone(lst, del);  lst = tmp;", [v("tmp", "next ที่เก็บไว้ก่อน", { th: "บรรทัดที่ลืมไม่ได้", en: "the line you cannot forget" }, true)]),
       st("ตั้ง *lst = NULL ตอนจบ", "ft_lstclear.c", 1,
-        { th: "**ปิดท้ายด้วยการล้าง head ของผู้เรียก** ไม่งั้นเหลือ dangling pointer ที่ดูเหมือนใช้ได้ — นี่คือเหตุผลที่รับเป็น `t_list **`",
-          en: "**Clear the caller's head at the end**, or a dangling pointer remains that still looks usable — which is why it takes a `t_list **`." },
+        { th: "**ปิดท้ายด้วยการล้าง head ของผู้เรียก **ไม่งั้นเหลือ dangling pointer ที่ดูเหมือนใช้ได้ — นี่คือเหตุผลที่รับเป็น `t_list** `",
+          en: "**Clear the caller's head at the end**, or a dangling pointer remains that still looks usable — which is why it takes a `t_list** `." },
         "*lst = NULL;", [])
     ]),
 
@@ -570,8 +570,8 @@ window.EXTRA_FLOWS = window.EXTRA_FLOWS || {};
           en: "`ft_lstnew(f(lst->content))`, then append — if `f` allocates, its result belongs to the new list." },
         "new -> new -> new", []),
       st("ล้มกลางทางต้องเก็บกวาดให้ครบ", "ft_lstmap.c", 2,
-        { th: "**`ft_lstclear(&head, del)` ส่วนที่สร้างไปแล้ว แล้วคืน NULL** — และถ้า `f` จองไว้แต่ `lstnew` ล้ม ต้อง `del` ผลของ `f` ตัวนั้นด้วย ไม่งั้น leak หนึ่งก้อนเงียบ ๆ",
-          en: "**`ft_lstclear(&head, del)` what exists and return NULL** — and if `f` allocated but `lstnew` failed, `del` that result too, or one block leaks silently." },
+        { th: "`ft_lstclear(&head, del)` **ส่วนที่สร้างไปแล้ว แล้วคืน NULL** — และถ้า `f` จองไว้แต่ `lstnew` ล้ม ต้อง `del` ผลของ `f` ตัวนั้นด้วย ไม่งั้น leak หนึ่งก้อนเงียบ ๆ",
+          en: "`ft_lstclear(&head, del)` **what exists and return NULL** — and if `f` allocated but `lstnew` failed, `del` that result too, or one block leaks silently." },
         "ft_lstclear(&head, del); return (NULL);", [v("del", "ใช้ตอนล้มเหลวเท่านั้น", { th: "นี่คือเหตุผลเดียวที่ lstmap ต้องรับ del", en: "the only reason lstmap takes a del at all" }, true)])
     ])
   ];

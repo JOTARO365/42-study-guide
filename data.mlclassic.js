@@ -290,7 +290,7 @@ cumulative                = [0.62, 0.83, 0.92, 0.97, 1.00]
         ["Random forest (sklearn)", "ไม่ได้", "impute ด้วย median หรือเพิ่มคอลัมน์ `is_missing`"],
         ["โมเดลเชิงเส้น · kNN · SVM", "ไม่ได้", "impute เสมอ และ fit บน train เท่านั้น"]
       ]}},
-      { p: "**การเพิ่มคอลัมน์ `is_missing` มักได้ผลดีอย่างน่าประหลาด** — เพราะบ่อยครั้ง 'การที่ข้อมูลหาย' เป็นสัญญาณในตัวมันเอง เช่นลูกค้าที่ไม่กรอกรายได้อาจมีพฤติกรรมต่างจากคนที่กรอก" },
+      { p: "**การเพิ่มคอลัมน์** `is_missing` **มักได้ผลดีอย่างน่าประหลาด** — เพราะบ่อยครั้ง 'การที่ข้อมูลหาย' เป็นสัญญาณในตัวมันเอง เช่นลูกค้าที่ไม่กรอกรายได้อาจมีพฤติกรรมต่างจากคนที่กรอก" },
       { h: "Ensemble ของ ensemble" },
       { table: { head: ["วิธี", "ทำยังไง", "เมื่อไรคุ้ม"], rows: [
         ["**Voting**", "โหวตจากหลายโมเดลที่ต่างตระกูล", "เมื่อโมเดลผิดคนละแบบ"],
@@ -719,7 +719,7 @@ a 90/10 node:   Gini = 1 − (0.81+0.01) = 0.18   Entropy = 0.47`,
 pick the split with the highest gain`,
       cap: "The weighting matters — carving off a pure node holding a single sample buys you nothing", lang: "txt" },
     { h: "5) Why trees do not need scaling" },
-    { p: "Because they use **order**, not distance. The question `income < 40000` gives exactly the same partition whether you measure in units or thousands, and **any monotonic transform leaves the resulting tree unchanged**." },
+    { p: "Because they use **order**, not distance. The question** `income < 40000` **gives exactly the same partition whether you measure in units or thousands, and** any monotonic transform leaves the resulting tree unchanged**." },
     { p: "**This is a structural difference from linear models and kNN**, both of which are very sensitive to scale." },
     { h: "6) What is wrong with a single tree" },
     { table: { head: ["Problem", "How it shows up"], rows: [
@@ -922,7 +922,7 @@ handles it natively: LightGBM and CatBoost take categoricals directly`,
       ["Random forest (sklearn)", "No", "Impute with the median, or add an `is_missing` column"],
       ["Linear models · kNN · SVM", "No", "Always impute, and fit the imputer on training data only"]
     ]}},
-    { p: "**Adding an `is_missing` column works surprisingly often**, because the fact that a value is absent is frequently a signal in itself — a customer who declines to state their income may well behave differently from one who states it." },
+    { p: "**Adding an** `is_missing` **column works surprisingly often**, because the fact that a value is absent is frequently a signal in itself — a customer who declines to state their income may well behave differently from one who states it." },
     { h: "Ensembles of ensembles" },
     { table: { head: ["Method", "How", "When it pays"], rows: [
       ["**Voting**", "Vote across models from different families", "When the models make different kinds of mistake"],

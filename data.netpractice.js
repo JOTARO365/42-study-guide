@@ -13,7 +13,7 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "โจทย์คืออะไร" },
-      { p: "NetPractice **ไม่ใช่โปรเจกต์เขียนโค้ด** — เป็นเกมบนเบราว์เซอร์ 10 ด่าน. แต่ละด่านมีผังเครือข่าย (host, router, switch, internet) ต่อสายกันไว้แล้ว มีช่องว่างให้เติม **IP address**, **netmask** และ **routing table**. เติมถูกครบ → ทุก goal ขึ้น `OK - Congratulations!!` → กดปุ่ม **Get my config** ได้ไฟล์ `levelN.json` เอาไปส่ง" },
+      { p: "NetPractice **ไม่ใช่โปรเจกต์เขียนโค้ด** — เป็นเกมบนเบราว์เซอร์ 10 ด่าน. แต่ละด่านมีผังเครือข่าย (host, router, switch, internet) ต่อสายกันไว้แล้ว มีช่องว่างให้เติม **IP address**, **netmask** และ **routing table**. เติมถูกครบ → ทุก goal ขึ้น** `OK - Congratulations!!` **→ กดปุ่ม** Get my config** ได้ไฟล์ `levelN.json` เอาไปส่ง" },
       { p: "สิ่งที่ต้องส่งคือไฟล์ JSON 10 ไฟล์ (`level1.json` … `level10.json`) เท่านั้น ไม่มี Makefile ไม่มี norminette ไม่มี valgrind" },
       { h: "ทำไมโปรเจกต์นี้สำคัญกว่าที่คิด" },
       { ul: [
@@ -363,7 +363,7 @@ A1:  ตรงเป๊ะ -> OK
     tricks: [
       { h: "ทริค 1 — กระดานเป็น deterministic ต่อ login" },
       { p: "`load_board()` สุ่มด้วย xorshift PRNG ที่ seed จาก `level + hash_login(login)` โดย `hash_login` ผสม `973*(code+i)` ที่ index คู่ และ `5*code*i` ที่ index คี่. **login เดิม + level เดิม = กระดานเดิมตลอดกาล** — นี่คือเหตุผลที่ moulinette ตรวจไฟล์ JSON ที่ export มาได้" },
-      { p: "แต่ถ้าไม่มี login เก็บไว้ (**โหมด evaluation / defense**) มันจะ fallback ไป `Math.random()` → กระดานสุ่มใหม่ทุกครั้ง. **คำตอบที่ท่องมาไร้ค่าที่นั่น** — เตรียม 'วิธี' ไม่ใช่ 'ตัวเลข'" },
+      { p: "แต่ถ้าไม่มี login เก็บไว้ (**โหมด evaluation / defense**) มันจะ fallback ไป** `Math.random()` **→ กระดานสุ่มใหม่ทุกครั้ง.** คำตอบที่ท่องมาไร้ค่าที่นั่น** — เตรียม 'วิธี' ไม่ใช่ 'ตัวเลข'" },
       { h: "ทริค 2 — ตรวจ config โดยไม่ต้องเปิดเบราว์เซอร์" },
       { p: "`show.js` และ `sim.js` ใช้แค่ `document.getElementById(id).value` เท่านั้น จึงรันใน Node ได้ด้วย DOM ปลอมจิ๋ว ๆ — ไม่ต้อง jsdom ไม่ต้องเบราว์เซอร์" },
       { code: String.raw`const sandbox = {
@@ -388,7 +388,7 @@ vm.runInContext('all_goals();', sandbox);
       { ul: [
         "**gateway ที่ล็อกคือข้อกำหนด ไม่ใช่คำใบ้** — ตั้ง interface ฝั่งตรงข้ามให้เป็นเลขนั้นก่อน แล้วค่อยสร้าง subnet ล้อมรอบ",
         "**IP ที่ต่างกันแค่ octet ที่สาม** เช่น `211.190.x` กับ `211.191.x` เป็นคนละ /16 — generator ตั้งใจวางไว้ให้ตาลาย",
-        "**`default` กับ `0.0.0.0/0` เท่ากันทุกประการ** ในสายตา sim.js รวมถึงตอนที่มันห้ามบน Internet",
+        "`default` **กับ** `0.0.0.0/0` **เท่ากันทุกประการ** ในสายตา sim.js รวมถึงตอนที่มันห้ามบน Internet",
         "**ขากลับพังเพราะ route หาย ไม่ใช่เพราะ mask ผิด** — ไปแก้ที่ router ปลายทางหรือที่ Internet ก่อน",
         "**เปลี่ยน mask แล้วต้องตรวจ IP เดิมใหม่ทุกครั้ง** — ขอบบล็อกขยับ IP ที่เคยดีอาจกลายเป็น network/broadcast",
         "**ช่องว่างท้าย IP** ผ่านในเกมเพราะ `parseInt()` แต่ทำให้ JSON ที่ส่งไม่สะอาด"
@@ -476,7 +476,7 @@ Object.assign(window.TEACHING_EN, {
   netpractice: {
     principle: [
       { h: "What the project asks for" },
-      { p: "NetPractice is **not a coding project** — it is a ten-level browser game. Each level shows a network diagram (hosts, routers, switches, an internet node) already cabled together, with blanks for **IP addresses**, **netmasks** and **routing tables**. Fill them in correctly and every goal turns `OK - Congratulations!!`; then the **Get my config** button hands you `levelN.json` to submit." },
+      { p: "NetPractice is **not a coding project** — it is a ten-level browser game. Each level shows a network diagram (hosts, routers, switches, an internet node) already cabled together, with blanks for **IP addresses**, **netmasks** and **routing tables**. Fill them in correctly and every goal turns** `OK - Congratulations!!`**; then the** Get my config** button hands you `levelN.json` to submit." },
       { p: "The deliverable is ten JSON files (`level1.json` … `level10.json`) and nothing else — no Makefile, no norminette, no valgrind." },
       { h: "Why it matters more than it looks" },
       { ul: [
@@ -820,7 +820,7 @@ Never: 192.168.x on a segment that must talk to the Internet`,
     tricks: [
       { h: "Trick 1 — boards are deterministic per login" },
       { p: "`load_board()` seeds an xorshift PRNG with `level + hash_login(login)`, where `hash_login` mixes `973*(code+i)` on even indices and `5*code*i` on odd ones. **Same login + same level = the same board forever** — which is how moulinette can grade an exported JSON at all." },
-      { p: "With no stored login (**evaluation / defense mode**) it falls back to `Math.random()`, so boards are freshly random. **A memorised answer is worthless there** — prepare the method, not the numbers." },
+      { p: "With no stored login (**evaluation / defense mode**) it falls back to** `Math.random()`**, so boards are freshly random.** A memorised answer is worthless there** — prepare the method, not the numbers." },
       { h: "Trick 2 — check a config without a browser" },
       { p: "`show.js` and `sim.js` only ever touch `document.getElementById(id).value`, so they run headlessly in Node under a tiny DOM stub — no jsdom, no browser." },
       { code: String.raw`const sandbox = {
@@ -845,7 +845,7 @@ vm.runInContext('all_goals();', sandbox);
       { ul: [
         "**A locked gateway is a specification, not a hint** — set the neighbouring interface to that exact address first, then build the subnet around it",
         "**Addresses differing only in the third octet**, like `211.190.x` versus `211.191.x`, are different /16s — the generator plants these deliberately",
-        "**`default` and `0.0.0.0/0` are identical** to the engine, including when it refuses them on an Internet node",
+        "`default` **and** `0.0.0.0/0` **are identical** to the engine, including when it refuses them on an Internet node",
         "**A broken return path is a missing route, not a wrong mask** — look at the far router or the Internet first",
         "**Re-check every address after changing a mask** — the block boundaries move and a good address can become a network or broadcast",
         "**Trailing whitespace in an address** passes in-game because of `parseInt()`, but leaves the exported JSON dirty"

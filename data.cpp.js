@@ -29,8 +29,8 @@ window.TEACHING_DATA.push({
       ]}},
       { h: "กฎเหล็กของทั้งโมดูล (ผิดข้อเดียว = 0 หรือ -42)" },
       { ul: [
-        "**ห้าม `printf` / `malloc` / `free`** — ใช้ `new` / `delete` และ `std::cout` แทน",
-        "**ห้าม `using namespace`** และ **ห้าม `friend`** (โทษ -42 ทั้งคู่)",
+        "**ห้าม** `printf` **/** `malloc` **/** `free` — ใช้ `new` / `delete` และ `std::cout` แทน",
+        "**ห้าม** `using namespace` และ **ห้าม** `friend` (โทษ -42 ทั้งคู่)",
         "**ห้าม STL container/algorithm** (`<vector>`, `<map>`, `<algorithm>`) — โมดูลนี้ไม่ต้องใช้อยู่แล้ว. `std::string`, `<iostream>`, `<fstream>`, `<sstream>` ใช้ได้",
         "**ห้ามเขียนตัวฟังก์ชันใน header** (ยกเว้น template ซึ่งยังไม่ถึง) — ประกาศใน `.hpp` เขียนจริงใน `.cpp` + include guard ทุกไฟล์",
         "คอมไพล์ด้วย `c++ -Wall -Wextra -Werror -std=c++98` เท่านั้น",
@@ -51,7 +51,7 @@ window.TEACHING_DATA.push({
       ]}},
       { p: "คำถามเดียวที่ต้องถามคือ **'ของชิ้นนี้ต้องอยู่นานกว่า scope นี้ไหม'** ถ้าไม่ ใช้ stack เสมอ (ง่ายกว่า ไม่มีทาง leak). ถ้าใช่ ค่อยใช้ heap แล้วต้องตอบให้ได้ด้วยว่า **ใครคือคนที่จะ delete**" },
 
-      { h: "2) `new` กับ `new[]` เป็นคนละคู่กัน" },
+      { h: "2) new กับ new[] เป็นคนละคู่กัน" },
       { code: String.raw`Zombie *one  = new Zombie("a");   →  delete one;
 Zombie *many = new Zombie[5];     →  delete[] many;
 
@@ -91,7 +91,7 @@ new Zombie[5] เรียก **default constructor** 5 ครั้ง
 void (Harl::*funcs[4])(void) = {&Harl::debug, &Harl::info,
                                 &Harl::warning, &Harl::error};`, cap: "3 จุดที่คอมไพเลอร์บ่นบ่อยสุด: ลืม `Harl::` ตอนประกาศ, ลืม `&`, ลืมวงเล็บตอนเรียก", lang: "cpp" },
 
-      { h: "6) `switch` fall-through" },
+      { h: "6) switch fall-through" },
       { p: "ปกติเราใส่ `break` ทุก case เพราะไม่อยากให้ไหลลงไปอันถัดไป. ex06 ใช้พฤติกรรม 'ไหลลง' นั้นเป็น **กลไกหลัก**: เข้า switch ที่ระดับไหน ก็พิมพ์ระดับนั้นและทุกระดับที่สูงกว่าโดยอัตโนมัติ" },
 
       { h: "7) C++ file stream" },
@@ -323,7 +323,7 @@ int levelToIndex(std::string level) const;   // -1 = ไม่รู้จัก
         ["ex03", "`Weapon.hpp/.cpp`, `HumanA.hpp/.cpp`, `HumanB.hpp/.cpp`, `main.cpp`", "3 class 3 คู่ไฟล์"],
         ["ex04", "`main.cpp`", "ไฟล์เดียว แต่มี helper `replaceAll` เป็น static"],
         ["ex05", "`Harl.hpp/.cpp`, `main.cpp`", "binary ชื่ออะไรก็ได้"],
-        ["ex06", "`Harl.hpp/.cpp`, `main.cpp`", "**binary ต้องชื่อ `harlFilter`**"],
+        ["ex06", "`Harl.hpp/.cpp`, `main.cpp`", "**binary ต้องชื่อ** `harlFilter`"],
       ]}},
       { note: "ทุกข้อมี Makefile ของตัวเอง ไม่รวมกัน — แต่ละโฟลเดอร์คอมไพล์แยกอิสระ" },
       { h: "โครง Makefile ที่ใช้ซ้ำได้ทุกข้อ" },
@@ -485,13 +485,13 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp
     tricks: [
       { h: "ทริค 1: ใส่ cout ใน destructor ตั้งแต่แรก" },
       { p: "โมดูลนี้ทั้งโมดูลว่าด้วยอายุ object — การพิมพ์ตอนเกิดและตอนตายทำให้ 'เห็น' สิ่งที่กำลังเรียนแทนที่จะจินตนาการเอา. ex00 โจทย์ขอไว้ด้วยซ้ำ" },
-      { h: "ทริค 2: ทุก `new` ตอบให้ได้ทันทีว่าใคร `delete`" },
+      { h: "ทริค 2: ทุก new ตอบให้ได้ทันทีว่าใคร delete" },
       { p: "เขียน `new` เมื่อไหร่ ให้ตอบในหัวทันทีว่าบรรทัดไหนจะ delete. ถ้าตอบไม่ได้แปลว่าออกแบบความเป็นเจ้าของยังไม่ชัด — leak เกือบทั้งหมดมาจากตรงนี้" },
       { h: "ทริค 3: ให้ 'ความต้องการ' เลือกชนิดให้" },
       { p: "อย่าเลือก reference/pointer ตามความเคยชิน. ถามว่า 'มันเป็นไม่มีได้ไหม' และ 'มันเปลี่ยนได้ไหม' — ตอบว่าไม่ทั้งคู่ = reference; ตอบว่าใช่สักข้อ = pointer. ex03 คือแบบฝึกหัดของคำถามนี้ตรง ๆ" },
       { h: "ทริค 4: array 2 ตัวที่ index ตรงกัน = dispatch table" },
       { p: "`levels[]` กับ `funcs[]` เรียงตรงกัน ทำให้หาชื่อแล้วได้ฟังก์ชันทันที. แพตเทิร์นนี้ใช้ได้ทั่วไป ไม่ใช่แค่ Harl — เพิ่มรายการใหม่แก้ 2 บรรทัดที่อยู่ติดกัน" },
-      { h: "ทริค 5: คอมเมนต์ `// fall through` เสมอ" },
+      { h: "ทริค 5: คอมเมนต์ // fall through เสมอ" },
       { p: "case ที่จงใจไม่ break ต้องมีคอมเมนต์กำกับ ไม่งั้นคนอ่าน (และ compiler บางตัว) จะคิดว่าลืม" },
       { h: "ทริค 6: ประกอบ string ใหม่ ดีกว่าแก้ของเดิม" },
       { p: "ex04 ห้าม `replace()` ซึ่งบังคับให้เขียนแบบ 'อ่านทีละท่อนแล้วต่อใหม่' — วิธีนี้ปลอดภัยกว่าจริง เพราะไม่ต้องคิดเรื่อง index ขยับหลังแก้กลางสตริง" },
@@ -553,7 +553,7 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "Module 02 สอนอะไร" },
-      { p: "โมดูลนี้มี class เดียวคือ **`Fixed`** แต่เขียนซ้ำ 4 รอบ รอบละเพิ่มความสามารถ. เป้าหมายจริงคือ 2 อย่าง: (1) **Orthodox Canonical Form** ซึ่งจากนี้บังคับทุกคลาสไปตลอด และ (2) **operator overloading** — ทำให้ object ของเราใช้ `+`, `<`, `<<`, `++` ได้เหมือนชนิดข้อมูลในตัวภาษา" },
+      { p: "โมดูลนี้มี class เดียวคือ `Fixed` แต่เขียนซ้ำ 4 รอบ รอบละเพิ่มความสามารถ. เป้าหมายจริงคือ 2 อย่าง: (1) **Orthodox Canonical Form** ซึ่งจากนี้บังคับทุกคลาสไปตลอด และ (2) **operator overloading** — ทำให้ object ของเราใช้ `+`, `<`, `<<`, `++` ได้เหมือนชนิดข้อมูลในตัวภาษา" },
       { h: "4 ข้อ ไล่จากพื้นฐานไปใช้งานจริง" },
       { table: { head: ["ข้อ", "เพิ่มอะไร", "ประเด็นที่สอน"], rows: [
         ["ex00", "OCF + `getRawBits`/`setRawBits`", "รูปแบบ 4 เมธอดบังคับ + ไล่ดูลำดับ ctor/dtor"],
@@ -575,11 +575,11 @@ window.TEACHING_DATA.push({
   float → raw   : _value = roundf(f * (1 << _bits));   ← ปัด ไม่ใช่ตัดทิ้ง
   raw   → float : (float)_value / (1 << _bits);
   raw   → int   : _value >> _bits;`, cap: "ทุกอย่างในโมดูลนี้คือ int ตัวเดียวที่ตีความว่าหารด้วย 256 แล้ว", lang: "cpp" },
-      { note: "**ทำไมต้อง `roundf` ไม่ใช่ตัดทิ้ง:** 42.42×256 = 10859.52 — ตัดทิ้งได้ 10859 (อ่านกลับ 42.4180) แต่ปัดได้ 10860 (อ่านกลับ 42.4219) ซึ่งคือค่าที่ subject คาดหวัง. ผิดจุดนี้ diff ไม่ผ่าน" },
+      { note: "**ทำไมต้อง** `roundf` **ไม่ใช่ตัดทิ้ง:** 42.42×256 = 10859.52 — ตัดทิ้งได้ 10859 (อ่านกลับ 42.4180) แต่ปัดได้ 10860 (อ่านกลับ 42.4219) ซึ่งคือค่าที่ subject คาดหวัง. ผิดจุดนี้ diff ไม่ผ่าน" },
       { h: "กฎเหล็กของโมดูล" },
       { ul: [
         "**Orthodox Canonical Form บังคับแล้ว** ทุกคลาสต้องมีครบ 4: default ctor, copy ctor, copy assignment, destructor",
-        "**ห้าม `friend`** (-42) — จุดที่คนพลาดคือ `operator<<` มักถูกสอนให้เป็น friend. ที่นี่ต้องเป็น **free function** ที่เรียก `toFloat()` ซึ่งเป็น public",
+        "**ห้าม** `friend` (-42) — จุดที่คนพลาดคือ `operator<<` มักถูกสอนให้เป็น friend. ที่นี่ต้องเป็น **free function** ที่เรียก `toFloat()` ซึ่งเป็น public",
         "ห้าม `printf` / `malloc` / `free` / `using namespace`",
         "อนุญาต `roundf` จาก `<cmath>` ตั้งแต่ ex01 (เป็นข้อยกเว้นเดียว)",
         "ex03 เป็น optional ตาม subject — แต่ทำเถอะ มันสั้นและเป็นบทสรุปของทั้งโมดูล",
@@ -595,7 +595,7 @@ window.TEACHING_DATA.push({
         ["Destructor", "`~Fixed(void);`", "หมด scope / `delete`"],
       ]}},
       { p: "ถ้าเราไม่เขียน คอมไพเลอร์สร้างให้เองทั้ง 4 ตัว (ก๊อปทีละ member). 42 บังคับให้เขียนเองเพราะ (ก) พอ class มี pointer ตัวที่คอมไพเลอร์สร้างจะก๊อปแค่ address ทำให้ 2 object ชี้ที่เดียวกัน แล้ว double free และ (ข) เพื่อให้เห็นชัดว่าอะไรถูกเรียกตอนไหน" },
-      { note: "**`Fixed b = a;` เรียก copy constructor ไม่ใช่ operator=** — แม้จะมีเครื่องหมาย `=`. กฎคือ ถ้าตัวซ้ายเพิ่งเกิด = copy ctor; ถ้ามีอยู่ก่อนแล้ว = assignment. เป็นคำถาม eval ประจำ" },
+      { note: "`Fixed b = a;` **เรียก copy constructor ไม่ใช่ operator=** — แม้จะมีเครื่องหมาย `=`. กฎคือ ถ้าตัวซ้ายเพิ่งเกิด = copy ctor; ถ้ามีอยู่ก่อนแล้ว = assignment. เป็นคำถาม eval ประจำ" },
 
       { h: "2) ทำไม copy ctor ถึงเรียก operator= ต่อ" },
       { code: String.raw`Fixed::Fixed(const Fixed &other)
@@ -611,9 +611,9 @@ Fixed &Fixed::operator=(const Fixed &other)
         this->_value = other.getRawBits();
     return (*this);
 }`, cap: "เขียนตรรกะการก๊อปที่เดียว — และได้ output 2 บรรทัดตามที่ subject แสดงพอดี", lang: "cpp" },
-      { p: "**`if (this != &other)` มีไว้ทำไม:** กันเคส `a = a` (self-assignment). ใน `Fixed` ที่มีแค่ int จะไม่พังจริง แต่พอคลาสมี pointer การไม่เช็คแปลว่า 'ลบของเก่าทิ้งก่อน แล้วค่อยก๊อปจากของที่เพิ่งลบ' — เป็นบั๊กคลาสสิก จึงติดนิสัยเช็คไว้ตั้งแต่ต้น" },
+      { p: "`if (this != &other)` **มีไว้ทำไม:** กันเคส `a = a` (self-assignment). ใน `Fixed` ที่มีแค่ int จะไม่พังจริง แต่พอคลาสมี pointer การไม่เช็คแปลว่า 'ลบของเก่าทิ้งก่อน แล้วค่อยก๊อปจากของที่เพิ่งลบ' — เป็นบั๊กคลาสสิก จึงติดนิสัยเช็คไว้ตั้งแต่ต้น" },
 
-      { h: "3) `operator<<` ต้องเป็น free function" },
+      { h: "3) operator<< ต้องเป็น free function" },
       { code: String.raw`// ผิด: friend = -42
 class Fixed { friend std::ostream &operator<<(...); };
 
@@ -634,7 +634,7 @@ std::ostream &operator<<(std::ostream &out, const Fixed &fixed)
         ["คำนวณ", "`+` `-` `*` `/`", "แปลงเป็น float คำนวณ แล้วสร้าง Fixed ใหม่"],
         ["เพิ่ม/ลด", "`++a` `a++` `--a` `a--`", "ขยับ `_value` ทีละ 1 บิต = 1/256"],
       ]}},
-      { note: "**ห้ามเทียบผ่าน `toFloat()`** — การเทียบ float ด้วย `==` ไม่แม่น. เทียบ `_value` ที่เป็น int ได้คำตอบเป๊ะเสมอ" },
+      { note: "**ห้ามเทียบผ่าน** `toFloat()` — การเทียบ float ด้วย `==` ไม่แม่น. เทียบ `_value` ที่เป็น int ได้คำตอบเป๊ะเสมอ" },
 
       { h: "🔬 เจาะลึก A: ทำไม increment ถึงเพิ่มแค่ 1/256" },
       { p: "`++a` ของ `Fixed` **ไม่ได้เพิ่ม 1** แต่เพิ่ม 'ค่าที่เล็กที่สุดที่ชนิดนี้แทนได้' ซึ่งคือ 1 บิตดิบ = 1/256 = 0.00390625. subject เขียนไว้ตรง ๆ ว่าให้เพิ่มค่า ε ที่เล็กที่สุดที่ทำให้ 1 + ε มากกว่า 1" },
@@ -694,7 +694,7 @@ static const Fixed &max(const Fixed &a, const Fixed &b);
         { q: "คืน reference แทน value ได้ประโยชน์อะไร?", a: "ไม่ต้องก๊อป object และผู้เรียกยังแก้ตัวที่ชนะได้ผ่านค่าที่คืนมา (ในเวอร์ชัน non-const)" },
       ]},
 
-      { h: "🔬 เจาะลึก C: `const` member — ex03 บังคับให้เข้าใจ initialiser list จริง ๆ" },
+      { h: "🔬 เจาะลึก C: const member — ex03 บังคับให้เข้าใจ initialiser list จริง ๆ" },
       { p: "`Point` เก็บ `Fixed const _x;` และ `Fixed const _y;`. การใส่ `const` ตรงนี้ทำให้เกิดผลตามมา 2 อย่างที่เลี่ยงไม่ได้" },
       { code: String.raw`class Point
 {
@@ -793,7 +793,7 @@ static const Fixed &max(const Fixed &a, const Fixed &b);
 };
 
 std::ostream &operator<<(std::ostream &out, const Fixed &fixed);`, cap: "โค้ดจริงของเรา — `_bits` เป็น `static const int` จึงใส่ค่าในคลาสได้เลยแม้เป็น C++98", lang: "cpp" },
-      { p: "**ทำไม `_bits` เป็น static:** มันเป็นคุณสมบัติของ 'ชนิด Fixed' ไม่ใช่ของ object ตัวใดตัวหนึ่ง — ทุกตัวใช้ scale เดียวกัน จึงมีชุดเดียวพอ ไม่ต้องเปลืองที่ในทุก object" },
+      { p: "**ทำไม** `_bits` **เป็น static:** มันเป็นคุณสมบัติของ 'ชนิด Fixed' ไม่ใช่ของ object ตัวใดตัวหนึ่ง — ทุกตัวใช้ scale เดียวกัน จึงมีชุดเดียวพอ ไม่ต้องเปลืองที่ในทุก object" },
       { h: "4 ฟังก์ชันแปลงค่า" },
       { code: String.raw`Fixed::Fixed(const int value)
 {
@@ -903,7 +903,7 @@ std::cout << b.toInt();         // 2560 >> 8 = 10`, cap: "42.4219 ไม่ใ�
       { h: "ลำดับการลงมือเขียน" },
       { ul: [
         "1. **ex00** — OCF 4 ตัว + ข้อความให้ตรงเป๊ะ; รันแล้วเทียบ output กับ subject ทีละบรรทัด",
-        "2. **ex01** — เพิ่ม ctor int/float + toFloat/toInt + `operator<<`; **ลบข้อความ getRawBits ออก** (ex01 ไม่มีแล้ว)",
+        "2. **ex01 **— เพิ่ม ctor int/float + toFloat/toInt +** `operator<<`**;** ลบข้อความ getRawBits ออก** (ex01 ไม่มีแล้ว)",
         "3. **ex02** — เขียนเปรียบเทียบ 6 ตัวก่อน (ง่ายสุด) แล้วคำนวณ 4 แล้วเพิ่ม/ลด 4 แล้ว min/max 4",
         "4. **ex03** — ก๊อป Fixed มา แล้วทำ Point (เจอเรื่อง const member) แล้วค่อย bsp",
       ]},
@@ -942,7 +942,7 @@ valgrind --leak-check=full --error-exitcode=42 -q ./a.out`, lang: "bash" },
       { p: "เทียบ `_value` เพราะ int เทียบเป๊ะ; คำนวณผ่าน `toFloat()` เพราะสูตรเดียวใช้ได้ทั้ง 4 ตัว และได้การปัดที่ตรงกับที่ subject คาดหวัง" },
       { h: "ทริค 4: ติดนิสัยเช็ค self-assignment" },
       { p: "`if (this != &other)` ยังไม่จำเป็นใน Fixed ที่มีแค่ int แต่พอถึง Module 04 ที่คลาสมี pointer มันคือเส้นแบ่งระหว่างโค้ดที่ทำงานกับ double free — ใส่ไว้ตั้งแต่ตอนนี้" },
-      { h: "ทริค 5: เขียน `++i` แทน `i++` เป็นนิสัย" },
+      { h: "ทริค 5: เขียน ++i แทน i++ เป็นนิสัย" },
       { p: "ตอนไม่ได้ใช้ค่าที่คืนมา (เช่นใน loop) `++i` ไม่ต้องสร้างสำเนา. โมดูลนี้ทำให้เห็นเหตุผลด้วยตาว่าทำไม post ถึงแพงกว่า" },
       { h: "ทริค 6: ex03 ก๊อป Fixed มาทั้งดุ้น" },
       { p: "อย่าเขียน Fixed ใหม่ — ก๊อป `Fixed.hpp/.cpp` จาก ex02 มาวาง แล้วโฟกัสที่ Point กับ bsp ซึ่งเป็นของใหม่จริง ๆ" },
@@ -1003,7 +1003,7 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "Module 03 สอนอะไร" },
-      { p: "โมดูลนี้มีเรื่องเดียวคือ **inheritance** — คลาสหนึ่งรับของจากอีกคลาสมาต่อยอด. แต่สิ่งที่ถูกวัดจริง ๆ ไม่ใช่ 'เขียน `: public ClapTrap` เป็นไหม' แต่คือ **เข้าใจลำดับการสร้างและทำลายไหม** และ **รู้ไหมว่าทำไมการสืบทอดสองสายพร้อมกันถึงพัง**" },
+      { p: "โมดูลนี้มีเรื่องเดียวคือ **inheritance **— คลาสหนึ่งรับของจากอีกคลาสมาต่อยอด. แต่สิ่งที่ถูกวัดจริง ๆ ไม่ใช่ 'เขียน** `: public ClapTrap` **เป็นไหม' แต่คือ** เข้าใจลำดับการสร้างและทำลายไหม** และ **รู้ไหมว่าทำไมการสืบทอดสองสายพร้อมกันถึงพัง**" },
       { h: "รูปร่างของทั้งโมดูล" },
       { code: String.raw`              ClapTrap                 ex00   HP 10 / EP 10 / AD 0
              /        \
@@ -1041,14 +1041,14 @@ ScavTrap มีอะไรบ้าง:
   - method ทุกตัวของ ClapTrap
   - ของใหม่ที่ตัวเองประกาศเพิ่ม (guardGate)`, cap: "สืบทอดคือ 'มี ClapTrap อยู่ข้างในตัว' ไม่ใช่ 'ก๊อปโค้ดมา'", lang: "cpp" },
 
-      { h: "2) `private` → `protected` (จุดที่หลายคนติดตอน ex01)" },
-      { p: "ex00 บอกให้ attribute เป็น `private`. ex01 บอกว่า *ScavTrap จะใช้ attribute ของ ClapTrap (ให้ปรับ ClapTrap ตามนั้น)* — ประโยคนี้แปลว่า **เปลี่ยนเป็น `protected`**" },
+      { h: "2) private → protected (จุดที่หลายคนติดตอน ex01)" },
+      { p: "ex00 บอกให้ attribute เป็น `private`. ex01 บอกว่า *ScavTrap จะใช้ attribute ของ ClapTrap (ให้ปรับ ClapTrap ตามนั้น)* — ประโยคนี้แปลว่า **เปลี่ยนเป็น** `protected`" },
       { table: { head: ["access", "คลาสตัวเอง", "คลาสลูก", "โลกภายนอก"], rows: [
         ["`private`", "✓", "✗", "✗"],
         ["`protected`", "✓", "✓", "✗"],
         ["`public`", "✓", "✓", "✓"],
       ]}},
-      { note: "ถ้าคอมไพเลอร์ฟ้อง **`_hitPoints is private`** ตอนเขียน ScavTrap — นี่คือสาเหตุ. แก้ที่สำเนา ClapTrap ของ ex01/02/03 (ex00 คงเป็น private ตาม subject)" },
+      { note: "ถ้าคอมไพเลอร์ฟ้อง `_hitPoints is private` ตอนเขียน ScavTrap — นี่คือสาเหตุ. แก้ที่สำเนา ClapTrap ของ ex01/02/03 (ex00 คงเป็น private ตาม subject)" },
 
       { h: "3) ลำดับ construct / destruct — สิ่งที่ถูกวัดจริง" },
       { code: String.raw`ScavTrap s("Bob");
@@ -1089,7 +1089,7 @@ ScavTrap &ScavTrap::operator=(const ScavTrap &o)
         ["DiamondTrap", "100", "50", "30", "`whoAmI()`", "ใช่ (ยืมของ ScavTrap)"],
       ]}},
 
-      { h: "🔬 เจาะลึก A: `unsigned` underflow — บั๊กที่ซ่อนอยู่ใน takeDamage" },
+      { h: "🔬 เจาะลึก A: unsigned underflow — บั๊กที่ซ่อนอยู่ใน takeDamage" },
       { p: "stat ทั้งสามเป็น `unsigned int` เพราะเลือดติดลบไม่มีความหมาย. แต่ `unsigned` ไม่ได้แปลว่า 'ลบแล้วหยุดที่ 0' — มันแปลว่า **'ลบแล้ววนกลับไปเป็นเลขมหาศาล'**" },
       { code: String.raw`unsigned int hp = 10;
 hp -= 30;              // ไม่ได้ -20
@@ -1152,7 +1152,7 @@ hp -= 30;              // ไม่ได้ -20
   └──────────────────────────────────┘`, cap: "`virtual` แปลว่า 'ถ้ามีใครสืบทอดฉันหลายทาง ให้ใช้ ClapTrap ชุดเดียวร่วมกัน'", lang: "cpp" },
       { p: "**ผลข้างเคียงที่ต้องรู้ 2 ข้อ:**" },
       { ul: [
-        "**คลาสล่างสุดเป็นคนสร้าง virtual base เอง** — `: ClapTrap(name)` ที่อยู่ใน ScavTrap และ FragTrap จะ**ถูกเมิน**เมื่อมันเป็นส่วนหนึ่งของ DiamondTrap. DiamondTrap จึงต้องเรียก `ClapTrap(...)` ใน initialiser list ของตัวเอง",
+        "**คลาสล่างสุดเป็นคนสร้าง virtual base เอง **—** `: ClapTrap(name)` **ที่อยู่ใน ScavTrap และ FragTrap จะ**ถูกเมิน**เมื่อมันเป็นส่วนหนึ่งของ DiamondTrap. DiamondTrap จึงต้องเรียก `ClapTrap(...)` ใน initialiser list ของตัวเอง",
         "**ลำดับสร้างเปลี่ยน** — virtual base มาก่อนเสมอ: ClapTrap → ScavTrap → FragTrap → DiamondTrap และ ClapTrap รันแค่ครั้งเดียว. ทำลายกลับด้าน ครั้งเดียวเช่นกัน",
       ]},
       { qa: [
@@ -1162,7 +1162,7 @@ hp -= 30;              // ไม่ได้ -20
         { q: "ทำไม virtual base ถูกสร้างก่อนตัวอื่นเสมอ?", a: "เพราะสายกลางทั้งสองต่างก็ต้องใช้มัน — ต้องพร้อมก่อนใครทั้งหมด" },
       ]},
 
-      { h: "🔬 เจาะลึก C: การบังชื่อ (shadowing) — `_name` 2 ตัวใน DiamondTrap" },
+      { h: "🔬 เจาะลึก C: การบังชื่อ (shadowing) — _name 2 ตัวใน DiamondTrap" },
       { p: "subject ให้ DiamondTrap มี `_name` เป็น private **ชื่อเดียวกับของ ClapTrap** โดยตั้งใจ. ชื่อที่ใกล้กว่าจะบังชื่อที่ไกลกว่า — ต้องเรียกชื่อเต็มถึงจะถึงตัวที่ถูกบัง" },
       { code: String.raw`ภายใน method ของ DiamondTrap:
 
@@ -1189,7 +1189,7 @@ DiamondTrap::DiamondTrap(const std::string &name) :
     this->_attackDamage = FragTrap::_attackDamage;   //  30
     std::cout << "DiamondTrap " << this->_name << " constructed" << std::endl;
 }`, cap: "ตั้งค่า 3 stat ในบอดี้ ไม่พึ่งลำดับของ base — เพราะ FragTrap รันทีหลัง ถ้าไม่เขียนทับ EP จะกลายเป็น 100 ไม่ใช่ 50", lang: "cpp" },
-      { note: "**อย่าเติม `-Wshadow` ใน Makefile** — flag ที่บังคับมีแค่ `-Wall -Wextra -Werror` ซึ่งไม่รวม `-Wshadow`. subject พูดถึงมันเพื่อให้เรารู้ว่า shadow นี้เป็นของจริงและต้องแก้ด้วย `ClapTrap::` ไม่ใช่เพื่อให้เปิด warning (เปิดแล้วจะกลายเป็น error เพราะมี `-Werror`)" },
+      { note: "**อย่าเติม** `-Wshadow` **ใน Makefile** — flag ที่บังคับมีแค่ `-Wall -Wextra -Werror` ซึ่งไม่รวม `-Wshadow`. subject พูดถึงมันเพื่อให้เรารู้ว่า shadow นี้เป็นของจริงและต้องแก้ด้วย `ClapTrap::` ไม่ใช่เพื่อให้เปิด warning (เปิดแล้วจะกลายเป็น error เพราะมี `-Werror`)" },
       { qa: [
         { q: "DiamondTrap มี `_name` 2 ตัว แยกยังไง?", a: "`_name` เฉย ๆ คือของ DiamondTrap (ตัวใกล้บังตัวไกล); ของ ClapTrap ต้องเรียก `ClapTrap::_name` หรือ `this->ClapTrap::_name`" },
         { q: "ทำไมต้องเซ็ต stat ในบอดี้ ไม่ปล่อยให้ base ตั้งให้?", a: "เพราะ FragTrap รันหลัง ScavTrap ค่า 100/100/30 ของมันจะเขียนทับ EP=50 ของ ScavTrap. เซ็ตเองในบอดี้จึงได้ 100/50/30 ตามที่ subject กำหนดแน่นอน" },
@@ -1401,11 +1401,11 @@ valgrind --leak-check=full --error-exitcode=42 -q ./diamondtrap`, lang: "bash" }
       { p: "`./diamondtrap | grep -c 'ClapTrap.*constructed'` ต้องได้ 1. ได้ 2 แปลว่าลืม `virtual` — เป็นการทดสอบที่เร็วและชัดกว่าไล่อ่านโค้ด" },
       { h: "ทริค 3: เซ็ต stat ในบอดี้ ไม่พึ่งลำดับ base" },
       { p: "ใน DiamondTrap ตั้ง HP/EP/AD เองในบอดี้ constructor — ไม่ต้องคิดว่า base ไหนรันก่อนหลัง ได้ค่าที่ต้องการแน่นอน" },
-      { h: "ทริค 4: `virtual` ที่ destructor ของ ClapTrap" },
+      { h: "ทริค 4: virtual ที่ destructor ของ ClapTrap" },
       { p: "ใส่ `virtual ~ClapTrap()` ไว้ตั้งแต่ ex00 — ยังไม่จำเป็นในโมดูลนี้ (เพราะยังไม่ลบผ่าน pointer ของแม่) แต่เป็นนิสัยที่ Module 04 จะบังคับใช้จริง" },
       { h: "ทริค 5: เช็คก่อนหักพลังงาน" },
       { p: "ใน `attack`/`beRepaired` เช็ค HP/EP ให้ผ่านก่อน แล้วค่อย `_energyPoints--`. สลับลำดับแล้วหุ่นที่ทำอะไรไม่ได้จะยังเสีย EP ฟรี" },
-      { h: "ทริค 6: อย่าเติม `-Wshadow`" },
+      { h: "ทริค 6: อย่าเติม -Wshadow" },
       { p: "flag ที่บังคับมีแค่ `-Wall -Wextra -Werror`. `_name` 2 ตัวใน DiamondTrap เป็น shadow ที่ตั้งใจ — เปิด `-Wshadow` เมื่อไหร่มันกลายเป็น error ทันทีเพราะมี `-Werror`" },
     ],
 
@@ -1453,7 +1453,7 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "Module 04 สอนอะไร" },
-      { p: "โมดูลนี้คือหัวใจของ OOP ทั้งหมด: **เก็บของหลายชนิดไว้ในตัวแปรชนิดเดียว แล้วเรียกเมธอดเดียวกัน — แต่ละตัวทำงานคนละแบบตามชนิดจริงของมัน**. ทั้งโมดูลหมุนรอบคีย์เวิร์ดเดียวคือ `virtual` และ 2 กับดักที่มากับมันคือ **virtual destructor** และ **deep copy**" },
+      { p: "โมดูลนี้คือหัวใจของ OOP ทั้งหมด: **เก็บของหลายชนิดไว้ในตัวแปรชนิดเดียว แล้วเรียกเมธอดเดียวกัน — แต่ละตัวทำงานคนละแบบตามชนิดจริงของมัน**. ทั้งโมดูลหมุนรอบคีย์เวิร์ดเดียวคือ** `virtual` **และ 2 กับดักที่มากับมันคือ** virtual destructor** และ **deep copy**" },
       { h: "แนวคิดเดียวที่ต้องเข้าใจ" },
       { code: String.raw`const Animal *j = new Dog();
 j->makeSound();
@@ -1463,7 +1463,7 @@ j->makeSound();
 
   makeSound เป็น virtual     →  เรียกของ Dog   → "Woof!"
   makeSound ไม่เป็น virtual  →  เรียกของ Animal → เสียงกลาง ๆ`, cap: "virtual = ตัดสินใจตอนรันจากชนิดจริง; ไม่ virtual = ตัดสินใจตอนคอมไพล์จากชนิดที่ประกาศ", lang: "cpp" },
-      { p: "ex00 ให้เขียนตระกูล `WrongAnimal` / `WrongCat` ที่เหมือนกันทุกอย่างยกเว้น**ไม่มี `virtual`** — เพื่อให้เห็นความต่างด้วยตาว่าคีย์เวิร์ดเดียวเปลี่ยนพฤติกรรมยังไง" },
+      { p: "ex00 ให้เขียนตระกูล `WrongAnimal` / `WrongCat` ที่เหมือนกันทุกอย่างยกเว้น**ไม่มี** `virtual` — เพื่อให้เห็นความต่างด้วยตาว่าคีย์เวิร์ดเดียวเปลี่ยนพฤติกรรมยังไง" },
       { h: "4 ข้อ" },
       { table: { head: ["ข้อ", "เพิ่มอะไร", "ประเด็นที่สอน"], rows: [
         ["ex00", "Animal/Dog/Cat + WrongAnimal/WrongCat", "`virtual` ทำอะไร และไม่ใส่แล้วเป็นยังไง"],
@@ -1488,9 +1488,9 @@ j->makeSound();
         ["ตัวอย่าง", "`Animal *j`  → Animal", "`new Dog()` → Dog"],
         ["ใครใช้", "คอมไพเลอร์ (ตรวจว่าเรียกอะไรได้)", "ตัวโปรแกรมตอนรัน (ตัดสินว่าเรียกตัวไหน)"],
       ]}},
-      { p: "**เมธอดธรรมดา** ถูกเลือกตอนคอมไพล์จาก static type. **เมธอด `virtual`** ถูกเลือกตอนรันจาก dynamic type — นี่คือ subtype polymorphism ทั้งหมดในประโยคเดียว" },
+      { p: "**เมธอดธรรมดา** ถูกเลือกตอนคอมไพล์จาก static type. **เมธอด** `virtual` ถูกเลือกตอนรันจาก dynamic type — นี่คือ subtype polymorphism ทั้งหมดในประโยคเดียว" },
 
-      { h: "2) `virtual` ทำงานยังไงข้างใน" },
+      { h: "2) virtual ทำงานยังไงข้างใน" },
       { code: String.raw`คลาสที่มี virtual method จะได้ตารางแอบแฝงมา 1 ตาราง (vtable)
 object แต่ละตัวเก็บ pointer ไปยังตารางของ "ชนิดจริง" ของมัน
 
@@ -1521,7 +1521,7 @@ object แต่ละตัวเก็บ pointer ไปยังตารา�
 
 คลาสนามธรรม "ยังมี" constructor/destructor/operator= ตามปกติ
   — pure virtual แค่บอกว่า "เมธอดนี้ไม่มีเนื้อ ลูกต้องเขียนเอง"`, cap: "abstract = แม่แบบที่สร้างของจริงไม่ได้ แต่บังคับให้ลูกทุกตัวมีเมธอดนี้", lang: "cpp" },
-      { p: "ex02 ให้ทำ `Animal` เป็น abstract เพราะ *'สัตว์ลอย ๆ ไม่มีเสียง จึงไม่ควรสร้างได้'*. subject ชวนให้เปลี่ยนชื่อเป็น **`AAnimal`** (A = abstract) — ถ้าเปลี่ยนต้องเปลี่ยนชื่อไฟล์ include guard และ `: public Animal` ทุกจุดด้วย" },
+      { p: "ex02 ให้ทำ `Animal` เป็น abstract เพราะ *'สัตว์ลอย ๆ ไม่มีเสียง จึงไม่ควรสร้างได้'*. subject ชวนให้เปลี่ยนชื่อเป็น `AAnimal` (A = abstract) — ถ้าเปลี่ยนต้องเปลี่ยนชื่อไฟล์ include guard และ `: public Animal` ทุกจุดด้วย" },
 
       { h: "4) interface ใน C++98" },
       { p: "C++98 ไม่มีคีย์เวิร์ด `interface`. สิ่งที่ใช้แทนคือ **คลาสที่ทุกเมธอดเป็น pure virtual และมีแค่ destructor ที่มีเนื้อ**" },
@@ -1594,7 +1594,7 @@ Dog &Dog::operator=(const Dog &o)
     }
     return (*this);
 }`, cap: "operator= ต่างจาก copy ctor ตรงที่ 'มีของเก่าอยู่แล้ว' — ต้องลบก่อนสร้างใหม่ ไม่งั้นของเก่ารั่ว", lang: "cpp" },
-      { p: "**ตรงนี้แหละที่ `if (this != &o)` ได้ใช้จริง:** ถ้าเขียน `a = a;` โดยไม่เช็ค → `delete this->brain` ลบ Brain ทิ้ง → แล้ว `new Brain(*o.brain)` อ่านจากของที่เพิ่งลบไป = use-after-free" },
+      { p: "**ตรงนี้แหละที่** `if (this != &o)` **ได้ใช้จริง:** ถ้าเขียน `a = a;` โดยไม่เช็ค → `delete this->brain` ลบ Brain ทิ้ง → แล้ว `new Brain(*o.brain)` อ่านจากของที่เพิ่งลบไป = use-after-free" },
       { note: "วิธีทดสอบว่า deep copy จริง: ก๊อป Dog แล้วแก้ `ideas[0]` ของตัวหนึ่ง — อีกตัวต้องไม่เปลี่ยน **และ** address ที่ `getBrain()` คืนมาต้องคนละค่า" },
       { qa: [
         { q: "shallow copy กับ deep copy ต่างกันยังไง?", a: "shallow ก๊อปค่าใน pointer (ได้ 2 ตัวชี้ก้อนเดียวกัน); deep จองก้อนใหม่แล้วก๊อปเนื้อหาลงไป (แยกกันสมบูรณ์)" },
@@ -1617,8 +1617,8 @@ Dog &Dog::operator=(const Dog &o)
 {
     return (new Ice(*this));       // สร้างตัวใหม่ "ชนิดเดียวกับตัวเอง"
 }`, cap: "clone คือวิธี 'ก๊อป object โดยไม่รู้ว่ามันเป็นชนิดอะไร' — ผู้เรียกถือแค่ AMateria* ก็ก๊อปได้ถูกชนิด", lang: "cpp" },
-      { p: "**ทำไมต้องมี `clone()` ทั้งที่มี copy constructor แล้ว:** copy constructor ต้องรู้ชนิดตอนคอมไพล์ (`Ice b(a);`). แต่ `MateriaSource` ถือแค่ `AMateria *templates[4]` — มันไม่รู้ว่าแต่ละช่องเป็น Ice หรือ Cure. `clone()` เป็น virtual จึงถามตัว object ให้ก๊อปตัวเองได้" },
-      { note: "**`operator=` ของ AMateria ห้ามก๊อป `type`** — subject บอกว่า 'การก๊อป type ตอน assign ไม่มีความหมาย' เพราะชนิดถูกกำหนดตายตัวตอนสร้างโดยคลาสลูก" },
+      { p: "**ทำไมต้องมี** `clone()` **ทั้งที่มี copy constructor แล้ว:** copy constructor ต้องรู้ชนิดตอนคอมไพล์ (`Ice b(a);`). แต่ `MateriaSource` ถือแค่ `AMateria *templates[4]` — มันไม่รู้ว่าแต่ละช่องเป็น Ice หรือ Cure. `clone()` เป็น virtual จึงถามตัว object ให้ก๊อปตัวเองได้" },
+      { note: "`operator=` **ของ AMateria ห้ามก๊อป** `type` — subject บอกว่า 'การก๊อป type ตอน assign ไม่มีความหมาย' เพราะชนิดถูกกำหนดตายตัวตอนสร้างโดยคลาสลูก" },
       { qa: [
         { q: "ทำไมต้องมี `clone()` ทั้งที่มี copy constructor?", a: "copy constructor ต้องรู้ชนิดจริงตอนคอมไพล์ แต่โค้ดที่ถือแค่ `AMateria*` ไม่รู้. `clone()` เป็น virtual จึงให้ object ก๊อปตัวเองได้ถูกชนิดโดยผู้เรียกไม่ต้องรู้" },
         { q: "`unequip` ต้องลบ Materia ไหม?", a: "ไม่ — subject ห้ามชัดเจน. แค่ตั้งช่องเป็น NULL แล้วผู้เรียกรับ pointer นั้นไปดูแลต่อ" },
@@ -1725,7 +1725,7 @@ AMateria (abstract: clone() = 0)
       ▲
    ┌──┴──┐
   Ice   Cure     ← clone() คืน new Ice(*this) / new Cure(*this)`, cap: "interface บอก 'ต้องทำอะไรได้'; abstract class ให้ 'ของที่ใช้ร่วมกัน' มาด้วย (type + getType)", lang: "txt" },
-      { p: "**ทำไม `AMateria` เป็น abstract class ไม่ใช่ interface:** เพราะมันมีของจริงให้ลูกใช้ร่วมกัน (`std::string type;` และ `getType()`) — interface แท้ ๆ จะมีแต่ pure virtual ล้วน" },
+      { p: "**ทำไม** `AMateria` **เป็น abstract class ไม่ใช่ interface:** เพราะมันมีของจริงให้ลูกใช้ร่วมกัน (`std::string type;` และ `getType()`) — interface แท้ ๆ จะมีแต่ pure virtual ล้วน" },
     ],
 
     architecture: [
@@ -1857,7 +1857,7 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|<algorithm>' ex
     ],
 
     tricks: [
-      { h: "ทริค 1: ใส่ `virtual ~Base()` ตั้งแต่ยังไม่จำเป็น" },
+      { h: "ทริค 1: ใส่ virtual ~Base() ตั้งแต่ยังไม่จำเป็น" },
       { p: "ex00 ยังไม่มีอะไรให้รั่ว แต่ใส่ไว้เลย — พอ ex01 ก๊อปไฟล์มาเพิ่ม Brain มันทำงานถูกทันที ไม่ต้องไล่ debug leak ทีหลัง" },
       { h: "ทริค 2: มี pointer เป็น member = ต้องเขียน OCF เอง" },
       { p: "กฎง่าย ๆ: คลาสไหนมี raw pointer ที่ตัวเองจอง ตัวที่คอมไพเลอร์สร้างให้ใช้ไม่ได้ทันที — ต้องเขียน copy ctor / operator= / dtor เองทั้ง 3 ตัว (rule of three)" },
@@ -1981,7 +1981,7 @@ throw ในตัวสร้าง = "สร้างไม่สำเร็�
 
 เรียกใช้:  throw Bureaucrat::GradeTooHighException();
 จับ:      catch (std::exception &e) { std::cout << e.what(); }`, cap: "ประกาศซ้อนในคลาส เพื่อให้ชื่อบอกที่มาว่ามาจาก Bureaucrat", lang: "cpp" },
-      { p: "**`const throw()` ห้ามหาย** — signature ต้องตรงกับ `std::exception::what()` เป๊ะ ไม่งั้นได้ error *'looser throw specifier for virtual ... what()'*. `throw()` คือคำสัญญาแบบ C++98 ว่า 'ฟังก์ชันนี้ไม่โยนอะไรออกมา' (C++11 ขึ้นไปเปลี่ยนเป็น `noexcept` แต่โมดูลนี้ใช้ C++98)" },
+      { p: "`const throw()` **ห้ามหาย** — signature ต้องตรงกับ `std::exception::what()` เป๊ะ ไม่งั้นได้ error *'looser throw specifier for virtual ... what()'*. `throw()` คือคำสัญญาแบบ C++98 ว่า 'ฟังก์ชันนี้ไม่โยนอะไรออกมา' (C++11 ขึ้นไปเปลี่ยนเป็น `noexcept` แต่โมดูลนี้ใช้ C++98)" },
       { p: "**จับด้วย reference เสมอ** (`catch (std::exception &e)`) — ถ้าจับ by value object ที่โยนมาจะถูกก๊อปแบบตัดส่วน (object slicing) เหลือแต่ส่วนของ `std::exception` และ `what()` จะคืนข้อความของฐานแทนของจริง" },
 
       { h: "3) throw / try / catch ไหลยังไง" },
@@ -2000,8 +2000,8 @@ catch (std::exception &e)
   object ที่สร้างเสร็จแล้วใน scope ถูกทำลายตามลำดับย้อนกลับ
   → destructor ทำงานครบ → ของที่จองด้วย new แต่ยังไม่ delete ยังรั่วอยู่ดี`, cap: "exception ทำลาย object บน stack ให้ แต่ไม่ลบของบน heap ให้ — ex03 ต้องระวังตรงนี้", lang: "cpp" },
 
-      { h: "🔬 เจาะลึก A: `const` member ปะทะ OCF" },
-      { p: "`Bureaucrat` มี `const std::string _name;` และ `AForm` มี `const` ทั้งชื่อและเกรด 2 ตัว. แต่ OCF บังคับให้มี `operator=` — ซึ่ง**เขียนทับ `const` member ไม่ได้**" },
+      { h: "🔬 เจาะลึก A: const member ปะทะ OCF" },
+      { p: "`Bureaucrat` มี `const std::string _name;` และ `AForm` มี `const` ทั้งชื่อและเกรด 2 ตัว. แต่ OCF บังคับให้มี `operator=` — ซึ่ง**เขียนทับ** `const` **member ไม่ได้**" },
       { code: String.raw`Bureaucrat &Bureaucrat::operator=(const Bureaucrat &other)
 {
     if (this != &other)
@@ -2009,7 +2009,7 @@ catch (std::exception &e)
     return (*this);                    //   _name ปล่อยไว้เฉย ๆ
 }`, cap: "ทางออกที่กรรมการยอมรับ: ก๊อปเฉพาะสถานะที่เปลี่ยนได้ ปล่อยตัวตน (ชื่อ) ไว้กับที่", lang: "cpp" },
       { p: "**ทำไมยอมรับได้:** `_name` คือ *ตัวตน* ของ object ไม่ใช่ *สถานะ*. การ assign ในความหมายนี้คือ 'ให้คนนี้มีเกรดเท่าคนนั้น' ไม่ใช่ 'เปลี่ยนคนนี้ให้กลายเป็นคนนั้น'" },
-      { note: "**อย่า `const_cast` ชื่อ** เพื่อให้ก๊อปได้ — เป็นธงแดงตอน defense เพราะมันคือการโกหกคอมไพเลอร์ว่า const ที่เขียนไว้ไม่จริง" },
+      { note: "**อย่า** `const_cast` **ชื่อ** เพื่อให้ก๊อปได้ — เป็นธงแดงตอน defense เพราะมันคือการโกหกคอมไพเลอร์ว่า const ที่เขียนไว้ไม่จริง" },
       { qa: [
         { q: "ทำไมคลาสที่มี `const` member ยังต้องมี `operator=`?", a: "เพราะ OCF บังคับ. ทางออกคือเขียนให้ก๊อปเฉพาะ member ที่ไม่ const แล้วปล่อย const ไว้ — คอมไพล์ผ่านและสมเหตุสมผล" },
         { q: "ถ้าไม่เขียน `operator=` เองจะเป็นยังไง?", a: "คอมไพเลอร์พยายามสร้างให้ แต่สร้างไม่ได้เพราะมี const member — พอมีโค้ดเรียก assign จริงจะ error. และ OCF ก็ไม่ครบตามที่ subject บังคับ" },
@@ -2030,7 +2030,7 @@ catch (std::exception &e)
   ✓ _name (สร้างเสร็จแล้วใน initialiser list) ถูกทำลายตามปกติ
   ✗ ~Bureaucrat() ไม่ถูกเรียก  — เพราะ object ยังสร้างไม่เสร็จ
   ✗ ตัวแปรที่รับค่านั้นไม่เคยมีอยู่จริง`, cap: "กฎ: destructor รันเฉพาะ object ที่ constructor ทำงานจนจบ", lang: "cpp" },
-      { p: "**ผลที่ตามมาที่ต้องระวัง:** ถ้า constructor ทำ `new` ไปแล้วก่อนจะ throw ของก้อนนั้นจะรั่ว เพราะ destructor ที่จะ `delete` มันไม่ได้ทำงาน. ในโมดูลนี้ไม่มีเคสนั้น แต่เป็นเหตุผลว่าทำไมต้อง **ตรวจก่อนจอง** เสมอ" },
+      { p: "**ผลที่ตามมาที่ต้องระวัง: **ถ้า constructor ทำ** `new` **ไปแล้วก่อนจะ throw ของก้อนนั้นจะรั่ว เพราะ destructor ที่จะ** `delete` **มันไม่ได้ทำงาน. ในโมดูลนี้ไม่มีเคสนั้น แต่เป็นเหตุผลว่าทำไมต้อง** ตรวจก่อนจอง** เสมอ" },
       { qa: [
         { q: "throw จาก constructor แล้ว destructor ทำงานไหม?", a: "ไม่ — object สร้างไม่เสร็จจึงไม่มี object ให้ทำลาย. แต่ member ที่สร้างเสร็จไปแล้วจะถูกทำลายตามปกติ" },
         { q: "ทำไมต้องเช็คเกรดก่อนแล้วค่อยตั้งค่า?", a: "เพื่อไม่ให้ object เข้าสู่สถานะครึ่ง ๆ กลาง ๆ. หลักการทั่วไป: ตรวจให้ครบก่อนจะจองทรัพยากรใด ๆ เพราะถ้า throw หลังจอง destructor ไม่ทำงานแล้วของนั้นจะรั่ว" },
@@ -2062,7 +2062,7 @@ void AForm::execute(Bureaucrat const &executor) const
         ["เพิ่มเงื่อนไขใหม่", "แก้ 3 ที่", "แก้ที่เดียว"],
         ["`executeAction` เห็นจากข้างนอก", "—", "ไม่เห็น (protected) — บังคับให้ผ่าน `execute` เท่านั้น"],
       ]}},
-      { p: "**ทำไม `executeAction` ต้องเป็น `protected`:** ถ้าเป็น public จะมีคนเรียกมันตรง ๆ ข้ามด่านตรวจไปได้ — ทำให้ฟอร์มที่ยังไม่ถูกเซ็นถูกสั่งทำงานได้" },
+      { p: "**ทำไม** `executeAction` **ต้องเป็น** `protected`**:** ถ้าเป็น public จะมีคนเรียกมันตรง ๆ ข้ามด่านตรวจไปได้ — ทำให้ฟอร์มที่ยังไม่ถูกเซ็นถูกสั่งทำงานได้" },
       { qa: [
         { q: "ทำไมไม่ทำให้ `execute` เป็น virtual แล้วให้แต่ละฟอร์มเขียนเอง?", a: "ต้องก๊อปโค้ดเช็คเซ็น+เกรดไปใส่ทั้ง 3 คลาส — ซ้ำซ้อนและลืมง่าย. subject เตือนไว้ว่านั่นคือทางที่ 'สง่าน้อยกว่า'" },
         { q: "`executeAction` เป็น protected ทำไม", a: "เพื่อไม่ให้ใครเรียกข้ามด่านตรวจ — ทางเดียวที่จะสั่งฟอร์มทำงานคือผ่าน `execute()` ที่ตรวจให้แล้ว" },
@@ -2107,7 +2107,7 @@ AForm *Intern::makeForm(const std::string &name, const std::string &target)
 
 วงเล็บครอบ (*builders[3]) จำเป็น
   ไม่มีวงเล็บ → AForm *builders[3](...) = อาเรย์ของฟังก์ชัน (ผิด ภาษาไม่มี)`, cap: "เหตุผลเดียวกับ pointer-to-member ใน Module 01 — วงเล็บบอกว่า 'ตัวนี้เป็น pointer ก่อน แล้วค่อยเป็นฟังก์ชัน'", lang: "txt" },
-      { p: "**ทำไมตัวสร้างต้องเป็น `static`:** เมธอดธรรมดามี `this` ซ่อนอยู่ ทำให้ type เป็น pointer-to-member ซึ่งเขียนยากกว่ามาก. `static` ไม่มี `this` จึงเป็นฟังก์ชันธรรมดาที่ใส่ในอาเรย์แบบข้างบนได้เลย" },
+      { p: "**ทำไมตัวสร้างต้องเป็น** `static`**:** เมธอดธรรมดามี `this` ซ่อนอยู่ ทำให้ type เป็น pointer-to-member ซึ่งเขียนยากกว่ามาก. `static` ไม่มี `this` จึงเป็นฟังก์ชันธรรมดาที่ใส่ในอาเรย์แบบข้างบนได้เลย" },
       { note: "`makeForm` โยนความเป็นเจ้าของให้ผู้เรียก — ทุก `AForm*` ที่ได้มาต้อง `delete`. ถ้ามันโยน `FormNotFoundException` จะไม่มีของให้ลบ (ยังไม่ได้ `new`) — ตรงนี้ถูกแล้ว" },
       { qa: [
         { q: "ทำไม subject ห้าม if/else ต่อกันใน makeForm?", a: "เพราะมันขยายไม่ได้ — เพิ่มฟอร์มใหม่ต้องแก้ตรรกะทุกครั้ง. ตารางชื่อ+ตัวสร้างเพิ่มแค่ข้อมูล ไม่ต้องแตะโค้ดที่ทำงาน" },
@@ -2320,15 +2320,15 @@ cd ex02 && ./form && cat home_shrubbery`, lang: "bash" },
     tricks: [
       { h: "ทริค 1: เขียนตารางเกรดแปะไว้ก่อนเริ่ม" },
       { p: "คัดตาราง 5 แถวจากหัวข้อ theory มาแปะข้างจอ. บั๊กอันดับ 1 ของโมดูลนี้คือเทียบขอบผิดด้าน และเทียบตารางเร็วกว่าไล่คิดใหม่ทุกครั้ง" },
-      { h: "ทริค 2: เขียน `what()` ให้บอกสาเหตุจริง" },
+      { h: "ทริค 2: เขียน what() ให้บอกสาเหตุจริง" },
       { p: "`\"grade is too high\"` มีประโยชน์กว่า `\"error\"` เพราะข้อความนี้ไปโผล่ในบรรทัด `couldn't sign ... because <reason>.` ที่กรรมการอ่าน" },
-      { h: "ทริค 3: จับด้วย `std::exception &` ตัวเดียวพอ" },
+      { h: "ทริค 3: จับด้วย std::exception & ตัวเดียวพอ" },
       { p: "ไม่ต้องเขียน catch แยกทีละชนิด — ทุกตัวสืบทอดจาก `std::exception` และสิ่งที่ต้องแสดงคือ `e.what()` เหมือนกันหมด" },
       { h: "ทริค 4: ทำ ex00 ให้ผ่านเทสทุกขอบก่อนค่อยไป ex01" },
       { p: "ex01–ex03 ก๊อป Bureaucrat ไปใช้ต่อทั้ง 3 ข้อ — บั๊กที่ค้างใน ex00 จะตามไปทั้งโมดูล และไล่ยากขึ้นเรื่อย ๆ" },
       { h: "ทริค 5: เปลี่ยนชื่อ Form → AForm ด้วย sed ทีเดียว" },
       { p: "`sed -i 's/\\bForm\\b/AForm/g' *.cpp *.hpp` แล้วค่อยไล่ดู include guard กับชื่อไฟล์ — เร็วกว่าแก้มือและไม่ตกหล่น. ระวังคำที่มี Form อยู่ข้างใน เช่น `ShrubberyCreationForm` — `\\b` กันไว้ให้แล้ว" },
-      { h: "ทริค 6: `srand` ครั้งเดียวใน main เสมอ" },
+      { h: "ทริค 6: srand ครั้งเดียวใน main เสมอ" },
       { p: "เพาะซ้ำในตัว action ทำให้ได้ค่าเดิมทุกครั้งที่เรียกในวินาทีเดียวกัน เพราะ `time(0)` ยังไม่เปลี่ยน — ดูเหมือนสุ่มไม่ทำงาน" },
       { h: "ทริค 7: ให้ฐานตรวจ ให้ลูกทำ" },
       { p: "ทุกครั้งที่จะก๊อปเงื่อนไขไปใส่คลาสลูกหลายตัว หยุดคิดก่อนว่าย้ายขึ้นไปที่ฐานได้ไหม — เป็น pattern ที่ใช้ได้ยาวไปจนถึง Module 08/09" },
@@ -2394,14 +2394,14 @@ window.TEACHING_DATA.push({
         ["`const_cast<T>`", "ถอด/ใส่ `const`", "คอมไพล์", "คอมไพล์ไม่ผ่าน (แต่ใช้ผิดคือ UB)"],
         ["`reinterpret_cast<T>`", "ตีความบิตใหม่ ไม่แปลงค่า", "คอมไพล์", "ไม่ล้มเหลว — และนั่นคือส่วนที่อันตราย"],
       ]}},
-      { p: "**ทำไมไม่ใช้ `(type)x` แบบ C:** cast แบบ C จะไล่ลองทั้ง 4 แบบให้อัตโนมัติ — อ่านโค้ดแล้วไม่รู้ว่าเกิดอะไรขึ้น และหาด้วย grep ไม่ได้. ชื่อยาว ๆ ของ C++ ตั้งใจให้ *เขียนแล้วสะดุด* เพราะ cast ทุกครั้งคือจุดที่ระบบชนิดถูกข้าม" },
+      { p: "**ทำไมไม่ใช้** `(type)x` **แบบ C:** cast แบบ C จะไล่ลองทั้ง 4 แบบให้อัตโนมัติ — อ่านโค้ดแล้วไม่รู้ว่าเกิดอะไรขึ้น และหาด้วย grep ไม่ได้. ชื่อยาว ๆ ของ C++ ตั้งใจให้ *เขียนแล้วสะดุด* เพราะ cast ทุกครั้งคือจุดที่ระบบชนิดถูกข้าม" },
       { h: "กฎเหล็ก" },
       { ul: [
         "ห้าม `printf` / `malloc` / `free` (0 คะแนน) · ห้าม `using namespace` / `friend` (-42) · ห้าม STL",
         "**ex00 กับ ex01 ต้องสร้าง object ไม่ได้** — OCF ครบแต่ประกาศไว้ใน `private`",
         "**ex02 ได้รับยกเว้น OCF** — subject บอกไว้ตรง ๆ",
-        "**ex02 ห้าม `#include <typeinfo>`** — จับ `std::exception&` แทน `std::bad_cast`",
-        "**ex02 ห้ามใช้ pointer ข้างใน `identify(Base&)`**",
+        "**ex02 ห้าม** `#include <typeinfo>` — จับ `std::exception&` แทน `std::bad_cast`",
+        "**ex02 ห้ามใช้ pointer ข้างใน** `identify(Base&)`",
       ]},
     ],
 
@@ -2452,7 +2452,7 @@ reinterpret_cast<Data*>(raw)       →  แปลงกลับ ได้ addre
       { p: "`dynamic_cast` เป็น cast ตัวเดียวที่**ทำงานตอนรัน** — มันไปดูชนิดจริงของ object แล้วตัดสินว่าแปลงได้ไหม. และมันมี 2 พฤติกรรมที่ต่างกันสิ้นเชิงตามรูปแบบที่ใช้" },
       { table: { head: ["", "`dynamic_cast<A*>(p)`", "`dynamic_cast<A&>(r)`"], rows: [
         ["สำเร็จ", "คืน pointer ที่ใช้ได้", "คืน reference ที่ใช้ได้"],
-        ["ล้มเหลว", "คืน `NULL`", "**โยน `std::bad_cast`**"],
+        ["ล้มเหลว", "คืน `NULL`", "**โยน** `std::bad_cast`"],
         ["ตรวจยังไง", "`if (dynamic_cast<A*>(p))`", "`try { ... } catch (std::exception &) {}`"],
         ["ทำไมต่างกัน", "pointer เป็น NULL ได้", "**reference เป็น null ไม่ได้** จึงไม่มีค่าไหนแปลว่าล้มเหลว"],
       ]}},
@@ -2473,15 +2473,15 @@ void identify(Base &p)
     try { (void)dynamic_cast<C &>(p); std::cout << "C" << std::endl; return; }
     catch (std::exception &) {}
 }`, cap: "โค้ดจริงในโปรเจกต์ — `(void)` เพราะเราสนใจแค่ว่ามัน 'ไม่โยน' ไม่ได้ใช้ผลลัพธ์", lang: "cpp" },
-      { p: "**subject ห้ามใช้ pointer ข้างใน `identify(Base&)`** — จะเขียน `identify(&p)` โยนงานให้ตัวบนไม่ได้. บังคับให้เจอกับรูปแบบ reference ที่ต้องใช้ try/catch จริง ๆ" },
-      { note: "**ห้าม `#include <typeinfo>`** ซึ่งเป็นที่อยู่ของ `std::bad_cast` — จับ `std::exception &` จาก `<exception>` แทน. `bad_cast` สืบทอดมาจาก `std::exception` จึงจับได้ปกติและไม่ผิดกฎ" },
+      { p: "**subject ห้ามใช้ pointer ข้างใน** `identify(Base&)` — จะเขียน `identify(&p)` โยนงานให้ตัวบนไม่ได้. บังคับให้เจอกับรูปแบบ reference ที่ต้องใช้ try/catch จริง ๆ" },
+      { note: "**ห้าม** `#include <typeinfo>` ซึ่งเป็นที่อยู่ของ `std::bad_cast` — จับ `std::exception &` จาก `<exception>` แทน. `bad_cast` สืบทอดมาจาก `std::exception` จึงจับได้ปกติและไม่ผิดกฎ" },
       { qa: [
-        { q: "`dynamic_cast` ล้มเหลวแล้วเกิดอะไร?", a: "ต่างกันตามรูปแบบ: แบบ pointer คืน `NULL`, แบบ reference **โยน `std::bad_cast`** — เพราะ reference เป็น null ไม่ได้จึงไม่มีค่าไหนใช้แทน 'ล้มเหลว' ได้" },
+        { q: "`dynamic_cast` ล้มเหลวแล้วเกิดอะไร?", a: "ต่างกันตามรูปแบบ: แบบ pointer คืน `NULL`, แบบ reference **โยน** `std::bad_cast` — เพราะ reference เป็น null ไม่ได้จึงไม่มีค่าไหนใช้แทน 'ล้มเหลว' ได้" },
         { q: "ทำไม `identify(Base&)` ต้องใช้ try/catch?", a: "เพราะรูปแบบ reference โยน exception เวลาแปลงไม่ได้ และ subject ห้ามใช้ pointer ข้างในฟังก์ชันนี้" },
         { q: "จับ `std::bad_cast` ไม่ได้เพราะอะไร?", a: "มันประกาศใน `<typeinfo>` ซึ่ง subject ห้าม include. จับ `std::exception &` แทน — `bad_cast` สืบทอดมาจากตัวนั้นอยู่แล้ว" },
       ]},
 
-      { h: "🔬 เจาะลึก B: `dynamic_cast` ต้องการคลาสที่เป็น polymorphic" },
+      { h: "🔬 เจาะลึก B: dynamic_cast ต้องการคลาสที่เป็น polymorphic" },
       { code: String.raw`class Base
 {
     public:
@@ -2491,7 +2491,7 @@ void identify(Base &p)
 class A : public Base {};     // ว่างเปล่า
 class B : public Base {};
 class C : public Base {};`, cap: "โค้ดจริงของ ex02 — Base มีแค่ virtual destructor ตัวเดียว", lang: "cpp" },
-      { p: "**ทำไม `virtual` ตัวเดียวถึงจำเป็น:** `dynamic_cast` ต้องรู้ชนิดจริงของ object ตอนรัน — ข้อมูลนั้น (RTTI) ถูกแนบมากับ vtable. คลาสที่ไม่มี virtual method เลยจะไม่มี vtable จึงไม่มีที่เก็บข้อมูลชนิด" },
+      { p: "**ทำไม** `virtual` **ตัวเดียวถึงจำเป็น:** `dynamic_cast` ต้องรู้ชนิดจริงของ object ตอนรัน — ข้อมูลนั้น (RTTI) ถูกแนบมากับ vtable. คลาสที่ไม่มี virtual method เลยจะไม่มี vtable จึงไม่มีที่เก็บข้อมูลชนิด" },
       { code: String.raw`ถ้าลืม virtual:
     error: cannot dynamic_cast 'p' (of type 'class Base*')
            to type 'class A*' (source type is not polymorphic)
@@ -2532,7 +2532,7 @@ class C : public Base {};`, cap: "โค้ดจริงของ ex02 — Bas
         { q: "เติม `.0` ตอนไหน?", a: "เมื่อผลจากการสตรีมแบบปกติไม่มี `.` และไม่มี `e` — คือเป็นจำนวนเต็มพอดีอย่าง `42` ซึ่งต้องแสดงเป็น `42.0`" },
         { q: "ทำไมต้อง `static_cast<float>` ก่อนจัดรูปบรรทัด float?", a: "เพื่อให้ตัวเลขที่พิมพ์สะท้อนความละเอียดของ `float` จริง ๆ ไม่ใช่ของ `double` ที่เก็บค่าไว้" },
       ]},
-      { h: "🔬 เจาะลึก D: `impossible` กับ `Non displayable` ต่างกันตรงไหน" },
+      { h: "🔬 เจาะลึก D: impossible กับ Non displayable ต่างกันตรงไหน" },
       { p: "2 คำนี้ไม่เหมือนกันและ subject ตรวจ. หลักคิด: **แปลงไม่ได้เลย** vs **แปลงได้แต่พิมพ์ออกจอไม่ได้**" },
       { code: String.raw`static void printChar(double d)
 {
@@ -2559,7 +2559,7 @@ class C : public Base {};`, cap: "โค้ดจริงของ ex02 — Bas
         { q: "`2147483648` ให้ผลอะไร?", a: "`int: impossible` (เกิน INT_MAX) แต่ `float`/`double` ปกติ — เพราะค่านั้นเก็บใน double ได้สบาย" },
       ]},
 
-      { h: "🔬 เจาะลึก E: `std::isnan` / `std::isinf` ไม่มีใน C++98" },
+      { h: "🔬 เจาะลึก E: std::isnan / std::isinf ไม่มีใน C++98" },
       { p: "2 ตัวนี้เพิ่มมาใน C++11. ใต้ `-std=c++98` จะได้ error *'isnan' is not a member of 'std'*. เขียนเองได้ใน 2 บรรทัดโดยอาศัยคุณสมบัติของ IEEE 754 ที่รับประกันอยู่แล้ว" },
       { code: String.raw`static bool isNan(double d)
 {
@@ -2571,7 +2571,7 @@ static bool isInf(double d)
     return (d == std::numeric_limits<double>::infinity()
         || d == -std::numeric_limits<double>::infinity());
 }`, cap: "โค้ดจริง — `d != d` ไม่ใช่ลูกเล่น แต่เป็นคุณสมบัติที่มาตรฐาน IEEE 754 กำหนดไว้", lang: "cpp" },
-      { p: "**ทำไม `d != d` ถึงจับ NaN ได้:** IEEE 754 กำหนดว่าการเปรียบเทียบใด ๆ ที่มี NaN อยู่ด้วยจะเป็นเท็จเสมอ — รวมทั้ง `NaN == NaN`. ดังนั้น `!=` จึงเป็นจริง ซึ่งเกิดขึ้นได้กับ NaN เท่านั้น" },
+      { p: "**ทำไม** `d != d` **ถึงจับ NaN ได้:** IEEE 754 กำหนดว่าการเปรียบเทียบใด ๆ ที่มี NaN อยู่ด้วยจะเป็นเท็จเสมอ — รวมทั้ง `NaN == NaN`. ดังนั้น `!=` จึงเป็นจริง ซึ่งเกิดขึ้นได้กับ NaN เท่านั้น" },
       { qa: [
         { q: "ทำไมใช้ `std::isnan` ไม่ได้?", a: "มันเข้ามาใน C++11 — ใต้ `-std=c++98` จะ compile error. เขียนเองด้วย `d != d`" },
         { q: "`d != d` ทำงานยังไง?", a: "IEEE 754 กำหนดให้ทุกการเปรียบเทียบกับ NaN เป็นเท็จ รวม `NaN == NaN`. ดังนั้น `!=` จริงเฉพาะกับ NaN" },
@@ -2621,7 +2621,7 @@ static bool isInf(double d)
     }
     printChar(d);  printInt(d);  printFloat(d);  printDouble(d);
 }`, cap: "โค้ดจริง — ทุกอย่างลอดผ่าน `double` ตัวเดียว ทำให้ 4 เส้นทางพิมพ์เหมือนกันหมด", lang: "cpp" },
-      { p: "**ทำไมแปลงเป็น `double` ตัวเดียวก่อน:** ไม่ต้องเขียนตรรกะแปลง 4×4 = 16 ทาง เหลือแค่ 'string → double' 1 ที และ 'double → X' อีก 4 ที. `double` เก็บทั้ง int, float และ char ได้หมดโดยไม่เสียค่า (ยกเว้น int ที่ใหญ่มาก ซึ่งเราตรวจแยกอยู่แล้ว)" },
+      { p: "**ทำไมแปลงเป็น** `double` **ตัวเดียวก่อน:** ไม่ต้องเขียนตรรกะแปลง 4×4 = 16 ทาง เหลือแค่ 'string → double' 1 ที และ 'double → X' อีก 4 ที. `double` เก็บทั้ง int, float และ char ได้หมดโดยไม่เสียค่า (ยกเว้น int ที่ใหญ่มาก ซึ่งเราตรวจแยกอยู่แล้ว)" },
       { note: "`static_cast` แปลง string เป็นตัวเลขไม่ได้ — subject จึงอนุญาตให้ใช้ฟังก์ชันแปลงสตริงได้. โค้ดนี้ใช้ `std::strtod` และ `std::strtol` จาก `<cstdlib>`" },
 
       { h: "ex01 — Serializer" },
@@ -2643,7 +2643,7 @@ Data *Serializer::deserialize(uintptr_t raw)
 {
     return (reinterpret_cast<Data *>(raw));
 }`, cap: "ทั้งข้อมีแค่นี้ — ประเด็นอยู่ที่ 'ทำไมต้อง reinterpret_cast' ไม่ใช่ปริมาณโค้ด", lang: "cpp" },
-      { p: "**ทำไม `static_cast` ใช้ไม่ได้ตรงนี้:** `Data*` กับ `uintptr_t` เป็นชนิดที่ไม่มีความสัมพันธ์กันเลย — ไม่มีกฎการแปลงค่าใด ๆ ให้คอมไพเลอร์ทำตาม. `reinterpret_cast` เท่านั้นที่บอกว่า 'เอาบิตชุดเดิมนี่แหละ มองเป็นชนิดใหม่'" },
+      { p: "**ทำไม** `static_cast` **ใช้ไม่ได้ตรงนี้:** `Data*` กับ `uintptr_t` เป็นชนิดที่ไม่มีความสัมพันธ์กันเลย — ไม่มีกฎการแปลงค่าใด ๆ ให้คอมไพเลอร์ทำตาม. `reinterpret_cast` เท่านั้นที่บอกว่า 'เอาบิตชุดเดิมนี่แหละ มองเป็นชนิดใหม่'" },
 
       { h: "ex02 — Base / A / B / C" },
       { code: String.raw`class Base { public: virtual ~Base(); };
@@ -2799,15 +2799,15 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp e
       { p: "`static` = แปลงค่าที่คอมไพเลอร์รู้วิธี · `dynamic` = ถาม object ตอนรันว่าเป็นใคร · `const` = ถอดคำสัญญา const · `reinterpret` = มองบิตชุดเดิมเป็นชนิดใหม่" },
       { h: "ทริค 2: เขียน ex01 ก่อน ex00" },
       { p: "ex01 มี 2 ฟังก์ชัน — ทำเสร็จใน 10 นาทีและได้เห็นสำนวนคลาสที่สร้างไม่ได้ก่อนไปเจอ ex00 ที่ยาวกว่ามาก" },
-      { h: "ทริค 3: ให้ทุกอย่างลอดผ่าน `double` ตัวเดียว" },
+      { h: "ทริค 3: ให้ทุกอย่างลอดผ่าน double ตัวเดียว" },
       { p: "แทนที่จะเขียนทาง 4×4 ตัวแปลง เหลือ 'อ่านเป็น double' 1 ที่ กับ 'พิมพ์จาก double' 4 ที่ — โค้ดสั้นลงมากและเทสง่าย" },
-      { h: "ทริค 4: ทำฟังก์ชันช่วยเป็น `static` ระดับไฟล์" },
+      { h: "ทริค 4: ทำฟังก์ชันช่วยเป็น static ระดับไฟล์" },
       { p: "`isNan`, `isCharLiteral`, `printChar` ฯลฯ ไม่ต้องอยู่ใน header เลย — ประกาศ `static` ใน `.cpp` ทำให้ header สะอาดและกรรมการเห็นทางเข้าเดียวคือ `convert`" },
       { h: "ทริค 5: เทส ex00 ด้วยลูปแทนการพิมพ์มือ" },
       { p: "`for v in 0 31 32 126 127 nan -inff 42.0f abc \"\"; do ./convert \"$v\"; done` — ครอบเคสขอบทั้งหมดในคำสั่งเดียว รันซ้ำได้ทุกครั้งที่แก้โค้ด" },
-      { h: "ทริค 6: `virtual ~Base()` แก้ 2 ปัญหาพร้อมกัน" },
+      { h: "ทริค 6: virtual ~Base() แก้ 2 ปัญหาพร้อมกัน" },
       { p: "ทำให้คลาสเป็น polymorphic (`dynamic_cast` ใช้ได้) และทำให้ `delete` ผ่าน `Base*` ไม่รั่ว — บรรทัดเดียวจบทั้งคู่" },
-      { h: "ทริค 7: `(void)` หน้า dynamic_cast แบบ reference" },
+      { h: "ทริค 7: (void) หน้า dynamic_cast แบบ reference" },
       { p: "เราสนใจแค่ว่ามัน 'ไม่โยน' ไม่ได้ใช้ผลลัพธ์ — `(void)` บอกคอมไพเลอร์ให้เงียบเรื่องค่าที่ไม่ได้ใช้ ภายใต้ `-Wextra -Werror`" },
     ],
 
@@ -2818,7 +2818,7 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp e
         { q: "ทำไม ex01 ต้องใช้ `reinterpret_cast` ไม่ใช่ `static_cast`?", a: "`Data*` กับ `uintptr_t` ไม่มีความสัมพันธ์กัน ไม่มีกฎแปลงค่าให้คอมไพเลอร์ทำตาม. `reinterpret_cast` เท่านั้นที่บอกว่าเอาบิตชุดเดิมมามองเป็นชนิดใหม่" },
         { q: "ทำไมต้อง `uintptr_t` ไม่ใช่ `int`?", a: "`int` อาจแคบกว่า pointer (64-bit: int 4 ไบต์, pointer 8 ไบต์) — บิตจะหาย. `uintptr_t` ถูกนิยามว่าใหญ่พอเก็บ pointer ได้แน่นอน" },
         { q: "`dynamic_cast` ต้องการอะไรจากคลาส?", a: "คลาสฐานต้องเป็น polymorphic — มี virtual method อย่างน้อย 1 ตัว (ปกติคือ virtual destructor) เพราะข้อมูลชนิดตอนรันแนบมากับ vtable" },
-        { q: "`dynamic_cast` แบบ pointer กับแบบ reference ต่างกันยังไง?", a: "pointer คืน `NULL` เมื่อล้มเหลว; reference **โยน `std::bad_cast`** เพราะ reference เป็น null ไม่ได้จึงไม่มีค่าไหนแทน 'ล้มเหลว' ได้" },
+        { q: "`dynamic_cast` แบบ pointer กับแบบ reference ต่างกันยังไง?", a: "pointer คืน `NULL` เมื่อล้มเหลว; reference **โยน** `std::bad_cast` เพราะ reference เป็น null ไม่ได้จึงไม่มีค่าไหนแทน 'ล้มเหลว' ได้" },
         { q: "ทำไม ex02 จับ `std::exception&` ไม่จับ `std::bad_cast`?", a: "`bad_cast` ประกาศใน `<typeinfo>` ซึ่ง subject ห้าม include. `bad_cast` สืบทอดจาก `std::exception` จึงจับด้วยตัวฐานได้และไม่ผิดกฎ" },
         { q: "`impossible` กับ `Non displayable` ต่างกันยังไง?", a: "`impossible` = แปลงเป็นชนิดนั้นไม่ได้เลย (NaN/Inf หรืออยู่นอกช่วง). `Non displayable` = แปลงได้จริงแต่ไม่ใช่อักขระที่พิมพ์ออกจอได้ เช่น 0 หรือ 31" },
         { q: "ทำไม `std::isnan` ใช้ไม่ได้?", a: "เข้ามาใน C++11 — ใต้ `-std=c++98` compile ไม่ผ่าน. เขียนเองด้วย `d != d` ซึ่งจริงเฉพาะกับ NaN ตามมาตรฐาน IEEE 754" },
@@ -2910,7 +2910,7 @@ link:
       { p: "**ทางแก้:** วางตัวฟังก์ชันเต็ม ๆ ไว้ใน `.hpp` (หรือ `.tpp` ที่ `#include` ไว้ท้าย `.hpp`) เพื่อให้ทุกไฟล์ที่ใช้มันเห็นสูตรครบและปั๊มเองได้" },
       { table: { head: ["", "ฟังก์ชัน/คลาสธรรมดา", "template"], rows: [
         ["ประกาศไว้ที่", "`.hpp`", "`.hpp`"],
-        ["ตัวฟังก์ชันไว้ที่", "`.cpp`", "**`.hpp`**"],
+        ["ตัวฟังก์ชันไว้ที่", "`.cpp`", "`.hpp`"],
         ["ถูกคอมไพล์กี่ครั้ง", "1 ครั้ง", "1 ครั้ง **ต่อชนิดที่ใช้จริง**"],
         ["ลืมแล้วเจอ error ตอน", "คอมไพล์", "**link** (`undefined reference`)"],
       ]}},
@@ -2935,7 +2935,7 @@ const T &min(const T &a, const T &b)
 
 max ก็หลักการเดียวกัน:
     if (a > b) return (a);  →  a == b ตกมาคืน b  ✓`, cap: "โค้ดจริง — เขียนแบบ 'เช็คว่าน้อยกว่าจริงหรือเปล่า ถ้าไม่ก็คืนตัวหลัง' แล้วกฎเสมอถูกอัตโนมัติ", lang: "cpp" },
-      { p: "**ทำไมคืน `const T &` ไม่ใช่ `T`:** คืน reference ไม่ต้องก๊อป object — สำคัญเมื่อ `T` เป็นของใหญ่อย่าง `std::string`. `const` เพราะเราไม่ได้ตั้งใจให้ผู้เรียกแก้ค่าผ่านผลลัพธ์" },
+      { p: "**ทำไมคืน** `const T &` **ไม่ใช่** `T`**:** คืน reference ไม่ต้องก๊อป object — สำคัญเมื่อ `T` เป็นของใหญ่อย่าง `std::string`. `const` เพราะเราไม่ได้ตั้งใจให้ผู้เรียกแก้ค่าผ่านผลลัพธ์" },
       { note: "เรียกด้วย `::min(a, b)` (มี `::` นำ) เพื่อไม่ให้ชนกับ `std::min`/`std::swap` ที่อาจถูกดึงเข้ามาโดยอ้อมผ่าน `<string>` — เป็นเหตุผลที่ subject เขียนตัวอย่างแบบนั้น" },
       { qa: [
         { q: "ทำไม `min` ต้องคืน argument ตัวที่ 2 เมื่อค่าเท่ากัน?", a: "subject กำหนดไว้. เขียน `if (a < b) return a; return b;` แล้วเงื่อนไขนี้ถูกเอง — ใช้ `<=` จะคืนตัวแรกซึ่งผิด" },
@@ -2943,7 +2943,7 @@ max ก็หลักการเดียวกัน:
         { q: "ทำไมเรียกด้วย `::swap` ไม่ใช่ `swap`?", a: "กันชนกับ `std::swap` ที่อาจถูกดึงเข้ามาโดยอ้อม — `::` บังคับให้เลือกตัวใน global scope" },
       ]},
 
-      { h: "🔬 เจาะลึก C: ทำไม `iter` ต้อง template ตัวฟังก์ชันด้วย" },
+      { h: "🔬 เจาะลึก C: ทำไม iter ต้อง template ตัวฟังก์ชันด้วย" },
       { code: String.raw`template <typename T, typename F>       // ★ F คือชนิดของฟังก์ชัน
 void iter(T *array, size_t length, F f)
 {
@@ -2980,7 +2980,7 @@ void iter(T *array, size_t length, F f)
         { q: "`iter` กับ `const int[]` ทำงานยังไง?", a: "`T` ถูกอนุมานเป็น `const int` แล้วคอมไพเลอร์เลือกตัว `f` ที่เข้ากันได้เอง — เป็นไปได้เพราะพารามิเตอร์ฟังก์ชันเป็น template ไม่ใช่ชนิดตายตัว" },
       ]},
 
-      { h: "🔬 เจาะลึก D: `Array` — class template ที่ต้องทำ deep copy" },
+      { h: "🔬 เจาะลึก D: Array — class template ที่ต้องทำ deep copy" },
       { code: String.raw`template <typename T>
 class Array
 {
@@ -3013,15 +3013,15 @@ class Array
 
         ~Array(void) { delete [] _data; }
 };`, cap: "โค้ดจริง — deep copy หลักการเดียวกับ Brain ใน Module 04 แต่คราวนี้เป็นบัฟเฟอร์ทั้งก้อน", lang: "cpp" },
-      { p: "**`main.cpp` ของ subject จับ shallow copy ได้โดยตรง** — มันสร้างสำเนาใน scope ย่อย แล้วพอออกจาก scope จึงตรวจว่าตัวต้นฉบับยังเหมือนเดิม. ถ้า `_data` ถูกแชร์ destructor ของสำเนาจะ `delete []` บัฟเฟอร์ของต้นฉบับ แล้วบรรทัด *\"didn't save the same value!!\"* จะโผล่" },
-      { p: "**`new T[0]` ถูกกฎหมาย** — คืน pointer ที่ไม่ใช่ NULL และ `delete []` ได้ตามปกติ. ประโยชน์คือ destructor เขียนแบบเดียวจบ ไม่ต้องเช็ค `if (_data)` ให้รก" },
+      { p: "`main.cpp` **ของ subject จับ shallow copy ได้โดยตรง** — มันสร้างสำเนาใน scope ย่อย แล้วพอออกจาก scope จึงตรวจว่าตัวต้นฉบับยังเหมือนเดิม. ถ้า `_data` ถูกแชร์ destructor ของสำเนาจะ `delete []` บัฟเฟอร์ของต้นฉบับ แล้วบรรทัด *\"didn't save the same value!!\"* จะโผล่" },
+      { p: "`new T[0]` **ถูกกฎหมาย** — คืน pointer ที่ไม่ใช่ NULL และ `delete []` ได้ตามปกติ. ประโยชน์คือ destructor เขียนแบบเดียวจบ ไม่ต้องเช็ค `if (_data)` ให้รก" },
       { qa: [
         { q: "`Array` ต้อง deep copy ทำไม?", a: "เพราะมันถือ `T *_data` ที่ `new[]` เอง. ถ้าก๊อป pointer เฉย ๆ สำเนากับต้นฉบับจะชี้บัฟเฟอร์เดียวกัน — แก้ตัวหนึ่งกระทบอีกตัว และ destructor จะ `delete []` ซ้ำ" },
         { q: "`new T[0]` ทำได้ไหม?", a: "ได้ — มาตรฐานรับรอง คืน pointer ไม่ NULL ที่ `delete []` ได้ ทำให้ destructor เขียนแบบเดียวไม่ต้องแยกกรณีอาเรย์ว่าง" },
         { q: "`operator=` ของ Array ต้องระวังอะไร?", a: "เช็ค self-assignment ก่อน แล้ว `delete []` ของเก่า จองใหม่ ก๊อปทีละตัว. ข้าม self-check แล้ว `a = a` จะลบบัฟเฟอร์ตัวเองก่อนจะก๊อปจากมัน" },
       ]},
 
-      { h: "🔬 เจาะลึก E: `numbers[-2]` ถูกจับด้วยการเช็คบรรทัดเดียว" },
+      { h: "🔬 เจาะลึก E: numbers[-2] ถูกจับด้วยการเช็คบรรทัดเดียว" },
       { p: "`operator[]` รับ `unsigned int`. เมื่อ `main` เขียน `numbers[-2]` ค่า `-2` ถูกแปลงเป็น unsigned ตั้งแต่ตอนส่งเข้ามา — กลายเป็นตัวเลขมหาศาล" },
       { code: String.raw`numbers[-2]
 
@@ -3095,7 +3095,7 @@ max( c, d ) = chaine2`, cap: "ครึ่งล่างเป็น `std::stri
             return ("Array: index out of bounds");
         }
 };`, cap: "ประกาศซ้อนใน Array — และเขียนตัวฟังก์ชันในคลาสได้เพราะทั้งไฟล์เป็น template อยู่แล้ว", lang: "cpp" },
-      { p: "**ทำไมต้องมี `operator[]` 2 เวอร์ชัน:** `const Array<int> a(5);` เรียกได้เฉพาะเมธอดที่เป็น `const`. ถ้ามีแต่เวอร์ชันไม่ const จะอ่านค่าจาก array ที่เป็น const ไม่ได้เลย — เป็นคู่ที่ต้องมาด้วยกันเสมอ (หลักการเดียวกับ `min`/`max` ของ Point ใน Module 02)" },
+      { p: "**ทำไมต้องมี** `operator[]` **2 เวอร์ชัน:** `const Array<int> a(5);` เรียกได้เฉพาะเมธอดที่เป็น `const`. ถ้ามีแต่เวอร์ชันไม่ const จะอ่านค่าจาก array ที่เป็น const ไม่ได้เลย — เป็นคู่ที่ต้องมาด้วยกันเสมอ (หลักการเดียวกับ `min`/`max` ของ Point ใน Module 02)" },
     ],
 
     architecture: [
@@ -3175,7 +3175,7 @@ catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
       { h: "ลำดับการลงมือเขียน" },
       { ul: [
         "1. **ex00** — 3 ฟังก์ชันใน header เดียว. เทสกฎเสมอ (`::min(5,5)` ต้องคืนตัวหลัง) ก่อนไปต่อ",
-        "2. **ex01** — `iter.hpp` + ฟังก์ชันสาธิตใน `main.cpp`. เทสกับ `int[]`, `std::string[]` และ **`const int[]`**",
+        "2. **ex01 **—** `iter.hpp` **+ ฟังก์ชันสาธิตใน** `main.cpp`**. เทสกับ** `int[]`**,** `std::string[]` **และ** `const int[]`**",
         "3. **ex02** — จัดการ `-I.` กับ include ให้ main ที่ให้มาคอมไพล์ผ่านก่อน แล้วค่อยเขียน Array ทีละสมาชิก",
       ]},
       { h: "อาการพัง → สาเหตุ" },
@@ -3220,17 +3220,17 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|algorithm' ex0*
     tricks: [
       { h: "ทริค 1: จำว่า template อยู่ header เสมอ" },
       { p: "ยกเว้นเดียวของกฎ 'ห้ามเขียนตัวฟังก์ชันใน header' และเป็น error ที่เสียเวลาที่สุดเพราะมันโผล่ตอน link ไม่ใช่ตอนคอมไพล์" },
-      { h: "ทริค 2: เขียน `if (a < b) return a; return b;` แทนการใช้ ternary กับ `<=`" },
+      { h: "ทริค 2: เขียน if (a < b) return a; return b; แทนการใช้ ternary กับ <=" },
       { p: "รูปแบบนี้ทำให้กฎเสมอ 'คืนตัวที่สอง' ถูกโดยอัตโนมัติ ไม่ต้องมานั่งคิดว่าควรใช้ `<` หรือ `<=`" },
       { h: "ทริค 3: template พารามิเตอร์ฟังก์ชันเสมอ" },
       { p: "`typename F` แทน function pointer ตายตัว — รับได้ทั้งฟังก์ชัน, ฟังก์ชันที่ overload, functor และทำให้อาเรย์ `const` ใช้ได้ โดยไม่ต้องเดา signature" },
       { h: "ทริค 4: ทำให้ main ของ subject คอมไพล์ผ่านก่อนเขียนตรรกะ" },
       { p: "ใน ex02 ให้จัดการ `-I.` กับ `#include <cstdlib> <ctime>` ให้เสร็จก่อน — ไม่งั้นจะไล่ error ที่ไม่เกี่ยวกับโค้ดตัวเองอยู่นาน" },
-      { h: "ทริค 5: `operator[]` มาเป็นคู่ const/non-const เสมอ" },
+      { h: "ทริค 5: operator[] มาเป็นคู่ const/non-const เสมอ" },
       { p: "ทุกครั้งที่เขียน accessor ที่คืน reference ให้เขียน 2 เวอร์ชันทันที — ไม่งั้นพอมีใครถือ object เป็น `const` จะใช้ไม่ได้เลย" },
       { h: "ทริค 6: เทส template กับ 2 ชนิดที่ต่างกันสุดขั้ว" },
       { p: "`int` กับ `std::string` — ตัวหนึ่งเป็น POD ตัวหนึ่งจองหน่วยความจำเอง. ถ้าผ่านทั้งคู่แปลว่าไม่ได้แอบสมมติอะไรเกี่ยวกับ `T`" },
-      { h: "ทริค 7: ใช้ `unsigned` ให้เป็นประโยชน์" },
+      { h: "ทริค 7: ใช้ unsigned ให้เป็นประโยชน์" },
       { p: "รับ index เป็น `unsigned int` แล้วเช็ค `>= size` ครั้งเดียวจับได้ทั้งติดลบและเกินขอบ — เขียนน้อยลงและไม่มีช่องโหว่" },
     ],
 
@@ -3307,7 +3307,7 @@ algorithm   ทำงานกับช่วง       find sort min_element max
         "ห้าม `printf` / `malloc` / `free` (0 คะแนน) · ห้าม `using namespace` / `friend`",
         "**เขียนลูปเองแทน algorithm = คะแนนแย่ แม้ผลจะถูก** — นี่คือกฎเฉพาะของโมดูลนี้",
         "OCF บังคับสำหรับ `Span` และ `MutantStack` (`easyfind` เป็นฟังก์ชันอิสระ ไม่ต้อง)",
-        "function template อยู่ใน header · **template member ของคลาสธรรมดา (`addRange`) ก็ต้องอยู่ใน header ด้วย**",
+        "function template อยู่ใน header · **template member ของคลาสธรรมดา (**`addRange`**) ก็ต้องอยู่ใน header ด้วย**",
       ]},
     ],
 
@@ -3334,8 +3334,8 @@ for (it = v.begin(); it != v.end(); ++it)
         ["`const_reverse_iterator`", "ทั้ง 2 อย่างรวมกัน", "อ่านอย่างเดียว"],
       ]}},
 
-      { h: "🔬 เจาะลึก A: `typename` หน้าชนิดที่ขึ้นกับ template" },
-      { p: "เขียน `T::iterator` ใน template แล้วคอมไพเลอร์ไม่ยอม — เพราะมัน**ยังไม่รู้ว่า `T::iterator` เป็นชนิดหรือเป็นตัวแปร**" },
+      { h: "🔬 เจาะลึก A: typename หน้าชนิดที่ขึ้นกับ template" },
+      { p: "เขียน `T::iterator` ใน template แล้วคอมไพเลอร์ไม่ยอม — เพราะมัน**ยังไม่รู้ว่า** `T::iterator` **เป็นชนิดหรือเป็นตัวแปร**" },
       { code: String.raw`template <typename T>
 T::iterator easyfind(T &container, int value)      // ✗
 { ... }
@@ -3388,15 +3388,15 @@ typename T::iterator easyfind(T &container, int value)     // ✓
     }
     return (shortest);
 }`, cap: "โค้ดจริง — เรียงบน**สำเนา** เพราะ `const` method แก้ `_numbers` ไม่ได้ (และไม่ควรแก้อยู่แล้ว)", lang: "cpp" },
-      { note: "**ทำไมคำนวณใน `long`:** `INT_MAX - INT_MIN` = 4,294,967,295 ซึ่งใส่ใน `int` ไม่ได้ — จะล้นกลายเป็นค่าติดลบเงียบ ๆ. คำนวณใน `long` ก่อนแล้วค่อยแคบลง" },
+      { note: "**ทำไมคำนวณใน** `long`**:** `INT_MAX - INT_MIN` = 4,294,967,295 ซึ่งใส่ใน `int` ไม่ได้ — จะล้นกลายเป็นค่าติดลบเงียบ ๆ. คำนวณใน `long` ก่อนแล้วค่อยแคบลง" },
       { qa: [
         { q: "ทำไม `shortestSpan` ต้องเรียงก่อน?", a: "หลังเรียง ช่องว่างแคบสุดต้องอยู่ระหว่าง 2 ตัวที่ติดกันเสมอ — ลดจากเทียบ n²/2 คู่เหลือ n-1 คู่. subject เทสด้วย 10,000+ ตัว วิธี n² จะช้าจนเห็นได้" },
         { q: "ทำไมคำนวณระยะห่างใน `long`?", a: "`INT_MAX - INT_MIN` เกินช่วงของ `int` — จะล้นเป็นค่าติดลบโดยไม่มีคำเตือน. คำนวณใน `long` แล้วค่อยแปลงกลับ" },
         { q: "ทำไมเรียงบนสำเนาไม่เรียงตัวจริง?", a: "เมธอดเป็น `const` จึงแก้ `_numbers` ไม่ได้ — และผู้เรียกก็ไม่ควรเจอว่าลำดับที่ตัวเองใส่เข้าไปถูกสลับหลังเรียกฟังก์ชันอ่านค่า" },
       ]},
 
-      { h: "🔬 เจาะลึก C: `this->c` ใน MutantStack — กฎการค้นหาชื่อในคลาสฐานที่ขึ้นกับ template" },
-      { p: "`std::stack` เก็บของจริงไว้ใน member ชื่อ `c` ที่เป็น `protected`. คลาสลูกเข้าถึงได้ — **แต่ต้องเขียน `this->c` เท่านั้น**" },
+      { h: "🔬 เจาะลึก C: this->c ใน MutantStack — กฎการค้นหาชื่อในคลาสฐานที่ขึ้นกับ template" },
+      { p: "`std::stack` เก็บของจริงไว้ใน member ชื่อ `c` ที่เป็น `protected`. คลาสลูกเข้าถึงได้ — **แต่ต้องเขียน** `this->c` **เท่านั้น**" },
       { code: String.raw`template <typename T, typename Container = std::deque<T> >
 class MutantStack : public std::stack<T, Container>
 {
@@ -3420,7 +3420,7 @@ this->c  เลื่อนการค้นหาไปตอน "ปั๊ม
         { q: "`'c' was not declared in this scope` แก้ยังไง?", a: "เติม `this->` ข้างหน้า" },
       ]},
 
-      { h: "🔬 เจาะลึก D: ทำไม `std::stack` ถึงไม่มี iterator ตั้งแต่แรก" },
+      { h: "🔬 เจาะลึก D: ทำไม std::stack ถึงไม่มี iterator ตั้งแต่แรก" },
       { p: "`std::stack` ไม่ใช่ container แต่เป็น **container adaptor** — มันห่อ container จริงไว้แล้ว*จำกัด*ทางเข้าออกให้เหลือแค่ push/pop/top โดยตั้งใจ" },
       { table: { head: ["", "container (`vector`, `deque`)", "adaptor (`stack`, `queue`)"], rows: [
         ["เก็บข้อมูลเอง", "ใช่", "ไม่ — ห่อตัวอื่นไว้ใน `c`"],
@@ -3443,7 +3443,7 @@ this->c  เลื่อนการค้นหาไปตอน "ปั๊ม
         { q: "ทำไมต้อง `typedef` iterator ทั้ง 4 ชนิด?", a: "เพื่อให้เขียน `MutantStack<int>::iterator it = ...;` ได้ — ไม่มี typedef ก็ไม่มีชื่อชนิดนั้นอยู่จริง" },
       ]},
 
-      { h: "🔬 เจาะลึก E: `addRange` — เลียนแบบสำนวนของ STL" },
+      { h: "🔬 เจาะลึก E: addRange — เลียนแบบสำนวนของ STL" },
       { code: String.raw`template <typename InputIterator>
 void addRange(InputIterator begin, InputIterator end)
 {
@@ -3452,7 +3452,7 @@ void addRange(InputIterator begin, InputIterator end)
         throw Span::FullException();
     _numbers.insert(_numbers.end(), begin, end);
 }`, cap: "โค้ดจริง — เป็น template member ของคลาสธรรมดา จึงต้องอยู่ใน header", lang: "cpp" },
-      { p: "**ทำไมรับเป็นช่วง iterator ไม่ใช่ `std::vector<int>`:** เพราะรูปแบบ `(first, last)` คือสำนวนที่ STL ใช้ทั้งหมด — ผู้เรียกจะส่งมาจาก `vector`, `list`, `deque` หรือแม้แต่อาเรย์ C ธรรมดา (`arr`, `arr + n`) ก็ได้ โดยเราไม่ต้องรู้ว่ามันมาจากไหน" },
+      { p: "**ทำไมรับเป็นช่วง iterator ไม่ใช่** `std::vector<int>`**:** เพราะรูปแบบ `(first, last)` คือสำนวนที่ STL ใช้ทั้งหมด — ผู้เรียกจะส่งมาจาก `vector`, `list`, `deque` หรือแม้แต่อาเรย์ C ธรรมดา (`arr`, `arr + n`) ก็ได้ โดยเราไม่ต้องรู้ว่ามันมาจากไหน" },
       { p: "**เช็คความจุก่อนแทรก:** `std::distance(begin, end)` บอกจำนวนก่อนล่วงหน้า จึงโยนได้ก่อนที่ `_numbers` จะถูกแตะ — ถ้าแทรกไปแล้วค่อยเช็ค object จะค้างในสถานะครึ่ง ๆ กลาง ๆ" },
       { qa: [
         { q: "ทำไม `addRange` รับ iterator 2 ตัวแทนที่จะรับ container?", a: "เป็นสำนวนของ STL — รับได้จากทุกแหล่งรวมทั้งอาเรย์ C และรับได้แค่บางส่วนของ container ก็ได้ โดยเราไม่ต้องรู้ชนิดต้นทาง" },
@@ -3559,7 +3559,7 @@ class MutantStack : public std::stack<T, Container>
       { h: "ไฟล์ในแต่ละข้อ" },
       { table: { head: ["ข้อ", "ไฟล์", "อยู่ header หรือ cpp"], rows: [
         ["ex00", "`easyfind.hpp`, `main.cpp`", "template ล้วน — header อย่างเดียว"],
-        ["ex01", "`Span.{hpp,cpp}`, `main.cpp`", "เมธอดธรรมดาอยู่ `.cpp` · **`addRange` อยู่ `.hpp`** เพราะเป็น template"],
+        ["ex01", "`Span.{hpp,cpp}`, `main.cpp`", "เมธอดธรรมดาอยู่ `.cpp` · `addRange` **อยู่** `.hpp` เพราะเป็น template"],
         ["ex02", "`MutantStack.hpp`, `main.cpp`", "class template — header อย่างเดียว"],
       ]}},
       { p: "ex01 เป็นข้อเดียวที่มี `.cpp` จริง — และเป็นตัวอย่างที่ดีของกฎ *'template อยู่ header, ที่เหลืออยู่ cpp'* ในไฟล์เดียวกัน" },
@@ -3671,11 +3671,11 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp
       { p: "`typename` หน้าชนิดที่ขึ้นกับ `T` · `this->` หน้าสมาชิกของฐานที่ขึ้นกับ `T`. เป็นเรื่องเดียวกัน — คอมไพเลอร์ยังไม่รู้จัก `T` ตอนอ่านสูตร จึงต้องบอกให้ชัด" },
       { h: "ทริค 2: เรียงก่อนคือทางลัดมาตรฐาน" },
       { p: "ทุกครั้งที่โจทย์ถามหา 'คู่ที่ห่างกันน้อยสุด' ลองเรียงก่อน — คำตอบมักอยู่ระหว่างตัวที่ติดกันเสมอ ตัดจาก O(n²) เหลือ O(n log n) ทันที" },
-      { h: "ทริค 3: คำนวณระยะห่างใน `long` เสมอ" },
+      { h: "ทริค 3: คำนวณระยะห่างใน long เสมอ" },
       { p: "ผลต่างของ `int` 2 ตัวไม่จำเป็นต้องใส่ใน `int` ได้ — เป็นบั๊กที่เงียบและเทสทั่วไปจับไม่ได้ เห็นเฉพาะตอนใส่ `INT_MIN` กับ `INT_MAX`" },
-      { h: "ทริค 4: เทส ex02 ด้วยการ diff กับ `std::list`" },
+      { h: "ทริค 4: เทส ex02 ด้วยการ diff กับ std::list" },
       { p: "เป็นเทสที่ subject ออกแบบไว้ให้แล้ว — เขียนเทสชุดเดียวรัน 2 รอบด้วยชนิดต่างกัน ถ้าผลตรงกันคือถูกแน่นอน" },
-      { h: "ทริค 5: `min_element` / `max_element` คืน iterator" },
+      { h: "ทริค 5: min_element / max_element คืน iterator" },
       { p: "ต้องใส่ `*` ข้างหน้าเพื่อเอาค่า — ลืมแล้วจะได้ error ยาวเหยียดเรื่องแปลง iterator เป็น int ไม่ได้" },
       { h: "ทริค 6: เช็คก่อนแก้เสมอ" },
       { p: "`addRange` ใช้ `std::distance` เช็คความจุก่อนแทรก — ถ้าโยนหลังแทรกไปครึ่งทาง object จะค้างในสถานะที่ผู้เรียกไม่ได้คาดไว้" },
@@ -3753,7 +3753,7 @@ window.TEACHING_DATA.push({
     ],
 
     theory: [
-      { h: "1) `std::map` — คีย์เรียงอัตโนมัติ" },
+      { h: "1) std::map — คีย์เรียงอัตโนมัติ" },
       { code: String.raw`std::map<std::string, double> db;
 
 db["2011-01-03"] = 0.3;
@@ -3768,7 +3768,7 @@ db["2011-01-09"] = 0.32;
   (เพราะเลขเดือน/วันเติม 0 ข้างหน้าให้ยาวเท่ากันหมด)
   → ไม่ต้องแปลงเป็น struct วันที่เลย`, cap: "ISO 8601 ออกแบบมาให้เรียงแบบตัวอักษรแล้วได้ลำดับเวลาพอดี — ใช้ประโยชน์ตรงนี้", lang: "cpp" },
 
-      { h: "🔬 เจาะลึก A: `lower_bound` — หาวันที่ก่อนหน้าที่ใกล้ที่สุด" },
+      { h: "🔬 เจาะลึก A: lower_bound — หาวันที่ก่อนหน้าที่ใกล้ที่สุด" },
       { p: "โจทย์ ex00: ถ้าไม่มีอัตราของวันนั้นในฐานข้อมูล ให้ใช้ของ**วันที่ก่อนหน้าที่ใกล้ที่สุด** — ห้ามใช้วันถัดไป. `map::lower_bound` ทำงานนี้ได้ในเวลา O(log n)" },
       { code: String.raw`lower_bound(k) = iterator ตัวแรกที่คีย์ >= k
 
@@ -3826,7 +3826,7 @@ token   การกระทำ                      stack (ล่าง → �
         throw RPN::RPNError();
     /* a op b แล้ว push กลับ */
 }`, cap: "สลับ a กับ b แล้ว `+`/`*` ยังถูก แต่ `-`/`/` ผิดหมด — บั๊กที่เทสง่าย ๆ จับไม่ได้", lang: "cpp" },
-      { p: "**ทำไมต้องใช้ `long` ไม่ใช่ `int`:** subject บอกว่า *ตัวเลขที่ป้อนเข้ามา* น้อยกว่า 10 — แต่ไม่ได้บอกว่าผลลัพธ์ระหว่างทางจะเล็กด้วย. `9 9 * 9 * 9 *` โตขึ้นเรื่อย ๆ ได้" },
+      { p: "**ทำไมต้องใช้** `long` **ไม่ใช่** `int`**:** subject บอกว่า *ตัวเลขที่ป้อนเข้ามา* น้อยกว่า 10 — แต่ไม่ได้บอกว่าผลลัพธ์ระหว่างทางจะเล็กด้วย. `9 9 * 9 * 9 *` โตขึ้นเรื่อย ๆ ได้" },
       { table: { head: ["เคสที่ต้องเป็น Error", "เพราะ"], rows: [
         ["`(1 + 1)`", "วงเล็บไม่ใช่ token ที่ยอมรับ"],
         ["`1 +`", "มี operand ไม่ครบ 2 ตัวตอนเจอตัวดำเนินการ"],
@@ -3879,7 +3879,7 @@ void fordJohnson(C &v, std::size_t unit)
     fordJohnson(v, unit * 2);
     /* 3-5. สร้าง main chain + pend แล้วแทรกตามลำดับ Jacobsthal */
 }`, cap: "โค้ดจริง — เรียก `fordJohnson(v, 1)` จากข้างนอก ที่ unit = 1 ทุกตัวเป็นหน่วยของตัวเอง ผลจึงเรียงครบ", lang: "cpp" },
-      { p: "**เคล็ดของ implementation นี้:** แทนที่จะสร้าง `pair<pair<int,int>, ...>` ซ้อนกันไปเรื่อย ๆ (ซึ่งชนิดจะบานตอนคอมไพล์) มันมองข้อมูลเป็น **บล็อกขนาด `unit` ที่ใช้สมาชิกตัวสุดท้ายเป็นคีย์** แล้วเพิ่ม `unit` เป็น 2 เท่าทุกชั้น — โค้ดชุดเดียวใช้ได้กับทั้ง `vector` และ `deque` ในรูป template" },
+      { p: "**เคล็ดของ implementation นี้: **แทนที่จะสร้าง** `pair<pair<int,int>, ...>` **ซ้อนกันไปเรื่อย ๆ (ซึ่งชนิดจะบานตอนคอมไพล์) มันมองข้อมูลเป็น** บล็อกขนาด `unit` ที่ใช้สมาชิกตัวสุดท้ายเป็นคีย์** แล้วเพิ่ม `unit` เป็น 2 เท่าทุกชั้น — โค้ดชุดเดียวใช้ได้กับทั้ง `vector` และ `deque` ในรูป template" },
       { qa: [
         { q: "Ford-Johnson คืออะไร ต่างจาก merge sort ยังไง?", a: "เป็น merge-insert sort ที่ออกแบบให้ใช้จำนวนการเปรียบเทียบน้อยที่สุดเท่าที่ทำได้ — จับคู่, เรียงตัวใหญ่แบบเรียกซ้ำ, แล้วแทรกตัวเล็กด้วย binary search ตามลำดับ Jacobsthal" },
         { q: "ลำดับ Jacobsthal มีไว้ทำไม?", a: "ทำให้แต่ละตัวถูกแทรกตอนที่ช่วงค้นหามีขนาดพอดีเป็น 2ᵏ−1 ซึ่ง binary search ใช้การเปรียบเทียบพอดีไม่เหลือเศษ. แทรกลำดับอื่นผลยังถูกแค่เทียบมากกว่า" },
@@ -3955,7 +3955,7 @@ Error: not a positive number.
 Error: bad input => 2001-42-42
 2012-01-11 => 1 = 7.1
 Error: too large a number.`, cap: "ผลจากไฟล์ตัวอย่างของ subject — พิมพ์ `3` ไม่ใช่ `3.0` และเก็บ `1.2` ไว้ ซึ่งเป็นพฤติกรรมของ stream แบบปกติอยู่แล้ว", lang: "txt" },
-      { p: "**การตรวจวันที่ต้องเป็นวันจริงในปฏิทิน** ไม่ใช่แค่รูปแบบ — `2001-42-42` ต้องไม่ผ่าน และ `2011-02-30` ก็ต้องไม่ผ่าน. ปีอธิกสุรทิน: หารด้วย 4 ลงตัว **และ** (หารด้วย 100 ไม่ลงตัว **หรือ** หารด้วย 400 ลงตัว)" },
+      { p: "**การตรวจวันที่ต้องเป็นวันจริงในปฏิทิน **ไม่ใช่แค่รูปแบบ —** `2001-42-42` **ต้องไม่ผ่าน และ** `2011-02-30` **ก็ต้องไม่ผ่าน. ปีอธิกสุรทิน: หารด้วย 4 ลงตัว** และ** (หารด้วย 100 ไม่ลงตัว **หรือ** หารด้วย 400 ลงตัว)" },
 
       { h: "ex01 — RPN" },
       { code: String.raw`class RPN
@@ -4112,17 +4112,17 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp
     ],
 
     tricks: [
-      { h: "ทริค 1: ให้ `map` ทำงานเรียงให้" },
+      { h: "ทริค 1: ให้ map ทำงานเรียงให้" },
       { p: "คีย์รูปแบบ `YYYY-MM-DD` เรียงตามตัวอักษรได้ลำดับเวลาพอดี — ไม่ต้องเขียน struct วันที่หรือ comparator เอง" },
-      { h: "ทริค 2: เช็ค `begin()` ก่อน `--it` เสมอ" },
+      { h: "ทริค 2: เช็ค begin() ก่อน --it เสมอ" },
       { p: "ถอย iterator จาก `begin()` เป็น undefined behaviour — บางครั้งไม่ crash ทันทีแล้วไปพังที่อื่น หายากมาก" },
       { h: "ทริค 3: RPN — pop ตัวแรกคือฝั่งขวา" },
       { p: "จำประโยคนี้ไว้ประโยคเดียว. บั๊กสลับ operand ผ่านเทส `+`/`*` ได้หมดและโผล่เฉพาะกับ `-`/`/`" },
-      { h: "ทริค 4: fuzz ex02 เทียบกับ `sort -n`" },
+      { h: "ทริค 4: fuzz ex02 เทียบกับ sort -n" },
       { p: "Ford-Johnson ตรวจด้วยตาไม่ได้ — สคริปต์ 10 บรรทัดที่เทียบกับ `sort -n` หลายร้อยรอบเชื่อถือได้กว่าอ่านโค้ดซ้ำ 10 เที่ยว" },
       { h: "ทริค 5: เทสจำนวนสมาชิกเป็นเลขคี่ให้เยอะ" },
       { p: "ตัวที่เหลือจากการจับคู่คือจุดที่ implementation ส่วนใหญ่พลาด และเทสด้วยเลขคู่อย่างเดียวจะไม่มีวันเจอ" },
-      { h: "ทริค 6: `gettimeofday` ไม่ใช่ `clock()`" },
+      { h: "ทริค 6: gettimeofday ไม่ใช่ clock()" },
       { p: "`clock()` หยาบระดับ 10 มิลลิวินาที — 3000 ตัวเสร็จเร็วกว่านั้น ทั้ง 2 container จะแสดงเป็น 0 เท่ากันและเทียบอะไรไม่ได้เลย" },
       { h: "ทริค 7: แยกให้ชัดว่า error ไหนไป stdout ไหนไป stderr" },
       { p: "ex00 พิมพ์ error ของแต่ละบรรทัดลง stdout แล้วทำงานต่อ; `could not open file` ไป stderr. ex01 พิมพ์ `Error` ลง stderr แล้วออก. คนละพฤติกรรมโดยเจตนา" },

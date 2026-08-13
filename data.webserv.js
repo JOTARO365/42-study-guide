@@ -13,14 +13,14 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "โจทย์คืออะไร" },
-      { p: "เขียน **web server ที่พูด HTTP/1.1 ได้จริง** ด้วย C++98 แล้วเปิดด้วยเบราว์เซอร์ได้: `./webserv [config]`. ต้องเสิร์ฟไฟล์นิ่ง, รับ upload, ลบไฟล์ด้วย DELETE, ทำ redirect, autoindex, ฟังหลายพอร์ต, virtual host และรัน **CGI** ตามนามสกุลไฟล์" },
-      { p: "**ไม่มี norminette** — เป็นโปรเจกต์ C++ คอมไพล์ด้วย `-Wall -Wextra -Werror -std=c++98`. สิ่งที่ถูกตรวจแทนคือ **กฎเชิงโครงสร้าง 4 ข้อ ที่ผิดข้อเดียวได้ 0**" },
+      { p: "เขียน **web server ที่พูด HTTP/1.1 ได้จริง **ด้วย C++98 แล้วเปิดด้วยเบราว์เซอร์ได้:** `./webserv [config]`**. ต้องเสิร์ฟไฟล์นิ่ง, รับ upload, ลบไฟล์ด้วย DELETE, ทำ redirect, autoindex, ฟังหลายพอร์ต, virtual host และรัน** CGI** ตามนามสกุลไฟล์" },
+      { p: "**ไม่มี norminette **— เป็นโปรเจกต์ C++ คอมไพล์ด้วย** `-Wall -Wextra -Werror -std=c++98`**. สิ่งที่ถูกตรวจแทนคือ** กฎเชิงโครงสร้าง 4 ข้อ ที่ผิดข้อเดียวได้ 0**" },
       { h: "4 กฎที่ผิดแล้วได้ 0" },
       { table: { head: ["กฎ", "ทำให้ผ่านยังไง (แบบเป็นรูปธรรม)"], rows: [
-        ["**`poll()` ตัวเดียว** คุม I/O ทั้งหมด รวม listener", "ให้ `Server::run()` เป็นเจ้าของตัวเดียว ที่อื่นในโปรเจกต์ห้ามมี `poll/select/epoll` อีก"],
+        ["`poll()` **ตัวเดียว** คุม I/O ทั้งหมด รวม listener", "ให้ `Server::run()` เป็นเจ้าของตัวเดียว ที่อื่นในโปรเจกต์ห้ามมี `poll/select/epoll` อีก"],
         ["**ห้าม read/write โดยไม่ผ่าน poll**", "ทุก `recv/send/read/write` บน socket หรือ pipe ต้องอยู่ใน handler ที่ถูกเรียกจาก dispatch ของ poll เท่านั้น (**ไฟล์บนดิสก์ยกเว้น** — `open/read` ตรง ๆ ได้และควรทำ)"],
-        ["**ห้ามดู `errno` หลัง read/write**", "ใช้นโยบาย 'ตัดสินจากค่า return อย่างเดียว' (ดูข้างล่าง)"],
-        ["**`fork()` ได้เฉพาะ CGI**", "มี `fork()` แค่จุดเดียวในทั้งโปรเจกต์ อยู่ในไฟล์ CGI"]
+        ["**ห้ามดู** `errno` **หลัง read/write**", "ใช้นโยบาย 'ตัดสินจากค่า return อย่างเดียว' (ดูข้างล่าง)"],
+        ["`fork()` **ได้เฉพาะ CGI**", "มี `fork()` แค่จุดเดียวในทั้งโปรเจกต์ อยู่ในไฟล์ CGI"]
       ]}},
       { p: "อย่าปล่อยให้กฎพวกนี้เป็น 'ความตั้งใจ' — ทำให้มัน **ตรวจได้ด้วยเครื่อง** แล้วใส่ในชุดเทสต์" },
       { code: String.raw`SYSCALL='(^|[^._>:a-zA-Z])'          # ข้าม c.send(, p->send(, Class::send
@@ -86,9 +86,9 @@ Developer\r\n
       { h: "4) keep-alive กับ pipelining" },
       { p: "HTTP/1.1 **ต่อเนื่องเป็นค่าเริ่มต้น** — ส่ง response แล้วไม่ปิด connection รอ request ถัดไปบน socket เดิม. ต้องรีเซ็ต state ของ parser ให้สะอาดทุกครั้ง และ **ห้ามทิ้ง byte ที่อ่านเกินมา** เพราะนั่นคือจุดเริ่มของ request ถัดไป" },
       { h: "5) Host header กับ virtual host" },
-      { p: "หลาย `server` block บน `host:port` เดียวกัน = **name-based virtual host** เลือกด้วย header `Host:`. ถ้าไม่มีชื่อไหนตรงเลย ใช้ block **แรก** ของคู่นั้นเป็น default" },
+      { p: "หลาย `server` block บน `host:port` เดียวกัน = **name-based virtual host **เลือกด้วย header** `Host:`**. ถ้าไม่มีชื่อไหนตรงเลย ใช้ block** แรก** ของคู่นั้นเป็น default" },
       { ul: [
-        "HTTP/1.1 **ไม่มี `Host:` = 400** (บังคับโดย RFC 7230)",
+        "HTTP/1.1 **ไม่มี** `Host:` **= 400** (บังคับโดย RFC 7230)",
         "HTTP/1.0 ไม่มี Host ได้ ถือว่าปกติ"
       ]},
       { h: "6) status code ที่ต้องใช้จริง" },
@@ -105,14 +105,14 @@ Developer\r\n
         ["501", "method ที่ไม่รู้จักเลย"]
       ]}},
       { h: "7) CGI คืออะไร (RFC 3875)" },
-      { p: "CGI คือข้อตกลงว่า **web server จะคุยกับโปรแกรมภายนอกยังไง**: server `fork` + `execve` โปรแกรมนั้น, ส่ง metadata ผ่าน **environment variable**, ส่ง body ผ่าน **stdin**, แล้วอ่านผลจาก **stdout**" },
+      { p: "CGI คือข้อตกลงว่า **web server จะคุยกับโปรแกรมภายนอกยังไง**: server** `fork` **+** `execve` **โปรแกรมนั้น, ส่ง metadata ผ่าน** environment variable**, ส่ง body ผ่าน **stdin**, แล้วอ่านผลจาก **stdout**" },
       { code: String.raw`REQUEST_METHOD=POST          SCRIPT_FILENAME=/abs/path/script.php
 QUERY_STRING=a=1&b=2         PATH_INFO=/extra/path
 CONTENT_LENGTH=11            SERVER_PROTOCOL=HTTP/1.1
 CONTENT_TYPE=text/plain      SERVER_NAME / SERVER_PORT / REMOTE_ADDR
 REDIRECT_STATUS=200          HTTP_<HEADER> ทุกตัวจาก request`,
         cap: "REDIRECT_STATUS=200 ขาดไม่ได้ ไม่งั้น php-cgi ปฏิเสธที่จะรันเลย", lang: "txt" },
-      { p: "**output ของ CGI ขึ้นต้นด้วย header ของมันเอง** แล้วตามด้วยบรรทัดว่างและ body: `Status: 418 ...` มีสิทธิ์เปลี่ยน status code, `Location:` เดี่ยว ๆ แปลว่า 302, และถ้าไม่มีบล็อก header เลย = **502**" },
+      { p: "**output ของ CGI ขึ้นต้นด้วย header ของมันเอง **แล้วตามด้วยบรรทัดว่างและ body:** `Status: 418 ...` **มีสิทธิ์เปลี่ยน status code,** `Location:` **เดี่ยว ๆ แปลว่า 302, และถ้าไม่มีบล็อก header เลย =** 502**" },
       { h: "8) ทำไมต้อง poll() และทำไมต้อง non-blocking" },
       { p: "server ต้องดูแล fd หลายร้อยตัวพร้อมกันด้วย **thread เดียว**. `poll()` คือ 'บอกฉันทีว่าตัวไหนพร้อม' แล้วเราค่อยแตะเฉพาะตัวนั้น — ไม่ต้องมี thread ต่อ client และไม่ต้อง busy-wait" },
       { table: { head: ["", "`select()`", "`poll()`"], rows: [
@@ -134,7 +134,7 @@ REDIRECT_STATUS=200          HTTP_<HEADER> ทุกตัวจาก request`,
       ]}},
       { note: "**ขอ POLLOUT ทิ้งไว้ตลอด = CPU 100%** เพราะ socket ว่างเสมอ poll จึงคืนทันทีทุกรอบ. ขอเฉพาะตอนมีของค้างจริงเท่านั้น — นี่คือบั๊กที่พบบ่อยที่สุดข้อหนึ่ง" },
       { h: "สร้าง pollfd ใหม่ทุกรอบ อย่าเก็บ index" },
-      { p: "**build vector ของ `pollfd` ขึ้นใหม่ทุก tick** จาก registry ของ fd ที่ยังมีชีวิต. ต้นทุนคือ O(fds) ซึ่งถูกกว่า syscall ที่ตามมา และมันฆ่าบั๊กทั้งตระกูล 'ปิด fd ระหว่าง dispatch แล้ว index ที่เก็บไว้เพี้ยน' ทิ้งไปเลย" },
+      { p: "**build vector ของ** `pollfd` **ขึ้นใหม่ทุก tick** จาก registry ของ fd ที่ยังมีชีวิต. ต้นทุนคือ O(fds) ซึ่งถูกกว่า syscall ที่ตามมา และมันฆ่าบั๊กทั้งตระกูล 'ปิด fd ระหว่าง dispatch แล้ว index ที่เก็บไว้เพี้ยน' ทิ้งไปเลย" },
       { code: String.raw`// ผิด: เก็บ index ไว้ข้ามรอบ แล้ว client กลางแถวถูกลบ
 for (size_t i = 0; i < _pfds.size(); ++i) { ... _pfds.erase(_pfds.begin()+i); ... }
 
@@ -205,7 +205,7 @@ body >  client_body_buffer_size               -> เปิดไฟล์ใต�
       { table: { head: ["คลาส", "รับผิดชอบ", "ห้ามทำ"], rows: [
         ["`ConfigParser`", "อ่านไฟล์ .conf → โครงสร้าง `Config`", "แตะ socket"],
         ["`Listener`", "socket/bind/listen ต่อ 1 คู่ host:port", "จัดการ request"],
-        ["`Server`", "**เจ้าของ `poll()` ตัวเดียว** + registry ของ fd", "parse HTTP"],
+        ["`Server`", "**เจ้าของ** `poll()` **ตัวเดียว** + registry ของ fd", "parse HTTP"],
         ["`Connection`", "buffer เข้า/ออกของ client 1 ราย + สถานะ keep-alive", "เรียก poll เอง"],
         ["`HttpRequest`", "state machine ที่ย่อย byte เป็น request (รวม un-chunk)", "แตะไฟล์"],
         ["`RequestHandler`", "ตัดสินใจว่า request นี้ตอบอะไร (ไฟล์/CGI/redirect/error)", "แตะ poll"],
@@ -266,7 +266,7 @@ body >  client_body_buffer_size               -> เปิดไฟล์ใต�
 if (loc.path.size() > 1 && uri.size() > loc.path.size()
     && uri[loc.path.size()] != '/') continue;`,
         cap: "ขาดบรรทัดนี้แล้ว /uploads จะกลืน /uploadsomething", lang: "cpp" },
-      { note: "**prefix location ที่มี `root` ของตัวเองจะ 'แทนที่' ส่วน prefix** (`/kapouet` + `root /tmp/www` → `/tmp/www/pouic/toto/pouet`) แต่ **extension location เก็บ URI ทั้งเส้นไว้ใต้ root** ดังนั้น `location *.sh { root ./www; }` จะเสิร์ฟ `/cgi-bin/info.sh` จาก `./www/cgi-bin/info.sh` — สับสนสองอันนี้คือสาเหตุยอดฮิตของ 'CGI ของฉัน 404'" },
+      { note: "**prefix location ที่มี** `root` **ของตัวเองจะ 'แทนที่' ส่วน prefix** (`/kapouet` + `root /tmp/www` → `/tmp/www/pouic/toto/pouet`) แต่ **extension location เก็บ URI ทั้งเส้นไว้ใต้ root** ดังนั้น `location *.sh { root ./www; }` จะเสิร์ฟ `/cgi-bin/info.sh` จาก `./www/cgi-bin/info.sh` — สับสนสองอันนี้คือสาเหตุยอดฮิตของ 'CGI ของฉัน 404'" },
       { h: "ค่าที่ต้องเป็น directive ไม่ใช่ค่าคงที่" },
       { p: "`client_timeout` และ `cgi_timeout` ต้องตั้งได้จาก config: ชุดเทสต์ต้องการ deadline 2-3 วินาที ส่วนตอน demo ต้องการ 60 วินาที ถ้า hard-code ไว้จะเทสต์ไม่ได้เลย" }
     ],
@@ -435,7 +435,7 @@ bool HttpRequest::feedChunked(const char* p, size_t n, size_t& used) {
     return true;
 }`, cap: "fork เดียวในโปรเจกต์ทั้งหมด และอยู่ในไฟล์นี้ไฟล์เดียว", lang: "cpp" },
       { h: "6) interpreter ที่เป็น path สัมพัทธ์หลัง chdir" },
-      { p: "`chdir` ทำให้ `./cgi_tester` หาไม่เจอ และ **`getcwd()` ไม่อยู่ในรายการฟังก์ชันที่อนุญาต** วิธีแก้คือกลับทิศของ path สัมพัทธ์เอง" },
+      { p: "`chdir` ทำให้ `./cgi_tester` หาไม่เจอ และ `getcwd()` **ไม่อยู่ในรายการฟังก์ชันที่อนุญาต** วิธีแก้คือกลับทิศของ path สัมพัทธ์เอง" },
       { code: String.raw`// "./YoupiBanane" ลึก 1 ชั้น -> "../";  "./www/cgi" -> "../../"
 static std::string relativeBackPath(const std::string& dir);  // "" ถ้าเป็น absolute หรือมี ".."
 exe = (interp[0] == '/') ? interp : relativeBackPath(dir) + interp;`,
@@ -528,7 +528,7 @@ YoupiBanane/Yeah/not_happy.bad_extension         index = youpi.bad_extension`,
         "`SO_REUSEADDR` ก่อน `bind`",
         "`O_NONBLOCK` บน socket ที่ได้จาก accept ด้วย ไม่ใช่แค่ listener",
         "`accept()` วนจนคืนค่าลบ",
-        "**normalize URI** (percent-decode แล้วยุบ `.` / `..` โดยทิ้ง `..` ที่จะหลุดออกนอก root) **ก่อน** แตะ filesystem",
+        "**normalize URI **(percent-decode แล้วยุบ** `.` **/** `..` **โดยทิ้ง** `..` **ที่จะหลุดออกนอก root)** ก่อน** แตะ filesystem",
         "ปฏิเสธ `Content-Length` คู่กับ `Transfer-Encoding` และ `Content-Length` ซ้ำ ด้วย 400",
         "HTTP/1.1 ไม่มี `Host` = 400; HTTP/1.0 ไม่มีได้"
       ]},
@@ -614,14 +614,14 @@ Object.assign(window.TEACHING_EN, {
   webserv: {
     principle: [
       { h: "What the project asks for" },
-      { p: "Write **a web server that really speaks HTTP/1.1** in C++98 and open it in a browser: `./webserv [config]`. It must serve static files, accept uploads, delete files with DELETE, do redirections, autoindex, listen on several ports, host virtual hosts, and run **CGI** by file extension." },
-      { p: "**No norminette** — this is a C++ project built with `-Wall -Wextra -Werror -std=c++98`. What is graded instead is a short list of **four structural rules, each of which scores zero when broken**." },
+      { p: "Write **a web server that really speaks HTTP/1.1 **in C++98 and open it in a browser:** `./webserv [config]`**. It must serve static files, accept uploads, delete files with DELETE, do redirections, autoindex, listen on several ports, host virtual hosts, and run** CGI** by file extension." },
+      { p: "**No norminette **— this is a C++ project built with** `-Wall -Wextra -Werror -std=c++98`**. What is graded instead is a short list of** four structural rules, each of which scores zero when broken**." },
       { h: "The four rules that score zero" },
       { table: { head: ["Rule", "How to satisfy it, concretely"], rows: [
-        ["**One `poll()`** for all I/O, listeners included", "`Server::run()` owns the only one; nothing else in the tree calls `poll/select/epoll`"],
+        ["**One** `poll()` for all I/O, listeners included", "`Server::run()` owns the only one; nothing else in the tree calls `poll/select/epoll`"],
         ["**Never read/write without readiness**", "Every `recv/send/read/write` on a socket or pipe sits in a handler reached from that poll dispatch (**regular disk files are exempt** — plain `open/read` is fine and expected)"],
-        ["**`errno` must not be consulted after read/write**", "A return-value-only policy (below)"],
-        ["**`fork()` only for CGI**", "Exactly one `fork()` in the tree, inside the CGI file"]
+        ["`errno` **must not be consulted after read/write**", "A return-value-only policy (below)"],
+        ["`fork()` **only for CGI**", "Exactly one `fork()` in the tree, inside the CGI file"]
       ]}},
       { p: "Do not leave these aspirational — make them **mechanically checkable** and put the check in your test suite" },
       { code: String.raw`SYSCALL='(^|[^._>:a-zA-Z])'          # skip c.send(, p->send(, Class::send
@@ -686,9 +686,9 @@ Developer\r\n
       { h: "4) keep-alive and pipelining" },
       { p: "HTTP/1.1 is **persistent by default** — after a response you keep the socket and wait for the next request on it. Reset the parser state cleanly every time, and **never throw away bytes you over-read**: they are the beginning of the next request." },
       { h: "5) The Host header and virtual hosts" },
-      { p: "Several `server` blocks on one `host:port` pair are **name-based virtual hosts**, selected by the `Host:` header. If no name matches, the **first** block for that pair is the default." },
+      { p: "Several `server` blocks on one `host:port` pair are **name-based virtual hosts**, selected by the** `Host:` **header. If no name matches, the** first** block for that pair is the default." },
       { ul: [
-        "HTTP/1.1 with **no `Host:` is a 400** (required by RFC 7230)",
+        "HTTP/1.1 with **no** `Host:` **is a 400** (required by RFC 7230)",
         "HTTP/1.0 without one is perfectly fine"
       ]},
       { h: "6) The status codes you actually need" },
@@ -705,14 +705,14 @@ Developer\r\n
         ["501", "A method you do not implement at all"]
       ]}},
       { h: "7) What CGI actually is (RFC 3875)" },
-      { p: "CGI is the contract for **how a web server talks to an external program**: the server `fork`s and `execve`s it, passes metadata as **environment variables**, the body on **stdin**, and reads the result from **stdout**." },
+      { p: "CGI is the contract for **how a web server talks to an external program**: the server** `fork`**s and** `execve`**s it, passes metadata as** environment variables**, the body on **stdin**, and reads the result from **stdout**." },
       { code: String.raw`REQUEST_METHOD=POST          SCRIPT_FILENAME=/abs/path/script.php
 QUERY_STRING=a=1&b=2         PATH_INFO=/extra/path
 CONTENT_LENGTH=11            SERVER_PROTOCOL=HTTP/1.1
 CONTENT_TYPE=text/plain      SERVER_NAME / SERVER_PORT / REMOTE_ADDR
 REDIRECT_STATUS=200          HTTP_<HEADER> for every request header`,
         cap: "REDIRECT_STATUS=200 is not optional — without it php-cgi refuses to run at all", lang: "txt" },
-      { p: "**A CGI's output starts with its own headers**, then a blank line, then the body: `Status: 418 ...` overrides the code, a bare `Location:` means 302, and no header block at all is a **502**." },
+      { p: "**A CGI's output starts with its own headers**, then a blank line, then the body:** `Status: 418 ...` **overrides the code, a bare** `Location:` **means 302, and no header block at all is a** 502**." },
       { h: "8) Why poll(), and why non-blocking" },
       { p: "The server watches hundreds of descriptors from **one thread**. `poll()` is 'tell me which ones are ready' so you only touch those — no thread per client, no busy-waiting." },
       { table: { head: ["", "`select()`", "`poll()`"], rows: [
@@ -733,7 +733,7 @@ REDIRECT_STATUS=200          HTTP_<HEADER> for every request header`,
       ]}},
       { note: "**Leaving POLLOUT armed is 100% CPU** — the socket is always writable, so poll returns instantly every round. Ask for it only while bytes are actually queued; this is one of the most common bugs in the project." },
       { h: "Rebuild the pollfd set each tick; never keep indices" },
-      { p: "**Rebuild the `pollfd` vector every tick** from the live fd registries. It costs O(fds) against a syscall that costs more, and it deletes the whole class of bugs where closing an fd during dispatch invalidates a stored index." },
+      { p: "**Rebuild the** `pollfd` **vector every tick** from the live fd registries. It costs O(fds) against a syscall that costs more, and it deletes the whole class of bugs where closing an fd during dispatch invalidates a stored index." },
       { code: String.raw`// wrong: an index kept across the tick while a middle client is erased
 for (size_t i = 0; i < _pfds.size(); ++i) { ... _pfds.erase(_pfds.begin()+i); ... }
 
@@ -803,7 +803,7 @@ body >  client_body_buffer_size  -> open a file under client_body_temp_path
       { table: { head: ["Class", "Owns", "Must not"], rows: [
         ["`ConfigParser`", "Reading .conf into a `Config` structure", "Touch sockets"],
         ["`Listener`", "socket/bind/listen for one host:port pair", "Handle requests"],
-        ["`Server`", "**The one `poll()`** plus the fd registries", "Parse HTTP"],
+        ["`Server`", "**The one** `poll()` plus the fd registries", "Parse HTTP"],
         ["`Connection`", "One client's in/out buffers and keep-alive state", "Call poll itself"],
         ["`HttpRequest`", "The state machine turning bytes into a request (including de-chunking)", "Touch files"],
         ["`RequestHandler`", "Deciding what this request gets (file / CGI / redirect / error)", "Touch poll"],
@@ -864,7 +864,7 @@ body >  client_body_buffer_size  -> open a file under client_body_temp_path
 if (loc.path.size() > 1 && uri.size() > loc.path.size()
     && uri[loc.path.size()] != '/') continue;`,
         cap: "Without this line, /uploads swallows /uploadsomething", lang: "cpp" },
-      { note: "**A prefix location with its own `root` replaces the prefix** (`/kapouet` + `root /tmp/www` → `/tmp/www/pouic/toto/pouet`), while **an extension location keeps the whole URI under its root** — so `location *.sh { root ./www; }` serves `/cgi-bin/info.sh` from `./www/cgi-bin/info.sh`. Mixing these up is the usual cause of 'my CGI is 404'." },
+      { note: "**A prefix location with its own** `root` **replaces the prefix** (`/kapouet` + `root /tmp/www` → `/tmp/www/pouic/toto/pouet`), while **an extension location keeps the whole URI under its root** — so `location *.sh { root ./www; }` serves `/cgi-bin/info.sh` from `./www/cgi-bin/info.sh`. Mixing these up is the usual cause of 'my CGI is 404'." },
       { h: "Values that must be directives, not constants" },
       { p: "`client_timeout` and `cgi_timeout` have to come from the config: the test suite needs 2-3 second deadlines while the demo needs 60. Hard-code them and you cannot test them at all." }
     ],
@@ -1031,7 +1031,7 @@ bool HttpRequest::feedChunked(const char* p, size_t n, size_t& used) {
     return true;
 }`, cap: "The only fork in the whole project, and it lives in this one file", lang: "cpp" },
       { h: "6) A relative interpreter after chdir" },
-      { p: "`chdir` breaks `./cgi_tester`, and **`getcwd()` is not in the allowed function list**. Invert the relative directory yourself instead." },
+      { p: "`chdir` breaks `./cgi_tester`, and `getcwd()` **is not in the allowed function list**. Invert the relative directory yourself instead." },
       { code: String.raw`// "./YoupiBanane" is one level deep -> "../";  "./www/cgi" -> "../../"
 static std::string relativeBackPath(const std::string& dir);  // "" if absolute or has ".."
 exe = (interp[0] == '/') ? interp : relativeBackPath(dir) + interp;`,
@@ -1123,7 +1123,7 @@ YoupiBanane/Yeah/not_happy.bad_extension         index youpi.bad_extension`,
         "`SO_REUSEADDR` before `bind`",
         "`O_NONBLOCK` on the accepted socket too, not just the listener",
         "`accept()` in a loop until it returns negative",
-        "**Normalise the URI** (percent-decode, then resolve `.`/`..`, dropping a `..` that would escape the root) **before** touching the filesystem",
+        "**Normalise the URI **(percent-decode, then resolve** `.`**/**`..`**, dropping a** `..` **that would escape the root)** before** touching the filesystem",
         "Refuse `Content-Length` together with `Transfer-Encoding`, and duplicate `Content-Length`, with 400",
         "HTTP/1.1 without a `Host` header is 400; HTTP/1.0 without one is fine"
       ]},
@@ -1220,13 +1220,13 @@ window.EXTRA_FLOWS.webserv = {
       data: "accept() -> fd 7   fcntl(7, F_SETFL, O_NONBLOCK)",
       vars: [ { n: "_conns[7]", v: "new Connection(7)", d: { th: "buffer เข้า/ออกของ client รายนี้", en: "this client's in and out buffers" }, w: true } ] },
     { fn: "Connection::onReadable()", file: "src/core/Connection.cpp", depth: 1,
-      note: { th: "`recv` คืน 0 = ปลายทางปิด, < 0 = fd ตาย ทั้งสองกรณีตัดทิ้ง — **ไม่แตะ `errno` เลย** เพราะ poll บอกแล้วว่าพร้อม",
-              en: "`recv` returning 0 means the peer closed and < 0 means the descriptor is dead; both drop the connection. **`errno` is never consulted** because poll already said it was ready." },
+      note: { th: "`recv` คืน 0 = ปลายทางปิด, < 0 = fd ตาย ทั้งสองกรณีตัดทิ้ง — **ไม่แตะ** `errno` **เลย** เพราะ poll บอกแล้วว่าพร้อม",
+              en: "`recv` returning 0 means the peer closed and < 0 means the descriptor is dead; both drop the connection. `errno` **is never consulted** because poll already said it was ready." },
       data: "recv(7, buf, 16384) -> 1400  (มาไม่ครบก้อน)",
       vars: [ { n: "_inBuf", v: "\"POST /upload HTTP/1.1\r\nHost: ...\"", d: { th: "สะสม byte ดิบไว้ก่อน", en: "raw bytes accumulate here first" }, w: true } ] },
     { fn: "HttpRequest::feed()", file: "src/http/HttpRequest.cpp", depth: 2,
-      note: { th: "state machine ที่ **หยุดตรง `ST_HEADERS_DONE`** เพราะขนาด body สูงสุดขึ้นกับ location ที่ตรงกัน ซึ่งยังไม่รู้จนกว่าจะ parse path เสร็จ",
-              en: "The state machine **pauses at `ST_HEADERS_DONE`**, because the body limit depends on the matched location, which is unknown until the path is parsed." },
+      note: { th: "state machine ที่ **หยุดตรง** `ST_HEADERS_DONE` เพราะขนาด body สูงสุดขึ้นกับ location ที่ตรงกัน ซึ่งยังไม่รู้จนกว่าจะ parse path เสร็จ",
+              en: "The state machine **pauses at** `ST_HEADERS_DONE`, because the body limit depends on the matched location, which is unknown until the path is parsed." },
       data: "ST_REQUEST_LINE -> ST_HEADERS -> ST_HEADERS_DONE",
       vars: [ { n: "_st", v: "ST_HEADERS_DONE", d: { th: "จุดพักที่รอผู้เรียกบอกลิมิต", en: "the pause where the caller supplies the limit" }, w: true } ] },
     { fn: "pickVirtualHost() + pickLocation()", file: "src/config/ConfigTypes.cpp", depth: 2,
@@ -1275,15 +1275,15 @@ window.EXTRA_FLOWS.webserv = {
         vars: [
           { n: "cfd", v: "7", d: { th: "fd ของ client ใหม่", en: "the new client's descriptor" }, w: true } ] },
       { fn: "Connection::onReadable()", file: "core/Connection.cpp", depth: 1,
-        note: { th: "`recv` ครั้งเดียวแล้วป้อน parser — `n == 0` คือปลายทางปิด, `n < 0` คือ fd ตาย **ไม่มีการดู `errno`** เพราะ poll บอกแล้วว่าพร้อม",
-                en: "One `recv`, then feed the parser — `n == 0` means the peer closed and `n < 0` means the descriptor is dead. **`errno` is never consulted**, because poll already said it was ready" },
+        note: { th: "`recv` ครั้งเดียวแล้วป้อน parser — `n == 0` คือปลายทางปิด, `n < 0` คือ fd ตาย **ไม่มีการดู** `errno` เพราะ poll บอกแล้วว่าพร้อม",
+                en: "One `recv`, then feed the parser — `n == 0` means the peer closed and `n < 0` means the descriptor is dead. `errno` **is never consulted**, because poll already said it was ready" },
         data: "recv() -> 8192 bytes -> _inBuf",
         vars: [
           { n: "_inBuf", d: { th: "byte ดิบที่ยังไม่ถูก parse สะสมไว้ที่นี่", en: "raw bytes accumulate here until the parser consumes them" }, w: true },
           { n: "_lastIo", d: { th: "ประทับเวลาไว้ใช้ตัดสิน timeout", en: "stamped for the timeout sweep" }, w: true } ] },
       { fn: "HttpRequest::feed()", file: "http/HttpRequest.cpp", depth: 2,
-        note: { th: "state machine ที่ **หยุดตรง `ST_HEADERS_DONE`** เพราะยังไม่รู้ `client_max_body_size` จนกว่าจะ resolve location ได้",
-                en: "The state machine **pauses at `ST_HEADERS_DONE`** because `client_max_body_size` is unknown until the location has been resolved" },
+        note: { th: "state machine ที่ **หยุดตรง** `ST_HEADERS_DONE` เพราะยังไม่รู้ `client_max_body_size` จนกว่าจะ resolve location ได้",
+                en: "The state machine **pauses at** `ST_HEADERS_DONE` because `client_max_body_size` is unknown until the location has been resolved" },
         data: "ST_REQUEST_LINE -> ST_HEADERS -> ST_HEADERS_DONE",
         vars: [
           { n: "_st", v: "ST_HEADERS_DONE", d: { th: "รอผู้เรียกบอกลิมิต", en: "waiting for the caller's limit" }, w: true } ] },

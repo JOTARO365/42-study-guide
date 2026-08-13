@@ -108,7 +108,7 @@ leaky:    max(0.01z, z)           1 ถ้า z>0 · 0.01 ถ้า z<0`,
         ["**multiclass เลือกได้ตัวเดียว**", "softmax", "categorical cross-entropy"],
         ["**multi-label เลือกได้หลายตัว**", "sigmoid แยกทุกคลาส", "binary cross-entropy ต่อคลาส"]
       ]}},
-      { p: "**softmax คู่กับ cross-entropy ให้ `∂L/∂z = ŷ − y`** — รูปเดียวกับ logistic regression ในหน้าที่แล้วเป๊ะ พจน์ยุ่ง ๆ ตัดกันหมดพอดี ซึ่งเป็นเหตุผลที่ทั้งคู่ถูกออกแบบมาให้อยู่ด้วยกัน" },
+      { p: "**softmax คู่กับ cross-entropy ให้** `∂L/∂z = ŷ − y` — รูปเดียวกับ logistic regression ในหน้าที่แล้วเป๊ะ พจน์ยุ่ง ๆ ตัดกันหมดพอดี ซึ่งเป็นเหตุผลที่ทั้งคู่ถูกออกแบบมาให้อยู่ด้วยกัน" },
       { note: "**framework รวมสองขั้นนี้เข้าด้วยกันเพื่อความเสถียรเชิงตัวเลข** — `CrossEntropyLoss` ของ PyTorch และ `from_logits=True` ของ Keras รับ logit ไม่ใช่ความน่าจะเป็น ถ้าใส่ softmax เองแล้วส่งเข้า loss พวกนี้ คือบั๊กที่พบบ่อยที่สุดและเงียบที่สุด" },
       { h: "6) forward pass เต็ม ๆ พร้อม shape" },
       { code: String.raw`X   (N, 784)
@@ -454,7 +454,7 @@ model = nn.Sequential(
 
 loss_fn = nn.CrossEntropyLoss()  # รับ logit และทำ softmax ให้ข้างใน
 opt = torch.optim.Adam(model.parameters(), lr=1e-3)`,
-        cap: "**ห้ามใส่ `nn.Softmax` ก่อน `CrossEntropyLoss`** — จะได้ softmax สองชั้น ซึ่งทำให้เทรนช้าลงมากโดยไม่มี error ใด ๆ แจ้ง", lang: "python" },
+        cap: "**ห้ามใส่** `nn.Softmax` **ก่อน** `CrossEntropyLoss` — จะได้ softmax สองชั้น ซึ่งทำให้เทรนช้าลงมากโดยไม่มี error ใด ๆ แจ้ง", lang: "python" },
       { h: "7) ลูปเทรนของ PyTorch" },
       { code: String.raw`for epoch in range(epochs):
     model.train()
@@ -531,9 +531,9 @@ loss                CrossEntropyLoss โดยโมเดลส่ง logit อ
         cap: "ชุดนี้ทำงานได้กับปัญหาส่วนใหญ่โดยไม่ต้องคิด แล้วค่อยจูนจากตรงนี้", lang: "txt" },
       { h: "บั๊กที่เงียบที่สุดห้าอย่าง" },
       { ul: [
-        "**ใส่ softmax เองแล้วส่งเข้า `CrossEntropyLoss`** — ไม่มี error แต่เทรนช้าลงอย่างมาก",
-        "**ลืม `opt.zero_grad()`** — gradient สะสมทับกันข้าม batch",
-        "**ลืม `model.eval()`** ตอนวัดผล — dropout ยังทำงานทำให้ผลแกว่ง",
+        "**ใส่ softmax เองแล้วส่งเข้า** `CrossEntropyLoss` — ไม่มี error แต่เทรนช้าลงอย่างมาก",
+        "**ลืม** `opt.zero_grad()` — gradient สะสมทับกันข้าม batch",
+        "**ลืม** `model.eval()` ตอนวัดผล — dropout ยังทำงานทำให้ผลแกว่ง",
         "**ไม่ได้สเกล input** — ชั้นแรกอิ่มตัวตั้งแต่ก้าวแรก",
         "**สับข้อมูลผิดที่** เช่นสับ X แต่ไม่สับ y ด้วย index ชุดเดียวกัน"
       ]},
@@ -705,7 +705,7 @@ usually caused by too high a learning rate early in training`,
       ["**Multiclass, one label**", "softmax", "categorical cross-entropy"],
       ["**Multi-label**", "sigmoid per class", "binary cross-entropy per class"]
     ]}},
-    { p: "**Softmax with cross-entropy gives `∂L/∂z = ŷ − y`** — exactly the form logistic regression had on the previous page. The messy terms cancel perfectly, which is why the two were designed to be used together." },
+    { p: "**Softmax with cross-entropy gives** `∂L/∂z = ŷ − y` — exactly the form logistic regression had on the previous page. The messy terms cancel perfectly, which is why the two were designed to be used together." },
     { note: "**Frameworks fuse the two steps for numerical stability.** PyTorch's `CrossEntropyLoss` and Keras's `from_logits=True` take logits, not probabilities. Applying softmax yourself and then feeding it into one of those losses is the most common and the quietest bug there is." },
     { h: "6) A complete forward pass with shapes" },
     { code: String.raw`X   (N, 784)
@@ -1051,7 +1051,7 @@ model = nn.Sequential(
 
 loss_fn = nn.CrossEntropyLoss()  # takes logits and applies softmax internally
 opt = torch.optim.Adam(model.parameters(), lr=1e-3)`,
-      cap: "**Never put `nn.Softmax` before `CrossEntropyLoss`** — you get softmax twice, which slows training badly and raises no error at all", lang: "python" },
+      cap: "**Never put** `nn.Softmax` **before** `CrossEntropyLoss` — you get softmax twice, which slows training badly and raises no error at all", lang: "python" },
     { h: "7) The PyTorch training loop" },
     { code: String.raw`for epoch in range(epochs):
     model.train()
@@ -1128,9 +1128,9 @@ input scaling       always mandatory`,
       cap: "This set works on most problems without thought, and gives you somewhere to tune from", lang: "txt" },
     { h: "The five quietest bugs" },
     { ul: [
-      "**Applying softmax yourself and feeding `CrossEntropyLoss`** — no error, but training slows badly",
-      "**Forgetting `opt.zero_grad()`** — gradients accumulate across batches",
-      "**Forgetting `model.eval()`** when measuring — dropout stays on and the numbers wobble",
+      "**Applying softmax yourself and feeding** `CrossEntropyLoss` — no error, but training slows badly",
+      "**Forgetting** `opt.zero_grad()` — gradients accumulate across batches",
+      "**Forgetting** `model.eval()` when measuring — dropout stays on and the numbers wobble",
       "**Not scaling the inputs** — the first layer saturates on the very first step",
       "**Shuffling wrongly**, for instance shuffling X without applying the same index to y"
     ]},

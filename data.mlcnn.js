@@ -30,7 +30,7 @@ conv 3×3 จาก 3 ไป 64 ช่อง:  3 × 3 × 3 × 64 + 64 =        1
       { table: { head: ["หน้าที่แล้ว", "หน้านี้"], rows: [
         ["ชั้น dense เชื่อมทุก input เข้าทุกนิวรอน", "**เชื่อมเฉพาะเพื่อนบ้าน และใช้น้ำหนักชุดเดียวกันทุกตำแหน่ง**"],
         ["backpropagation ผ่านการคูณเมทริกซ์", "รูปเดิมทั้งหมด — convolution ก็คือการคูณเมทริกซ์แบบมีโครงสร้าง"],
-        ["vanishing gradient เป็นผลคูณ", "**residual connection ใส่ `+1` เข้าไปในผลคูณนั้น**"],
+        ["vanishing gradient เป็นผลคูณ", "**residual connection ใส่** `+1` **เข้าไปในผลคูณนั้น**"],
         ["augmentation อยู่ในตาราง regularization", "ในงานภาพ มันมักแรงกว่า dropout กับ weight decay รวมกัน"]
       ]}},
       { h: "หน้านี้จะทำให้ทำได้" },
@@ -128,7 +128,7 @@ residual:  y = F(x) + x
                 ‾‾‾
                 พจน์นี้ทำให้ผลคูณข้ามชั้นยุบเป็นศูนย์ไม่ได้`,
         cap: "เลข 1 ตัวเดียวนั้นคือเหตุผลที่ 152 ชั้นกลายเป็นสิ่งที่เทรนได้", lang: "txt" },
-      { note: "**อธิบาย ResNet โดยไม่พูดถึง `+1` ในอนุพันธ์คือการพลาดจุดสำคัญ** — มันไม่ใช่ 'ทางลัดให้ข้อมูลไหลผ่าน' แบบคลุมเครือ แต่คือการรับประกันว่ามีเส้นทาง gradient ที่คูณด้วย 1 เสมอ" },
+      { note: "**อธิบาย ResNet โดยไม่พูดถึง** `+1` **ในอนุพันธ์คือการพลาดจุดสำคัญ** — มันไม่ใช่ 'ทางลัดให้ข้อมูลไหลผ่าน' แบบคลุมเครือ แต่คือการรับประกันว่ามีเส้นทาง gradient ที่คูณด้วย 1 เสมอ" },
       { h: "11) สายสถาปัตยกรรม แบบย่อ" },
       { table: { head: ["โมเดล", "ปี", "สิ่งที่มันเพิ่มเข้ามา"], rows: [
         ["**LeNet-5**", "1998", "conv + pool + dense บนตัวเลขลายมือ"],
@@ -526,10 +526,10 @@ freeze_bn(model.layer1)        # ต้องเรียกหลัง model.t
       { h: "ทำ CNN ให้เร็วขึ้น" },
       { table: { head: ["วิธี", "ได้เท่าไร", "แลกอะไร"], rows: [
         ["**AMP (fp16)**", "เร็วขึ้น 1.5-3 เท่า หน่วยความจำครึ่งเดียว", "ต้องมี GradScaler"],
-        ["**`channels_last`**", "เร็วขึ้น 10-30% บน GPU ที่มี tensor core", "ต้องเปลี่ยนทั้งโมเดลและข้อมูล"],
+        ["`channels_last`", "เร็วขึ้น 10-30% บน GPU ที่มี tensor core", "ต้องเปลี่ยนทั้งโมเดลและข้อมูล"],
         ["**depthwise separable**", "พารามิเตอร์ลด 8-9 เท่า", "ความแม่นยำลดเล็กน้อย"],
         ["**ลดความละเอียดภาพ**", "ต้นทุนลดตามกำลังสอง", "**เสียรายละเอียดเล็ก ๆ ไป**"],
-        ["**เพิ่ม `num_workers`**", "มักคือคอขวดจริง", "ใช้ RAM มากขึ้น"]
+        ["**เพิ่ม** `num_workers`", "มักคือคอขวดจริง", "ใช้ RAM มากขึ้น"]
       ]}},
       { h: "ข้อผิดพลาดที่พบบ่อยที่สุด" },
       { ul: [
@@ -634,7 +634,7 @@ a 3×3 conv from 3 to 64 channels: 3 × 3 × 3 × 64 + 64 =        1,792 paramet
     { table: { head: ["Previous page", "This page"], rows: [
       ["A dense layer connects every input to every neuron", "**Connect only neighbours, and reuse one set of weights everywhere**"],
       ["Backpropagation through matrix multiplies", "Entirely unchanged — a convolution is a structured matrix multiply"],
-      ["Vanishing gradients are a product", "**The residual connection inserts a `+1` into that product**"],
+      ["Vanishing gradients are a product", "**The residual connection inserts a** `+1` **into that product**"],
       ["Augmentation was one row in the regularisation table", "In vision it usually beats dropout and weight decay combined"]
     ]}},
     { h: "What this page will let you do" },
@@ -732,7 +732,7 @@ residual:  y = F(x) + x
                 ‾‾‾
                 this term stops the across-layer product collapsing to zero`,
       cap: "That single 1 is why 152 layers became something you could actually train", lang: "txt" },
-    { note: "**Explaining ResNet without the `+1` in the derivative misses the point** — it is not a vague \"shortcut for information to flow\", it is a guarantee that a gradient path multiplied by exactly 1 always exists." },
+    { note: "**Explaining ResNet without the** `+1` **in the derivative misses the point** — it is not a vague \"shortcut for information to flow\", it is a guarantee that a gradient path multiplied by exactly 1 always exists." },
     { h: "11) The architecture line, compressed" },
     { table: { head: ["Model", "Year", "What it introduced"], rows: [
       ["**LeNet-5**", "1998", "conv + pool + dense, on handwritten digits"],
@@ -1130,10 +1130,10 @@ freeze_bn(model.layer1)        # must be called after every model.train()`,
     { h: "Making a CNN faster" },
     { table: { head: ["Method", "Gain", "Cost"], rows: [
       ["**AMP (fp16)**", "1.5-3× faster, half the memory", "Requires a GradScaler"],
-      ["**`channels_last`**", "10-30% on tensor-core GPUs", "The model and the data must both be converted"],
+      ["`channels_last`", "10-30% on tensor-core GPUs", "The model and the data must both be converted"],
       ["**Depthwise separable**", "8-9× fewer parameters", "A small accuracy loss"],
       ["**Lower the image resolution**", "Cost falls quadratically", "**Small details are lost**"],
-      ["**More `num_workers`**", "Often the real bottleneck", "More RAM"]
+      ["**More** `num_workers`", "Often the real bottleneck", "More RAM"]
     ]}},
     { h: "The most common mistakes" },
     { ul: [

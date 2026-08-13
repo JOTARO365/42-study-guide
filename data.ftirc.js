@@ -13,12 +13,12 @@ window.TEACHING_DATA.push({
   sections: {
     principle: [
       { h: "โจทย์คืออะไร" },
-      { p: "เขียน **IRC server** ด้วย C++98 รันเป็น `./ircserv <port> <password>` แล้วให้ **client จริง** (irssi, HexChat) ต่อเข้ามาคุยกันได้: สมัครตัวด้วย PASS/NICK/USER, เข้าช่อง, ส่งข้อความ, และมี operator ที่สั่ง KICK / INVITE / TOPIC / MODE ได้" },
+      { p: "เขียน **IRC server **ด้วย C++98 รันเป็น** `./ircserv <port> <password>` **แล้วให้** client จริง** (irssi, HexChat) ต่อเข้ามาคุยกันได้: สมัครตัวด้วย PASS/NICK/USER, เข้าช่อง, ส่งข้อความ, และมี operator ที่สั่ง KICK / INVITE / TOPIC / MODE ได้" },
       { p: "**ไม่มี norminette** — โปรเจกต์ C++ คอมไพล์ด้วย `-Wall -Wextra -Werror -std=c++98` ห้าม Boost ห้าม library ภายนอก" },
       { h: "3 กฎเชิงโครงสร้างที่ถูกตรวจก่อนฟีเจอร์ใด ๆ" },
       { table: { head: ["กฎ", "ทำให้ผ่านยังไง"], rows: [
-        ["**ห้าม `fork()`**", "โปรเซสเดียวตลอด ไม่มีข้อยกเว้น"],
-        ["**`poll()` ตัวเดียว** (หรือเทียบเท่า) คุมทั้ง listen/read/write", "การเรียก `recv`/`send` บน fd ที่ poll ไม่ได้บอกว่าพร้อม = **0 คะแนน** ตามตัวบท subject"],
+        ["**ห้าม** `fork()`", "โปรเซสเดียวตลอด ไม่มีข้อยกเว้น"],
+        ["`poll()` **ตัวเดียว** (หรือเทียบเท่า) คุมทั้ง listen/read/write", "การเรียก `recv`/`send` บน fd ที่ poll ไม่ได้บอกว่าพร้อม = **0 คะแนน** ตามตัวบท subject"],
         ["**fd ทุกตัวต้อง non-blocking**", "รวม listening socket ด้วย"]
       ]}},
       { p: "ทำให้ตรวจได้ด้วยเครื่อง: **ขัง syscall ของ socket ไว้ในไฟล์เดียว** (เช่น `src/ServerLoop.cpp`) แล้ว grep หาในชุดเทสต์" },
@@ -96,10 +96,10 @@ $ irssi -c 127.0.0.1 -p 6667 -w secret
         "ตัวแรก: ตัวอักษร หรือหนึ่งใน `[` `]` `\\` `_` `^` `{` `|` `}` และ backquote",
         "ตัวถัดไป: ตัวอักษร ตัวเลข อักขระพิเศษข้างต้น หรือ `-`",
         "ยาวไม่เกิน 9 ตัว",
-        "**`NICK ab cd` ไม่ใช่ error** — ช่องว่างแยกพารามิเตอร์ ดังนั้น nick คือ `ab` เฉย ๆ"
+        "`NICK ab cd` **ไม่ใช่ error** — ช่องว่างแยกพารามิเตอร์ ดังนั้น nick คือ `ab` เฉย ๆ"
       ]},
       { h: "5) PRIVMSG กับ NOTICE" },
-      { p: "ส่งต่อโดยใช้ **prefix ของผู้ส่ง**: `:nick!user@host PRIVMSG #chan :text`. ข้อความในช่องส่งให้สมาชิกทุกคน **ยกเว้นผู้ส่งเอง**" },
+      { p: "ส่งต่อโดยใช้ **prefix ของผู้ส่ง**:** `:nick!user@host PRIVMSG #chan :text`**. ข้อความในช่องส่งให้สมาชิกทุกคน** ยกเว้นผู้ส่งเอง**" },
       { p: "`NOTICE` ส่งเหมือนกันทุกประการ แต่ **ห้ามตอบ error กลับไปเด็ดขาด** (RFC 2812 §3.3.2) — เพราะ NOTICE ถูกออกแบบมาให้บอตใช้โดยไม่เกิดลูปตอบโต้กันไม่รู้จบ" },
       { h: "6) MODE ของช่อง" },
       { table: { head: ["Mode", "ตอน + ต้องมี arg", "ตอน - ต้องมี arg", "ผลลัพธ์"], rows: [
@@ -109,7 +109,7 @@ $ irssi -c 127.0.0.1 -p 6667 -w secret
         ["`o`", "**ใช่**", "**ใช่**", "ให้/ถอนสถานะ operator; ไม่ใช่สมาชิก → `441`"],
         ["`l`", "**ใช่**", "ไม่", "จำกัดจำนวนคน; ไม่ใช่ตัวเลขหรือ <= 0 ให้เมินเงียบ ๆ"]
       ]}},
-      { p: "ประมวลผลตัวอักษร **จากซ้ายไปขวา** กิน argument ตามลำดับที่เจอ แล้ว broadcast **บรรทัดเดียว** ที่สรุปเฉพาะสิ่งที่เปลี่ยนจริง (ดังนั้น `+i-i+i` ออกมาเป็นบรรทัดเดียว) ตัวอักษรที่ไม่รู้จัก → `472` แต่ **ไม่ยกเลิกตัวที่เหลือ**. `MODE #chan` เปล่า ๆ → `324`" },
+      { p: "ประมวลผลตัวอักษร **จากซ้ายไปขวา** กิน argument ตามลำดับที่เจอ แล้ว broadcast **บรรทัดเดียว **ที่สรุปเฉพาะสิ่งที่เปลี่ยนจริง (ดังนั้น** `+i-i+i` **ออกมาเป็นบรรทัดเดียว) ตัวอักษรที่ไม่รู้จัก →** `472` **แต่** ไม่ยกเลิกตัวที่เหลือ**. `MODE #chan` เปล่า ๆ → `324`" },
       { h: "7) ชุด numeric ขั้นต่ำที่ต้องมี" },
       { code: String.raw`001 002 003 004      welcome
 331 332              ไม่มี topic / มี topic
@@ -148,17 +148,17 @@ for แต่ละ fd ที่มี revents:
       POLLOUT                 -> send -> ลบเฉพาะจำนวน byte ที่ส่งไปจริง
 _sweepDisconnected()   // ลบ client ที่ระบาย output หมดแล้ว`,
         cap: "timeout 500 ms ทำให้ SIGINT ตอบสนองไว; poll คืน -1 พร้อม EINTR ถือเป็นเรื่องปกติ ห้ามตาย", lang: "txt" },
-      { note: "**เดินบน snapshot ของ vector `pollfd`** — `accept` เพิ่มสมาชิกและการตัด client ลบสมาชิก ทั้งสองอย่างทำให้ iterator ที่ถืออยู่กลางรอบเสียหาย" },
+      { note: "**เดินบน snapshot ของ vector** `pollfd` — `accept` เพิ่มสมาชิกและการตัด client ลบสมาชิก ทั้งสองอย่างทำให้ iterator ที่ถืออยู่กลางรอบเสียหาย" },
       { h: "5 บั๊กที่ตัดสินคะแนน" },
       { h: "บั๊ก 1: partial read — TCP ไม่มีขอบเขตข้อความ" },
-      { p: "**ห้าม parse สิ่งที่ `recv()` คืนมาโดยตรง** ให้ต่อท้าย buffer ต่อ client แล้วดึงออกมาเป็นบรรทัดก็ต่อเมื่อเจอ `\\n` เท่านั้น" },
+      { p: "**ห้าม parse สิ่งที่** `recv()` **คืนมาโดยตรง** ให้ต่อท้าย buffer ต่อ client แล้วดึงออกมาเป็นบรรทัดก็ต่อเมื่อเจอ `\\n` เท่านั้น" },
       { code: String.raw`subject เทสต์ตรง ๆ ด้วย  nc -C  ส่งเป็น 3 packet:
     "com"   ->  buffer = "com"          ยังไม่มี \n : ไม่ทำอะไร
     "man"   ->  buffer = "comman"       ยังไม่มี \n : ไม่ทำอะไร
     "d\n"   ->  buffer = "command\n"    เจอ \n : dispatch "command" ครั้งเดียว`,
         cap: "server ที่ตอบ 3 ครั้งคือ server ที่ตกข้อนี้", lang: "txt" },
       { h: "บั๊ก 2: ตัวจบบรรทัดมี 2 แบบ" },
-      { p: "irssi ส่ง `\\r\\n` แต่ `nc` ส่ง `\\n` เปล่า ๆ. **แยกด้วย `\\n` แล้วตัด `\\r` ท้ายทิ้งถ้ามี** และ **ส่งออกด้วย `\\r\\n` เสมอ**. `\\r` เดี่ยว ๆ ไม่ถือเป็นตัวจบบรรทัด" },
+      { p: "irssi ส่ง `\\r\\n` แต่ `nc` ส่ง `\\n` เปล่า ๆ. **แยกด้วย** `\\n` **แล้วตัด** `\\r` **ท้ายทิ้งถ้ามี** และ **ส่งออกด้วย** `\\r\\n` **เสมอ**. `\\r` เดี่ยว ๆ ไม่ถือเป็นตัวจบบรรทัด" },
       { h: "บั๊ก 3: partial send" },
       { p: "`send()` บน socket non-blocking เขียนได้น้อยกว่าที่ขอเป็นเรื่องปกติ — **ลบออกจากคิวเท่าจำนวนที่คืนมาจริง** แล้วเก็บส่วนที่เหลือไว้ การถือว่า short write คือเขียนครบ = ข้อความถูกตัดหายเงียบ ๆ ตอนโหลดหนัก" },
       { code: String.raw`void Client::flush() {
@@ -170,7 +170,7 @@ _sweepDisconnected()   // ลบ client ที่ระบาย output หม�
       { h: "บั๊ก 4: POLLOUT ขอค้างไว้ = CPU 100%" },
       { p: "ขอ `POLLOUT` เฉพาะตอนที่ client นั้นมี byte ค้างอยู่จริง — เป็นกฎเดียวกับที่ตัวอย่าง `bircd` เขียนไว้ว่า `if (strlen(buf_write) > 0) FD_SET(i, &fd_write)`" },
       { h: "บั๊ก 5: ลบ client กลาง broadcast" },
-      { p: "**handler ห้าม `delete` เด็ดขาด** ให้ทำเป็น 3 จังหวะแทน:" },
+      { p: "**handler ห้าม** `delete` **เด็ดขาด** ให้ทำเป็น 3 จังหวะแทน:" },
       { code: String.raw`1. mark: ตั้งธง _dead
       ตอน mark ให้ถอด client ออกจากทุกช่องทันที (ไม่ให้ container ไหนถือ pointer ค้าง)
       แล้ว broadcast QUIT ของมันออกไป
@@ -189,7 +189,7 @@ _sweepDisconnected()   // ลบ client ที่ระบาย output หม�
     std::string _nick, _user, _real, _host;
     std::set<std::string> _channels;   // เก็บเป็นชื่อ ไม่ใช่ pointer
 };`, cap: "เก็บ 'ชื่อช่อง' แทน pointer ไปยัง Channel ทำให้ dangling pointer หายไปทั้งตระกูล", lang: "cpp" },
-      { p: "**จำกัดขนาด `_in`** (เช่น 8 KiB): peer ที่ไม่เคยส่ง `\\n` เลยต้องไม่ทำให้ buffer โตไม่จำกัด — เกินแล้วตัดทิ้งพร้อม `ERROR :Input line too long`" }
+      { p: "**จำกัดขนาด** `_in` (เช่น 8 KiB): peer ที่ไม่เคยส่ง `\\n` เลยต้องไม่ทำให้ buffer โตไม่จำกัด — เกินแล้วตัดทิ้งพร้อม `ERROR :Input line too long`" }
     ],
 
     architecture: [
@@ -261,7 +261,7 @@ static const Entry TABLE[] = {
         ["`_channels`", "ชื่อช่องที่ fold แล้ว", "หาช่องและลบทิ้งเมื่อว่าง"],
         ["`_pfds`", "—", "array ที่ประกอบใหม่ก่อน poll ทุกรอบ"]
       ]}},
-      { note: "**ทุกครั้งที่ nick เปลี่ยน ต้องอัปเดต `_nickIndex` เป็นอะตอม** (ลบคีย์เก่า ใส่คีย์ใหม่) ลืมข้อนี้แล้วจะเกิด nick ผีที่จองชื่อไว้แต่ไม่มีตัวตน" }
+      { note: "**ทุกครั้งที่ nick เปลี่ยน ต้องอัปเดต** `_nickIndex` **เป็นอะตอม** (ลบคีย์เก่า ใส่คีย์ใหม่) ลืมข้อนี้แล้วจะเกิด nick ผีที่จองชื่อไว้แต่ไม่มีตัวตน" }
     ],
 
     dataflow: [
@@ -347,7 +347,7 @@ broadcast บรรทัดเดียว:  :alice!user@host MODE #42 +it-o bo
         ["ต่อได้แต่ join ช่องไม่ได้เลย", "ไม่ส่ง `005 RPL_ISUPPORT`"],
         ["ทุก join มี error เรื่อง ban list", "ไม่ตอบ `MODE #chan b` — ให้ตอบ `368` แบบว่างเปล่า"]
       ]}},
-      { p: "ตอบ `:<server> CAP * LS :` (รายการว่าง) และ `NAK` ทุก `CAP REQ` ก็พอสำหรับ subject นี้ ส่วน ban list อยู่นอกขอบเขต ให้ตอบ `368 RPL_ENDOFBANLIST` แบบว่าง **แทนที่จะตอบ `482`** ไม่งั้น client จะขึ้น error ทุกครั้งที่ join" }
+      { p: "ตอบ `:<server> CAP * LS :` (รายการว่าง) และ `NAK` ทุก `CAP REQ` ก็พอสำหรับ subject นี้ ส่วน ban list อยู่นอกขอบเขต ให้ตอบ `368 RPL_ENDOFBANLIST` แบบว่าง **แทนที่จะตอบ** `482` ไม่งั้น client จะขึ้น error ทุกครั้งที่ join" }
     ],
 
     implementation: [
@@ -525,12 +525,12 @@ irssi -c 127.0.0.1 -p 6667 -w secret`,
         "**และยังต้อง relay ข้อความต้นฉบับเข้าช่องตามปกติ** — bot สังเกตการณ์ ไม่ใช่กลืนข้อความ"
       ]},
       { h: "ทริค 3 — file transfer คือ DCC และ DCC เป็น peer-to-peer" },
-      { p: "ข้อเสนอเดินทางเป็น CTCP ที่ซ่อนอยู่ใน `PRIVMSG` ธรรมดา — **หน้าที่จริงของ server คือ relay ให้ครบทุก byte รวมเครื่องหมาย `\\x01`** ผิดไปตัวเดียวการโอนพัง" },
+      { p: "ข้อเสนอเดินทางเป็น CTCP ที่ซ่อนอยู่ใน `PRIVMSG` ธรรมดา — **หน้าที่จริงของ server คือ relay ให้ครบทุก byte รวมเครื่องหมาย** `\\x01` ผิดไปตัวเดียวการโอนพัง" },
       { code: String.raw`\x01DCC SEND <filename> <ip-as-uint32> <port> <size>\x01`,
         cap: "server ไม่ได้ส่งไฟล์เอง — ไฟล์วิ่งตรงระหว่าง client สองเครื่อง", lang: "txt" },
       { note: "**กับดักการ parse:** ชื่อไฟล์มีช่องว่างได้ (จะใส่เครื่องหมายคำพูดหรือไม่ก็ได้) ให้อ่าน address, port และ size จาก **3 ฟิลด์สุดท้าย** แล้วถือว่าทุกอย่างระหว่าง `SEND` กับสามตัวนั้นคือชื่อไฟล์ ตัดเครื่องหมายคำพูดออก — ถ้าใช้ index ตายตัว port จะกลายเป็น size เงียบ ๆ" },
       { p: "การบันทึกข้อเสนอไว้ (เพื่อให้คำสั่ง `!dcc` ลิสต์ได้ และเพื่อลบทิ้งเมื่อฝ่ายใดฝ่ายหนึ่งหลุด) คือสิ่งที่ทำให้ฟีเจอร์นี้ 'มองเห็นได้' จากฝั่ง server" },
-      { h: "ทริค 4 — `bircd` ที่แถมมากับ subject" },
+      { h: "ทริค 4 — bircd ที่แถมมากับ subject" },
       { p: "`bircd.tar.gz` เป็น server ภาษา C บน `select()` ขนาดเล็ก **ใช้เป็นแบบอ้างอิงรูปร่างเท่านั้น** — event loop และกฎ 'arm write เฉพาะตอน buffer ไม่ว่าง' ของมันถูกต้อง" },
       { p: "**อย่าลอก**: มันเป็น C, ใช้ `select()`, broadcast ผลของ `recv()` ดิบ ๆ โดยไม่ประกอบ packet ใหม่ (ซึ่งตกเทสต์ IV.3 ของ subject เอง) และเมิน return value ของ `send()`" },
       { p: "ถ้า `gzip`/`tar` บนเครื่องหนึ่งรายงาน CRC ผิดพลาด ลอง `gzip -dc` ใน WSL — archive นี้เป็น multi-member gzip ที่ตัวอ่านบางตัวจัดการไม่ถูก" },
@@ -631,12 +631,12 @@ Object.assign(window.TEACHING_EN, {
   ft_irc: {
     principle: [
       { h: "What the project asks for" },
-      { p: "Write an **IRC server** in C++98, run as `./ircserv <port> <password>`, that **a real client** (irssi, HexChat) can connect to and chat through: register with PASS/NICK/USER, join channels, send messages, and give operators KICK / INVITE / TOPIC / MODE." },
+      { p: "Write an **IRC server **in C++98, run as** `./ircserv <port> <password>`**, that** a real client** (irssi, HexChat) can connect to and chat through: register with PASS/NICK/USER, join channels, send messages, and give operators KICK / INVITE / TOPIC / MODE." },
       { p: "**No norminette** — a C++ project built with `-Wall -Wextra -Werror -std=c++98`, no Boost, no external libraries." },
       { h: "The three structural rules graded before any feature" },
       { table: { head: ["Rule", "How to satisfy it"], rows: [
-        ["**No `fork()`**", "One process, always, no exceptions"],
-        ["**One `poll()`** (or equivalent) for listening, reading and writing", "Calling `recv`/`send` on a descriptor poll did not report ready is **an explicit zero** in the subject text"],
+        ["**No** `fork()`", "One process, always, no exceptions"],
+        ["**One** `poll()` (or equivalent) for listening, reading and writing", "Calling `recv`/`send` on a descriptor poll did not report ready is **an explicit zero** in the subject text"],
         ["**Every descriptor non-blocking**", "Including the listening socket"]
       ]}},
       { p: "Make them auditable: **confine every socket syscall to a single file** (e.g. `src/ServerLoop.cpp`) and grep for it in your test suite" },
@@ -713,10 +713,10 @@ $ irssi -c 127.0.0.1 -p 6667 -w secret
         "First character: a letter or one of `[` `]` `\\` `_` `^` `{` `|` `}` and the backquote",
         "Then: letters, digits, those specials, or `-`",
         "At most 9 characters",
-        "**`NICK ab cd` is not an error** — a space separates parameters, so the nick is simply `ab`"
+        "`NICK ab cd` **is not an error** — a space separates parameters, so the nick is simply `ab`"
       ]},
       { h: "5) PRIVMSG and NOTICE" },
-      { p: "Relay with the **sender's** prefix: `:nick!user@host PRIVMSG #chan :text`. Channel messages go to every member **except the sender**." },
+      { p: "Relay with the **sender's **prefix:** `:nick!user@host PRIVMSG #chan :text`**. Channel messages go to every member** except the sender**." },
       { p: "`NOTICE` is delivered identically but **must never produce an error reply** (RFC 2812 §3.3.2) — it exists precisely so bots can talk without triggering infinite error loops." },
       { h: "6) Channel MODE" },
       { table: { head: ["Mode", "arg on +", "arg on -", "Effect"], rows: [
@@ -726,7 +726,7 @@ $ irssi -c 127.0.0.1 -p 6667 -w secret
         ["`o`", "**yes**", "**yes**", "grant/revoke operator; a non-member → `441`"],
         ["`l`", "**yes**", "no", "user limit; non-numeric or `<= 0` ignored silently"]
       ]}},
-      { p: "Process letters **left to right**, consuming arguments in order, then broadcast **one** consolidated line listing only what actually changed (so `+i-i+i` produces a single line). An unknown letter is `472` and **does not abort the rest**. `MODE #chan` with no mode string is `324`." },
+      { p: "Process letters **left to right**, consuming arguments in order, then broadcast **one **consolidated line listing only what actually changed (so** `+i-i+i` **produces a single line). An unknown letter is** `472` **and** does not abort the rest**. `MODE #chan` with no mode string is `324`." },
       { h: "7) The minimum numeric set" },
       { code: String.raw`001 002 003 004      welcome
 331 332              no topic / topic
@@ -767,14 +767,14 @@ _sweepDisconnected()   // delete clients whose output has drained`,
       { note: "**Iterate a snapshot of the pollfd vector** — `accept` pushes new entries and a disconnect erases entries, and both invalidate iterators mid-tick." },
       { h: "Five bugs that decide the grade" },
       { h: "Bug 1: partial reads — TCP has no message boundaries" },
-      { p: "**Never parse what `recv()` returned.** Append to a per-client buffer and only hand out a line once `\\n` is present." },
+      { p: "**Never parse what** `recv()` **returned.** Append to a per-client buffer and only hand out a line once `\\n` is present." },
       { code: String.raw`the subject tests this directly with  nc -C  sending three packets:
     "com"   ->  buffer = "com"          no \n yet: do nothing
     "man"   ->  buffer = "comman"       no \n yet: do nothing
     "d\n"   ->  buffer = "command\n"    \n found: dispatch "command" once`,
         cap: "A server that answers three times is a server that failed this test", lang: "txt" },
       { h: "Bug 2: two line terminators" },
-      { p: "irssi sends `\\r\\n`, `nc` sends a bare `\\n`. **Split on `\\n` and strip a trailing `\\r`**, and **always send `\\r\\n`**. A lone `\\r` is not a terminator." },
+      { p: "irssi sends `\\r\\n`, `nc` sends a bare `\\n`. **Split on** `\\n` **and strip a trailing** `\\r`, and **always send** `\\r\\n`. A lone `\\r` is not a terminator." },
       { h: "Bug 3: partial sends" },
       { p: "`send()` on a non-blocking socket routinely writes less than asked. **Erase exactly the returned count** and keep the tail queued. Treating a short write as complete silently truncates messages under load." },
       { code: String.raw`void Client::flush() {
@@ -786,7 +786,7 @@ _sweepDisconnected()   // delete clients whose output has drained`,
       { h: "Bug 4: POLLOUT always armed = 100% CPU" },
       { p: "Request `POLLOUT` only while that client has queued bytes — the same rule the `bircd` example encodes as `if (strlen(buf_write) > 0) FD_SET(i, &fd_write)`." },
       { h: "Bug 5: deleting a client mid-broadcast" },
-      { p: "**Handlers must never `delete`.** Use three beats instead:" },
+      { p: "**Handlers must never** `delete`**.** Use three beats instead:" },
       { code: String.raw`1. mark: set the _dead flag
       at mark time remove the client from every channel
       (so no container holds a stale pointer), then broadcast its QUIT
@@ -805,7 +805,7 @@ _sweepDisconnected()   // delete clients whose output has drained`,
     std::string _nick, _user, _real, _host;
     std::set<std::string> _channels;   // names, not pointers
 };`, cap: "Storing channel names rather than Channel pointers removes a whole family of dangling-pointer bugs", lang: "cpp" },
-      { p: "**Cap `_in`** (8 KiB is fine): a peer that never sends `\\n` must not grow it without bound — past the cap, drop them with `ERROR :Input line too long`." }
+      { p: "**Cap** `_in` (8 KiB is fine): a peer that never sends `\\n` must not grow it without bound — past the cap, drop them with `ERROR :Input line too long`." }
     ],
     architecture: [
       { p: "Split by responsibility, and confine every socket syscall to one place so the rules stay provable." },
@@ -876,7 +876,7 @@ static const Entry TABLE[] = {
         ["`_channels`", "folded channel name", "Find channels and destroy empty ones"],
         ["`_pfds`", "—", "The array rebuilt before every poll"]
       ]}},
-      { note: "**Update `_nickIndex` atomically on every nick change** (erase the old key, insert the new one). Forgetting this creates ghost nicks that reserve a name with nobody behind it." }
+      { note: "**Update** `_nickIndex` **atomically on every nick change** (erase the old key, insert the new one). Forgetting this creates ghost nicks that reserve a name with nobody behind it." }
     ],
     dataflow: [
       { p: "One batch of bytes from arrival to broadcast." },
@@ -961,7 +961,7 @@ one broadcast line:  :alice!user@host MODE #42 +it-o bob`,
         ["Connects but can never join a channel", "No `005 RPL_ISUPPORT`"],
         ["Every join logs a ban-list error", "`MODE #chan b` unanswered — reply with an empty `368`"]
       ]}},
-      { p: "Replying `:<server> CAP * LS :` (an empty list) and `NAK` to any `CAP REQ` is enough for this subject. Ban lists are out of scope, so answer `368 RPL_ENDOFBANLIST` with an empty list **rather than `482`** — otherwise every join logs an error in the client." }
+      { p: "Replying `:<server> CAP * LS :` (an empty list) and `NAK` to any `CAP REQ` is enough for this subject. Ban lists are out of scope, so answer `368 RPL_ENDOFBANLIST` with an empty list **rather than** `482` — otherwise every join logs an error in the client." }
     ],
     implementation: [
       { p: "C++98 skeletons you can build on directly." },
@@ -1137,12 +1137,12 @@ irssi -c 127.0.0.1 -p 6667 -w secret`,
         "**And keep relaying the original message to the channel** — the bot observes, it does not swallow"
       ]},
       { h: "Trick 3 — file transfer is DCC, and DCC is peer-to-peer" },
-      { p: "The offer travels as CTCP inside a normal `PRIVMSG` — **the server's real job is to relay it byte for byte, `\\x01` markers included.** One mangled character kills the transfer." },
+      { p: "The offer travels as CTCP inside a normal `PRIVMSG` — **the server's real job is to relay it byte for byte,** `\\x01` **markers included.** One mangled character kills the transfer." },
       { code: String.raw`\x01DCC SEND <filename> <ip-as-uint32> <port> <size>\x01`,
         cap: "The server never carries the file — it flows directly between the two clients", lang: "txt" },
       { note: "**Parsing trap:** a filename may contain spaces, quoted or not. Read the address, port and size from the **last three fields** and treat everything between `SEND` and them as the name, stripping quotes. Fixed indices silently turn the port into the size." },
       { p: "Recording the offers — so a `!dcc` command can list them, and so they are dropped when either peer disconnects — is what makes the feature visible server-side." },
-      { h: "Trick 4 — the `bircd` example shipped with the subject" },
+      { h: "Trick 4 — the bircd example shipped with the subject" },
       { p: "`bircd.tar.gz` is a small `select()`-based C server. It is **useful only as a shape reference** — its event loop and its 'arm write only when the buffer is non-empty' rule are right." },
       { p: "**Do not copy it**: it is C, uses `select()`, broadcasts raw `recv()` output without reassembling packets (which fails the subject's own IV.3 test), and ignores the `send()` return value." },
       { p: "If `gzip`/`tar` on one toolchain reports a CRC failure, try `gzip -dc` under WSL — the archive is a multi-member gzip that some readers mishandle." },
@@ -1249,13 +1249,13 @@ window.EXTRA_FLOWS.ft_irc = {
       data: "poll(pfds, n, 500)   timeout 500ms ให้ SIGINT ตอบสนองไว",
       vars: [ { n: "_pfds", d: { th: "เดินบน snapshot เพราะ accept/disconnect แก้ vector กลางรอบ", en: "iterated as a snapshot: accept and disconnect mutate the vector mid-tick" }, w: true } ] },
     { fn: "recv() -> Client::appendIn()", file: "src/ServerLoop.cpp", depth: 1,
-      note: { th: "**ห้าม parse สิ่งที่ `recv()` คืนมาโดยตรง** TCP เป็นสายของ byte ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client ไว้ก่อนเสมอ",
-              en: "**Never parse what `recv()` returned.** TCP is a byte stream with no message boundaries: always append to the per-client buffer first." },
+      note: { th: "**ห้าม parse สิ่งที่** `recv()` **คืนมาโดยตรง** TCP เป็นสายของ byte ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client ไว้ก่อนเสมอ",
+              en: "**Never parse what** `recv()` **returned.** TCP is a byte stream with no message boundaries: always append to the per-client buffer first." },
       data: "packet 1: \"JOIN #4\"      _in = \"JOIN #4\"   (ยังไม่มี \n)",
       vars: [ { n: "_in", v: "\"JOIN #4\"", d: { th: "ยังไม่ครบบรรทัด จึงยังไม่ทำอะไร", en: "not a whole line yet, so nothing happens" }, w: true } ] },
     { fn: "Client::extractLine()", file: "src/Client.cpp", depth: 2,
-      note: { th: "ดึงออกมาก็ต่อเมื่อเจอ `\n` แล้วตัด `\r` ท้ายทิ้งถ้ามี — irssi ส่ง `\r\n` แต่ `nc` ส่ง `\n` เปล่า ต้องรับได้ทั้งคู่ และ **ส่งออกด้วย `\r\n` เสมอ**",
-              en: "A line comes out only once `\n` appears, with a trailing `\r` stripped — irssi sends `\r\n` while `nc` sends a bare `\n`, both must work, and you **always send `\r\n`**." },
+      note: { th: "ดึงออกมาก็ต่อเมื่อเจอ `\n` แล้วตัด `\r` ท้ายทิ้งถ้ามี — irssi ส่ง `\r\n` แต่ `nc` ส่ง `\n` เปล่า ต้องรับได้ทั้งคู่ และ **ส่งออกด้วย** `\r\n` **เสมอ**",
+              en: "A line comes out only once `\n` appears, with a trailing `\r` stripped — irssi sends `\r\n` while `nc` sends a bare `\n`, both must work, and you **always send** `\r\n`." },
       data: "packet 2: \"2\r\n\"   _in = \"JOIN #42\r\n\"  ->  line = \"JOIN #42\"",
       vars: [ { n: "line", v: "\"JOIN #42\"", d: { th: "dispatch ครั้งเดียว ไม่ใช่สองครั้ง", en: "dispatched once, not twice" }, w: true } ] },
     { fn: "Message::parse()", file: "src/Message.cpp", depth: 2,
@@ -1303,8 +1303,8 @@ window.EXTRA_FLOWS.ft_irc = {
         vars: [
           { n: "revents", d: { th: "แหล่งความจริงเดียวว่าจะแตะ fd ไหน", en: "the only source of truth about which fd to touch" } } ] },
       { fn: "recv(fd9)", file: "src/ServerLoop.cpp", depth: 1,
-        note: { th: "packet ที่ 1 มาถึง — **ห้าม parse ผลของ `recv` ตรง ๆ** เพราะ TCP ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client เท่านั้น",
-                en: "The first packet arrives — **never parse what `recv` returned**, because TCP has no message boundaries; append to the per-client buffer instead" },
+        note: { th: "packet ที่ 1 มาถึง — **ห้าม parse ผลของ** `recv` **ตรง ๆ** เพราะ TCP ไม่มีขอบเขตข้อความ ต่อท้าย buffer ต่อ client เท่านั้น",
+                en: "The first packet arrives — **never parse what** `recv` **returned**, because TCP has no message boundaries; append to the per-client buffer instead" },
         data: "_in = \"PRIVM\"",
         vars: [
           { n: "_in", v: "\"PRIVM\"", d: { th: "ยังไม่มี `\\n` จึงยังไม่ทำอะไร", en: "no `\\n` yet, so nothing happens" }, w: true } ] },
@@ -1321,8 +1321,8 @@ window.EXTRA_FLOWS.ft_irc = {
         vars: [
           { n: "_in", d: { th: "ครบบรรทัดแล้ว", en: "a complete line at last" }, w: true } ] },
       { fn: "extractLine() -> true", file: "src/Client.cpp", depth: 2,
-        note: { th: "ตัดที่ `\\n` แล้ว **ตัด `\\r` ท้ายทิ้งถ้ามี** — irssi ส่ง `\\r\\n` แต่ `nc` ส่ง `\\n` เปล่า ต้องรับทั้งคู่ ส่วนขาออกส่ง `\\r\\n` เสมอ",
-                en: "Split on `\\n` and **strip a trailing `\\r`** — irssi sends `\\r\\n` while `nc` sends a bare `\\n`, so both must work; outgoing lines always use `\\r\\n`" },
+        note: { th: "ตัดที่ `\\n` แล้ว **ตัด** `\\r` **ท้ายทิ้งถ้ามี** — irssi ส่ง `\\r\\n` แต่ `nc` ส่ง `\\n` เปล่า ต้องรับทั้งคู่ ส่วนขาออกส่ง `\\r\\n` เสมอ",
+                en: "Split on `\\n` and **strip a trailing** `\\r` — irssi sends `\\r\\n` while `nc` sends a bare `\\n`, so both must work; outgoing lines always use `\\r\\n`" },
         data: "line = \"PRIVMSG #42 :hi\"   (ตอบครั้งเดียว ไม่ใช่ 3 ครั้ง)",
         vars: [
           { n: "line", v: "\"PRIVMSG #42 :hi\"", d: { th: "หนึ่งคำสั่งจากสาม packet", en: "one command out of three packets" }, w: true } ] },

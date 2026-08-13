@@ -123,7 +123,7 @@ log-likelihood:  y log ŷ + (1 − y) log(1 − ŷ)
 → minimize  L = −[ y log ŷ + (1 − y) log(1 − ŷ) ]`,
         cap: "y เป็น 0 หรือ 1 เท่านั้น จึงเหลือพจน์เดียวเสมอ — เป็นการเขียนสองกรณีให้อยู่ในบรรทัดเดียว", lang: "txt" },
       { h: "8) ทำไมถึงไม่มีสูตรปิด" },
-      { p: "อนุพันธ์ของ log loss เทียบกับ `w` ให้สมการที่ **`w` ติดอยู่ข้างใน `σ` ซึ่งเป็นฟังก์ชันไม่เชิงเส้น** จึงแยก `w` ออกมาอยู่ข้างเดียวไม่ได้ — ต่างจาก MSE ที่แยกได้สวยงาม" },
+      { p: "อนุพันธ์ของ log loss เทียบกับ `w` ให้สมการที่ `w` **ติดอยู่ข้างใน** `σ` **ซึ่งเป็นฟังก์ชันไม่เชิงเส้น** จึงแยก `w` ออกมาอยู่ข้างเดียวไม่ได้ — ต่างจาก MSE ที่แยกได้สวยงาม" },
       { code: String.raw`∂L/∂w = Xᵀ(σ(Xw) − y)
 
 ตั้งเป็นศูนย์:  Xᵀ(σ(Xw) − y) = 0
@@ -193,7 +193,7 @@ Logistic:  ∂L/∂w = (1/n) Xᵀ(σ(Xw) − y)
 
 รูปเดียวกัน:  Xᵀ (ทำนาย − จริง)`,
         cap: "ต่างกันแค่ฟังก์ชันที่ครอบ Xw — นี่คือสิ่งที่ generalized linear model พูดถึง", lang: "txt" },
-      { p: "**ตีความ gradient เป็นภาษาคน**: `(ทำนาย − จริง)` คือความผิดพลาดต่อแถว คูณด้วย `Xᵀ` คือถามว่า **feature ไหนดังตอนที่ผิด** — feature ที่มีค่ามากในแถวที่ทำนายผิดมาก จะได้รับการปรับมากที่สุด" },
+      { p: "**ตีความ gradient เป็นภาษาคน**:** `(ทำนาย − จริง)` **คือความผิดพลาดต่อแถว คูณด้วย** `Xᵀ` **คือถามว่า** feature ไหนดังตอนที่ผิด** — feature ที่มีค่ามากในแถวที่ทำนายผิดมาก จะได้รับการปรับมากที่สุด" },
       { h: "Regularization เขียนเป็นสมการ" },
       { table: { head: ["ชื่อ", "loss ที่เพิ่ม", "ผล", "มีสูตรปิดไหม"], rows: [
         ["**Ridge (L2)**", "`+ λ‖w‖²`", "บีบทุกตัวเข้าใกล้ศูนย์อย่างนุ่มนวล", "**มี**"],
@@ -211,7 +211,7 @@ Dummy (k−1):  แดง=[0,0]    เขียว=[1,0]    น้ำเงิ�
       { h: "การตีความสัมประสิทธิ์" },
       { table: { head: ["โมเดล", "สัมประสิทธิ์ w₁ = 0.5 แปลว่า"], rows: [
         ["**Linear**", "x₁ เพิ่ม 1 หน่วย → ŷ เพิ่ม 0.5 หน่วย **โดยที่ตัวอื่นคงที่**"],
-        ["**Logistic**", "x₁ เพิ่ม 1 หน่วย → log-odds เพิ่ม 0.5 → **odds คูณด้วย `e^0.5` = 1.65 เท่า**"],
+        ["**Logistic**", "x₁ เพิ่ม 1 หน่วย → log-odds เพิ่ม 0.5 → **odds คูณด้วย** `e^0.5` **= 1.65 เท่า**"],
         ["**Logistic (สเกลแล้ว)**", "x₁ เพิ่ม 1 ส่วนเบี่ยงเบนมาตรฐาน → odds คูณ 1.65 เท่า"]
       ]}},
       { p: "**คำว่า 'โดยที่ตัวอื่นคงที่' คือจุดที่ multicollinearity ทำลายทุกอย่าง** — ถ้า `x₂ ≈ 2x₁` การเพิ่ม `x₁` โดยที่ `x₂` คงที่นั้นเป็นไปไม่ได้ในข้อมูลจริง การตีความจึงไร้ความหมาย" }
@@ -485,7 +485,7 @@ MLE จะพยายามผลัก w → ∞ เพื่อให้ σ �
       { ul: [
         "**สเกลเสมอเมื่อใช้ regularization** — ไม่มีข้อยกเว้น",
         "**ตรวจ VIF ก่อนตีความสัมประสิทธิ์** — ไม่ตรวจก็อย่าตีความ",
-        "**ไล่ `C` แบบ log scale** เพราะผลเป็นเชิงคูณ",
+        "**ไล่** `C` **แบบ log scale** เพราะผลเป็นเชิงคูณ",
         "**อย่าลงโทษ bias** ในการทำ regularization",
         "**รายงาน odds ratio ไม่ใช่สัมประสิทธิ์ดิบ** เมื่อคุยกับคนที่ไม่ใช่สายเทคนิค",
         "**เทียบกับ baseline เสมอ** — linear model ที่ชนะ baseline ไม่ได้ก็คือมีบั๊ก"
@@ -676,7 +676,7 @@ log-likelihood:  y log ŷ + (1 − y) log(1 − ŷ)
 → minimise  L = −[ y log ŷ + (1 − y) log(1 − ŷ) ]`,
         cap: "y is only ever 0 or 1, so one term always vanishes — it is two cases written on one line", lang: "txt" },
       { h: "8) Why there is no closed form" },
-      { p: "Differentiating log loss with respect to `w` leaves **`w` trapped inside `σ`, which is non-linear**, so it cannot be isolated algebraically — unlike MSE, where it separates cleanly." },
+      { p: "Differentiating log loss with respect to `w` leaves `w` **trapped inside** `σ`**, which is non-linear**, so it cannot be isolated algebraically — unlike MSE, where it separates cleanly." },
       { code: String.raw`∂L/∂w = Xᵀ(σ(Xw) − y)
 
 set it to zero:  Xᵀ(σ(Xw) − y) = 0
@@ -745,7 +745,7 @@ Logistic:  ∂L/∂w = (1/n) Xᵀ(σ(Xw) − y)
 
 the same shape:  Xᵀ (prediction − truth)`,
         cap: "Only the function wrapping Xw differs — which is what generalized linear models are about", lang: "txt" },
-      { p: "**Read the gradient in plain language**: `(prediction − truth)` is the error per row, and multiplying by `Xᵀ` asks **which features were loud when it was wrong** — a feature with a large value on a badly predicted row receives the largest correction." },
+      { p: "**Read the gradient in plain language**:** `(prediction − truth)` **is the error per row, and multiplying by** `Xᵀ` **asks** which features were loud when it was wrong** — a feature with a large value on a badly predicted row receives the largest correction." },
       { h: "Regularisation as equations" },
       { table: { head: ["Name", "Added to the loss", "Effect", "Closed form?"], rows: [
         ["**Ridge (L2)**", "`+ λ‖w‖²`", "Shrinks everything smoothly toward zero", "**Yes**"],
@@ -763,7 +763,7 @@ Dummy (k−1):  red=[0,0]    green=[1,0]    blue=[0,1]   ← red is the baseline
       { h: "Interpreting coefficients" },
       { table: { head: ["Model", "A coefficient of w₁ = 0.5 means"], rows: [
         ["**Linear**", "One more unit of x₁ raises ŷ by 0.5 **with everything else held constant**"],
-        ["**Logistic**", "One more unit of x₁ raises the log-odds by 0.5, so **the odds are multiplied by `e^0.5` = 1.65**"],
+        ["**Logistic**", "One more unit of x₁ raises the log-odds by 0.5, so **the odds are multiplied by** `e^0.5` **= 1.65**"],
         ["**Logistic (scaled)**", "One more standard deviation of x₁ multiplies the odds by 1.65"]
       ]}},
       { p: "**The phrase \"with everything else held constant\" is exactly what multicollinearity destroys.** If `x₂ ≈ 2x₁`, increasing `x₁` while holding `x₂` fixed never happens in the real data, so the interpretation is empty." }
@@ -1033,7 +1033,7 @@ MLE pushes w → ∞ so that σ approaches exactly 0 and 1
       { ul: [
         "**Always scale when regularising** — no exceptions",
         "**Check VIF before interpreting coefficients** — no check, no interpretation",
-        "**Sweep `C` logarithmically**, because its effect is multiplicative",
+        "**Sweep** `C` **logarithmically**, because its effect is multiplicative",
         "**Never penalise the bias** when regularising",
         "**Report odds ratios rather than raw coefficients** to a non-technical audience",
         "**Always compare against a baseline** — a linear model that cannot beat one has a bug"

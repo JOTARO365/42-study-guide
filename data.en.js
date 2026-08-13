@@ -322,8 +322,8 @@ int  *p = &x;   // p holds "the address of x"  (& = address-of)
     return (node);                          // return the ADDRESS of the new box
 }`, cap: "malloc reserves heap memory → you must free it yourself later; always check for NULL", lang: "c" },
       { note: "`node->val` is shorthand for `(*node).val` = follow the pointer to the struct and touch field val. Use -> when the variable is a pointer to a struct." },
-      { h: "3) Why a double pointer (t_node **top)?" },
-      { p: "When we push/pop/rotate we sometimes have to **change the 'head' (top) itself**. Passing just a `t_node *` would only change a copy — the caller's variable wouldn't move. So we pass **the address of the top variable** = `t_node **`." },
+      { h: "3) Why a double pointer (t_node top)?" },
+      { p: "When we push/pop/rotate we sometimes have to **change the 'head' (top) itself**. Passing just a `t_node *` would only change a copy — the caller's variable wouldn't move. So we pass **the address of the top variable **= `t_node** `." },
       { code: String.raw`void stack_push(t_node **top, t_node *node) {
     node->next = *top;   // new node points at the old head
     *top = node;         // *top = change the caller's actual top variable
@@ -561,7 +561,7 @@ disorder >= 0.5  -> binary radix      (O(n log n))`, cap: "The subject fixes the
       { p: "`ps->silent` means the same op functions both build the command list (printing) and replay it in the checker (silent) — no second set of ops that can drift out of sync" },
       { h: "Trick 6: bring_to_top picks the shorter direction" },
       { p: "Compare `pos` with `size / 2` — above it rotate forwards, below it rotate backwards. This one line removes nearly half the ops compared with always rotating forwards" },
-      { h: "Trick 7: detect overflow in a `long` with separate bounds" },
+      { h: "Trick 7: detect overflow in a long with separate bounds" },
       { p: "Accumulate in a `long` and compare against `INT_MAX` / `INT_MIN` — checking on the `int` itself is too late, because it has already wrapped by the time you look" },
       { h: "Trick 8: judge by the worst of several runs, not one" },
       { p: "Random input produces noticeably different op counts — run 5 to 10 times and take the worst, because the evaluator randomises too and will never get your lucky set" },
@@ -721,7 +721,7 @@ If the monitor reads last_meal in the middle:
    t5  │                    │ store R_B -> 5     │  5   <- overwrites!
 
   -> 2 meals eaten but meals_eaten = 5 (should be 6) -> must_eat breaks`, cap: "the load/compute/store of 2 threads 'interleave' — a mutex forces those 3 steps to finish before another thread starts", lang: "txt" },
-      { p: "**Why the monitor can mis-judge death even though `last_meal` is written in one go:** on x86-64, an aligned 64-bit `long` load or store really is atomic at the CPU level — you will not read 'half old, half new'. CPU-level atomicity is not enough though, because the trouble is the **compiler** and the **ordering of multiple reads**:" },
+      { p: "**Why the monitor can mis-judge death even though** `last_meal` **is written in one go:** on x86-64, an aligned 64-bit `long` load or store really is atomic at the CPU level — you will not read 'half old, half new'. CPU-level atomicity is not enough though, because the trouble is the **compiler** and the **ordering of multiple reads**:" },
       { code: String.raw`Problem 1 — the compiler keeps the value in a register
   the monitor writes:  while (get_time() - philo->last_meal < t_die) ...
   nothing in this function modifies last_meal, as far as the compiler can see
@@ -763,7 +763,7 @@ pthread_mutex_unlock(&philo->meal_lock);
         ["Scope", "within one process (shared memory)", "across processes (named: sem_open)"],
         ["philosophers uses it for", "mandatory (1 thread/philo, 1 mutex/fork)", "bonus (1 process/philo, a semaphore counting forks)"],
       ]}},
-      { p: "**Why bonus must switch to a semaphore:** bonus uses `fork()` to split into separate processes → **memory is not shared** → a mutex (which lives in shared memory) can't work across processes. A named semaphore (`sem_open`) lives in the OS; every process opens it by the same name and they share it." },
+      { p: "**Why bonus must switch to a semaphore: **bonus uses** `fork()` **to split into separate processes →** memory is not shared** → a mutex (which lives in shared memory) can't work across processes. A named semaphore (`sem_open`) lives in the OS; every process opens it by the same name and they share it." },
       { code: String.raw`bonus: forks = one semaphore, counter = number of free forks
   sem_t *forks = sem_open("/forks", O_CREAT, 0644, num_philo);
 
@@ -833,7 +833,7 @@ each person needs left+right forks to eat
 -> both neighbours want the same fork = contention`, cap: "Forks are scarce, people outnumber them -> you must schedule so everyone eats and nobody starves", lang: "txt" },
       { h: "Win/lose conditions" },
       { ul: [
-        "If any philosopher **doesn't eat within `time_to_die` ms** since their last meal → they **die** → the program must print `died` and stop immediately",
+        "If any philosopher **doesn't eat within** `time_to_die` **ms** since their last meal → they **die** → the program must print `died` and stop immediately",
         "No philosopher may die — you must time things so everyone eats in time",
         "If a 5th argument (`must_eat`) is given: once everyone has eaten that many meals → end the simulation cleanly",
       ]},
@@ -1224,7 +1224,7 @@ c:      child  stdin→5 (pipe2 read), stdout→real stdout ; close → exec c
 
 if the parent "forgets" close(fds[1]): refcount stays at 1 forever
   -> cmd2 reads stdin waiting for an EOF that never comes -> hang`, cap: "EOF is a function of the refcount: it must be 0 — forget one close, the refcount never hits 0 = hang", lang: "txt" },
-      { p: "**heredoc uses the same principle:** `<< EOF` is a pipe where the parent writes the heredoc lines to the write end then **closes the write end** to send EOF so the reading command finishes — if you don't close it, the command waits for more input forever." },
+      { p: "**heredoc uses the same principle: `<< EOF` **is a pipe where the parent writes the heredoc lines to the write end then** closes the write end** to send EOF so the reading command finishes — if you don't close it, the command waits for more input forever." },
       { note: "Try it: write `cat | cat | cat` and deliberately comment out one of the parent's close(fds[1]) lines → it hangs. Run `ls -l /proc/<pid>/fd` and you'll see the write end still open, exactly as the refcount theory predicts." },
       { qa: [
         { q: "Why isn't closing the main write end enough — why close every copy?", a: "Because EOF depends on the refcount = the number of write-end copies still open. Leave even one open (e.g. the parent forgot) and the refcount ≠ 0 → the read end never gets EOF → hang." },
@@ -1240,7 +1240,7 @@ if the parent "forgets" close(fds[1]): refcount stays at 1 forever
   command running -> child sets signal to DEFAULT -> Ctrl-C kills the child
                     (not the shell) ; shell records $? = 128 + SIGINT(2) = 130
   in a heredoc   -> Ctrl-C cancels the heredoc, returns to prompt ; $? = 130`, cap: "the shell at the prompt 'catches' SIGINT but the child 'lets it default' -> Ctrl-C hits the command, not the shell", lang: "txt" },
-      { p: "**Why a single global (`g_signal`):** a signal handler must not do heavy work / touch big structs (async-signal-safety). The safe pattern is for the handler to just 'record the signal number' into a `volatile sig_atomic_t g_signal`, and let the main loop read it later to set `$?` — this is the one global the subject allows." },
+      { p: "**Why a single global (**`g_signal`**):** a signal handler must not do heavy work / touch big structs (async-signal-safety). The safe pattern is for the handler to just 'record the signal number' into a `volatile sig_atomic_t g_signal`, and let the main loop read it later to set `$?` — this is the one global the subject allows." },
       { p: "**$? propagation — the standard values:**" },
       { code: String.raw`standard exit codes (stored in sh->exit_status = $?):
   0          success
@@ -1533,7 +1533,7 @@ valgrind --leak-check=full ./minishell`, lang: "bash" },
   "fdf": {
     principle: [
       { h: "What's the problem" },
-      { p: "**FdF = Fil de Fer** (French for 'wireframe', literally 'iron wire'). Read a `.fdf` file that is a **grid of altitude numbers (z)** and draw it as a **3D wireframe** in a window using MiniLibX." },
+      { p: "**FdF = Fil de Fer **(French for 'wireframe', literally 'iron wire'). Read a** `.fdf` **file that is a** grid of altitude numbers (z)** and draw it as a **3D wireframe** in a window using MiniLibX." },
       { code: String.raw`.fdf file:           drawn as:
 0  0  0  0              ◇──◇──◇──◇
 0  5  5  0      →      ╱ ╲╱ ╲╱ ╲ ╲
@@ -1570,7 +1570,7 @@ y_iso = (x + y) · sin(30°) - z · scale`, cap: "rotate the grid 45° then squa
       { code: String.raw`# define COS30 0.866025403784   /* cos(30°) */
 # define SIN30 0.5              /* sin(30°) */`, cap: "embed the constants → faster than calling a math function every time", lang: "c" },
       { h: "4) Linear interpolation (lerp)" },
-      { p: "**lerp** = finding a value between two values linearly with a parameter t (0..1): `result = a + (b - a)·t`. FdF uses lerp to fade **colors** along a line (one end one color, gradually to another)." },
+      { p: "**lerp **= finding a value between two values linearly with a parameter t (0..1):** `result = a + (b - a)·t`**. FdF uses lerp to fade** colors** along a line (one end one color, gradually to another)." },
       { code: String.raw`t = 0.0  →  point a's color (line start)
 t = 0.5  →  the half-blend
 t = 1.0  →  point b's color (line end)`, lang: "txt" },
@@ -1649,7 +1649,7 @@ loop:
 
       { h: "🔬 Deep Dive C: fading color along a line (lerp) — why split R/G/B before mixing" },
       { p: "one end of a line is red, the other blue, and you want the shades to fade in between. Do it with **linear interpolation**: at fraction t (0→1) along the line, the color = a mix of red and blue by t." },
-      { p: "**Key pitfall:** never lerp the whole `0xRRGGBB` number directly — because R/G/B sit in different bit channels, mixing the whole thing overflows across channels. You must **unpack the 3 channels, interpolate each, then repack:**" },
+      { p: "**Key pitfall: **never lerp the whole** `0xRRGGBB` **number directly — because R/G/B sit in different bit channels, mixing the whole thing overflows across channels. You must** unpack the 3 channels, interpolate each, then repack:**" },
       { code: String.raw`int lerp_color(int a, int b, double t)
 {
     int ar=(a>>16)&0xFF, ag=(a>>8)&0xFF, ab=a&0xFF;   // unpack a
@@ -1725,7 +1725,7 @@ typedef struct s_fdf {        /* everything together */
     t_map map;
     t_cam cam;
 } t_fdf;`, cap: "t_fdf is the 'central state blob' — pass one pointer to every function, no globals needed", lang: "c" },
-      { h: "Why z is int ** (pointer to pointer)" },
+      { h: "Why z is int  (pointer to pointer)" },
       { p: "Because the map size isn't known ahead of time (it depends on the file), so you allocate dynamically: `int **z` is an 'array of pointers' each pointing to one row. Access with `z[y][x]` — row y, column x." },
       { code: String.raw`z ──► [ row0 ] ──► [z, z, z, z]   (row 0)
       [ row1 ] ──► [z, z, z, z]   (row 1)
@@ -1936,7 +1936,7 @@ make bonus && ./fdf_bonus maps/mars.fdf   # rotate/zoom/pan`, lang: "bash" },
         ["ex01", "PhoneBook", "2 classes, array of objects, table formatting, std::cin/getline"],
         ["ex02", "Account", "static members, constructor/destructor, encapsulation (reverse from a log)"],
       ]}},
-      { note: "Code reference note: ex02 (Account) is explained from **our real code** (`Account.cpp`) in the project folder. ex00/ex01 source isn't kept here, so those are **reference code written strictly to the subject** to show the approach." },
+      { note: "Code reference note: ex02 (Account) is explained from **our real code **(**`Account.cpp`**) in the project folder. ex00/ex01 source isn't kept here, so those are** reference code written strictly to the subject** to show the approach." },
       { h: "ex00 — Megaphone (shout through a megaphone)" },
       { p: "The module's smallest program: take text from argv and **print it all uppercase**. With no arguments, print a default message. The goal is getting comfortable with `std::cout`, looping argv, and character conversion." },
       { code: String.raw`$ ./megaphone "shhhhh... I think the students are asleep..."
@@ -1946,7 +1946,7 @@ DAMN GOOD IDEA
 $ ./megaphone
 * LOUD AND UNBEARABLE FEEDBACK NOISE *`, cap: "subject behaviour: join all argv -> uppercase; no arg -> default message", lang: "txt" },
       { h: "ex01 — PhoneBook" },
-      { p: "An interactive program: takes `ADD` / `SEARCH` / `EXIT` commands. Stores up to **8 contacts** (overwrites the oldest beyond that). `SEARCH` prints a compact table then asks for an index to see full details. Practices **2 classes** (PhoneBook holds an array of Contact) + column formatting." },
+      { p: "An interactive program: takes `ADD` / `SEARCH` / `EXIT` commands. Stores up to **8 contacts **(overwrites the oldest beyond that).** `SEARCH` **prints a compact table then asks for an index to see full details. Practices** 2 classes** (PhoneBook holds an array of Contact) + column formatting." },
       { code: String.raw`Enter command (ADD / SEARCH / EXIT): ADD
 First name: John
 ...
@@ -1957,7 +1957,7 @@ Enter index: 0
 First name : John
 ...`, cap: "a 4-column table, each column 10 wide, truncated with '.' if too long", lang: "txt" },
       { h: "ex02 — Account (GlobalBanksters United)" },
-      { p: "The classic puzzle: you're given `Account.hpp` (fixed header, don't edit), `tests.cpp` (fixed test program), and an **expected output log** — but **not the `Account.cpp` code**. The job is to **write Account.cpp yourself so the output matches the log exactly** (only the timestamp may differ)." },
+      { p: "The classic puzzle: you're given `Account.hpp` (fixed header, don't edit), `tests.cpp` (fixed test program), and an **expected output log** — but **not the** `Account.cpp` **code**. The job is to **write Account.cpp yourself so the output matches the log exactly** (only the timestamp may differ)." },
       { code: String.raw`[19920104_091532] index:0;amount:42;created
 [19920104_091532] index:1;amount:54;created
 ...
@@ -2005,7 +2005,7 @@ Account b(54);                   // object #2 (money 54)
       ]}},
       { p: "In Account: `_amount`, `_nbAccounts` are all `private` — the outside world sees them only through `public` `checkAmount()`, `getNbAccounts()`." },
       { h: "4) Constructor & Destructor" },
-      { p: "A **constructor** is a special function that runs automatically when an object is **born** (sets initial state). A **destructor** (`~`) runs automatically when an object **dies** (cleanup). The name must match the class." },
+      { p: "A **constructor** is a special function that runs automatically when an object is **born** (sets initial state). A **destructor **(**`~`**) runs automatically when an object** dies** (cleanup). The name must match the class." },
       { code: String.raw`Account( int initial_deposit );  // constructor (takes initial money)
 ~Account( void );                 // destructor (no parameters)`, cap: "in Account both print a timestamp + status (;created / ;closed)", lang: "cpp" },
       { h: "5) Static member — shared by the whole class" },
@@ -2062,7 +2062,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
       ]},
 
       { h: "🔬 Deep Dive B: Constructor/Destructor order — why Account's log reads that way" },
-      { p: "an object is **born** -> the constructor runs (prints `;created`); an object **dies** -> the destructor runs (prints `;closed`). ex02's challenge is making the log order match exactly — which depends on the 'birth/death order'." },
+      { p: "an object is **born **-> the constructor runs (prints** `;created`**); an object** dies** -> the destructor runs (prints `;closed`). ex02's challenge is making the log order match exactly — which depends on the 'birth/death order'." },
       { code: String.raw`ordering rules:
   • the constructor runs when an object is created (in declaration order)
   • the destructor runs when an object expires:
@@ -2086,7 +2086,7 @@ Account c(957): _accountIndex=2,                          _nbAccounts->3, _total
         { q: "What does Account's destructor do?", a: "Prints `[ts] index:..;amount:..;closed` — a static helper _displayTimestamp() + the account's final status when it's destroyed." },
       ]},
 
-      { h: "🔬 Deep Dive C: const-correctness — what `const` after a method really means" },
+      { h: "🔬 Deep Dive C: const-correctness — what const after a method really means" },
       { p: "putting `const` after a method = a promise to the compiler that 'this method only reads, it doesn't modify the object'. It's not just decoration — it lets you call that method on a **const object** and lets the compiler catch accidental writes." },
       { code: String.raw`mechanism: const after a method changes the type of this
   normal method: this is  Account*        -> can modify members
@@ -2111,7 +2111,7 @@ void displayStatus( void ) const {
       ]},
 
       { h: "🔬 Deep Dive D: the this pointer — the hidden pointer that tells a method 'which object called it'" },
-      { p: "one method (`makeDeposit`) works on every account — how does it know whether it's working on a or b right now? The answer is **`this`**, a hidden pointer to the object that called the method." },
+      { p: "one method (`makeDeposit`) works on every account — how does it know whether it's working on a or b right now? The answer is `this`, a hidden pointer to the object that called the method." },
       { code: String.raw`what really happens (desugared): the compiler adds this as a hidden first param
   a.makeDeposit(5);
   -> Account::makeDeposit(&a, 5);     // &a is passed as this
@@ -2602,8 +2602,8 @@ execve(ls): everything above is "wiped" and replaced by ls's
       ]},
     ],
     foundations: [
-      { h: "0) Groundwork: what is char ** (argv, envp, the result of ft_split)" },
-      { p: "`char *` = a pointer to a string (really the address of the first char). `char **` is **a pointer to an array of strings** = 'a list of several strings' — argv, envp, and ft_split's result are all `char **`." },
+      { h: "0) Groundwork: what is char  (argv, envp, the result of ft_split)" },
+      { p: "`char *` = a pointer to a string (really the address of the first char). `char **` is** a pointer to an array of strings **= 'a list of several strings' — argv, envp, and ft_split's result are all `char** `." },
       { code: String.raw`argv -> [ "./pipex" ][ "infile" ][ "ls -l" ][ "wc -l" ][ "outfile" ][ NULL ]
           argv[0]     argv[1]    argv[2]   argv[3]    argv[4]
 each box = char*  (the address of a string) ; terminated by NULL`, cap: "argv is an array of char* ; the last is NULL to mark the end" },
@@ -2624,7 +2624,7 @@ int fio[2];   // files: fio[0] = infile fd, fio[1] = outfile fd`, cap: "pipe(pfd
       { code: String.raw`dup2(infile, STDIN_FILENO);   // make fd 0 (stdin) point to the same as infile
 dup2(pfd[1], STDOUT_FILENO);  // make fd 1 (stdout) point to the pipe's write end`, cap: "after this, when the cmd reads stdin = reads infile, writes stdout = writes into the pipe, unknowingly", lang: "c" },
       { note: "after dup2 you must close the original fd (infile, pfd[...]) because fd 0/1 now point to the same place; leftover fds = a leak and keep the pipe open -> the cmd hangs waiting for EOF" },
-      { h: "4) Memory: ft_split allocates char ** -> needs free_tab" },
+      { h: "4) Memory: ft_split allocates char  -> needs free_tab" },
       { p: "`ft_split` mallocs both the array and every string inside -> you must free them all" },
       { code: String.raw`void free_tab(char **tab) {
     int i = 0;
@@ -2762,10 +2762,10 @@ run_child(prev, fds[1], cmds[n-1], envp);  // last cmd -> outfile`, cap: "extend
     ],
     tricks: [
       { h: "Trick 1: close every fd — including the one you just dup2'd" },
-      { p: "A forgotten fd is the number one cause of a hanging pipeline. **After `dup2` the original fd still counts as a holder of the pipe end** — it has to be closed too, not just the end you never used" },
+      { p: "A forgotten fd is the number one cause of a hanging pipeline. **After** `dup2` **the original fd still counts as a holder of the pipe end** — it has to be closed too, not just the end you never used" },
       { h: "Trick 2: a missing infile is not fatal" },
       { p: "A real shell prints an error and still creates the outfile — use `perror` and carry on rather than exiting. Matching the shell means the evaluator can compare behaviour directly" },
-      { h: "Trick 3: code after `execve` is always the failure path" },
+      { h: "Trick 3: code after execve is always the failure path" },
       { p: "On success it never comes back — so the only thing that belongs after it is `perror` plus `exit(127)`. You don't even need to check its return value" },
       { h: "Trick 4: use the shell's exit codes" },
       { p: "`127` = command not found · `126` = found but not executable · `1` = ran and failed. The evaluator can compare against `echo $?` from a real shell immediately" },
@@ -2773,9 +2773,9 @@ run_child(prev, fds[1], cmds[n-1], envp);  // last cmd -> outfile`, cap: "extend
       { p: "Keep `prev_fd` and pass it along the loop — command i reads from `prev_fd` and writes into a new pipe, whose read end becomes the next round's `prev_fd`. **One code path handles N commands**" },
       { h: "Trick 6: here_doc is just a pipe you fill yourself" },
       { p: "Read stdin until the LIMITER and write it into a pipe's write end — the read end becomes the first command's stdin. And this mode's outfile must be opened with `O_APPEND`, not `O_TRUNC`" },
-      { h: "Trick 7: write `free_tab` once and reuse it" },
+      { h: "Trick 7: write free_tab once and reuse it" },
       { p: "`ft_split` returns an array of strings — free each one, then the array. pipex calls split both for the PATH and for each command's arguments, so it gets used repeatedly" },
-      { h: "Trick 8: `waitpid` for every child" },
+      { h: "Trick 8: waitpid for every child" },
       { p: "Waiting for fewer than all of them leaves zombies and loses the last command's exit status. Take the status from the final child's `waitpid` and use it as pipex's own exit code, exactly as a shell does" },
     ],
     eval: [
@@ -2820,7 +2820,7 @@ valgrind --leak-check=full ./pipex infile "ls" "cat" outfile`, lang: "bash" },
       ]}},
       { p: "**Why flood fill:** it's DFS written as the shortest recursion, matching the project's map scale (not so big it stack-overflows). The idea is to 'flood' the area reachable from the player, and if any C/E is left un-flooded = unreachable = invalid map." },
       { note: "Why on a 'copy': flood fill overwrites cells with 'V' to avoid revisiting — doing it on the real map would wreck it for playing, so copy it to check, then discard." },
-      { h: "Why store the map as char ** (an array of strings)" },
+      { h: "Why store the map as char  (an array of strings)" },
       { p: "A `.ber` file is already multi-line text — split with `ft_split('\\n')` gives a `char**` where `grid[y][x]` is exactly cell (x,y), a 1:1 mapping from file to structure so checking/drawing/walking all use the same coordinates." },
       { h: "Why a camera (not draw the whole map)" },
       { p: "If the map is bigger than the window, drawing every cell overflows the screen and wastes work. The camera idea is to 'draw only the visible part', shifting the frame with the player — the same principle as any 2D game (viewport/scrolling)." },
@@ -2940,7 +2940,7 @@ d  (transition):
     ],
     foundations: [
       { h: "0) Groundwork: why keep everything in one struct" },
-      { p: "A game has a lot of 'state' (window, images, map, player position, move count...). Keeping them as separate variables makes passing them around painful, so we put them in **one struct `t_game`** and pass 'its address' (`&game`) to every function." },
+      { p: "A game has a lot of 'state' (window, images, map, player position, move count...). Keeping them as separate variables makes passing them around painful, so we put them in **one struct** `t_game` and pass 'its address' (`&game`) to every function." },
       { h: "1) The struct is built in layers (nested structs)" },
       { code: String.raw`typedef struct s_map {
     char  **grid;        // map = array of strings (each string = 1 row)
@@ -2958,7 +2958,7 @@ typedef struct s_game {
     int   cam_x, cam_y;  // camera corner
 }   t_game;`, cap: "t_map sits 'inside' t_game (not a pointer) -> access via game.map.width", lang: "c" },
       { note: "`void *` = an untyped pointer. mlx returns void* for us to store and hand back to mlx without knowing its internals (an opaque pointer)." },
-      { h: "2) char **grid = the 2D map" },
+      { h: "2) char grid = the 2D map" },
       { code: String.raw`grid -> [ "111111" ]   <- grid[0]  (top row)
         [ "10C0E1" ]   <- grid[1]
         [ "111111" ]   <- grid[2]
@@ -3028,7 +3028,7 @@ src/free.c      free all memory
  \- mlx_loop ----------> wait for events...
 
 [event] handle_key(key) -> try_move(dx,dy) -> handle_tile (collect/win) -> render_map`, cap: "every function takes one &game (pointer) -> they share the same game state", lang: "txt" },
-      { note: "the main flow: the **grid** (`char **`) is born in build_grid -> scanned by count_chars -> copied for flood_fill in validate -> read by render -> edited (coin pickup) by try_move" },
+      { note: "the main flow: the **grid **(`char** `) is born in build_grid -> scanned by count_chars -> copied for flood_fill in validate -> read by render -> edited (coin pickup) by try_move" },
 
       { h: "🔗 Trace the life of the map (av[1] -> the image on screen)" },
       { code: String.raw`av[1] = "map.ber"
@@ -3120,7 +3120,7 @@ mlx_loop(game.mlx);`, cap: "main.c: bind events then enter the loop", lang: "c" 
     tricks: [
       { h: "Trick 1: always flood fill on a copy" },
       { p: "Check reachability without destroying the real map — copy the grid and fill the copy. Doing it in place means restoring it afterwards, which is far easier to get wrong" },
-      { h: "Trick 2: replace `P` with `0` as soon as the map is parsed" },
+      { h: "Trick 2: replace P with 0 as soon as the map is parsed" },
       { p: "Keep the player's coordinates in `px`/`py` and let that cell be ordinary floor — drawing and movement then never need a 'the player is standing here' special case" },
       { h: "Trick 3: draw the floor first, then draw everything over it" },
       { p: "`.xpm` files with transparent backgrounds show whatever is behind them — without a floor underneath you see leftovers from the previous frame" },
@@ -3170,7 +3170,7 @@ valgrind --leak-check=full ./so_long maps/valid.ber`, lang: "bash" },
       { h: "Why checking |z| > 2 is enough (where the 2 comes from)" },
       { p: "There's a theorem that once |z| grows past 2, it keeps growing to infinity for sure (escape and never return). So 2 is a 'deadline' you can decide on immediately without iterating to the end — this is where the name **escape-time** comes from (count how many iterations to cross this line)." },
       { h: "Why use |z|² > 4 instead of |z| > 2 (a speed reason)" },
-      { p: "`|z| = sqrt(re² + im²)` and taking a square root is **slow**. But `|z| > 2` is exactly equivalent to `|z|² > 4` (square both sides), so we compare `re² + im² > 4` instead — dropping the sqrt. This code runs **millions of times per frame** (800×800 px × dozens of iterations), so saving the sqrt matters a lot for smoothness." },
+      { p: "`|z| = sqrt(re² + im²)` and taking a square root is **slow**. But** `|z| > 2` **is exactly equivalent to** `|z|² > 4` **(square both sides), so we compare** `re² + im² > 4` **instead — dropping the sqrt. This code runs** millions of times per frame** (800×800 px × dozens of iterations), so saving the sqrt matters a lot for smoothness." },
       { h: "Why write pixels into a buffer yourself (not mlx_pixel_put)" },
       { p: "`mlx_pixel_put` sends a draw command to the X server **one dot at a time** — huge overhead with millions of dots. Writing colors into your own **in-memory image buffer** then pushing the whole image once (`mlx_put_image_to_window`) is hundreds of times faster — which is why every fractal renderer does this." },
       { h: "Why Mandelbrot and Julia share the same code" },
@@ -3453,7 +3453,7 @@ b = (int)(8.5  * (1-t)*(1-t)*(1-t)*t * 255);
 return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth gradient; cast to int before shifting — shifting a double doesn't compile", lang: "c" },
     ],
     tricks: [
-      { h: "Trick 1: compare `|z|² > 4` instead of calling `sqrt`" },
+      { h: "Trick 1: compare |z|² > 4 instead of calling sqrt" },
       { p: "Square both sides of `|z| > 2` and you get the same condition with no square root at all — `sqrt` would run millions of times per frame, so removing it is immediately visible" },
       { h: "Trick 2: write straight into the image buffer" },
       { p: "Compute the offset yourself (`addr + y × line_len + x × (bpp / 8)`) and call `mlx_put_image_to_window` once at the end — hundreds of times faster than `mlx_pixel_put` per point, because it doesn't talk to the X server for every pixel" },
@@ -3463,7 +3463,7 @@ return ((r << 16) | (g << 8) | b);`, cap: "a polynomial palette gives a smooth g
       { p: "Convert the mouse position to a complex coordinate first, then scale the frame while pinning that point in place — so whatever you're pointing at doesn't slide away. Evaluators try this immediately" },
       { h: "Trick 5: flip the imaginary axis" },
       { p: "`im = max_im − y × step`, not `min_im + ...` — the screen's y axis grows downwards while the imaginary axis grows upwards. Forget it and the image is upside down while still looking plausible, which is hard to spot" },
-      { h: "Trick 6: clamp `max_iter`" },
+      { h: "Trick 6: clamp max_iter" },
       { p: "Too low and the image is coarse; too high and frames stall — clamp it to roughly 20–1000 and let the user adjust with `+`/`-`. Raising the iteration count while zooming is what keeps detail appearing" },
       { h: "Trick 7: release every MiniLibX resource on exit" },
       { p: "`mlx_destroy_image` → `mlx_destroy_window` → `mlx_destroy_display` → `free(mlx)`. It has to happen for both ESC and the window's X button (event 17) — two exit paths calling the same cleanup function" },
@@ -3578,7 +3578,7 @@ bonus fix:      wait for an ack on every bit (lock-step) — fix at the root`, c
         { q: "How do you fix it?", a: "With an acknowledgement — the receiver signals back 'I got that bit' and the sender waits for it before sending the next. Guessing at a delay isn't the answer, because machines differ in speed." },
         { q: "Why is `sigaction` better than `signal`?", a: "Its behaviour is precisely defined and portable (`signal` varies between systems), it can block signals while the handler runs, and with `SA_SIGINFO` it can receive extra information such as the sender's PID." },
       ]},
-      { h: "🔬 Deep Dive A: bitwise operations — proving why `(c >> bit) & 1` reads the bit right" },
+      { h: "🔬 Deep Dive A: bitwise operations — proving why (c >> bit) & 1 reads the bit right" },
       { p: "The heart of minitalk is 'reading one bit at a time' from a byte. Many write the code but don't grasp what `>>` and `& 1` really do — let's prove it with binary." },
       { code: String.raw`take c = 'A' = 65 = 0100 0001 (binary)
 
@@ -4354,7 +4354,7 @@ class Review(BaseModel):
         "limits: file ≤10MB/image, dimensions ≤8000px, images should be sharp; naming people/counting objects/exact spatial isn't accurate",
       ]},
       { h: "8) Extended thinking — let the model think before answering (from docs)" },
-      { p: "A mode where the model produces a **thinking block** (internal reasoning) before the real answer. Current models use **adaptive thinking** — the model decides how deep to think, and you steer the spend with `effort` instead of a fixed token budget. **Thinking tokens are billed as output.**" },
+      { p: "A mode where the model produces a **thinking block** (internal reasoning) before the real answer. Current models use **adaptive thinking **— the model decides how deep to think, and you steer the spend with** `effort` **instead of a fixed token budget.** Thinking tokens are billed as output.**" },
       { code: String.raw`client.messages.create(
     model="claude-sonnet-5",
     max_tokens=16000,
@@ -6432,7 +6432,7 @@ sp  0,0,12   14   255,40,40       # sphere: center + diameter + color`, cap: "th
       { h: "Background: what is ray tracing" },
       { p: "In the real world light leaves a bulb, bounces off objects, into the eye. Ray tracing does it **in reverse** to save work: cast a ray from the 'eye (camera)' out per pixel, see what it hits, then ask 'is that point lit, what color'. One ray/pixel → a 3D image with real shadows/shading (unlike fdf which only draws lines)." },
       { h: "Why store colors as [0,1] not 0-255" },
-      { p: "Lighting math is **multiplying/adding colors** (obj_color × light_color × brightness). Stored as 0-255 it overflows and is awkward to multiply. Store as a `t_vec3` in **[0,1]** (parse 0-255 then divide by 255) → lighting math becomes plain vector add/multiply, then clamp + pack to `(r<<16)|(g<<8)|b` at the end." },
+      { p: "Lighting math is **multiplying/adding colors **(obj_color × light_color × brightness). Stored as 0-255 it overflows and is awkward to multiply. Store as a** `t_vec3` **in** [0,1]** (parse 0-255 then divide by 255) → lighting math becomes plain vector add/multiply, then clamp + pack to `(r<<16)|(g<<8)|b` at the end." },
       { h: "Why this project is hard" },
       { p: "It's 'turn math formulas into code without panicking': the ray-sphere/cylinder quadratics, building the camera basis, shadows that must avoid 'shadow acne', and passing **norminette** with a bonus build (the `#ifdef` inside a function is banned by norm)." },
     ],
@@ -6541,7 +6541,7 @@ per pixel (x,y) — with +0.5 (pixel center), flip y (screen y down, image y up)
   px = (2·(x+0.5)/W − 1) · scale
   py = (1 − 2·(y+0.5)/H) · scale / aspect
   dir = norm(forward + px·right + py·up)`, cap: "the basis = 3 perpendicular axes; a pixel maps to offsets on right/up plus forward = the ray direction", lang: "txt" },
-      { p: "**Why FOV is divided by aspect on the vertical axis:** FOV is horizontal → the horizontal axis (px) uses scale directly, the vertical axis (py) must divide by aspect (W/H) so the image isn't stretched. If the image is **upside-down** = you forgot the `(1 − …)` on py; if it's **stretched** = you applied aspect to the wrong axis." },
+      { p: "**Why FOV is divided by aspect on the vertical axis:** FOV is horizontal → the horizontal axis (px) uses scale directly, the vertical axis (py) must divide by aspect (W/H) so the image isn't stretched. If the image is **upside-down **= you forgot the** `(1 − …)` **on py; if it's** stretched** = you applied aspect to the wrong axis." },
       { note: "Try staging it: put camera C at (0,0,−30) looking +z, place a sphere at (0,0,12) — you should see a circle centered. If the screen is all black = the camera looks the wrong way (the object is off-frame) — frame the object in front of the camera first." },
       { qa: [
         { q: "Why build an orthonormal basis for the camera?", a: "To map a 2D pixel → a 3D ray direction: right/up are the axes of the 'virtual screen', forward is straight ahead; the ray dir = forward + px·right + py·up." },
@@ -6815,9 +6815,9 @@ ray_dir  = dir + plane · camera_x  # center column = dir straight ahead`, cap: 
       { h: "5) Pick the texture by the side hit" },
       { p: "`side` tells whether the wall hit is a vertical face (x-side) or horizontal (y-side) + ray direction → pick 1 of 4 textures (NO/SO/WE/EA). `wall_x` (where on the wall it hit, 0..1) → the texture's column." },
       { h: "6) Parse .cub + separate player from texture id" },
-      { p: "The hard part: a map row may start with N/S/E/W (the player) = the same letters as NO/SO. Rule: an **element line** is an id followed by **whitespace** (`NO `/`SO `/`F `...), and parse ids **only before** the map block begins; once the first map row appears, everything after is map." },
+      { p: "The hard part: a map row may start with N/S/E/W (the player) = the same letters as NO/SO. Rule: an **element line** is an id followed by **whitespace **(**`NO `**/**`SO `**/**`F `**...), and parse ids** only before** the map block begins; once the first map row appears, everything after is map." },
       { h: "7) Validate a 'closed map' on a ragged-width map" },
-      { p: "The map is **not** rectangular and may contain spaces. Every walkable cell (`0`/player) must not touch the outer edge/a space (else it 'leaks'). Check the 4 neighbours: if a neighbour is off-grid **or** a space = the map is open = error." },
+      { p: "The map is **not **rectangular and may contain spaces. Every walkable cell (**`0`**/player) must not touch the outer edge/a space (else it 'leaks'). Check the 4 neighbours: if a neighbour is off-grid** or** a space = the map is open = error." },
 
       { h: "🔬 Deep Dive A: Camera Plane & Ray Direction — raycasting's 2D camera model" },
       { p: "the player stands on a 2D grid looking 'ahead' (dir). To see a wide angle you need a 'virtual screen' standing perpendicular in front of the player = the **plane** vector. Each screen column = one point on the plane → cast a ray through it." },
@@ -7361,7 +7361,7 @@ Writes into a buffer the caller supplied (allocates nothing):
     ],
 
     theory: [
-      { h: "🔬 Deep dive A: `memcpy` vs `memmove` — the overlap rule" },
+      { h: "🔬 Deep dive A: memcpy vs memmove — the overlap rule" },
       { p: "They look interchangeable, which is why people write one and have the other call it — and that is wrong in exactly one direction." },
       { code: String.raw`Say  char b[10] = "abcdefghi";  and we shift right by 2
      memcpy(b + 2, b, 5);
@@ -7401,7 +7401,7 @@ memmove  must behave as if copied through a temporary → it picks the direction
         { q: "Why cast to `unsigned char *`?", a: "`void *` cannot be offset portably, and we want to treat the data as raw unsigned bytes." },
       ]},
 
-      { h: "🔬 Deep dive B: `strlcpy` / `strlcat` return the length they *tried* to build" },
+      { h: "🔬 Deep dive B: strlcpy / strlcat return the length they *tried* to build" },
       { p: "This is the single most-failed detail in libft. Neither function **returns how many bytes it copied** — both return the length that *would* have resulted if the buffer had been big enough." },
       { table: { head: ["Function", "Returns", "What it's for"], rows: [
         ["`strlcpy(dst, src, n)`", "`strlen(src)` always — even when `n` is 0", "`ret >= n` means truncation happened"],
@@ -7431,7 +7431,7 @@ memmove  must behave as if copied through a temporary → it picks the direction
         { q: "What does `ft_strlcat` return when `dst` is longer than `dstsize`?", a: "`strlen(src) + dstsize` — `dst` doesn't terminate inside the bound, so its length counts as `dstsize`." },
       ]},
 
-      { h: "🔬 Deep dive C: `ft_calloc` — the multiplication that overflows silently" },
+      { h: "🔬 Deep dive C: ft_calloc — the multiplication that overflows silently" },
       { p: "`calloc(count, size)` must allocate `count * size` bytes. That product is computed in `size_t`, which **wraps** on overflow — you allocate far less than asked, and the caller then writes past the end without ever knowing." },
       { code: String.raw`On 64-bit:  SIZE_MAX = 18446744073709551615
 
@@ -7457,14 +7457,14 @@ void	*ft_calloc(size_t count, size_t size)
 	ft_bzero(res, count * size);
 	return (res);
 }`, cap: "Real code — both operands are checked separately, because the product you'd test may itself have wrapped already", lang: "c" },
-      { p: "**Why a zero-sized request returns** `malloc(1)` **rather than NULL:** the caller should get a unique pointer they can `free` normally. Returning NULL would signal an allocation failure, and asking for 0 bytes is not a failure." },
+      { p: "**Why a zero-sized request returns `malloc(1)` rather than NULL:** the caller should get a unique pointer they can `free` normally. Returning NULL would signal an allocation failure, and asking for 0 bytes is not a failure." },
       { qa: [
         { q: "What does `ft_calloc` have to watch out for?", a: "`count * size` can overflow silently — check before multiplying. It must also zero the whole region, since that is what calloc guarantees." },
         { q: "What should `calloc(0, 0)` return?", a: "A unique, freeable pointer (e.g. `malloc(1)`) — not NULL, because requesting zero bytes isn't a failure." },
         { q: "Why check `count` and `size` separately instead of just the product?", a: "Because the product you would be testing may already have wrapped, which makes it useless as a check." },
       ]},
 
-      { h: "🔬 Deep dive D: `ft_itoa` and the `INT_MIN` that has no positive twin" },
+      { h: "🔬 Deep dive D: ft_itoa and the INT_MIN that has no positive twin" },
       { code: String.raw`Range of a 32-bit int:  -2147483648  to  2147483647
                                         ↑ there is no +2147483648
 
@@ -7503,7 +7503,7 @@ Fix: widen to long first`, cap: "A consequence of two's complement — the negat
         { q: "Why write the digits back to front?", a: "`n % 10` produces the units digit first, which belongs at the right end of the result. Writing from the last position backwards gets the order right without reversing the string afterwards." },
       ]},
 
-      { h: "🔬 Deep dive E: `ft_atoi` — more rules than it looks" },
+      { h: "🔬 Deep dive E: ft_atoi — more rules than it looks" },
       { p: "`atoi` looks trivial enough that people write it in one pass and then hit the bug in push_swap while validating arguments. The standard defines four ordered steps, each with its own condition." },
       { code: String.raw`int	ft_atoi(const char *str)
 {
@@ -7534,14 +7534,14 @@ Fix: widen to long first`, cap: "A consequence of two's complement — the negat
         ["`\"\\t\\n 42\"`", "`42`", "whitespace covers `\\t\\n\\v\\f\\r` (ASCII 9–13) and space (32)"],
       ]}},
       { note: "**There are six whitespace characters**, not just space — 9 through 13 (`\\t \\n \\v \\f \\r`) and 32. The condition `(*str >= 9 && *str <= 13)` is exactly that range." },
-      { p: "**On overflow:** a string representing a number outside `int` range makes the accumulator wrap. The classic 42 version lets it (real `atoi` is undefined here too). That's accepted, but you must know it — **and push_swap needs its own separate validator**, because there an overflow is an error you have to catch." },
+      { p: "**On overflow: **a string representing a number outside** `int` **range makes the accumulator wrap. The classic 42 version lets it (real** `atoi` **is undefined here too). That's accepted, but you must know it —** and push_swap needs its own separate validator**, because there an overflow is an error you have to catch." },
       { qa: [
         { q: "What does `ft_atoi(\"42abc\")` return?", a: "`42` — it stops at the first non-digit and treats that as normal, not as an error." },
         { q: "What does `ft_atoi(\"--42\")` return?", a: "`0` — one sign is consumed, then the second `-` isn't a digit so it stops immediately, having accumulated nothing." },
         { q: "How does `ft_atoi` handle overflow?", a: "It doesn't — the accumulator wraps, matching real `atoi`, which is undefined here. Projects that must reject overflow (push_swap) need their own validator." },
       ]},
 
-      { h: "🔬 Deep dive F: `ft_split` — count first, fill second, clean up on partial failure" },
+      { h: "🔬 Deep dive F: ft_split — count first, fill second, clean up on partial failure" },
       { p: "`ft_split` is the hardest of the standard set because it allocates **two levels** — an array of pointers, then each string inside it. Two levels of allocation means two levels of possible leak." },
       { code: String.raw`Three functions (count + fill + entry point) keep every one under the 25-line limit:
 
@@ -7581,23 +7581,23 @@ Why count first:
         { q: "What should `ft_split(\"\", ' ')` return?", a: "An array containing only the NULL slot (0 words) — not NULL, so the caller can still free it normally." },
       ]},
 
-      { h: "🔬 Deep dive G: `t_list` — `del` belongs to the caller, `free` belongs to you" },
-      { p: "`t_list` holds a `void *content` that libft knows nothing about — **so the caller has to supply a `del` function saying how to destroy it**, while the node itself is ours to free." },
+      { h: "🔬 Deep dive G: t_list — del belongs to the caller, free belongs to you" },
+      { p: "`t_list` holds a `void *content` that libft knows nothing about — **so the caller has to supply a** `del` **function saying how to destroy it**, while the node itself is ours to free." },
       { table: { head: ["Function", "What it does", "What it does NOT do"], rows: [
-        ["`ft_lstdelone(lst, del)`", "calls `del(lst->content)` then `free(lst)`", "**never touches `lst->next`** — unlinking isn't its job"],
+        ["`ft_lstdelone(lst, del)`", "calls `del(lst->content)` then `free(lst)`", "**never touches** `lst->next` — unlinking isn't its job"],
         ["`ft_lstclear(&lst, del)`", "walks the list calling `lstdelone`, then sets `*lst = NULL`", "—"],
         ["`ft_lstiter(lst, f)`", "calls `f(node->content)` on every node", "builds nothing, deletes nothing"],
         ["`ft_lstmap(lst, f, del)`", "builds a **new** list from the results of `f`", "never touches the original"],
       ]}},
       { p: "`ft_lstclear` **must set** `*lst = NULL`, or the caller is left holding a pointer to a freed node — use it once and that's a use-after-free. This is exactly why the parameter is `t_list **` and not `t_list *`." },
-      { p: "**`ft_lstmap` has the same trap as `ft_split`:** if `f` or `ft_lstnew` returns NULL after several nodes are built, you must `ft_lstclear` the partial list with `del` before returning NULL." },
+      { p: "`ft_lstmap` **has the same trap as** `ft_split`**:** if `f` or `ft_lstnew` returns NULL after several nodes are built, you must `ft_lstclear` the partial list with `del` before returning NULL." },
       { qa: [
         { q: "Why does `ft_lstclear` take a `t_list **`?", a: "Because it has to write NULL back into the caller's variable — with a `t_list *` it could only modify a copy, leaving the caller pointing at freed memory." },
         { q: "How is `del` different from `free`?", a: "`content` is a `void *` we know nothing about — it may own memory of its own. The caller supplies `del` to say how it dies; libft frees the node itself." },
         { q: "Why doesn't `ft_lstdelone` delete the next node too?", a: "Because its job is one node — the caller may be splicing a node out of the middle and relinking around it. Destroying the whole chain is `ft_lstclear`'s job." },
       ]},
 
-      { h: "🔬 Deep dive H: functions that take functions — `strmapi`, `striteri`, `lstiter`, `lstmap`" },
+      { h: "🔬 Deep dive H: functions that take functions — strmapi, striteri, lstiter, lstmap" },
       { p: "These four take a **pointer to a function** as a parameter, the first time the curriculum requires writing one. The similarly-named pairs differ only in 'mutate in place' vs 'build something new'." },
       { code: String.raw`char	*ft_strmapi(char const *s, char (*f)(unsigned int, char));
 void	ft_striteri(char *s, void (*f)(unsigned int, char *));
@@ -7620,7 +7620,7 @@ striteri  f takes a char*    → it edits the original in place → allocates no
         { q: "Why is the index passed to `f`?", a: "So position-dependent logic is possible — `f` only sees one character and could never work out where it is on its own." },
       ]},
 
-      { h: "🔬 Deep dive I: how `libft.a` actually gets linked" },
+      { h: "🔬 Deep dive I: how libft.a actually gets linked" },
       { code: String.raw`ft_strlen.c  ──cc -c──►  ft_strlen.o  ┐
 ft_split.c   ──cc -c──►  ft_split.o   ├──ar rcs──►  libft.a
 ...                                    ┘
@@ -7669,7 +7669,7 @@ Why int and not char:
     which is not the value of any char — hence the wider type`, cap: "The return value is 'true or false' — it need not be 1, only non-zero", lang: "c" },
       { note: "`isprint` starts at 32 (space) and ends at 126 (`~`) — **127 is DEL, which is not printable**. This exact detail comes back in CPP Module 06 when separating `Non displayable` from `impossible`." },
 
-      { h: "`ft_strnstr` — searching a substring within a bound" },
+      { h: "ft_strnstr — searching a substring within a bound" },
       { code: String.raw`char	*ft_strnstr(const char *haystack, const char *needle, size_t len)
 {
 	size_t		i;
@@ -7692,10 +7692,10 @@ Why int and not char:
 	}
 	return (NULL);
 }`, cap: "Real code — `i + j < len` in the inner loop is what stops it reading past the bound even mid-string", lang: "c" },
-      { p: "**What `len` bounds:** how many bytes of the *haystack* may be read — not how many must match. A substring that starts inside the bound but runs past it counts as **not found**." },
+      { p: "**What** `len` **bounds:** how many bytes of the *haystack* may be read — not how many must match. A substring that starts inside the bound but runs past it counts as **not found**." },
       { note: "It returns `char *` while taking `const char *` — a libc convention that lets the caller modify through the result when their data wasn't really const. It grates, but it's standard." },
 
-      { h: "`ft_strtrim` — walking in from both ends" },
+      { h: "ft_strtrim — walking in from both ends" },
       { code: String.raw`char	*ft_strtrim(char const *s1, char const *set)
 {
 	const char	*str1;
@@ -7720,10 +7720,10 @@ Why int and not char:
 	ft_strlcpy(res, str1, (i + 1));
 	return (res);
 }`, cap: "Real code — `ft_strchr(set, c)` is used as the question 'is this character one I should trim?'", lang: "c" },
-      { p: "**`set` is a set of characters, not a substring to match** — `ft_strtrim(\"xxhixx\", \"x\")` gives `\"hi\"`, and `ft_strtrim(\"abcHIcba\", \"abc\")` gives `\"HI\"`, because it trims one character at a time." },
+      { p: "`set` **is a set of characters, not a substring to match** — `ft_strtrim(\"xxhixx\", \"x\")` gives `\"hi\"`, and `ft_strtrim(\"abcHIcba\", \"abc\")` gives `\"HI\"`, because it trims one character at a time." },
       { note: "The `str2 > str1` condition is what stops the tail walk from running past the start — without it, `ft_strtrim(\"xxx\", \"x\")` reads outside the string." },
 
-      { h: "`t_list` — the shape of the list" },
+      { h: "t_list — the shape of the list" },
       { code: String.raw`typedef struct s_list
 {
 	void			*content;      /* anything at all — libft doesn't know the type */
@@ -7735,7 +7735,7 @@ ft_lstadd_front(&l, n)    n->next = *l  then  *l = n        → O(1)
 ft_lstadd_back(&l, n)     walk to the end with ft_lstlast   → O(n)
 ft_lstsize(l)             count the nodes
 ft_lstlast(l)             last node (NULL for an empty list)`, cap: "`add_front` always beats `add_back` — which is why this shape is so often used as a stack", lang: "c" },
-      { p: "**`ft_lstadd_front` and `ft_lstadd_back` both take `t_list **`** because both may have to change the head — `add_front` always does, and `add_back` does whenever the list is still empty." },
+      { p: "`ft_lstadd_front` **and** `ft_lstadd_back` **both take `t_list** `** because both may have to change the head — `add_front` always does, and `add_back` does whenever the list is still empty." },
     ],
 
     architecture: [
@@ -7753,6 +7753,119 @@ This workspace also parks two other projects' sources in the same folder:
   ft_printf.c  ft_printf_utils.c  ft_printf.h        → the ft_printf page
   get_next_line.c  get_next_line_utils.c  ...h       → the get_next_line page`, cap: "Three separate submissions, one folder, so downstream projects link a single archive", lang: "txt" },
 
+      { h: "The Makefile from scratch — reused by every later project" },
+      { p: "libft is where you first write a Makefile, and it is the one you will copy into push_swap, pipex, so_long, fdf, minishell and cub3D. Understand it once here and you never have to relearn it." },
+      { h: "1) How make actually works (the only idea you need)" },
+      { p: "Make is not a script running top to bottom. It reads **rules **of the form** `target: prerequisites` **and asks one question:** is the target older than what it depends on?** If it is, run the recipe; if not, skip it. The whole no-relinking requirement falls out of that single rule." },
+      { code: String.raw`target: prerequisite prerequisite
+<TAB>the command to run
+
+libft.a: ft_strlen.o ft_strdup.o        <- is libft.a older than any .o?
+	ar rcs libft.a ft_strlen.o ft_strdup.o
+
+ft_strlen.o: ft_strlen.c                <- is the .o older than the .c?
+	cc -Wall -Wextra -Werror -c ft_strlen.c`, cap: "Recipe lines must start with a real TAB, never spaces — get this wrong and make says missing separator", lang: "make" },
+      { note: "**This is the first error everyone hits** — make reports missing separator on that line, which means a recipe line used spaces instead of a TAB. An editor with expand-tab enabled causes it every time — configure files named Makefile to use real tabs." },
+      { h: "2) Variables: = and := really do differ" },
+      { code: String.raw`NAME    = libft.a          # = is evaluated when used (recursive)
+CC      = cc
+CFLAGS  = -Wall -Wextra -Werror
+AR      = ar rcs
+RM      = rm -f
+
+SRCS    := ft_strlen.c ft_strdup.c    # := is evaluated right here, once
+OBJS    = $(SRCS:.c=.o)               # substitute the suffix: .c -> .o`, cap: "Use := when the value should not change again, = when you want it computed at use time — the difference is small in a file this size, but they are not the same thing", lang: "make" },
+      { p: "`$(SRCS:.c=.o)` is a **substitution reference** — it builds the `.o` list from the `.c` list so you never type the names twice. Adding a file means editing `SRCS` and nothing else." },
+      { h: "3) Automatic variables — $@, $<, $^" },
+      { table: { head: ["Variable", "Means", "In context"], rows: [
+        ["`$@`", "this rule's target", "in `libft.a: ...` it is `libft.a`"],
+        ["`$<`", "the **first** prerequisite", "in a pattern rule, the `.c` being compiled"],
+        ["`$^`", "**all** prerequisites", "the full list of `.o` files"],
+      ]}},
+      { code: String.raw`%.o: %.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
+# this single rule stands in for every .c in the project
+# %  is the wildcard that pairs them: ft_strlen.o comes from ft_strlen.c`, cap: "The pattern rule — why a 40-line Makefile can drive 43 files", lang: "make" },
+      { note: "**Compile file by file like this; never collapse it** into something like `cc *.c -o prog`. Collapsed, make cannot tell which file changed, so it rebuilds everything every time — that is relinking, and it fails the evaluation." },
+      { h: "4) The whole libft Makefile" },
+      { code: String.raw`NAME    = libft.a
+
+CC      = cc
+CFLAGS  = -Wall -Wextra -Werror
+AR      = ar rcs
+RM      = rm -f
+INC     = -I.
+
+SRCS    = ft_isalpha.c ft_isdigit.c ... ft_putnbr_fd.c    # 34 files
+OBJS    = $(SRCS:.c=.o)
+
+SRCS_B  = ft_lstnew_bonus.c ... ft_lstmap_bonus.c         # 9 files
+OBJS_B  = $(SRCS_B:.c=.o)
+
+all: $(NAME)
+
+$(NAME): $(OBJS)
+	$(AR) $@ $(OBJS)
+
+bonus: $(OBJS) $(OBJS_B)
+	$(AR) $(NAME) $(OBJS) $(OBJS_B)
+
+%.o: %.c libft.h
+	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+
+clean:
+	$(RM) $(OBJS) $(OBJS_B)
+
+fclean: clean
+	$(RM) $(NAME)
+
+re: fclean all
+
+.PHONY: all bonus clean fclean re`, cap: "These forty lines are the template every later project adapts", lang: "make" },
+      { h: "5) The three things people get wrong" },
+      { ul: [
+        "**Objects must depend on the header** — write `%.o: %.c libft.h`, or changing a prototype in `libft.h` rebuilds nothing and you spend the evening chasing a bug that does not exist",
+        "**.PHONY genuinely matters** — if a file named `clean` ever exists in the folder, make sees the target as already up to date and silently does nothing. `.PHONY` says these targets are not files",
+        "**fclean should call clean** — write `fclean: clean` and then remove `$(NAME)`, rather than duplicating the `rm` in two places you will forget to keep in sync",
+      ]},
+      { h: "6) Proving there is no relinking" },
+      { code: String.raw`$ make
+cc -Wall -Wextra -Werror -I. -c ft_isalpha.c -o ft_isalpha.o
+...
+ar rcs libft.a ...
+
+$ make
+make: Nothing to be done for 'all'.      <- this line is required
+
+$ touch libft.h && make                  <- change the header
+cc ... -c ft_isalpha.c ...               <- everything must rebuild
+
+$ make fclean && make re                 <- must rebuild cleanly from nothing`, cap: "Running make twice is the first thing an evaluator does — a second run that still compiles ends it there", lang: "bash" },
+      { h: "7) Extending it to the next projects" },
+      { table: { head: ["Project", "What to add to the template"], rows: [
+        ["push_swap · pipex · minitalk", "they contain a `libft/` folder, so add a rule that runs `make -C libft` first and links `libft/libft.a` into the binary · `clean`/`fclean` must recurse with `make -C libft` too"],
+        ["so_long · fdf · fract-ol · cub3D · miniRT", "build MiniLibX as well, and link with `-lmlx -lXext -lX11 -lm`"],
+        ["Projects whose bonus is a separate binary", "keep a separate `SRCS_B` and give `bonus` a real rule (`$(BONUS_NAME): $(OBJS_B)`) rather than a recipe hung directly on the phony `bonus` target, or it relinks on every run"],
+        ["The C++ modules", "switch to `CC = c++` and `CFLAGS = -Wall -Wextra -Werror -std=c++98`; the structure is unchanged"],
+      ]}},
+      { code: String.raw`# the shape when libft lives inside the project
+LIBFT_DIR = libft
+LIBFT     = $(LIBFT_DIR)/libft.a
+INC       = -I. -I$(LIBFT_DIR)
+
+all: $(LIBFT) $(NAME)
+
+$(LIBFT):
+	make -C $(LIBFT_DIR) all
+
+$(NAME): $(OBJS)
+	$(CC) $(CFLAGS) $(INC) -o $@ $^ $(LIBFT)
+
+clean:
+	$(RM) $(OBJS)
+	make -C $(LIBFT_DIR) clean`, cap: "Never recompile libft's sources in the parent Makefile — call its own Makefile instead", lang: "make" },
+      { note: "Link order matters: `cc main.c libft.a` works while `cc libft.a main.c` may not, because the linker walks left to right and only pulls symbols that are **still undefined when it reaches** the archive. Libraries go last." },
       { h: "Makefile — building filenames from a list" },
       { code: String.raw`SRC     := isalpha isdigit ... putnbr_fd
 SRC_B   := lstnew lstadd_front ... lstmap
@@ -7780,6 +7893,7 @@ FILES_B := $(addsuffix .c, $(addprefix ft_, $(addsuffix _bonus, $(SRC_B))))`, ca
 bonus: $(OBJS) $(OBJS_B)
 	$(AR) $(NAME) $(OBJS) $(OBJS_B)`, cap: "ar r is insert-or-replace, so re-archiving the same mandatory objects is harmless — unlike ft_printf, no symbol is defined twice", lang: "makefile" },
       { note: "Keep the header down to `<stddef.h>`, `<stdlib.h>` and `<unistd.h>`: a libft that pulls in `<stdio.h>` compiles fine and tells a peer evaluator you never checked what you included." },
+
     ],
 
     dataflow: [
@@ -7840,11 +7954,11 @@ How the caller cleans up:
       { h: "The order to write them in" },
       { ul: [
         "1. **Character classification** — 7 easy functions that also get the file layout and Makefile in place",
-        "2. **`ft_strlen`** — on its own, because almost everything else calls it",
+        "2. `ft_strlen` — on its own, because almost everything else calls it",
         "3. **Memory family** — `memset` `bzero` `memcpy` first, then `memmove` (which calls `memcpy`), then `calloc` (which calls `bzero`)",
         "4. **Non-allocating strings** — `strlcpy` `strlcat` `strchr` `strrchr` `strncmp` `strnstr` `atoi`",
         "5. **Allocating strings** — `strdup` and `substr` first (`split` needs it), then `strjoin` `strtrim` `itoa` `split` `strmapi` `striteri`",
-        "6. **`t_list` bonus** — `lstnew` `lstadd_*` `lstsize` `lstlast` first, then `lstdelone` `lstclear` `lstiter` `lstmap`",
+        "6. `t_list` **bonus** — `lstnew` `lstadd_*` `lstsize` `lstlast` first, then `lstdelone` `lstclear` `lstiter` `lstmap`",
       ]},
       { h: "Symptom → cause" },
       { table: { head: ["Symptom", "Cause", "Fix"], rows: [
@@ -7886,13 +8000,13 @@ wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && make re && normine
       { p: "`strlen` before everything · `substr` before `split` · `memcpy` before `memmove` · `bzero` before `calloc`. Follow that order and you never have to stub something out and come back." },
       { h: "Trick 3: always compare return values, not just output" },
       { p: "An `ft_strlcat` that copies correctly but returns the wrong number passes visual inspection and fails the tester — and then resurfaces as a buffer overflow in another project months later." },
-      { h: "Trick 4: widen to `long` before negating anything" },
+      { h: "Trick 4: widen to long before negating anything" },
       { p: "`-n` on an `int` overflows whenever `n` is `INT_MIN`. The habit carries all the way through push_swap's argument validation and every project that takes numbers from the user." },
       { h: "Trick 5: count before allocating" },
       { p: "`ft_split` walks twice to `malloc` once. It's the same shape you'll use building argument arrays in pipex and minishell — one extra pass always beats growing memory piece by piece." },
       { h: "Trick 6: write the cleanup function alongside the allocating one" },
       { p: "Write `free_split(char **arr)` while writing `ft_split`, then copy it into every project that uses it — every later project needs it, and rewriting it each time is where the leaks come from." },
-      { h: "Trick 7: `ft_strchr(set, c)` as a membership test" },
+      { h: "Trick 7: ft_strchr(set, c) as a membership test" },
       { p: "`ft_strtrim` uses it that way instead of looping over the set by hand. The same shape answers 'is this character a delimiter?' in minishell's lexer." },
       { h: "Trick 8: propagate every fix to all eight copies" },
       { p: "This workspace has eight `libft/` folders — fixing one and forgetting the rest is a bug that comes back to haunt the next project. `cp` the file everywhere the moment it's fixed." },
@@ -7975,16 +8089,16 @@ Questions you have to be able to answer:
       { p: "**No flags, no width, no precision** in the mandatory part — `%-5.3d` belongs to the bonus. So the mandatory part is pure dispatch, not parsing." },
       { h: "Hard rules" },
       { ul: [
-        "**The real `printf` is forbidden** (obviously) · allowed externals: `malloc`, `free`, `write`, and the `va_*` macros",
+        "**The real** `printf` **is forbidden** (obviously) · allowed externals: `malloc`, `free`, `write`, and the `va_*` macros",
         "**Norminette must pass** — 25 lines per function, 5 functions per file · this is exactly why the dispatch is split across levels",
         "Ship it as `libftprintf.a` (or folded into `libft.a` if the downstream project wants that)",
-        "**The return value must match real `printf`** — the total number of characters written",
+        "**The return value must match real** `printf` — the total number of characters written",
       ]},
       { note: "This workspace keeps the ft_printf sources in the shared `libft/` folder and declares `ft_printf` at the bottom of `libft.h`, so downstream projects link one archive. **It is still submitted as its own project.**" },
     ],
 
     theory: [
-      { h: "🔬 Deep dive A: what `va_list` really is" },
+      { h: "🔬 Deep dive A: what va_list really is" },
       { p: "There is no magic in C — `va_list` is **a cursor walking the block of arguments the caller laid down**. `va_arg` reads at that cursor as whatever type you name, then advances it by that type's size." },
       { code: String.raw`ft_printf("%d %s", 42, "hi");
 
@@ -8007,7 +8121,7 @@ va_arg(args, char *)     reads "hi" → advances by sizeof(char *)
         ["`va_end(args)`", "cleans up (a no-op on some platforms, still required)", "before every `return`"],
         ["`va_copy(dst, src)`", "duplicates the cursor state", "when you must walk again from the same point (not needed here)"],
       ]}},
-      { p: "**`last` in `va_start` must be the final named parameter** — `s` here. The macro uses it as the reference point for where the unnamed block begins." },
+      { p: "`last` **in** `va_start` **must be the final named parameter** — `s` here. The macro uses it as the reference point for where the unnamed block begins." },
       { note: "Every exit path must reach `va_end` — returning early without it is undefined behaviour by the standard, even where Linux/x86-64 shows no visible effect." },
       { qa: [
         { q: "What is a `va_list`?", a: "A cursor over the block of unnamed arguments — `va_arg` reads at that position as the type you name and advances the cursor." },
@@ -8016,7 +8130,7 @@ va_arg(args, char *)     reads "hi" → advances by sizeof(char *)
         { q: "Why is `printf` unsafe by construction?", a: "The format string alone declares the argument types, and nothing forces it to match what was passed — `printf(\"%s\", 42)` compiles and breaks at run time." },
       ]},
 
-      { h: "🔬 Deep dive B: default argument promotion — why `%c` reads an `int`" },
+      { h: "🔬 Deep dive B: default argument promotion — why %c reads an int" },
       { p: "Arguments passed through `...` are **widened automatically** before the callee sees them. The rule dates from before C had prototypes and is still with us." },
       { code: String.raw`Type passed in          Promoted to        Read it with
   char, signed char       int             va_arg(args, int)
@@ -8050,7 +8164,7 @@ So:
         { q: "Why does that rule exist?", a: "It predates prototypes — back then the compiler didn't know the parameter types, so one uniform widening rule let caller and callee agree." },
       ]},
 
-      { h: "🔬 Deep dive C: why the `va_list` is passed by pointer" },
+      { h: "🔬 Deep dive C: why the va_list is passed by pointer" },
       { p: "Norminette caps every function at 25 lines, which forces the work across several functions. That is exactly where `va_list` turns out to be fragile." },
       { code: String.raw`The problem: how va_list is defined depends on the architecture
 
@@ -8114,8 +8228,8 @@ int	ft_check(va_list *args, char c)        /* ★ take a pointer */
 
 Recursion depth = number of digits
     a 64-bit number in base 2 is at most 64 deep — no stack overflow risk`, cap: "A recursion with a hard, obvious bound — depth is never a concern", lang: "txt" },
-      { p: "**Why the parameter is `long long`:** `%d` passes an `int`, but `-INT_MIN` overflows `int`. Widening in the signature makes `nbr = -nbr` safe with no special case." },
-      { p: "**Why `ft_putptr_base_len` exists separately:** `%p` must read an `unsigned long long`, whose maximum exceeds `long long` range — it can't share the function, and it has no sign to handle." },
+      { p: "**Why the parameter is** `long long`**:** `%d` passes an `int`, but `-INT_MIN` overflows `int`. Widening in the signature makes `nbr = -nbr` safe with no special case." },
+      { p: "**Why** `ft_putptr_base_len` **exists separately:** `%p` must read an `unsigned long long`, whose maximum exceeds `long long` range — it can't share the function, and it has no sign to handle." },
       { qa: [
         { q: "How does converting a number by recursion work?", a: "Division yields the rightmost digit first, so you recurse on the quotient before printing the remainder — the leftmost digit is printed while unwinding from the deepest call, giving the right order." },
         { q: "Why take a `long long` rather than an `int`?", a: "Because `-INT_MIN` overflows `int` — widening in the signature makes negation safe without a special case for `INT_MIN`." },
@@ -8159,7 +8273,7 @@ int	ft_putstr(char *str)
         { q: "What does `%p` with NULL return?", a: "5 — `(nil)` is five characters." },
       ]},
 
-      { h: "🔬 Deep dive F: calling `write` directly means no buffering" },
+      { h: "🔬 Deep dive F: calling write directly means no buffering" },
       { p: "Real `printf` collects output in a buffer and flushes it in blocks. An `ft_printf` calling `write` per character has no buffer at all — which cuts both ways." },
       { table: { head: ["", "Real `printf` (buffered)", "`ft_printf` (direct write)"], rows: [
         ["System calls", "few (batched)", "**many** — one per character"],
@@ -8253,7 +8367,7 @@ Every level returns an int (characters written) → the level above adds it up`,
 		return (ft_putpointer(va_arg(*args, unsigned long long)));
 	return (0);
 }`, cap: "Real code — `%x` and `%X` share one converter, differing only in the digit set handed in", lang: "c" },
-      { p: "**Passing `base` as a string is the key idea** — one converter covers every base, using `ft_strlen(base)` as the radix and `base[n % len]` as each digit. Adding octal or binary is just another string." },
+      { p: "**Passing** `base` **as a string is the key idea** — one converter covers every base, using `ft_strlen(base)` as the radix and `base[n % len]` as each digit. Adding octal or binary is just another string." },
       { note: "`%X` doesn't uppercase afterwards — it uses an uppercase digit set from the start. Converting after works too, but it's longer for no benefit." },
     ],
 
@@ -8280,7 +8394,7 @@ int	ft_putptr_base_len(unsigned long long nbr, char *base);
 int	ft_putpointer(unsigned long long p);
 
 #endif`, cap: "Real code — `<stdarg.h>` is the only header this project needs beyond libft", lang: "c" },
-      { p: "**Why include `libft.h`:** `ft_putstr` needs `ft_strlen`, and so does `ft_putnbr_base_len` to measure `base`. Rewriting `ft_strlen` here would work too — this workspace links the existing libft instead." },
+      { p: "**Why include** `libft.h`**:** `ft_putstr` needs `ft_strlen`, and so does `ft_putnbr_base_len` to measure `base`. Rewriting `ft_strlen` here would work too — this workspace links the existing libft instead." },
 
       { h: "Two ways to package it" },
       { table: { head: ["", "Separate `libftprintf.a`", "Folded into `libft.a` (what's done here)"], rows: [
@@ -8323,17 +8437,17 @@ return 10                    ★ matches real printf`, cap: "Arguments are consu
         ["`ft_printf(\"%c\", 0)`", "writes byte 0 · returns 1", "`\\0` is a valid character — `write` can send it"],
         ["`ft_printf(\"abc\")`", "`abc` · returns 3", "no specifiers at all"],
       ]}},
-      { note: "**`%c` with the value 0 is the case people miss** — routed through a string function it stops at `\\0` and prints nothing. Only `write(1, &c, 1)` actually emits the zero byte." },
+      { note: "`%c` **with the value 0 is the case people miss** — routed through a string function it stops at `\\0` and prints nothing. Only `write(1, &c, 1)` actually emits the zero byte." },
     ],
 
     implementation: [
       { h: "The order to write it in" },
       { ul: [
-        "1. **`ft_putchar` / `ft_putstr` returning `int`** — everything sits on these, and starting them as `void` means rewriting the whole set later",
-        "2. **The `ft_printf` skeleton with `%c` `%s` `%%`** — confirm the format walk and the counting before going further",
-        "3. **`ft_putnbr_base_len`** — test base 10 first, then hex through the same function",
-        "4. **`%d` `%i` `%u`** — mind that `%u` needs `va_arg(*args, unsigned int)`",
-        "5. **`%x` `%X` `%p`** — `%p` needs its own unsigned converter",
+        "1. `ft_putchar` **/** `ft_putstr` **returning** `int` — everything sits on these, and starting them as `void` means rewriting the whole set later",
+        "2. **The** `ft_printf` **skeleton with** `%c` `%s` `%%` — confirm the format walk and the counting before going further",
+        "3. `ft_putnbr_base_len` — test base 10 first, then hex through the same function",
+        "4. `%d` `%i` `%u` — mind that `%u` needs `va_arg(*args, unsigned int)`",
+        "5. `%x` `%X` `%p` — `%p` needs its own unsigned converter",
       ]},
       { h: "Symptom → cause" },
       { table: { head: ["Symptom", "Cause", "Fix"], rows: [
@@ -8375,7 +8489,7 @@ valgrind --leak-check=full --error-exitcode=42 -q ./cmp && echo "clean"
 
 # on Windows via WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette ft_printf*.c ft_printf.h'`, lang: "bash" },
-      { note: "**Compare against real `printf` inside the same program** — not against what you think it should print. `%p` formatting varies between platforms, so a live comparison is the only reliable oracle." },
+      { note: "**Compare against real** `printf` **inside the same program** — not against what you think it should print. `%p` formatting varies between platforms, so a live comparison is the only reliable oracle." },
       { h: "The bonus: flags, width, precision" },
       { p: "`%[flags][width][.precision]conversion` with the flags `-` `0` `.` `#` `+` and space. **Do not bolt these onto the existing dispatch one conversion at a time** — they all end up needing the same layout logic, so write that layout **once** and have every conversion feed it." },
       { code: String.raw`typedef struct s_fmt {
@@ -8409,17 +8523,17 @@ int pf_emit(t_fmt *f, const char *pre, const char *b, int blen);`, cap: "Each co
     ],
 
     tricks: [
-      { h: "Trick 1: make every printer return `int` from the first line of code" },
+      { h: "Trick 1: make every printer return int from the first line of code" },
       { p: "Starting with `void ft_putchar(char c)` and discovering later that you need counts means rewriting the whole set plus every call site. Returning `int` from the start costs nothing." },
-      { h: "Trick 2: always pass `va_list *` across functions" },
+      { h: "Trick 2: always pass va_list * across functions" },
       { p: "It's technically necessary and it's a favourite evaluation question — knowing the reason (`va_list` may be an array) answers it in one sentence." },
-      { h: "Trick 3: pass `base` as a string instead of writing one function per base" },
+      { h: "Trick 3: pass base as a string instead of writing one function per base" },
       { p: "`ft_putnbr_base_len(n, \"0123456789\")` and `(n, \"0123456789abcdef\")` share all their code — and `%X` is just the uppercase string." },
       { h: "Trick 4: test the return value separately from the output" },
       { p: "Write a driver that prints `ret: mine=%d real=%d` after every case — counting bugs are completely invisible in the output." },
-      { h: "Trick 5: compare against real `printf` in the same program" },
+      { h: "Trick 5: compare against real printf in the same program" },
       { p: "`%p` formatting differs between Linux and macOS, so a live side-by-side comparison beats a table of expected results you wrote down once." },
-      { h: "Trick 6: mind a `%` at the very end of the format" },
+      { h: "Trick 6: mind a % at the very end of the format" },
       { p: "`ft_printf(\"100%\")` does `i++` and then reads `s[i]`, which is the `\\0`. It doesn't crash, but it shouldn't be left there — one check before dispatching settles it." },
       { h: "Trick 7: use your own ft_printf for debugging later projects" },
       { p: "No buffering means the last line before a segfault always makes it out, while real `printf` can swallow it in an unflushed buffer." },
@@ -8487,7 +8601,7 @@ Object.assign(window.TEACHING_EN, {
   "get_next_line": {
     principle: [
       { h: "What get_next_line teaches" },
-      { p: "The task is `get_next_line(fd)`, returning **the next line including its `\\n`**, and NULL at end of file. The difficulty isn't finding the newline — it's that **`read` delivers fixed-size blocks while lines are whatever length they happen to be**." },
+      { p: "The task is `get_next_line(fd)`, returning **the next line including its** `\\n`, and NULL at end of file. The difficulty isn't finding the newline — it's that `read` **delivers fixed-size blocks while lines are whatever length they happen to be**." },
       { code: String.raw`file:            "Hello\nWorld\n"
 BUFFER_SIZE = 5
 
@@ -8509,7 +8623,7 @@ read #2  gives "\nWorl"       ← there's the \n, but "Worl" came along with it
       ]}},
       { h: "Hard rules" },
       { ul: [
-        "Allowed externals: `read`, `malloc`, `free` — **no `lseek`**, and reading the whole file up front is forbidden",
+        "Allowed externals: `read`, `malloc`, `free` — **no** `lseek`, and reading the whole file up front is forbidden",
         "**No global variables** — it must be a `static` inside the function or the file",
         "**Norminette must pass** · 5 functions per file, so the code splits across two files",
         "`BUFFER_SIZE` comes from the compile line (`-D BUFFER_SIZE=42`) — it must work from 1 up into the tens of thousands",
@@ -8521,7 +8635,7 @@ read #2  gives "\nWorl"       ← there's the \n, but "Worl" came along with it
     ],
 
     theory: [
-      { h: "🔬 Deep dive A: what `static` does to a local variable" },
+      { h: "🔬 Deep dive A: what static does to a local variable" },
       { p: "An ordinary local lives on the stack and vanishes when the function returns. `static` moves it into storage that lives as long as the program — **while keeping it visible only inside that function**." },
       { code: String.raw`void f(void)
 {
@@ -8541,7 +8655,7 @@ f();  →  1 3
 
   ★ unlike a global, no other file or function can touch it at all
     which is why the subject bans globals but permits static`, cap: "static means 'remembers' without opening the state to the whole program", lang: "c" },
-      { p: "**An uninitialised `static` is zero or NULL**, always — unlike a stack variable, which holds garbage. So `static t_gnl_node *files;` needs no explicit initialiser." },
+      { p: "**An uninitialised** `static` **is zero or NULL**, always — unlike a stack variable, which holds garbage. So `static t_gnl_node *files;` needs no explicit initialiser." },
       { note: "`static` written outside a function (at file scope) means something different — 'this symbol is not visible to other files'. The same keyword does two jobs depending on where it sits." },
       { qa: [
         { q: "What does `static` do inside a function?", a: "Gives the variable program lifetime, so its value survives between calls, while keeping it visible only within that function." },
@@ -8549,7 +8663,7 @@ f();  →  1 3
         { q: "What is an uninitialised `static` set to?", a: "0, or NULL for a pointer — always, unlike a stack variable which holds garbage." },
       ]},
 
-      { h: "🔬 Deep dive B: what `read` can return — three cases, not two" },
+      { h: "🔬 Deep dive B: what read can return — three cases, not two" },
       { code: String.raw`ssize_t br = read(fd, buf, BUFFER_SIZE);
 
   br > 0    that many bytes were read
@@ -8560,7 +8674,7 @@ f();  →  1 3
 
   br == -1  an error (bad fd, closed fd, no permission)
             ★ free what you hold and return NULL immediately — not the EOF path`, cap: "Folding -1 into the EOF case is the bug that surfaces the moment an evaluator hands you a closed fd", lang: "c" },
-      { p: "**`buf[br] = '\\0'` is why the buffer is `malloc(BUFFER_SIZE + 1)`** — `read` doesn't NUL-terminate (it has no idea you're reading text), so you do it yourself, which needs one extra byte." },
+      { p: "`buf[br] = '\\0'` **is why the buffer is** `malloc(BUFFER_SIZE + 1)` — `read` doesn't NUL-terminate (it has no idea you're reading text), so you do it yourself, which needs one extra byte." },
       { code: String.raw`char	*read_and_store(int fd, char *stash)
 {
 	char		*buf;
@@ -8589,7 +8703,7 @@ f();  →  1 3
 	free(buf);
 	return (stash);
 }`, cap: "Real code — the loop condition is 'no newline yet **and** still reading'", lang: "c" },
-      { p: "**The `free(buf), free(stash), NULL` idiom in one set of parentheses** uses the comma operator to clean up and return in a single line — which is how these paths stay inside the 25-line limit without extra blocks." },
+      { p: "**The** `free(buf), free(stash), NULL` **idiom in one set of parentheses** uses the comma operator to clean up and return in a single line — which is how these paths stay inside the 25-line limit without extra blocks." },
       { note: "`ft_strjoin(stash, buf)` on the very first pass gets a NULL `stash` — the libft version used here returns `ft_strdup(buf)` when one side is NULL, **so it just works with no special case**. Writing your own `ft_strjoin` means matching that behaviour deliberately." },
       { qa: [
         { q: "How do `read` returning 0 and -1 differ?", a: "`0` is end of file (normal); `-1` is an error — free everything held and return NULL immediately rather than treating it as EOF." },
@@ -8631,7 +8745,7 @@ stash before the call:   NULL
 	line[len] = '\0';
 	return (line);
 }`, cap: "Real code — `len = i + (stash[i] == '\\n')` adds 1 when there's a newline and 0 when the file simply ended", lang: "c" },
-      { p: "**This is where a file with no trailing newline is handled** — the condition `stash[i] == '\\n'` is false once the loop reaches the terminator, so `len = i` exactly and the remainder is returned as the last line. **Requiring a `\\n` makes that line disappear silently.**" },
+      { p: "**This is where a file with no trailing newline is handled **— the condition** `stash[i] == '\\n'` **is false once the loop reaches the terminator, so** `len = i` **exactly and the remainder is returned as the last line.** Requiring a `\\n` makes that line disappear silently.**" },
       { code: String.raw`char	*update_stash(char *stash)
 {
 	char	*new_s;
@@ -8759,7 +8873,7 @@ t_gnl_node	*find_fd_node(t_gnl_node **lst, int fd)
         { q: "Does abandoning a file part-way leak?", a: "That fd's node stays allocated until the program exits — a known limitation. Read on until NULL, or add a cleanup function the subject doesn't require." },
       ]},
 
-      { h: "🔬 Deep dive F: `BUFFER_SIZE` — a value that arrives at compile time" },
+      { h: "🔬 Deep dive F: BUFFER_SIZE — a value that arrives at compile time" },
       { code: String.raw`cc -D BUFFER_SIZE=42 get_next_line.c ...
       ^^^^^^^^^^^^^^^^^^
    exactly as if  #define BUFFER_SIZE 42  sat at the top of every file
@@ -8832,7 +8946,7 @@ void		remove_fd_node(t_gnl_node **lst, int fd);
 #endif`, cap: "Real code — both `BUFFER_SIZE` and `FD_MAX` have fallbacks so it compiles with no `-D` at all", lang: "c" },
       { note: "In the submitted project you must write `ft_strlen` / `ft_strchr` / `ft_strjoin` in your own `get_next_line_utils.c` — including `libft.h` works here only because this workspace keeps everything together." },
 
-      { h: "`remove_fd_node` — unlinking a node" },
+      { h: "remove_fd_node — unlinking a node" },
       { code: String.raw`void	remove_fd_node(t_gnl_node **lst, int fd)
 {
 	t_gnl_node	*prev;
@@ -8856,7 +8970,7 @@ void		remove_fd_node(t_gnl_node **lst, int fd);
 		cur = cur->next;
 	}
 }`, cap: "Real code — `prev` is tracked because a singly-linked list can't look backwards", lang: "c" },
-      { p: "**It takes a `t_gnl_node **`** because when the node to remove is the head, the caller's head pointer has to be updated — the same reason `ft_lstclear` does in libft." },
+      { p: "**It takes a `t_gnl_node** `** because when the node to remove is the head, the caller's head pointer has to be updated — the same reason `ft_lstclear` does in libft." },
       { note: "`free(cur->buf)` comes before `free(cur)` — it releases any stash still held. Free the node first and the pointer to that stash is gone with no way to recover it." },
     ],
 
@@ -9023,7 +9137,7 @@ norminette get_next_line*.c get_next_line*.h
 
 # on Windows via WSL
 wsl --exec bash -lc 'cd /mnt/d/Projects/42/push_swap/libft && norminette get_next_line*.c get_next_line*.h'`, lang: "bash" },
-      { note: "**`./gnl file | diff - file`** is the most complete test you can write in one line — if concatenating every returned line reproduces the file exactly, nothing was lost, nothing was duplicated, and every `\\n` sits where it belongs." },
+      { note: "`./gnl file | diff - file` is the most complete test you can write in one line — if concatenating every returned line reproduces the file exactly, nothing was lost, nothing was duplicated, and every `\\n` sits where it belongs." },
       { h: "Make the join *consume* its first argument" },
       { p: "This one decision removes most of the leak surface: write `gnl_strjoin` so it frees `s1` on **both** paths — success and allocation failure — and returns either the joined string or NULL." },
       { code: String.raw`char *gnl_strjoin(char *s1, const char *s2)   /* s1 is always consumed */
@@ -9048,13 +9162,13 @@ static char *stash[FD_MAX];             /* bonus — still ONE static */`, cap: 
       { p: "The stash logic and the multi-fd logic are separate problems — build them together and you can't tell which side a bug came from." },
       { h: "Trick 2: write down who frees what before coding" },
       { p: "`buf` → `read_and_store` · the stash → whichever function replaces it · `line` → the caller · the node → `remove_fd_node`. Four lines that remove nearly every leak in advance." },
-      { h: "Trick 3: `./gnl file | diff - file`" },
+      { h: "Trick 3: ./gnl file | diff - file" },
       { p: "One test that catches lost characters, duplicated lines and misplaced newlines at once — one line to write and reusable after every change." },
-      { h: "Trick 4: test `BUFFER_SIZE` in a loop, not one at a time" },
+      { h: "Trick 4: test BUFFER_SIZE in a loop, not one at a time" },
       { p: "`for b in 1 2 5 42 1024 9999`, recompiling each round — 1 and a very large value are the two that actually find bugs; middling values almost never do." },
-      { h: "Trick 5: `if (!stash[i]) return (free(stash), NULL);`" },
+      { h: "Trick 5: if (!stash[i]) return (free(stash), NULL);" },
       { p: "The comma operator cleans up and returns in a single line — it fits the 25-line limit with no extra block and reads better than a temporary variable." },
-      { h: "Trick 6: never forget to assign `update_stash`'s result back" },
+      { h: "Trick 6: never forget to assign update_stash's result back" },
       { p: "Calling `update_stash(node->buf);` on its own leaves `node->buf` pointing at freed memory — the compiler says nothing and valgrind catches it instantly." },
       { h: "Trick 7: always test through a pipe" },
       { p: "`printf 'a\\nb\\n' | ./gnl` — testing straight from a terminal looks like a hang when `read` is simply waiting for input, as it should." },
@@ -9134,8 +9248,8 @@ Object.assign(window.TEACHING_EN, {
       ]}},
       { h: "Module-wide hard rules (one slip = 0 or −42)" },
       { ul: [
-        "**No `printf` / `malloc` / `free`** — use `new` / `delete` and `std::cout`",
-        "**No `using namespace`** and **no `friend`** (both cost −42)",
+        "**No** `printf` **/** `malloc` **/** `free` — use `new` / `delete` and `std::cout`",
+        "**No** `using namespace` and **no** `friend` (both cost −42)",
         "**No STL containers or algorithms** (`<vector>`, `<map>`, `<algorithm>`) — this module doesn't need them. `std::string`, `<iostream>`, `<fstream>`, `<sstream>` are fine",
         "**No function bodies in headers** (templates excepted, and they're not here yet) — declare in `.hpp`, define in `.cpp`, include guards everywhere",
         "Compile only with `c++ -Wall -Wextra -Werror -std=c++98`",
@@ -9154,7 +9268,7 @@ Object.assign(window.TEACHING_EN, {
         ["Use it for", "things local to this function", "things that must outlive the function"],
       ]}},
       { p: "The only question to ask is **'does this need to outlive the current scope?'** If not, use the stack, always — it's simpler and cannot leak. If so, use the heap and be able to say **who is going to delete it**." },
-      { h: "2) `new` and `new[]` are different pairs" },
+      { h: "2) new and new[] are different pairs" },
       { code: String.raw`Zombie *one  = new Zombie("a");   →  delete one;
 Zombie *many = new Zombie[5];     →  delete[] many;
 
@@ -9190,7 +9304,7 @@ call:        (this->*p)();                // the parentheses are required (this-
 They go into an array too:
 void (Harl::*funcs[4])(void) = {&Harl::debug, &Harl::info,
                                 &Harl::warning, &Harl::error};`, cap: "The three things the compiler complains about most: a missing `Harl::`, a missing `&`, missing parentheses at the call", lang: "cpp" },
-      { h: "6) `switch` fall-through" },
+      { h: "6) switch fall-through" },
       { p: "We normally put `break` in every case precisely because we don't want to fall into the next one. ex06 makes that falling **the mechanism**: enter the switch at a level and it prints that level and every more severe one, for free." },
       { h: "7) C++ file streams" },
       { code: String.raw`std::ifstream in(name.c_str());   // C++98 takes const char* → hence .c_str()
@@ -9392,7 +9506,7 @@ void HumanB::attack(void) const
     std::cout << this->_name << " attacks with their "
               << this->_weapon->getType() << std::endl;
 }`, cap: "The tangible difference: HumanB needs a NULL check — HumanA can never reach that case at all", lang: "cpp" },
-      { note: "A consequence you must be able to explain: both hold **the same Weapon `main` holds**, not a copy. `main` calls `club.setType(\"some other type of club\")` and the next `attack()` reflects it immediately." },
+      { note: "A consequence you must be able to explain: both hold **the same Weapon** `main` **holds**, not a copy. `main` calls `club.setType(\"some other type of club\")` and the next `attack()` reflects it immediately." },
       { h: "ex05-06 — Harl" },
       { code: String.raw`class Harl                       // ex05
 {
@@ -9418,7 +9532,7 @@ int levelToIndex(std::string level) const;   // -1 = unknown`, cap: "Encapsulati
         ["ex03", "`Weapon.hpp/.cpp`, `HumanA.hpp/.cpp`, `HumanB.hpp/.cpp`, `main.cpp`", "three classes, three file pairs"],
         ["ex04", "`main.cpp`", "one file, with a `static` `replaceAll` helper"],
         ["ex05", "`Harl.hpp/.cpp`, `main.cpp`", "the binary can be called anything"],
-        ["ex06", "`Harl.hpp/.cpp`, `main.cpp`", "**the binary must be called `harlFilter`**"],
+        ["ex06", "`Harl.hpp/.cpp`, `main.cpp`", "**the binary must be called** `harlFilter`"],
       ]}},
       { note: "Every exercise has its own Makefile — nothing is shared, each folder compiles independently." },
       { h: "A Makefile skeleton that works for every exercise" },
@@ -9575,13 +9689,13 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp
     tricks: [
       { h: "Trick 1: put a cout in the destructor from the start" },
       { p: "The whole module is about object lifetime — printing on birth and death lets you *see* what you're learning instead of imagining it. ex00 asks for it anyway." },
-      { h: "Trick 2: every `new` should have an immediate answer to 'who deletes it'" },
+      { h: "Trick 2: every new should have an immediate answer to 'who deletes it'" },
       { p: "The moment you write `new`, name the line that will delete it. If you can't, the ownership design isn't settled yet — and that's where nearly every leak comes from." },
       { h: "Trick 3: let the requirement pick the type" },
       { p: "Don't choose reference or pointer out of habit. Ask 'can it be absent?' and 'can it change?' — no to both means a reference; yes to either means a pointer. ex03 is that question as an exercise." },
       { h: "Trick 4: two index-aligned arrays are a dispatch table" },
       { p: "`levels[]` and `funcs[]` line up, so finding a name gives you the function immediately. The pattern generalises well beyond Harl — a new entry is two adjacent lines." },
-      { h: "Trick 5: always comment `// fall through`" },
+      { h: "Trick 5: always comment // fall through" },
       { p: "A case that deliberately doesn't break needs the comment, or readers (and some compilers) will assume you forgot." },
       { h: "Trick 6: reassembling a string beats editing one" },
       { p: "ex04 bans `replace()`, which forces the 'read a piece, append a piece' approach — and it really is safer, because you never have to reason about indices shifting after an edit in the middle." },
@@ -9598,12 +9712,12 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.cpp ex0*/*.hpp
         { q: "Why does HumanA use a reference and HumanB a pointer?", a: "HumanA is always armed and never swaps holders → a reference says exactly that and the compiler enforces binding at construction. HumanB may be unarmed and gets a weapon later → it has to be a pointer that can start at NULL." },
         { q: "Why must a reference member go in the initialiser list?", a: "A reference has no 'unbound' state — it must bind as it is constructed, which happens before the body is entered, so there is nothing left to assign in the body and it won't compile." },
         { q: "Why does `getType` return `const std::string&`?", a: "Returning a reference avoids copying the string; the `const` lets callers read it but not modify the Weapon through it." },
-        { q: "Why do Bob and Jim both change when `club.setType()` is called?", a: "Because both hold a reference or pointer to **the same Weapon `main` holds**, not a copy — changing it at the source shows up everywhere." },
+        { q: "Why do Bob and Jim both change when `club.setType()` is called?", a: "Because both hold a reference or pointer to **the same Weapon** `main` **holds**, not a copy — changing it at the source shows up everywhere." },
         { q: "Why does ex04 ban `std::string::replace`?", a: "The subject requires it, so you practise assembling strings yourself with `find` + `substr` and working with C++ streams instead of reaching for a ready-made function." },
         { q: "What happens in ex04 if s1 is an empty string?", a: "`find(\"\")` always returns the current position and never `npos` → the loop never ends and `start` never advances. Check it up front and exit 1." },
         { q: "How do you declare and call a pointer to member function?", a: "Declare `void (Harl::*p)(void);`, take the address with `&Harl::debug` (both the `&` and the `Harl::` are required), and call it with `(this->*p)()` — the parentheses are needed because `()` binds tighter than `->*`." },
         { q: "Why does ex05 forbid if/else?", a: "The exercise exists to make you meet the pointer-to-member syntax, not to produce the right output; and a dispatch table means a new level is two index-aligned lines." },
-        { q: "How does ex06's fall-through work?", a: "Turn the level name into an index, enter the switch at that case, and **omit `break`** until the last one — so it prints the requested level and every more severe one with no extra logic." },
+        { q: "How does ex06's fall-through work?", a: "Turn the level name into an index, enter the switch at that case, and **omit** `break` until the last one — so it prints the requested level and every more severe one with no extra logic." },
         { q: "How does ex06 handle an unknown level?", a: "`levelToIndex` returns -1, which matches no case, so it falls to `default` and prints the fallback message." },
         { q: "Why does the whole module ban `using namespace std`?", a: "It's a 42 rule (−42 if broken), so it's obvious what comes from the standard library and so names don't collide as projects grow." },
       ]},
@@ -9638,7 +9752,7 @@ Object.assign(window.TEACHING_EN, {
   "cpp_module_02": {
     principle: [
       { h: "What Module 02 teaches" },
-      { p: "This module has one class, **`Fixed`**, written four times over, each round adding capability. The real goals are two: (1) **Orthodox Canonical Form**, mandatory for every class from here on, and (2) **operator overloading** — making your object usable with `+`, `<`, `<<`, `++` just like a built-in type." },
+      { p: "This module has one class, `Fixed`, written four times over, each round adding capability. The real goals are two: (1) **Orthodox Canonical Form**, mandatory for every class from here on, and (2) **operator overloading** — making your object usable with `+`, `<`, `<<`, `++` just like a built-in type." },
       { h: "Four exercises, from the basics to real use" },
       { table: { head: ["Exercise", "Adds", "The point"], rows: [
         ["ex00", "OCF + `getRawBits`/`setRawBits`", "the four mandatory methods, and watching ctor/dtor order"],
@@ -9660,11 +9774,11 @@ Four formulas to remember:
   float → raw   : _value = roundf(f * (1 << _bits));   ← round, don't truncate
   raw   → float : (float)_value / (1 << _bits);
   raw   → int   : _value >> _bits;`, cap: "Everything in this module is one int, understood as already divided by 256", lang: "cpp" },
-      { note: "**Why `roundf` and not truncation:** 42.42×256 = 10859.52 — truncating gives 10859 (reads back as 42.4180) while rounding gives 10860 (reads back as 42.4219), which is what the subject expects. Get this wrong and the diff fails." },
+      { note: "**Why** `roundf` **and not truncation:** 42.42×256 = 10859.52 — truncating gives 10859 (reads back as 42.4180) while rounding gives 10860 (reads back as 42.4219), which is what the subject expects. Get this wrong and the diff fails." },
       { h: "Module hard rules" },
       { ul: [
         "**Orthodox Canonical Form is now mandatory** — every class needs all four: default ctor, copy ctor, copy assignment, destructor",
-        "**No `friend`** (−42) — the trap is `operator<<`, which is usually taught as a friend. Here it must be a **free function** calling the public `toFloat()`",
+        "**No** `friend` (−42) — the trap is `operator<<`, which is usually taught as a friend. Here it must be a **free function** calling the public `toFloat()`",
         "No `printf` / `malloc` / `free` / `using namespace`",
         "`roundf` from `<cmath>` is allowed from ex01 onwards (the one exception)",
         "ex03 is optional per the subject — but do it; it's short and it ties the whole module together",
@@ -9680,7 +9794,7 @@ Four formulas to remember:
         ["Destructor", "`~Fixed(void);`", "end of scope / `delete`"],
       ]}},
       { p: "If you don't write them, the compiler generates all four (copying member by member). 42 makes you write them because (a) once a class holds a pointer, the generated version copies only the address, leaving two objects pointing at the same memory and double-freeing it, and (b) so you can see exactly what gets called when." },
-      { note: "**`Fixed b = a;` calls the copy constructor, not `operator=`** — despite the `=` sign. The rule: if the left-hand side is being created, it's the copy ctor; if it already existed, it's assignment. A standard evaluation question." },
+      { note: "`Fixed b = a;` **calls the copy constructor, not** `operator=` — despite the `=` sign. The rule: if the left-hand side is being created, it's the copy ctor; if it already existed, it's assignment. A standard evaluation question." },
       { h: "2) Why the copy constructor forwards to operator=" },
       { code: String.raw`Fixed::Fixed(const Fixed &other)
 {
@@ -9695,8 +9809,8 @@ Fixed &Fixed::operator=(const Fixed &other)
         this->_value = other.getRawBits();
     return (*this);
 }`, cap: "Copy logic written once — and it produces exactly the two lines of output the subject shows", lang: "cpp" },
-      { p: "**What `if (this != &other)` is for:** it guards self-assignment (`a = a`). In a `Fixed` holding only an int nothing actually breaks, but once a class holds a pointer, skipping the check means 'free the old buffer, then copy from the thing you just freed' — a classic bug, so the habit starts here." },
-      { h: "3) `operator<<` must be a free function" },
+      { p: "**What** `if (this != &other)` **is for:** it guards self-assignment (`a = a`). In a `Fixed` holding only an int nothing actually breaks, but once a class holds a pointer, skipping the check means 'free the old buffer, then copy from the thing you just freed' — a classic bug, so the habit starts here." },
+      { h: "3) operator<< must be a free function" },
       { code: String.raw`// wrong: friend = -42
 class Fixed { friend std::ostream &operator<<(...); };
 
@@ -9716,7 +9830,7 @@ std::ostream &operator<<(std::ostream &out, const Fixed &fixed)
         ["arithmetic", "`+` `-` `*` `/`", "convert to float, compute, build a new Fixed"],
         ["increment", "`++a` `a++` `--a` `a--`", "move `_value` by one raw unit = 1/256"],
       ]}},
-      { note: "**Never compare via `toFloat()`** — comparing floats with `==` isn't reliable. Comparing the integer `_value` is always exact." },
+      { note: "**Never compare via** `toFloat()` — comparing floats with `==` isn't reliable. Comparing the integer `_value` is always exact." },
       { h: "🔬 Deep dive A: why increment moves only 1/256" },
       { p: "`++a` on a `Fixed` **doesn't add 1** — it adds 'the smallest value this type can represent', which is one raw bit = 1/256 = 0.00390625. The subject states it directly: add the smallest ε such that 1 + ε is greater than 1." },
       { code: String.raw`Fixed &Fixed::operator++(void)      // pre-increment: ++a
@@ -9774,7 +9888,7 @@ With only the const version:
         { q: "Why are they static?", a: "They compare two objects passed in rather than acting on any one object — `Fixed::min(a, b)` reads more naturally than `a.min(b)`." },
         { q: "What does returning a reference rather than a value buy you?", a: "No copy of the object, and (in the non-const version) the caller can modify the winner through the returned reference." },
       ]},
-      { h: "🔬 Deep dive C: `const` members — ex03 forces you to really understand the initialiser list" },
+      { h: "🔬 Deep dive C: const members — ex03 forces you to really understand the initialiser list" },
       { p: "`Point` holds `Fixed const _x;` and `Fixed const _y;`. Putting `const` there has two unavoidable consequences." },
       { code: String.raw`class Point
 {
@@ -9871,7 +9985,7 @@ A point is "inside" the triangle ⟺ it is on the same side of all three edges
 };
 
 std::ostream &operator<<(std::ostream &out, const Fixed &fixed);`, cap: "Our real code — `_bits` is a `static const int`, so it can carry its value inside the class even in C++98", lang: "cpp" },
-      { p: "**Why `_bits` is static:** it is a property of the *type* Fixed, not of any one object — every instance uses the same scale, so one copy is enough and no space is wasted per object." },
+      { p: "**Why** `_bits` **is static:** it is a property of the *type* Fixed, not of any one object — every instance uses the same scale, so one copy is enough and no space is wasted per object." },
       { h: "The four conversion functions" },
       { code: String.raw`Fixed::Fixed(const int value)
 {
@@ -9979,7 +10093,7 @@ std::cout << b.toInt();         // 2560 >> 8 = 10`, cap: "42.4219 isn't an error
       { h: "The order to write it in" },
       { ul: [
         "1. **ex00** — the four OCF members with exactly the right messages; run it and diff line by line against the subject",
-        "2. **ex01** — add the int/float ctors, toFloat/toInt and `operator<<`; **delete the getRawBits message** (ex01 no longer has it)",
+        "2. **ex01 **— add the int/float ctors, toFloat/toInt and** `operator<<`**;** delete the getRawBits message** (ex01 no longer has it)",
         "3. **ex02** — write the six comparisons first (easiest), then the four arithmetic, then the four increments, then the four min/max",
         "4. **ex03** — copy Fixed over, build Point (where const members bite), then bsp",
       ]},
@@ -10018,7 +10132,7 @@ valgrind --leak-check=full --error-exitcode=42 -q ./a.out`, lang: "bash" },
       { p: "Compare `_value` because integers compare exactly; compute through `toFloat()` because one formula then covers all four operators and gives the rounding the subject expects." },
       { h: "Trick 4: make the self-assignment check a habit" },
       { p: "`if (this != &other)` isn't strictly needed in a Fixed holding one int, but by Module 04, where classes hold pointers, it's the line between working code and a double free — start doing it now." },
-      { h: "Trick 5: make `++i` your default over `i++`" },
+      { h: "Trick 5: make ++i your default over i++" },
       { p: "When you don't use the returned value (in a loop, say) `++i` avoids constructing a copy. This module lets you see exactly why post-increment costs more." },
       { h: "Trick 6: ex03 copies Fixed wholesale" },
       { p: "Don't rewrite Fixed — copy `Fixed.hpp/.cpp` from ex02 and put your attention on Point and bsp, which are the genuinely new parts." },
@@ -10074,7 +10188,7 @@ Object.assign(window.TEACHING_EN, {
   "cpp_module_03": {
     principle: [
       { h: "What Module 03 teaches" },
-      { p: "This module is about one thing, **inheritance** — one class taking what another has and building on it. But what is actually being assessed isn't 'can you write `: public ClapTrap`', it's **do you understand construction and destruction order** and **do you know why inheriting along two paths at once breaks**." },
+      { p: "This module is about one thing, **inheritance **— one class taking what another has and building on it. But what is actually being assessed isn't 'can you write** `: public ClapTrap`**', it's** do you understand construction and destruction order** and **do you know why inheriting along two paths at once breaks**." },
       { h: "The shape of the whole module" },
       { code: String.raw`              ClapTrap                 ex00   HP 10 / EP 10 / AD 0
              /        \
@@ -10111,14 +10225,14 @@ What a ScavTrap contains:
   - every member of ClapTrap (whether you can touch it depends on access)
   - every method of ClapTrap
   - whatever new it declares itself (guardGate)`, cap: "Inheritance means 'there is a ClapTrap inside me', not 'the code was copied over'", lang: "cpp" },
-      { h: "2) `private` → `protected` (where people get stuck in ex01)" },
-      { p: "ex00 says the attributes are `private`. ex01 says *ScavTrap will use ClapTrap's attributes (adapt ClapTrap accordingly)* — which is the subject's way of saying **change them to `protected`**." },
+      { h: "2) private → protected (where people get stuck in ex01)" },
+      { p: "ex00 says the attributes are `private`. ex01 says *ScavTrap will use ClapTrap's attributes (adapt ClapTrap accordingly)* — which is the subject's way of saying **change them to** `protected`." },
       { table: { head: ["Access", "The class itself", "Derived classes", "The outside world"], rows: [
         ["`private`", "✓", "✗", "✗"],
         ["`protected`", "✓", "✓", "✗"],
         ["`public`", "✓", "✓", "✓"],
       ]}},
-      { note: "If the compiler says **`_hitPoints is private`** while you're writing ScavTrap, this is why. Fix it in the ClapTrap copies of ex01/02/03 (ex00 stays private, as the subject wrote it)." },
+      { note: "If the compiler says `_hitPoints is private` while you're writing ScavTrap, this is why. Fix it in the ClapTrap copies of ex01/02/03 (ex00 stays private, as the subject wrote it)." },
       { h: "3) Construction / destruction order — what's really being assessed" },
       { code: String.raw`ScavTrap s("Bob");
 
@@ -10154,7 +10268,7 @@ ScavTrap &ScavTrap::operator=(const ScavTrap &o)
         ["FragTrap", "100", "100", "30", "`highFivesGuys()`", "no (uses ClapTrap's)"],
         ["DiamondTrap", "100", "50", "30", "`whoAmI()`", "yes (borrows ScavTrap's)"],
       ]}},
-      { h: "🔬 Deep dive A: `unsigned` underflow — the bug hiding inside takeDamage" },
+      { h: "🔬 Deep dive A: unsigned underflow — the bug hiding inside takeDamage" },
       { p: "All three stats are `unsigned int`, because negative hit points are meaningless. But `unsigned` does not mean 'subtracting stops at 0' — it means **'subtracting wraps around to an enormous number'**." },
       { code: String.raw`unsigned int hp = 10;
 hp -= 30;              // this is NOT -20
@@ -10216,7 +10330,7 @@ The consequences:
   └──────────────────────────────────┘`, cap: "`virtual` means 'if anyone inherits me along several paths, share a single ClapTrap between them'", lang: "cpp" },
       { p: "**Two consequences you must know:**" },
       { ul: [
-        "**The most-derived class constructs the virtual base itself** — the `: ClapTrap(name)` written inside ScavTrap and FragTrap is **ignored** when they are part of a DiamondTrap. DiamondTrap therefore has to call `ClapTrap(...)` in its own initialiser list",
+        "**The most-derived class constructs the virtual base itself **— the** `: ClapTrap(name)` **written inside ScavTrap and FragTrap is** ignored** when they are part of a DiamondTrap. DiamondTrap therefore has to call `ClapTrap(...)` in its own initialiser list",
         "**The construction order changes** — the virtual base always comes first: ClapTrap → ScavTrap → FragTrap → DiamondTrap, with ClapTrap running exactly once. Destruction reverses it, also exactly once",
       ]},
       { qa: [
@@ -10225,7 +10339,7 @@ The consequences:
         { q: "Who constructs the virtual base?", a: "The most-derived class (DiamondTrap) — with only one ClapTrap, there can be only one party responsible. The `: ClapTrap(...)` written in ScavTrap/FragTrap is ignored in this context." },
         { q: "Why is the virtual base always constructed first?", a: "Because both middle branches need it — it has to be ready before anything else." },
       ]},
-      { h: "🔬 Deep dive C: shadowing — two `_name`s inside DiamondTrap" },
+      { h: "🔬 Deep dive C: shadowing — two _names inside DiamondTrap" },
       { p: "The subject deliberately gives DiamondTrap a private `_name` **with the same name as ClapTrap's**. The nearer name hides the further one, and reaching the hidden one requires the qualified name." },
       { code: String.raw`Inside a DiamondTrap method:
 
@@ -10252,7 +10366,7 @@ DiamondTrap::DiamondTrap(const std::string &name) :
     this->_attackDamage = FragTrap::_attackDamage;   //  30
     std::cout << "DiamondTrap " << this->_name << " constructed" << std::endl;
 }`, cap: "Set the three stats in the body rather than relying on base order — FragTrap runs last, so without this EP would end up 100 instead of 50", lang: "cpp" },
-      { note: "**Don't add `-Wshadow` to the Makefile** — the required flags are only `-Wall -Wextra -Werror`, which don't include it. The subject mentions shadowing so you know it's real and must be resolved with `ClapTrap::`, not so you turn the warning on (with `-Werror` it would become an error)." },
+      { note: "**Don't add** `-Wshadow` **to the Makefile** — the required flags are only `-Wall -Wextra -Werror`, which don't include it. The subject mentions shadowing so you know it's real and must be resolved with `ClapTrap::`, not so you turn the warning on (with `-Werror` it would become an error)." },
       { qa: [
         { q: "DiamondTrap has two `_name`s — how do you tell them apart?", a: "Plain `_name` is DiamondTrap's (the nearer name hides the further); ClapTrap's requires `ClapTrap::_name` or `this->ClapTrap::_name`." },
         { q: "Why set the stats in the body rather than letting the bases do it?", a: "FragTrap runs after ScavTrap, so its 100/100/30 would overwrite ScavTrap's EP of 50. Setting them explicitly guarantees the 100/50/30 the subject specifies." },
@@ -10459,11 +10573,11 @@ valgrind --leak-check=full --error-exitcode=42 -q ./diamondtrap`, lang: "bash" }
       { p: "`./diamondtrap | grep -c 'ClapTrap.*constructed'` must give 1. Getting 2 means the `virtual` is missing — a faster and clearer test than rereading the code." },
       { h: "Trick 3: set the stats in the body, don't rely on base order" },
       { p: "Set HP/EP/AD explicitly in DiamondTrap's constructor body — then you never have to reason about which base ran first, and the values are guaranteed." },
-      { h: "Trick 4: put `virtual` on ClapTrap's destructor" },
+      { h: "Trick 4: put virtual on ClapTrap's destructor" },
       { p: "Write `virtual ~ClapTrap()` from ex00 — it isn't needed in this module (nothing is deleted through a base pointer yet), but it's the habit Module 04 will require for real." },
       { h: "Trick 5: check before spending energy" },
       { p: "In `attack` and `beRepaired`, pass the HP/EP checks first and only then do `_energyPoints--`. The other order costs a robot energy for something it couldn't do." },
-      { h: "Trick 6: don't add `-Wshadow`" },
+      { h: "Trick 6: don't add -Wshadow" },
       { p: "The required flags are only `-Wall -Wextra -Werror`. The two `_name`s in DiamondTrap are deliberate shadowing — enable `-Wshadow` and it becomes an error immediately, because `-Werror` is on." },
     ],
 
@@ -10506,7 +10620,7 @@ Object.assign(window.TEACHING_EN, {
   "cpp_module_04": {
     principle: [
       { h: "What Module 04 teaches" },
-      { p: "This module is the heart of all OOP: **hold objects of several types in one kind of variable, call the same method, and have each behave according to what it actually is**. The whole module turns on one keyword, `virtual`, and the two traps that come with it: the **virtual destructor** and **deep copy**." },
+      { p: "This module is the heart of all OOP: **hold objects of several types in one kind of variable, call the same method, and have each behave according to what it actually is**. The whole module turns on one keyword,** `virtual`**, and the two traps that come with it: the** virtual destructor** and **deep copy**." },
       { h: "The one idea to understand" },
       { code: String.raw`const Animal *j = new Dog();
 j->makeSound();
@@ -10516,7 +10630,7 @@ j->makeSound();
 
   makeSound is virtual       →  Dog's version runs   → "Woof!"
   makeSound is not virtual   →  Animal's version     → a generic noise`, cap: "virtual = decided at run time from the real type; non-virtual = decided at compile time from the declared type", lang: "cpp" },
-      { p: "ex00 asks for a `WrongAnimal` / `WrongCat` family identical in every way **except the missing `virtual`** — so you can see with your own eyes what that one keyword changes." },
+      { p: "ex00 asks for a `WrongAnimal` / `WrongCat` family identical in every way **except the missing** `virtual` — so you can see with your own eyes what that one keyword changes." },
       { h: "Four exercises" },
       { table: { head: ["Exercise", "Adds", "The point"], rows: [
         ["ex00", "Animal/Dog/Cat + WrongAnimal/WrongCat", "what `virtual` does, and what happens without it"],
@@ -10541,8 +10655,8 @@ j->makeSound();
         ["Example", "`Animal *j`  → Animal", "`new Dog()` → Dog"],
         ["Who uses it", "the compiler (deciding what you may call)", "the running program (deciding which one runs)"],
       ]}},
-      { p: "**Ordinary methods** are picked at compile time from the static type. **`virtual` methods** are picked at run time from the dynamic type — that sentence is the whole of subtype polymorphism." },
-      { h: "2) How `virtual` works underneath" },
+      { p: "**Ordinary methods** are picked at compile time from the static type. `virtual` **methods** are picked at run time from the dynamic type — that sentence is the whole of subtype polymorphism." },
+      { h: "2) How virtual works underneath" },
       { code: String.raw`A class with any virtual method gets one hidden table (a vtable)
 Each object stores a pointer to the table of its "real" type
 
@@ -10572,7 +10686,7 @@ The consequences:
 
 An abstract class still HAS a constructor/destructor/operator= as usual
   — pure virtual only says "this method has no body; derived classes must supply one"`, cap: "Abstract = a template you can't instantiate, which forces every derived class to provide this method", lang: "cpp" },
-      { p: "ex02 makes `Animal` abstract because *'an animal in the abstract has no sound, so it shouldn't be creatable'*. The subject invites renaming it to **`AAnimal`** (A for abstract) — if you do, rename the files, the include guards and every `: public Animal` as well." },
+      { p: "ex02 makes `Animal` abstract because *'an animal in the abstract has no sound, so it shouldn't be creatable'*. The subject invites renaming it to `AAnimal` (A for abstract) — if you do, rename the files, the include guards and every `: public Animal` as well." },
       { h: "4) Interfaces in C++98" },
       { p: "C++98 has no `interface` keyword. What stands in for one is **a class where every method is pure virtual and only the destructor has a body**." },
       { code: String.raw`class ICharacter
@@ -10642,7 +10756,7 @@ Dog &Dog::operator=(const Dog &o)
     }
     return (*this);
 }`, cap: "operator= differs from the copy ctor in that something already exists — release it first, or it leaks", lang: "cpp" },
-      { p: "**This is where `if (this != &o)` earns its keep:** write `a = a;` without it → `delete this->brain` frees the Brain → then `new Brain(*o.brain)` reads from what was just freed = use-after-free." },
+      { p: "**This is where** `if (this != &o)` **earns its keep:** write `a = a;` without it → `delete this->brain` frees the Brain → then `new Brain(*o.brain)` reads from what was just freed = use-after-free." },
       { note: "How to prove the copy is really deep: copy a Dog, change one's `ideas[0]` — the other must be unchanged **and** the addresses returned by `getBrain()` must differ." },
       { qa: [
         { q: "What is the difference between shallow and deep copy?", a: "Shallow copies the pointer value (two objects pointing at one block); deep allocates a new block and copies the content into it (fully independent)." },
@@ -10664,8 +10778,8 @@ Dog &Dog::operator=(const Dog &o)
 {
     return (new Ice(*this));       // make a new one "of the same type as me"
 }`, cap: "clone is how you copy an object without knowing its type — code holding only an AMateria* can still copy it correctly", lang: "cpp" },
-      { p: "**Why `clone()` is needed when there is already a copy constructor:** a copy constructor needs the type at compile time (`Ice b(a);`). But `MateriaSource` holds only `AMateria *templates[4]` — it has no idea whether a slot is an Ice or a Cure. Being virtual, `clone()` asks the object to copy itself." },
-      { note: "**`AMateria::operator=` must not copy `type`** — the subject says copying the type on assignment is meaningless, since the type is fixed at construction by the derived class." },
+      { p: "**Why** `clone()` **is needed when there is already a copy constructor:** a copy constructor needs the type at compile time (`Ice b(a);`). But `MateriaSource` holds only `AMateria *templates[4]` — it has no idea whether a slot is an Ice or a Cure. Being virtual, `clone()` asks the object to copy itself." },
+      { note: "`AMateria::operator=` **must not copy** `type` — the subject says copying the type on assignment is meaningless, since the type is fixed at construction by the derived class." },
       { qa: [
         { q: "Why does `clone()` exist alongside the copy constructor?", a: "A copy constructor needs the concrete type at compile time, and code holding only an `AMateria*` doesn't have it. Being virtual, `clone()` lets the object copy itself correctly without the caller knowing." },
         { q: "Must `unequip` delete the Materia?", a: "No — the subject forbids it explicitly. Just set the slot to NULL and let the caller take over that pointer." },
@@ -10768,7 +10882,7 @@ AMateria (abstract: clone() = 0)
       ▲
    ┌──┴──┐
   Ice   Cure     ← clone() returns new Ice(*this) / new Cure(*this)`, cap: "An interface says 'what you must be able to do'; an abstract class also hands down shared substance (type + getType)", lang: "txt" },
-      { p: "**Why `AMateria` is an abstract class rather than an interface:** it carries real shared substance for its children (`std::string type;` and `getType()`) — a true interface would be pure virtual throughout." },
+      { p: "**Why** `AMateria` **is an abstract class rather than an interface:** it carries real shared substance for its children (`std::string type;` and `getType()`) — a true interface would be pure virtual throughout." },
     ],
 
     architecture: [
@@ -10898,7 +11012,7 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|algorithm' ex0*
     ],
 
     tricks: [
-      { h: "Trick 1: add `virtual ~Base()` before it is needed" },
+      { h: "Trick 1: add virtual ~Base() before it is needed" },
       { p: "ex00 has nothing to leak, but put it in anyway — when ex01 copies the files and adds a Brain, it is already correct and there's no leak to chase later." },
       { h: "Trick 2: a pointer member means writing OCF yourself" },
       { p: "The simple rule: any class holding a raw pointer it allocated cannot use the compiler's generated versions — write the copy ctor, operator= and destructor yourself (the rule of three)." },
@@ -11016,7 +11130,7 @@ throwing from a constructor means "construction genuinely failed"
 
 throwing:  throw Bureaucrat::GradeTooHighException();
 catching:  catch (std::exception &e) { std::cout << e.what(); }`, cap: "Nested inside the class, so the name itself says it came from Bureaucrat", lang: "cpp" },
-      { p: "**The `const throw()` must not go missing** — the signature has to match `std::exception::what()` exactly, or you get *'looser throw specifier for virtual ... what()'*. `throw()` is the C++98 way of promising 'this function throws nothing' (C++11 replaced it with `noexcept`, but this module is C++98)." },
+      { p: "**The** `const throw()` **must not go missing** — the signature has to match `std::exception::what()` exactly, or you get *'looser throw specifier for virtual ... what()'*. `throw()` is the C++98 way of promising 'this function throws nothing' (C++11 replaced it with `noexcept`, but this module is C++98)." },
       { p: "**Always catch by reference** (`catch (std::exception &e)`) — catching by value slices the thrown object down to its `std::exception` part, and `what()` then returns the base's message instead of the real one." },
       { h: "3) How throw / try / catch flows" },
       { code: String.raw`try
@@ -11033,8 +11147,8 @@ catch (std::exception &e)
 During the jump (stack unwinding):
   fully-constructed objects in the scope are destroyed in reverse order
   → their destructors all run → but anything new'd and not yet deleted still leaks`, cap: "Exceptions clean up stack objects for you but not heap ones — something ex03 has to be careful about", lang: "cpp" },
-      { h: "🔬 Deep dive A: `const` members versus OCF" },
-      { p: "`Bureaucrat` holds a `const std::string _name;`, and `AForm` has a const name and two const grades. But OCF requires an `operator=` — which **cannot overwrite a `const` member**." },
+      { h: "🔬 Deep dive A: const members versus OCF" },
+      { p: "`Bureaucrat` holds a `const std::string _name;`, and `AForm` has a const name and two const grades. But OCF requires an `operator=` — which **cannot overwrite a** `const` **member**." },
       { code: String.raw`Bureaucrat &Bureaucrat::operator=(const Bureaucrat &other)
 {
     if (this != &other)
@@ -11042,7 +11156,7 @@ During the jump (stack unwinding):
     return (*this);                    //   _name is simply left alone
 }`, cap: "The accepted resolution: copy the mutable state, leave the identity (the name) where it is", lang: "cpp" },
       { p: "**Why that is acceptable:** `_name` is the object's *identity*, not its *state*. Assignment in this sense means 'give this person that person's grade', not 'turn this person into that person'." },
-      { note: "**Don't `const_cast` the name** to make it copyable — it's a red flag at defence, because it amounts to telling the compiler the const you wrote isn't real." },
+      { note: "**Don't** `const_cast` **the name** to make it copyable — it's a red flag at defence, because it amounts to telling the compiler the const you wrote isn't real." },
       { qa: [
         { q: "Why does a class with a `const` member still need an `operator=`?", a: "Because OCF requires one. The resolution is to copy only the non-const members and leave the const ones — it compiles and it makes sense." },
         { q: "What happens if you don't write `operator=` yourself?", a: "The compiler tries to generate one and can't, because of the const member — so any code that assigns fails to compile. And OCF isn't satisfied either." },
@@ -11062,7 +11176,7 @@ When the throw happens there:
   ✓ _name (constructed in the initialiser list) is destroyed normally
   ✗ ~Bureaucrat() is NOT called — the object was never finished
   ✗ the variable that was to receive it never existed at all`, cap: "The rule: destructors run only for objects whose constructor completed", lang: "cpp" },
-      { p: "**The consequence to watch for:** if the constructor had already `new`'d something before throwing, that block leaks, because the destructor that would `delete` it never runs. There's no such case in this module, but it is why you should always **validate before allocating**." },
+      { p: "**The consequence to watch for: **if the constructor had already** `new`**'d something before throwing, that block leaks, because the destructor that would** `delete` **it never runs. There's no such case in this module, but it is why you should always** validate before allocating**." },
       { qa: [
         { q: "Does the destructor run when a constructor throws?", a: "No — construction never completed, so there is no object to destroy. Members that were already constructed are destroyed normally." },
         { q: "Why validate the grade before assigning it?", a: "So the object never enters a half-built state. The general principle: finish all validation before acquiring any resource, because a throw after acquisition means the destructor never runs and it leaks." },
@@ -11093,7 +11207,7 @@ void AForm::execute(Bureaucrat const &executor) const
         ["Adding a new condition", "three edits", "one edit"],
         ["`executeAction` visible outside", "—", "no (protected) — the only route is through `execute`"],
       ]}},
-      { p: "**Why `executeAction` must be `protected`:** were it public, somebody could call it directly and bypass the checks — letting an unsigned form be executed." },
+      { p: "**Why** `executeAction` **must be** `protected`**:** were it public, somebody could call it directly and bypass the checks — letting an unsigned form be executed." },
       { qa: [
         { q: "Why not make `execute` virtual and let each form implement it?", a: "You'd have to copy the signed and grade checks into all three classes — repetitive and easy to forget. The subject warns that this is the 'less elegant' route." },
         { q: "Why is `executeAction` protected?", a: "So nobody can bypass the checks — the only way to run a form is through `execute()`, which has already validated everything." },
@@ -11137,7 +11251,7 @@ AForm *Intern::makeForm(const std::string &name, const std::string &target)
 
 The parentheses around (*builders[3]) are required
   without them → AForm *builders[3](...) = an array of functions (not a thing in C++)`, cap: "Same reason as pointer-to-member in Module 01 — the parentheses say 'pointer first, function second'", lang: "txt" },
-      { p: "**Why the builders must be `static`:** an ordinary method carries a hidden `this`, which makes its type a pointer-to-member and far more awkward to write. A `static` one has no `this`, so it's an ordinary function that drops straight into the array above." },
+      { p: "**Why the builders must be** `static`**:** an ordinary method carries a hidden `this`, which makes its type a pointer-to-member and far more awkward to write. A `static` one has no `this`, so it's an ordinary function that drops straight into the array above." },
       { note: "`makeForm` hands ownership to the caller — every `AForm*` you get must be `delete`d. When it throws `FormNotFoundException` there is nothing to delete (nothing was `new`'d yet), which is correct." },
       { qa: [
         { q: "Why does the subject forbid an if/else chain in makeForm?", a: "Because it doesn't scale — every new form means editing the logic. A table of names and builders only ever gains data, never new control flow." },
@@ -11343,15 +11457,15 @@ cd ex02 && ./form && cat home_shrubbery`, lang: "bash" },
     tricks: [
       { h: "Trick 1: write the grade table down before you start" },
       { p: "Copy the five-row table from the theory section and keep it beside the screen. The number one bug in this module is comparing against the wrong bound, and checking a table is faster than re-deriving it every time." },
-      { h: "Trick 2: make `what()` say what actually went wrong" },
+      { h: "Trick 2: make what() say what actually went wrong" },
       { p: "`\"grade is too high\"` is more useful than `\"error\"`, because that string ends up in the `couldn't sign ... because <reason>.` line the evaluator reads." },
-      { h: "Trick 3: one `catch (std::exception &)` is enough" },
+      { h: "Trick 3: one catch (std::exception &) is enough" },
       { p: "There's no need for a separate catch per type — they all derive from `std::exception` and what you display is `e.what()` in every case." },
       { h: "Trick 4: get ex00 passing every edge case before starting ex01" },
       { p: "ex01–ex03 all reuse that Bureaucrat — a bug left in ex00 follows you through the whole module and gets harder to isolate each time." },
       { h: "Trick 5: rename Form → AForm with a single sed" },
       { p: "`sed -i 's/\\bForm\\b/AForm/g' *.cpp *.hpp`, then check the include guards and filenames — faster than editing by hand and nothing gets missed. The `\\b` protects names like `ShrubberyCreationForm`." },
-      { h: "Trick 6: `srand` once, in main, always" },
+      { h: "Trick 6: srand once, in main, always" },
       { p: "Reseeding inside the action gives the same value on every call within the same second, because `time(0)` hasn't changed — it looks as though the randomness is broken." },
       { h: "Trick 7: let the base check and the child act" },
       { p: "Whenever you're about to copy a condition into several derived classes, stop and ask whether it can move up into the base — the pattern stays useful all the way to Modules 08 and 09." },
@@ -11412,14 +11526,14 @@ Object.assign(window.TEACHING_EN, {
         ["`const_cast<T>`", "adds or removes `const`", "compile time", "compile error (though misusing it is UB)"],
         ["`reinterpret_cast<T>`", "reinterprets the bits without converting", "compile time", "it doesn't fail — which is the dangerous part"],
       ]}},
-      { p: "**Why not C's `(type)x`:** a C-style cast silently tries all four in turn — you can't tell from reading the code what happened, and you can't grep for it. C++'s long names are deliberately awkward, because every cast is a place where the type system is being bypassed." },
+      { p: "**Why not C's** `(type)x`**:** a C-style cast silently tries all four in turn — you can't tell from reading the code what happened, and you can't grep for it. C++'s long names are deliberately awkward, because every cast is a place where the type system is being bypassed." },
       { h: "Hard rules" },
       { ul: [
         "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend` (−42) · no STL",
         "**ex00 and ex01 must not be instantiable** — full OCF, but declared `private`",
         "**ex02 is exempt from OCF** — the subject says so outright",
-        "**ex02 must not `#include <typeinfo>`** — catch `std::exception&` instead of `std::bad_cast`",
-        "**ex02 must not use a pointer inside `identify(Base&)`**",
+        "**ex02 must not** `#include <typeinfo>` — catch `std::exception&` instead of `std::bad_cast`",
+        "**ex02 must not use a pointer inside** `identify(Base&)`",
       ]},
     ],
 
@@ -11467,7 +11581,7 @@ Why uintptr_t rather than int:
       { p: "`dynamic_cast` is the only cast that **works at run time** — it inspects the object's real type and decides whether the conversion is valid. And it has two completely different behaviours depending on the form used." },
       { table: { head: ["", "`dynamic_cast<A*>(p)`", "`dynamic_cast<A&>(r)`"], rows: [
         ["On success", "a usable pointer", "a usable reference"],
-        ["On failure", "returns `NULL`", "**throws `std::bad_cast`**"],
+        ["On failure", "returns `NULL`", "**throws** `std::bad_cast`"],
         ["How you check", "`if (dynamic_cast<A*>(p))`", "`try { ... } catch (std::exception &) {}`"],
         ["Why they differ", "a pointer can be NULL", "**a reference cannot be null**, so no value can mean failure"],
       ]}},
@@ -11488,14 +11602,14 @@ void identify(Base &p)
     try { (void)dynamic_cast<C &>(p); std::cout << "C" << std::endl; return; }
     catch (std::exception &) {}
 }`, cap: "The real code — the `(void)` is there because we only care that it didn't throw, not about the result", lang: "cpp" },
-      { p: "**The subject forbids using a pointer inside `identify(Base&)`** — you can't write `identify(&p)` and hand the work to the other overload. It forces you to meet the reference form, which genuinely needs try/catch." },
-      { note: "**`#include <typeinfo>` is banned**, and that is where `std::bad_cast` is declared — so catch `std::exception &` from `<exception>` instead. `bad_cast` derives from it, so it's caught normally and no rule is broken." },
+      { p: "**The subject forbids using a pointer inside** `identify(Base&)` — you can't write `identify(&p)` and hand the work to the other overload. It forces you to meet the reference form, which genuinely needs try/catch." },
+      { note: "`#include <typeinfo>` **is banned**, and that is where `std::bad_cast` is declared — so catch `std::exception &` from `<exception>` instead. `bad_cast` derives from it, so it's caught normally and no rule is broken." },
       { qa: [
-        { q: "What happens when a `dynamic_cast` fails?", a: "It depends on the form: the pointer form returns `NULL`, the reference form **throws `std::bad_cast`** — because a reference can't be null, so no value could stand for failure." },
+        { q: "What happens when a `dynamic_cast` fails?", a: "It depends on the form: the pointer form returns `NULL`, the reference form **throws** `std::bad_cast` — because a reference can't be null, so no value could stand for failure." },
         { q: "Why does `identify(Base&)` need try/catch?", a: "Because the reference form throws when the conversion is impossible, and the subject forbids using a pointer inside that function." },
         { q: "Why can't you catch `std::bad_cast`?", a: "It's declared in `<typeinfo>`, which the subject forbids including. Catch `std::exception &` instead — `bad_cast` already derives from it." },
       ]},
-      { h: "🔬 Deep dive B: `dynamic_cast` requires a polymorphic class" },
+      { h: "🔬 Deep dive B: dynamic_cast requires a polymorphic class" },
       { code: String.raw`class Base
 {
     public:
@@ -11505,7 +11619,7 @@ void identify(Base &p)
 class A : public Base {};     // completely empty
 class B : public Base {};
 class C : public Base {};`, cap: "The real ex02 code — Base has only a virtual destructor", lang: "cpp" },
-      { p: "**Why that one `virtual` is required:** `dynamic_cast` needs the object's real type at run time, and that information (the RTTI) rides along with the vtable. A class with no virtual method at all has no vtable, so there is nowhere for the type information to live." },
+      { p: "**Why that one** `virtual` **is required:** `dynamic_cast` needs the object's real type at run time, and that information (the RTTI) rides along with the vtable. A class with no virtual method at all has no vtable, so there is nowhere for the type information to live." },
       { code: String.raw`Forget the virtual and you get:
     error: cannot dynamic_cast 'p' (of type 'class Base*')
            to type 'class A*' (source type is not polymorphic)
@@ -11544,7 +11658,7 @@ class C : public Base {};`, cap: "The real ex02 code — Base has only a virtual
         { q: "When do you append the `.0`?", a: "When default streaming produced no `.` and no `e` — i.e. a whole number like `42`, which must be shown as `42.0`." },
         { q: "Why `static_cast<float>` before formatting the float line?", a: "So the printed number reflects actual `float` precision rather than the `double` the value is stored in." },
       ]},
-      { h: "🔬 Deep dive D: the difference between `impossible` and `Non displayable`" },
+      { h: "🔬 Deep dive D: the difference between impossible and Non displayable" },
       { p: "These two are not the same thing and the subject checks it. The distinction: **cannot be converted at all** versus **converted fine, but not printable**." },
       { code: String.raw`static void printChar(double d)
 {
@@ -11570,7 +11684,7 @@ class C : public Base {};`, cap: "The real ex02 code — Base has only a virtual
         { q: "Why does `./convert 0` print `Non displayable` rather than `impossible` for char?", a: "Because 0 is inside the valid char range (0–127) — the conversion works, it just can't be shown. `impossible` is reserved for NaN/Inf and out-of-range values." },
         { q: "What does `2147483648` produce?", a: "`int: impossible` (beyond INT_MAX), while `float`/`double` print normally — a double holds that value comfortably." },
       ]},
-      { h: "🔬 Deep dive E: `std::isnan` / `std::isinf` don't exist in C++98" },
+      { h: "🔬 Deep dive E: std::isnan / std::isinf don't exist in C++98" },
       { p: "Both arrived in C++11. Under `-std=c++98` you get *'isnan' is not a member of 'std'*. You can write them yourself in two lines, using guarantees IEEE 754 already provides." },
       { code: String.raw`static bool isNan(double d)
 {
@@ -11582,7 +11696,7 @@ static bool isInf(double d)
     return (d == std::numeric_limits<double>::infinity()
         || d == -std::numeric_limits<double>::infinity());
 }`, cap: "The real code — `d != d` isn't a trick, it's a property the IEEE 754 standard specifies", lang: "cpp" },
-      { p: "**Why `d != d` detects NaN:** IEEE 754 says any comparison involving a NaN is false, including `NaN == NaN`. So `!=` is true, and that can only happen for a NaN." },
+      { p: "**Why** `d != d` **detects NaN:** IEEE 754 says any comparison involving a NaN is false, including `NaN == NaN`. So `!=` is true, and that can only happen for a NaN." },
       { qa: [
         { q: "Why can't you use `std::isnan`?", a: "It arrived in C++11 — under `-std=c++98` it won't compile. Write your own with `d != d`." },
         { q: "How does `d != d` work?", a: "IEEE 754 makes every comparison against NaN false, including `NaN == NaN`. So `!=` is true only for NaN." },
@@ -11631,7 +11745,7 @@ static bool isInf(double d)
     }
     printChar(d);  printInt(d);  printFloat(d);  printDouble(d);
 }`, cap: "The real code — everything funnels through a single `double`, which makes all four print paths identical", lang: "cpp" },
-      { p: "**Why funnel through one `double` first:** instead of 4×4 = 16 conversion paths, you write 'string → double' once and 'double → X' four times. A `double` holds every int, float and char value without loss (except very large ints, which are checked separately anyway)." },
+      { p: "**Why funnel through one** `double` **first:** instead of 4×4 = 16 conversion paths, you write 'string → double' once and 'double → X' four times. A `double` holds every int, float and char value without loss (except very large ints, which are checked separately anyway)." },
       { note: "`static_cast` cannot turn a string into a number — so the subject permits a string-conversion function. This code uses `std::strtod` and `std::strtol` from `<cstdlib>`." },
       { h: "ex01 — Serializer" },
       { code: String.raw`// Data.hpp — the subject requires it to be "non-empty"
@@ -11652,7 +11766,7 @@ Data *Serializer::deserialize(uintptr_t raw)
 {
     return (reinterpret_cast<Data *>(raw));
 }`, cap: "That's the whole exercise — the point is 'why reinterpret_cast', not the volume of code", lang: "cpp" },
-      { p: "**Why `static_cast` won't work here:** `Data*` and `uintptr_t` are entirely unrelated types — there is no conversion rule for the compiler to follow. Only `reinterpret_cast` says 'take these same bits and see them as another type'." },
+      { p: "**Why** `static_cast` **won't work here:** `Data*` and `uintptr_t` are entirely unrelated types — there is no conversion rule for the compiler to follow. Only `reinterpret_cast` says 'take these same bits and see them as another type'." },
       { h: "ex02 — Base / A / B / C" },
       { code: String.raw`class Base { public: virtual ~Base(); };
 class A : public Base {};
@@ -11805,15 +11919,15 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp e
       { p: "`static` = convert a value the compiler knows how to convert · `dynamic` = ask the object at run time who it is · `const` = drop the const promise · `reinterpret` = see the same bits as another type" },
       { h: "Trick 2: write ex01 before ex00" },
       { p: "ex01 is two functions — finished in ten minutes, and it introduces the non-instantiable class idiom before you meet the much longer ex00." },
-      { h: "Trick 3: funnel everything through a single `double`" },
+      { h: "Trick 3: funnel everything through a single double" },
       { p: "Instead of 4×4 conversion paths you get 'parse into a double' once and 'print from a double' four times — much less code and far easier to test." },
-      { h: "Trick 4: make the helpers file-level `static`" },
+      { h: "Trick 4: make the helpers file-level static" },
       { p: "`isNan`, `isCharLiteral`, `printChar` and the rest never need to be in the header — declaring them `static` in the `.cpp` keeps the header clean and shows the evaluator there is one entry point, `convert`." },
       { h: "Trick 5: test ex00 with a loop, not by hand" },
       { p: "`for v in 0 31 32 126 127 nan -inff 42.0f abc \"\"; do ./convert \"$v\"; done` — every edge case in one command, rerunnable after every change." },
-      { h: "Trick 6: `virtual ~Base()` solves two problems at once" },
+      { h: "Trick 6: virtual ~Base() solves two problems at once" },
       { p: "It makes the class polymorphic (so `dynamic_cast` works) and stops `delete` through a `Base*` from leaking — one line, both." },
-      { h: "Trick 7: `(void)` in front of the reference dynamic_cast" },
+      { h: "Trick 7: (void) in front of the reference dynamic_cast" },
       { p: "We only care that it didn't throw, not about the result — the `(void)` tells the compiler to stop warning about the unused value under `-Wextra -Werror`." },
     ],
 
@@ -11824,7 +11938,7 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|typeinfo' ex0*/*.cpp e
         { q: "Why does ex01 need `reinterpret_cast` rather than `static_cast`?", a: "`Data*` and `uintptr_t` are unrelated — there is no conversion rule for the compiler to apply. Only `reinterpret_cast` says to take the same bits and see them as another type." },
         { q: "Why `uintptr_t` and not `int`?", a: "An `int` may be narrower than a pointer (64-bit: 4 bytes vs 8), so bits would be lost. `uintptr_t` is defined to be big enough to hold a pointer." },
         { q: "What does `dynamic_cast` require of the class?", a: "The base must be polymorphic — at least one virtual method (usually the virtual destructor), because the run-time type information rides with the vtable." },
-        { q: "How do the pointer and reference forms of `dynamic_cast` differ?", a: "The pointer form returns `NULL` on failure; the reference form **throws `std::bad_cast`**, because a reference can't be null and so no value could signal failure." },
+        { q: "How do the pointer and reference forms of `dynamic_cast` differ?", a: "The pointer form returns `NULL` on failure; the reference form **throws** `std::bad_cast`, because a reference can't be null and so no value could signal failure." },
         { q: "Why does ex02 catch `std::exception&` rather than `std::bad_cast`?", a: "`bad_cast` is declared in `<typeinfo>`, which the subject forbids. It derives from `std::exception`, so catching the base works and breaks no rule." },
         { q: "What's the difference between `impossible` and `Non displayable`?", a: "`impossible` means no conversion to that type exists (NaN/Inf or out of range). `Non displayable` means the conversion works but the character isn't printable — 0 or 31, for instance." },
         { q: "Why can't you use `std::isnan`?", a: "It arrived in C++11 and won't compile under `-std=c++98`. Write your own with `d != d`, which is true only for NaN under IEEE 754." },
@@ -11912,7 +12026,7 @@ linking:
       { p: "**The fix:** put the full definition in the `.hpp` (or a `.tpp` that the `.hpp` `#include`s at its end), so every file that uses it sees the whole recipe and can stamp it out itself." },
       { table: { head: ["", "Ordinary function/class", "Template"], rows: [
         ["Declared in", "`.hpp`", "`.hpp`"],
-        ["Defined in", "`.cpp`", "**`.hpp`**"],
+        ["Defined in", "`.cpp`", "`.hpp`"],
         ["Compiled how many times", "once", "once **per type actually used**"],
         ["Getting it wrong fails at", "compile time", "**link** time (`undefined reference`)"],
       ]}},
@@ -11936,14 +12050,14 @@ Writing  if (a <= b) return (a);  →  a == b returns a  ✗ wrong per the subje
 
 max works the same way:
     if (a > b) return (a);  →  a == b falls through and returns b  ✓`, cap: "The real code — write it as 'is it actually smaller? if not, return the second' and the tie rule is automatic", lang: "cpp" },
-      { p: "**Why return `const T &` and not `T`:** returning a reference avoids copying the object — which matters when `T` is something large like a `std::string`. The `const` says the result isn't meant to be modified." },
+      { p: "**Why return** `const T &` **and not** `T`**:** returning a reference avoids copying the object — which matters when `T` is something large like a `std::string`. The `const` says the result isn't meant to be modified." },
       { note: "Call it as `::min(a, b)` (with the leading `::`) so it doesn't collide with `std::min`/`std::swap`, which can be pulled in indirectly through `<string>` — which is why the subject's examples are written that way." },
       { qa: [
         { q: "Why must `min` return the second argument when the values are equal?", a: "The subject requires it. Writing `if (a < b) return a; return b;` gets it right automatically — using `<=` would return the first, which is wrong." },
         { q: "Why return `const T &`?", a: "To avoid copying a potentially large object (a `std::string`, say), and the `const` signals the result isn't there to be modified." },
         { q: "Why call it as `::swap` rather than `swap`?", a: "To avoid colliding with `std::swap`, which may be pulled in indirectly — the `::` forces the one in global scope." },
       ]},
-      { h: "🔬 Deep dive C: why `iter` must template the function too" },
+      { h: "🔬 Deep dive C: why iter must template the function too" },
       { code: String.raw`template <typename T, typename F>       // ★ F is the function's type
 void iter(T *array, size_t length, F f)
 {
@@ -11979,7 +12093,7 @@ Written as F f:
         { q: "Why must `iter` template its function parameter too?", a: "So it accepts functions taking `T&`, `const T&`, by value, or functors — and so it works with `const` arrays, which a fixed signature cannot." },
         { q: "How does `iter` work with a `const int[]`?", a: "`T` is deduced as `const int` and the compiler picks a compatible `f` — possible only because the function parameter is a template rather than a fixed type." },
       ]},
-      { h: "🔬 Deep dive D: `Array` — a class template that must deep copy" },
+      { h: "🔬 Deep dive D: Array — a class template that must deep copy" },
       { code: String.raw`template <typename T>
 class Array
 {
@@ -12012,14 +12126,14 @@ class Array
 
         ~Array(void) { delete [] _data; }
 };`, cap: "The real code — the same deep-copy principle as Brain in Module 04, but now for a whole buffer", lang: "cpp" },
-      { p: "**The subject's `main.cpp` catches a shallow copy directly** — it makes copies inside an inner scope and then, after the scope ends, checks the original is unchanged. If `_data` were shared, the copies' destructors would `delete []` the original's buffer and the line *\"didn't save the same value!!\"* appears." },
-      { p: "**`new T[0]` is legal** — it returns a non-NULL pointer you can still `delete []`. The benefit is a single uniform destructor with no `if (_data)` clutter." },
+      { p: "**The subject's** `main.cpp` **catches a shallow copy directly** — it makes copies inside an inner scope and then, after the scope ends, checks the original is unchanged. If `_data` were shared, the copies' destructors would `delete []` the original's buffer and the line *\"didn't save the same value!!\"* appears." },
+      { p: "`new T[0]` **is legal** — it returns a non-NULL pointer you can still `delete []`. The benefit is a single uniform destructor with no `if (_data)` clutter." },
       { qa: [
         { q: "Why does `Array` need a deep copy?", a: "Because it holds a `T *_data` it allocated with `new[]`. Copying the pointer alone would leave the copy and the original sharing one buffer — changes affect both, and both destructors `delete []` it." },
         { q: "Is `new T[0]` legal?", a: "Yes — the standard guarantees a non-NULL pointer that can be `delete []`d, which keeps the destructor uniform with no special case for an empty array." },
         { q: "What must Array's `operator=` be careful about?", a: "Check for self-assignment first, then `delete []` the old buffer, allocate a new one and copy element by element. Skip the self-check and `a = a` frees its own buffer before copying from it." },
       ]},
-      { h: "🔬 Deep dive E: `numbers[-2]` is caught by a single check" },
+      { h: "🔬 Deep dive E: numbers[-2] is caught by a single check" },
       { p: "`operator[]` takes an `unsigned int`. When `main` writes `numbers[-2]`, the `-2` is converted to unsigned as it is passed in — becoming an enormous number." },
       { code: String.raw`numbers[-2]
 
@@ -12091,7 +12205,7 @@ max( c, d ) = chaine2`, cap: "The lower half uses `std::string` to prove the sam
             return ("Array: index out of bounds");
         }
 };`, cap: "Nested inside Array — and the body can live in the class, since the whole file is a template anyway", lang: "cpp" },
-      { p: "**Why two versions of `operator[]`:** `const Array<int> a(5);` can only call `const` methods. With only the non-const version you couldn't read from a const array at all — the two always come as a pair (the same principle as Point's `min`/`max` in Module 02)." },
+      { p: "**Why two versions of** `operator[]`**:** `const Array<int> a(5);` can only call `const` methods. With only the non-const version you couldn't read from a const array at all — the two always come as a pair (the same principle as Point's `min`/`max` in Module 02)." },
     ],
 
     architecture: [
@@ -12170,7 +12284,7 @@ Two lines must appear:
       { h: "The order to write it in" },
       { ul: [
         "1. **ex00** — three functions in one header. Test the tie rule (`::min(5,5)` must return the second) before moving on",
-        "2. **ex01** — `iter.hpp` plus demo functions in `main.cpp`. Test with `int[]`, `std::string[]` and **`const int[]`**",
+        "2. **ex01 **—** `iter.hpp` **plus demo functions in** `main.cpp`**. Test with** `int[]`**,** `std::string[]` **and** `const int[]`**",
         "3. **ex02** — get `-I.` and the includes right so the provided main compiles first, then write Array member by member",
       ]},
       { h: "Symptom → cause" },
@@ -12215,17 +12329,17 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend|vector|algorithm' ex0*
     tricks: [
       { h: "Trick 1: remember that templates always live in the header" },
       { p: "The single exception to 'no function bodies in headers', and the most time-consuming error to diagnose, because it surfaces at link time rather than compile time." },
-      { h: "Trick 2: write `if (a < b) return a; return b;` rather than a ternary with `<=`" },
+      { h: "Trick 2: write if (a < b) return a; return b; rather than a ternary with <=" },
       { p: "That shape makes the 'tie returns the second' rule automatic — no need to reason about whether it should be `<` or `<=`." },
       { h: "Trick 3: always template the function parameter" },
       { p: "`typename F` rather than a fixed function pointer — it accepts plain functions, overloaded ones and functors, and it makes `const` arrays work, all without guessing a signature." },
       { h: "Trick 4: get the subject's main compiling before writing any logic" },
       { p: "In ex02, settle `-I.` and the `<cstdlib>`/`<ctime>` includes first — otherwise you spend a long time chasing errors that have nothing to do with your code." },
-      { h: "Trick 5: `operator[]` always comes as a const/non-const pair" },
+      { h: "Trick 5: operator[] always comes as a const/non-const pair" },
       { p: "Whenever you write an accessor returning a reference, write both versions immediately — otherwise anyone holding the object as `const` can't use it at all." },
       { h: "Trick 6: test a template with two maximally different types" },
       { p: "`int` and `std::string` — one is a POD, the other manages its own memory. Passing both means you haven't quietly assumed anything about `T`." },
-      { h: "Trick 7: put `unsigned` to work for you" },
+      { h: "Trick 7: put unsigned to work for you" },
       { p: "Take the index as an `unsigned int` and one `>= size` check catches both negatives and overruns — less code and no gap." },
     ],
 
@@ -12298,7 +12412,7 @@ The joint = the iterator
         "No `printf` / `malloc` / `free` (score 0) · no `using namespace` / `friend`",
         "**Writing your own loop instead of an algorithm scores badly, even when correct** — this rule is specific to this module",
         "OCF is mandatory for `Span` and `MutantStack` (`easyfind` is a free function and needs none)",
-        "Function templates go in headers · **a template member of a non-template class (`addRange`) has to live there too**",
+        "Function templates go in headers · **a template member of a non-template class (**`addRange`**) has to live there too**",
       ]},
     ],
 
@@ -12324,8 +12438,8 @@ Why end() points past the end:
         ["`reverse_iterator`", "walking backwards (`rbegin`/`rend`)", "read and write"],
         ["`const_reverse_iterator`", "both of the above", "read only"],
       ]}},
-      { h: "🔬 Deep dive A: `typename` in front of a dependent type" },
-      { p: "Write `T::iterator` inside a template and the compiler refuses — because it **doesn't yet know whether `T::iterator` is a type or a variable**." },
+      { h: "🔬 Deep dive A: typename in front of a dependent type" },
+      { p: "Write `T::iterator` inside a template and the compiler refuses — because it **doesn't yet know whether** `T::iterator` **is a type or a variable**." },
       { code: String.raw`template <typename T>
 T::iterator easyfind(T &container, int value)      // ✗
 { ... }
@@ -12377,14 +12491,14 @@ The principle that lets you cut it:
     }
     return (shortest);
 }`, cap: "The real code — it sorts a **copy**, because a `const` method can't modify `_numbers` (and shouldn't want to)", lang: "cpp" },
-      { note: "**Why compute in `long`:** `INT_MAX - INT_MIN` is 4,294,967,295, which doesn't fit in an `int` — it would silently overflow into a negative number. Compute in `long` and narrow afterwards." },
+      { note: "**Why compute in** `long`**:** `INT_MAX - INT_MIN` is 4,294,967,295, which doesn't fit in an `int` — it would silently overflow into a negative number. Compute in `long` and narrow afterwards." },
       { qa: [
         { q: "Why does `shortestSpan` sort first?", a: "Once sorted, the smallest gap must lie between two adjacent values — reducing n²/2 comparisons to n−1. The subject tests with 10,000+ numbers, where the n² version is visibly slow." },
         { q: "Why compute the gap in a `long`?", a: "`INT_MAX - INT_MIN` exceeds `int` range and would overflow into a negative value with no warning. Compute in `long` and convert back." },
         { q: "Why sort a copy rather than the real data?", a: "The method is `const`, so it can't modify `_numbers` — and a caller shouldn't find their insertion order rearranged by a read-only function." },
       ]},
-      { h: "🔬 Deep dive C: `this->c` in MutantStack — name lookup in a dependent base" },
-      { p: "`std::stack` keeps its real storage in a `protected` member called `c`. A derived class can reach it — **but only by writing `this->c`**." },
+      { h: "🔬 Deep dive C: this->c in MutantStack — name lookup in a dependent base" },
+      { p: "`std::stack` keeps its real storage in a `protected` member called `c`. A derived class can reach it — **but only by writing** `this->c`." },
       { code: String.raw`template <typename T, typename Container = std::deque<T> >
 class MutantStack : public std::stack<T, Container>
 {
@@ -12407,7 +12521,7 @@ this->c  defers the lookup to instantiation time, when the base IS known`, cap: 
         { q: "What is `c`?", a: "A `protected` member of `std::stack` holding the real container (a `std::deque<T>` by default) — the only way to reach the data inside." },
         { q: "How do you fix `'c' was not declared in this scope`?", a: "Prefix it with `this->`." },
       ]},
-      { h: "🔬 Deep dive D: why `std::stack` has no iterators in the first place" },
+      { h: "🔬 Deep dive D: why std::stack has no iterators in the first place" },
       { p: "`std::stack` isn't a container, it's a **container adaptor** — it wraps a real container and deliberately *restricts* access to push/pop/top." },
       { table: { head: ["", "container (`vector`, `deque`)", "adaptor (`stack`, `queue`)"], rows: [
         ["Holds the data itself", "yes", "no — it wraps another one in `c`"],
@@ -12429,7 +12543,7 @@ And because the inheritance is public:
         { q: "How does MutantStack make it iterable?", a: "It inherits `std::stack` publicly and reaches the protected member `c` through `this->c` to return the underlying container's iterators." },
         { q: "Why `typedef` all four iterator kinds?", a: "So that `MutantStack<int>::iterator it = ...;` compiles — without the typedef that type name simply doesn't exist." },
       ]},
-      { h: "🔬 Deep dive E: `addRange` — imitating the STL's own idiom" },
+      { h: "🔬 Deep dive E: addRange — imitating the STL's own idiom" },
       { code: String.raw`template <typename InputIterator>
 void addRange(InputIterator begin, InputIterator end)
 {
@@ -12438,7 +12552,7 @@ void addRange(InputIterator begin, InputIterator end)
         throw Span::FullException();
     _numbers.insert(_numbers.end(), begin, end);
 }`, cap: "The real code — a template member of a non-template class, so it has to live in the header", lang: "cpp" },
-      { p: "**Why take an iterator range instead of a `std::vector<int>`:** the `(first, last)` shape is the idiom the whole STL uses — the caller can pass a `vector`, a `list`, a `deque`, or even a plain C array (`arr`, `arr + n`), and we never need to know where it came from." },
+      { p: "**Why take an iterator range instead of a** `std::vector<int>`**:** the `(first, last)` shape is the idiom the whole STL uses — the caller can pass a `vector`, a `list`, a `deque`, or even a plain C array (`arr`, `arr + n`), and we never need to know where it came from." },
       { p: "**Check the capacity before inserting:** `std::distance(begin, end)` gives the count up front, so you can throw before `_numbers` is touched at all — checking after inserting would leave the object half-updated." },
       { qa: [
         { q: "Why does `addRange` take two iterators rather than a container?", a: "It's the STL idiom — it accepts input from any source, including C arrays, and can take just part of a container, all without knowing the source type." },
@@ -12542,7 +12656,7 @@ class MutantStack : public std::stack<T, Container>
       { h: "Files per exercise" },
       { table: { head: ["Exercise", "Files", "Header or cpp"], rows: [
         ["ex00", "`easyfind.hpp`, `main.cpp`", "pure template — header only"],
-        ["ex01", "`Span.{hpp,cpp}`, `main.cpp`", "ordinary methods in the `.cpp` · **`addRange` in the `.hpp`**, being a template"],
+        ["ex01", "`Span.{hpp,cpp}`, `main.cpp`", "ordinary methods in the `.cpp` · `addRange` **in the** `.hpp`, being a template"],
         ["ex02", "`MutantStack.hpp`, `main.cpp`", "a class template — header only"],
       ]}},
       { p: "ex01 is the only exercise with a real `.cpp` — and it's a good illustration of the *'templates in the header, everything else in the cpp'* rule inside one class." },
@@ -12651,11 +12765,11 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp
       { p: "`typename` in front of a type that depends on `T` · `this->` in front of a base member that depends on `T`. Same underlying issue — the compiler doesn't know `T` while reading the recipe, so you have to be explicit." },
       { h: "Trick 2: sorting first is the standard shortcut" },
       { p: "Whenever a problem asks for 'the closest pair', try sorting first — the answer almost always lies between adjacent values, cutting O(n²) to O(n log n) immediately." },
-      { h: "Trick 3: always compute distances in `long`" },
+      { h: "Trick 3: always compute distances in long" },
       { p: "The difference of two `int`s need not fit in an `int` — a quiet bug that ordinary tests never catch, visible only with `INT_MIN` and `INT_MAX`." },
-      { h: "Trick 4: test ex02 by diffing against `std::list`" },
+      { h: "Trick 4: test ex02 by diffing against std::list" },
       { p: "It's the test the subject already designed — write one test suite, run it twice with different types, and matching output means it's right." },
-      { h: "Trick 5: `min_element` / `max_element` return iterators" },
+      { h: "Trick 5: min_element / max_element return iterators" },
       { p: "You need the `*` to get the value — forget it and you get a long error about not being able to convert an iterator to an int." },
       { h: "Trick 6: always check before modifying" },
       { p: "`addRange` uses `std::distance` to check capacity before inserting — throwing halfway through would leave the object in a state the caller never expected." },
@@ -12728,7 +12842,7 @@ Object.assign(window.TEACHING_EN, {
     ],
 
     theory: [
-      { h: "1) `std::map` — keys sorted automatically" },
+      { h: "1) std::map — keys sorted automatically" },
       { code: String.raw`std::map<std::string, double> db;
 
 db["2011-01-03"] = 0.3;
@@ -12742,7 +12856,7 @@ Why a "2011-01-03" string key sorts correctly:
   the YYYY-MM-DD format sorts lexicographically exactly as it sorts chronologically
   (because months and days are zero-padded to a fixed width)
   → no need to convert to a date struct at all`, cap: "ISO 8601 was designed so lexicographic order is chronological order — this exploits that", lang: "cpp" },
-      { h: "🔬 Deep dive A: `lower_bound` — finding the closest earlier date" },
+      { h: "🔬 Deep dive A: lower_bound — finding the closest earlier date" },
       { p: "ex00's rule: when the exact date isn't in the database, use the **closest earlier one** — never the next one. `map::lower_bound` does that in O(log n)." },
       { code: String.raw`lower_bound(k) = the first iterator whose key is >= k
 
@@ -12799,7 +12913,7 @@ token   action                        stack (bottom → top)
         throw RPN::RPNError();
     /* compute a op b and push it back */
 }`, cap: "Swap a and b and `+`/`*` still look right while `-`/`/` are all wrong — a bug simple tests never catch", lang: "cpp" },
-      { p: "**Why `long` rather than `int`:** the subject says the *input numbers* are below 10 — it says nothing about the intermediate results. `9 9 * 9 * 9 *` grows without bound." },
+      { p: "**Why** `long` **rather than** `int`**:** the subject says the *input numbers* are below 10 — it says nothing about the intermediate results. `9 9 * 9 * 9 *` grows without bound." },
       { table: { head: ["Case that must be an Error", "Why"], rows: [
         ["`(1 + 1)`", "parentheses are not accepted tokens"],
         ["`1 +`", "fewer than two operands when an operator appears"],
@@ -12852,7 +12966,7 @@ void fordJohnson(C &v, std::size_t unit)
     fordJohnson(v, unit * 2);
     /* 3-5. build the main chain and the pend, then insert in Jacobsthal order */
 }`, cap: "The real code — call `fordJohnson(v, 1)` from outside; at unit = 1 every element is its own unit, so the result is fully sorted", lang: "cpp" },
-      { p: "**The trick in this implementation:** instead of building nested `pair<pair<int,int>, ...>` types (whose type names explode at compile time), it treats the data as **blocks of `unit` elements whose comparison key is the last one**, doubling `unit` at each level — so one templated body serves both `vector` and `deque`." },
+      { p: "**The trick in this implementation: **instead of building nested** `pair<pair<int,int>, ...>` **types (whose type names explode at compile time), it treats the data as** blocks of `unit` elements whose comparison key is the last one**, doubling `unit` at each level — so one templated body serves both `vector` and `deque`." },
       { qa: [
         { q: "What is Ford-Johnson, and how does it differ from merge sort?", a: "It's a merge-insert sort designed to use as few comparisons as possible — pair up, recursively sort the larger ones, then binary-insert the smaller ones in Jacobsthal order." },
         { q: "What is the Jacobsthal sequence for?", a: "It arranges for each element to be inserted while the search range is exactly 2ᵏ−1, where a binary search uses a whole number of comparisons with nothing wasted. Any other order is still correct, just costlier." },
@@ -12926,7 +13040,7 @@ Error: not a positive number.
 Error: bad input => 2001-42-42
 2012-01-11 => 1 = 7.1
 Error: too large a number.`, cap: "The output for the subject's sample file — it prints `3`, not `3.0`, and keeps `1.2`, which is just default stream behaviour", lang: "txt" },
-      { p: "**Date validation must check the actual calendar**, not just the format — `2001-42-42` must fail, and so must `2011-02-30`. A leap year is divisible by 4 **and** (not divisible by 100 **or** divisible by 400)." },
+      { p: "**Date validation must check the actual calendar**, not just the format —** `2001-42-42` **must fail, and so must** `2011-02-30`**. A leap year is divisible by 4** and** (not divisible by 100 **or** divisible by 400)." },
       { h: "ex01 — RPN" },
       { code: String.raw`class RPN
 {
@@ -13078,17 +13192,17 @@ grep -rnE 'printf|[mc]alloc|free\(|using namespace|friend' ex0*/*.hpp ex0*/*.cpp
     ],
 
     tricks: [
-      { h: "Trick 1: let the `map` do the sorting" },
+      { h: "Trick 1: let the map do the sorting" },
       { p: "A `YYYY-MM-DD` key sorts lexicographically into chronological order — there is no need to write a date struct or a comparator." },
-      { h: "Trick 2: always check `begin()` before `--it`" },
+      { h: "Trick 2: always check begin() before --it" },
       { p: "Stepping an iterator back from `begin()` is undefined behaviour — sometimes it doesn't crash immediately and breaks somewhere else instead, which is very hard to trace." },
       { h: "Trick 3: RPN — the first popped is the right-hand operand" },
       { p: "One sentence to remember. A swapped-operand bug passes every `+`/`*` test and only surfaces with `-` and `/`." },
-      { h: "Trick 4: fuzz ex02 against `sort -n`" },
+      { h: "Trick 4: fuzz ex02 against sort -n" },
       { p: "Ford-Johnson can't be verified by eye — a ten-line script comparing against `sort -n` over hundreds of rounds is far more trustworthy than rereading the code ten times." },
       { h: "Trick 5: test odd element counts heavily" },
       { p: "The element left over from pairing is where most implementations go wrong, and testing only even counts will never find it." },
-      { h: "Trick 6: `gettimeofday`, not `clock()`" },
+      { h: "Trick 6: gettimeofday, not clock()" },
       { p: "`clock()` is coarse at around 10 milliseconds — 3000 numbers finish faster, so both containers report 0 and there is nothing to compare." },
       { h: "Trick 7: be clear about which errors go to stdout and which to stderr" },
       { p: "ex00 prints per-line errors to stdout and carries on; `could not open file` goes to stderr. ex01 prints `Error` to stderr and exits. The difference is deliberate." },
@@ -13144,7 +13258,7 @@ Object.assign(window.TEACHING_EN, {
   "exam_rank02": {
     principle: [
       { h: "What Exam Rank 02 is" },
-      { p: "The first on-site exam you have to pass in the Common Core (after libft). You sit it on an **isolated** machine (no internet, no Discord, no Google) for about **three hours**. The exam system is **examshell**: it hands you one randomly chosen exercise at a time, you write your answer into the `rendu/` folder and press **grademe** to have the Moulinette check it." },
+      { p: "The first on-site exam you have to pass in the Common Core (after libft). You sit it on an **isolated** machine (no internet, no Discord, no Google) for about **three hours**. The exam system is **examshell**: it hands you one randomly chosen exercise at a time, you write your answer into the** `rendu/` **folder and press** grademe** to have the Moulinette check it." },
       { note: "The part that surprises people: the exam **does not check the norm!** It checks only 'does it compile' and 'is the output identical'. `for` loops, mid-block declarations and functions longer than 25 lines are all fine → just write something correct as fast as you can." },
       { h: "The four levels (0 → 3)" },
       { table: { head: ["Level", "Difficulty", "Kind of exercise", "Points"], rows: [
@@ -13345,7 +13459,7 @@ char **ft_split(char *str) {
 }`, cap: "The +1 in the array malloc is the slot for the NULL terminator — leave it out and the caller runs past the end", lang: "c" },
       { note: "ft_split's traps: (1) forgetting the NULL terminator, (2) empty words when separators repeat, (3) a string of nothing but spaces → must give an array containing only NULL." },
       { h: "🔬 ft_itoa — int → string, and the INT_MIN trap (allowed: malloc)" },
-      { p: "**The INT_MIN problem (−2147483648):** you cannot write `n = -n`, because +2147483648 overflows an int. The trick is to take `% 10` first and make each **digit** positive individually (a single digit can't overflow)." },
+      { p: "**The INT_MIN problem (−2147483648): **you cannot write** `n = -n`**, because +2147483648 overflows an int. The trick is to take** `% 10` **first and make each** digit** positive individually (a single digit can't overflow)." },
       { code: String.raw`int get_len(int n) {
     int len = (n <= 0) ? 1 : 0;     // room for a '-' or for the digit 0
     while (n) { len++; n /= 10; }
@@ -13431,7 +13545,7 @@ int ft_atoi_base(char *str, int base) {
         ft_list_remove_if(&(*begin)->next, ref, cmp); // move on to the next
 }`, cap: "A `t_list **` lets it change the head; the recursion keeps it short and handles every position correctly", lang: "c" },
       { h: "🔬 rev_wstr / rostring — reversing or rotating the words of a sentence" },
-      { p: "**rev_wstr** reverses the word order (`\"hi there\"` → `\"there hi\"`). **rostring** rotates the first word to the end. Both use the split-and-reassemble pattern (mind the extra whitespace — the output uses a single space)." },
+      { p: "**rev_wstr **reverses the word order (**`\"hi there\"` **→** `\"there hi\"`**).** rostring** rotates the first word to the end. Both use the split-and-reassemble pattern (mind the extra whitespace — the output uses a single space)." },
       { code: String.raw`// rev_wstr: walk from the END of the string, finding one word at a time and printing it
 int i = len - 1;
 while (i >= 0) {
@@ -13612,11 +13726,11 @@ diff <(./filter abc < in) <(sed 's/abc/***/g' in)
       { h: "🔬 broken_gnl — the failure points to hunt down" },
       { p: "You're given a get_next_line that is 'almost right' and asked to find the bug. The usual suspects:" },
       { ul: [
-        "**a missing `static`** on the stash → the carried-over data is lost and only one line ever reads",
+        "**a missing** `static` on the stash → the carried-over data is lost and only one line ever reads",
         "**a memory leak** → the old stash isn't freed on join, or isn't freed at EOF",
-        "**mishandled `\\n`** → the returned line either omits the newline or takes too much",
+        "**mishandled** `\\n` → the returned line either omits the newline or takes too much",
         "**an off-by-one** → `buf[BUFFER_SIZE]` needs room for the `'\\0'` (allocate +1)",
-        "**no check for `read <= 0`** → an endless loop at EOF or on error",
+        "**no check for** `read <= 0` → an endless loop at EOF or on error",
       ]},
       { code: String.raw`// the repair checklist:
 static char *stash;                 // ✓ is it static?
