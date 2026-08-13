@@ -1,9 +1,9 @@
 /* ============================================================
-   data.subjects.js — แท็บ "โจทย์ต้นฉบับ"
+   data.subjects.js — แท็บ "โจทย์"
 
    ข้อกำหนดของแต่ละโจทย์ในรูปที่อ่านแล้วลงมือทำได้: สิ่งที่ต้องส่ง,
    ฟังก์ชันที่อนุญาต, ข้อบังคับของ mandatory และ bonus, และเกณฑ์ตรวจ
-   เรียบเรียงใหม่จาก subject ต้นฉบับ ไม่ใช่การคัดลอก
+   เขียนใหม่เป็นภาษาที่ลงมือทำได้ ไม่ใช่การคัดลอก
 
    ต้องโหลดไฟล์นี้ "หลัง" data ทุกตัว เพราะมันเติม section ให้หน้าที่มีอยู่แล้ว
    ============================================================ */
@@ -54,7 +54,6 @@
         "valgrind ไม่มี leak โดยเฉพาะเส้นทางที่ malloc ล้มกลางคัน (`ft_split`, `ft_lstmap`)",
         "README.md ตามข้อกำหนดของ subject (บรรทัดแรกเป็นตัวเอียงระบุ login)",
       ]},
-      { note: "อ้างอิง: Libft subject v19.2" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -98,7 +97,6 @@
         "Valgrind clean, especially the paths where a malloc fails part-way (`ft_split`, `ft_lstmap`)",
         "A README.md per the subject (first line italic, naming your login)",
       ]},
-      { note: "Source: Libft subject v19.2" },
     ],
   };
 
@@ -144,7 +142,6 @@
         "เคสขอบที่ต้องผ่าน: `%s` กับ NULL, `%p` กับ NULL, `%d` กับ INT_MIN, `%u` กับ -1, `%c` กับค่า 0, format ว่าง, `%` ตัวสุดท้ายของ string",
         "`make` สองครั้ง ไม่ relink; norminette ศูนย์ error; valgrind สะอาด",
       ]},
-      { note: "อ้างอิง: ft_printf subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -186,7 +183,6 @@
         "Edge cases that must pass: `%s` with NULL, `%p` with NULL, `%d` with INT_MIN, `%u` with -1, `%c` with the value 0, an empty format, and a trailing `%`",
         "`make` twice with no relink; norminette clean; valgrind clean",
       ]},
-      { note: "Source: ft_printf subject" },
     ],
   };
 
@@ -234,7 +230,6 @@
         "เทียบผลกับ `getline(3)` ทีละบรรทัด แม่นกว่าการ diff ทั้งไฟล์",
         "valgrind สะอาดทุกค่า BUFFER_SIZE ที่ทดสอบ",
       ]},
-      { note: "อ้างอิง: get_next_line subject v14.3" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -278,7 +273,6 @@
         "Compare against `getline(3)` line by line — sharper than diffing the whole file",
         "Valgrind clean at every BUFFER_SIZE you tested",
       ]},
-      { note: "Source: get_next_line subject v14.3" },
     ],
   };
 
@@ -295,6 +289,7 @@
         ["External Function", "`read` `write` `malloc` `free` `exit` และ `ft_printf` หรือเทียบเท่าที่เขียนเอง"],
         ["Libft authorized", "**Yes**"],
         ["Group", "**2 คนพอดี** — README บรรทัดแรกต้องมี login ทั้งสองคน"],
+        ["ให้มาด้วย", "`checker_linux` / `checker_Mac` — ไบนารีสำเร็จรูปที่รับ operation ทาง stdin แล้วตอบ OK/KO"],
       ]}},
       { h: "Mandatory — ต้องทำอะไรบ้าง" },
       { ul: [
@@ -331,7 +326,6 @@
         "input สุ่มทดสอบได้แค่ช่วง disorder ≈ 0.5 — ต้องสร้าง input อีกสองช่วงเองแล้วยืนยันจาก `--bench`",
         "valgrind สะอาดทั้งตอนรันปกติและตอน argument ผิด",
       ]},
-      { note: "อ้างอิง: Push_swap subject v1.1" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -344,6 +338,7 @@
         ["External Function", "`read` `write` `malloc` `free` `exit`, and `ft_printf` or an equivalent you wrote"],
         ["Libft authorized", "**Yes**"],
         ["Group", "**exactly 2 learners** — both logins on the README's first line"],
+        ["Provided", "`checker_linux` / `checker_Mac` — a prebuilt binary that reads operations on stdin and answers OK/KO"],
       ]}},
       { h: "Mandatory — what has to exist" },
       { ul: [
@@ -380,7 +375,6 @@
         "Random input only exercises disorder ≈ 0.5 — build inputs for the other two regimes and confirm from `--bench` which strategy ran",
         "Valgrind clean on normal runs and on invalid arguments",
       ]},
-      { note: "Source: Push_swap subject v1.1" },
     ],
   };
 
@@ -424,7 +418,6 @@
         "ตรวจว่าปิด fd ครบทั้งฝั่งพ่อและลูก ไม่งั้นโปรแกรมจะค้างรอ EOF ที่ไม่มีวันมา",
         "valgrind ที่ตัวพ่อ และตรวจว่าไม่มี zombie process ค้าง",
       ]},
-      { note: "อ้างอิง: Pipex subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -464,7 +457,6 @@
         "Check every fd is closed in both parent and children, or the program hangs waiting for an EOF that never comes",
         "Valgrind on the parent, and confirm no zombie processes are left behind",
       ]},
-      { note: "Source: Pipex subject" },
     ],
   };
 
@@ -512,7 +504,6 @@
         "PID ผิด / ไม่ใช่ตัวเลข / ข้อความว่าง ต้องไม่ทำให้โปรแกรมพัง",
         "ใช้ `sigaction` แทน `signal` เพราะพฤติกรรมนิ่งกว่าและตั้ง `SA_SIGINFO` เพื่ออ่าน PID ของผู้ส่งได้",
       ]},
-      { note: "อ้างอิง: Minitalk subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -556,7 +547,6 @@
         "A wrong PID, a non-numeric PID and an empty message must not break anything",
         "Prefer `sigaction` over `signal` — its behaviour is better defined, and `SA_SIGINFO` lets you read the sender's PID",
       ]},
-      { note: "Source: Minitalk subject" },
     ],
   };
 
@@ -570,6 +560,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`, maps, textures"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "แผนที่นามสกุล `*.ber`"],
+        ["สิ่งที่โจทย์ให้มา", "MiniLibX (เวอร์ชันบนเครื่องโรงเรียน หรือ source ให้คอมไพล์เอง)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · ทุกฟังก์ชันของ math (`-lm`) · ทุกฟังก์ชันของ MiniLibX · `gettimeofday()` · `ft_printf` หรือเทียบเท่าที่เขียนเอง"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -604,7 +595,6 @@
         "ปิดหน้าต่างทั้งสองทาง (ESC และกากบาท) แล้ว valgrind ต้องสะอาด",
         "Makefile ต้องไม่ relink และต้องคอมไพล์ MiniLibX ให้ด้วย",
       ]},
-      { note: "อ้างอิง: So Long subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -614,6 +604,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`, maps, textures"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "a map with the `*.ber` extension"],
+        ["What the subject provides", "MiniLibX (the school-machine version, or sources to build yourself)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · all of the math library (`-lm`) · all of MiniLibX · `gettimeofday()` · `ft_printf` or an equivalent you wrote"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -648,7 +639,6 @@
         "Close the window both ways (ESC and the close button) with valgrind clean afterwards",
         "The Makefile must not relink and must build MiniLibX too",
       ]},
-      { note: "Source: So Long subject" },
     ],
   };
 
@@ -662,6 +652,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`, ไฟล์ `.fdf` ตัวอย่าง"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "ไฟล์นามสกุล `*.fdf`"],
+        ["สิ่งที่โจทย์ให้มา", "MiniLibX (เวอร์ชันบนเครื่องโรงเรียน หรือ source ให้คอมไพล์เอง)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · ทุกฟังก์ชันของ math (`-lm`) · ทุกฟังก์ชันของ MiniLibX · `gettimeofday()` · `ft_printf` หรือเทียบเท่าที่เขียนเอง"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -695,7 +686,6 @@
         "แผนที่ใหญ่มากและแผนที่ที่ค่าความสูงต่างกันสุดขั้ว ต้องยังอยู่ในกรอบหน้าต่าง",
         "valgrind สะอาดหลังปิดหน้าต่าง",
       ]},
-      { note: "อ้างอิง: FdF subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -705,6 +695,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`, demo `.fdf` files"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "a file with the `*.fdf` extension"],
+        ["What the subject provides", "MiniLibX (the school-machine version, or sources to build yourself)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · all of the math library (`-lm`) · all of MiniLibX · `gettimeofday()` · `ft_printf` or an equivalent you wrote"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -738,7 +729,6 @@
         "Very large maps and maps with extreme altitude ranges must still fit inside the window",
         "Valgrind clean after closing the window",
       ]},
-      { note: "Source: FdF subject" },
     ],
   };
 
@@ -752,6 +742,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "ชนิดของแฟร็กทัลที่จะแสดง และตัวเลือกอื่นที่รองรับ"],
+        ["สิ่งที่โจทย์ให้มา", "MiniLibX (เวอร์ชันบนเครื่องโรงเรียน หรือ source ให้คอมไพล์เอง)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · ทุกฟังก์ชันของ math (`-lm`) · ทุกฟังก์ชันของ MiniLibX · `gettimeofday()` · `ft_printf` หรือเทียบเท่าที่เขียนเอง"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -785,7 +776,6 @@
         "ตรวจว่าเขียนภาพลง buffer ของ image แล้วส่งเข้าหน้าต่างครั้งเดียว ไม่ใช่วาดทีละ pixel",
         "valgrind สะอาดหลังปิดหน้าต่าง",
       ]},
-      { note: "อ้างอิง: fract-ol subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -795,6 +785,7 @@
         ["Files to Submit", "`Makefile`, `*.h`, `*.c`"],
         ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
         ["Arguments", "the type of fractal to display, plus any other option you support"],
+        ["What the subject provides", "MiniLibX (the school-machine version, or sources to build yourself)"],
         ["External Function", "`open` `close` `read` `write` `malloc` `free` `perror` `strerror` `exit` · all of the math library (`-lm`) · all of MiniLibX · `gettimeofday()` · `ft_printf` or an equivalent you wrote"],
         ["Libft authorized", "**Yes**"],
       ]}},
@@ -828,7 +819,6 @@
         "Confirm you draw into an image buffer and push it to the window once, rather than per pixel",
         "Valgrind clean after closing the window",
       ]},
-      { note: "Source: fract-ol subject" },
     ],
   };
 
@@ -883,7 +873,6 @@
         "`2 310 200 100` และ `4 310 200 100` — ต้องไม่มีใครตาย",
         "รันทิ้งไว้นาน ๆ แล้วต้องไม่ deadlock และ timestamp ต้องไม่กระโดด",
       ]},
-      { note: "อ้างอิง: Philosophers subject" },
     ],
     en: [
       { h: "What the subject asks for" },
@@ -934,7 +923,528 @@
         "`2 310 200 100` and `4 310 200 100` — nobody may die",
         "Leave it running a long time: no deadlock, and timestamps that never jump",
       ]},
-      { note: "Source: Philosophers subject" },
+    ],
+  };
+
+  /* ============================ born2beroot =========================== */
+  S.born2beroot = {
+    th: [
+      { h: "โจทย์นี้ต้องการอะไร" },
+      { p: "ติดตั้งเซิร์ฟเวอร์ตัวแรกของตัวเองในเครื่องเสมือน แล้วตั้งค่าให้ตรงกฎที่กำหนดทุกข้อ: พาร์ทิชันเข้ารหัสบน LVM, SSH ที่พอร์ตแปลก, firewall, นโยบายรหัสผ่าน, sudo ที่บันทึกทุกอย่าง และสคริปต์ monitoring. ไม่มีโค้ด C — วัดกันที่ความเข้าใจระบบ" },
+      { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["ระบบปฏิบัติการ", "**Debian เสถียรล่าสุด** (แนะนำ) หรือ **Rocky เสถียรล่าสุด** — ห้าม testing/unstable"],
+        ["สิ่งที่ส่ง", "`signature.txt` ที่ root ของ repo — เก็บ **ลายเซ็น SHA1 ของไฟล์ดิสก์เสมือน** เท่านั้น"],
+        ["สิ่งที่โจทย์ให้มา", "ไม่มีไฟล์ให้ — ติดตั้งเองทั้งหมดตั้งแต่ ISO"],
+        ["ข้อห้ามที่ทำให้ได้ 0 ทันที", "ติดตั้ง **X.org, Wayland หรือ graphics server ใด ๆ**"],
+      ]}},
+      { h: "Mandatory — ระบบและพาร์ทิชัน" },
+      { ul: [
+        "ต้องมี **พาร์ทิชันเข้ารหัสอย่างน้อย 2 อัน** สร้างด้วย LVM",
+        "**Debian**: AppArmor ต้องทำงานตั้งแต่บูต · **Rocky**: SELinux ต้องทำงานตั้งแต่บูตและปรับค่าให้เข้ากับงาน (Rocky ไม่ต้องทำ KDump)",
+        "**hostname ต้องเป็น login ตามด้วย 42** เช่น `wil42` — และตอนตรวจจะถูกสั่งให้เปลี่ยน",
+        "ต้องมีผู้ใช้ชื่อเดียวกับ login นอกเหนือจาก root และผู้ใช้นั้นต้องอยู่ในกลุ่ม **`user42`** และ **`sudo`**",
+      ]},
+      { h: "Mandatory — SSH และ firewall" },
+      { ul: [
+        "SSH ต้องรันที่ **พอร์ต 4242** และ **ห้ามล็อกอินเป็น root ผ่าน SSH**",
+        "ใช้ **UFW** (Debian) หรือ **firewalld** (Rocky) โดยเปิดไว้เพียงพอร์ต 4242",
+        "**firewall ต้องทำงานตั้งแต่ตอนเปิดเครื่องเสมือน**",
+        "ตอนตรวจจะมีการสร้างบัญชีใหม่แล้วทดสอบ SSH จริง",
+      ]},
+      { h: "Mandatory — นโยบายรหัสผ่าน" },
+      { ul: [
+        "รหัสผ่านหมดอายุทุก **30 วัน** และเปลี่ยนซ้ำได้อีกครั้งหลังผ่านไปอย่างน้อย **2 วัน**",
+        "เตือนผู้ใช้ล่วงหน้า **7 วัน** ก่อนหมดอายุ",
+        "ยาวอย่างน้อย **10 ตัวอักษร** มีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข และห้ามมีอักขระซ้ำติดกันเกิน 3 ตัว",
+        "ห้ามมีชื่อผู้ใช้อยู่ในรหัสผ่าน",
+        "ต้องมีอย่างน้อย **7 ตัวอักษรที่ไม่ซ้ำกับรหัสเดิม** — ข้อนี้ยกเว้นให้ root",
+        "ตั้งค่าเสร็จแล้วต้อง **เปลี่ยนรหัสผ่านของทุกบัญชีรวมถึง root** ให้เข้ากับนโยบาย",
+      ]},
+      { h: "Mandatory — sudo" },
+      { ul: [
+        "จำกัดการยืนยันตัวตนผ่าน sudo ไว้ที่ **3 ครั้ง** เมื่อกรอกรหัสผิด",
+        "ต้องมีข้อความแจ้งเตือนที่เราตั้งเองเมื่อกรอกรหัสผิด",
+        "ทุกคำสั่งที่รันผ่าน sudo ต้องถูกบันทึก **ทั้ง input และ output** ลงในโฟลเดอร์ `/var/log/sudo/`",
+        "ต้องเปิดโหมด TTY",
+        "ต้องจำกัด path ที่ sudo ใช้ได้",
+      ]},
+      { h: "Mandatory — monitoring.sh" },
+      { ul: [
+        "เขียนด้วย **bash** และต้องกระจายข้อความไปทุก terminal ตั้งแต่เครื่องเปิด แล้วซ้ำ **ทุก 10 นาที** (ดู `wall`)",
+        "ต้องแสดง: สถาปัตยกรรมและเวอร์ชัน kernel, จำนวน CPU กายภาพ, จำนวน vCPU, RAM ที่ใช้กับเปอร์เซ็นต์, พื้นที่ดิสก์ที่ใช้กับเปอร์เซ็นต์, อัตราการใช้ CPU, เวลาบูตครั้งล่าสุด, LVM เปิดอยู่หรือไม่, จำนวน connection ที่ active, จำนวนผู้ใช้, IPv4 กับ MAC address และจำนวนคำสั่งที่รันด้วย sudo",
+        "**ห้ามมี error โผล่ออกมา**",
+        "ตอนตรวจจะถูกถามว่าสคริปต์ทำงานยังไง และจะถูกสั่งให้ **หยุดมันโดยไม่แก้ไฟล์** (ดู `cron`)",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "จัดพาร์ทิชันให้ได้โครงสร้างตามที่โจทย์แสดงไว้",
+        "ตั้งเว็บไซต์ WordPress ที่ใช้งานได้จริง ด้วย **lighttpd + MariaDB + PHP**",
+        "ตั้งบริการอื่นที่คิดว่ามีประโยชน์อีกหนึ่งอย่าง — **ห้าม NGINX และ Apache2** และต้องอธิบายเหตุผลตอนตรวจ",
+        "ถ้าทำ bonus จะเปิดพอร์ตเพิ่มได้ แต่ต้องปรับกฎ firewall ให้สอดคล้อง",
+      ]},
+      { h: "เช็กก่อนส่ง" },
+      { ul: [
+        "`signature.txt` ต้องเป็นลายเซ็นของไฟล์ดิสก์ **ตัวสุดท้ายที่จะส่งจริง** — แก้ VM อีกครั้งเดียวลายเซ็นก็เปลี่ยน",
+        "ปิด VM แล้วเปิดใหม่ ต้องยืนยันว่า firewall และ AppArmor/SELinux ยังทำงาน",
+        "ทดสอบ `ssh <user>@<ip> -p 4242` จากเครื่องจริง และยืนยันว่า root ล็อกอินไม่ได้",
+        "ลองตั้งรหัสผ่านที่ผิดกฎแต่ละข้อ แล้วต้องถูกปฏิเสธจริง",
+        "ตอบให้ได้ว่า apt กับ aptitude ต่างกันยังไง และ AppArmor/SELinux คืออะไร",
+      ]},
+    ],
+    en: [
+      { h: "What the subject requires" },
+      { p: "Set up your first server in a virtual machine and configure it to every rule given: encrypted partitions on LVM, SSH on an unusual port, a firewall, a password policy, a sudo setup that logs everything, and a monitoring script. No C here — this is graded on understanding the system." },
+      { table: { head: ["Item", "Requirement"], rows: [
+        ["Operating system", "the **latest stable Debian** (recommended) or the **latest stable Rocky** — no testing/unstable"],
+        ["What you submit", "`signature.txt` at the repository root, containing only the **SHA1 signature of your virtual disk file**"],
+        ["What the subject provides", "no files — you install everything yourself from an ISO"],
+        ["Instant zero", "installing **X.org, Wayland or any other graphics server**"],
+      ]}},
+      { h: "Mandatory — system and partitions" },
+      { ul: [
+        "**At least two encrypted partitions**, created with LVM",
+        "**Debian**: AppArmor running at startup · **Rocky**: SELinux running at startup and configured for the project's needs (Rocky is exempt from KDump)",
+        "**The hostname must be your login followed by 42**, e.g. `wil42` — and you will be asked to change it during the review",
+        "Besides root, a user named after your login must exist, belonging to the **`user42`** and **`sudo`** groups",
+      ]},
+      { h: "Mandatory — SSH and firewall" },
+      { ul: [
+        "SSH must run on **port 4242**, and **root must not be able to log in over SSH**",
+        "Use **UFW** (Debian) or **firewalld** (Rocky), leaving only port 4242 open",
+        "**The firewall must be active when the virtual machine starts**",
+        "During the review a new account is created and SSH is tested for real",
+      ]},
+      { h: "Mandatory — password policy" },
+      { ul: [
+        "Passwords expire every **30 days**, with a minimum of **2 days** between changes",
+        "The user is warned **7 days** before expiry",
+        "At least **10 characters**, with an uppercase letter, a lowercase letter and a digit, and no more than 3 consecutive identical characters",
+        "The password must not contain the user's name",
+        "At least **7 characters must differ from the previous password** — this one does not apply to root",
+        "After configuring it you must **change every account's password, root included**, to comply",
+      ]},
+      { h: "Mandatory — sudo" },
+      { ul: [
+        "Limit sudo authentication to **3 attempts** on a wrong password",
+        "Display a custom message of your choosing on a wrong password",
+        "Log every sudo action, **both input and output**, into `/var/log/sudo/`",
+        "TTY mode must be enabled",
+        "The paths sudo may use must be restricted",
+      ]},
+      { h: "Mandatory — monitoring.sh" },
+      { ul: [
+        "Written in **bash**, broadcast to every terminal at server startup and **every 10 minutes** thereafter (see `wall`)",
+        "It must show: architecture and kernel version, physical CPU count, vCPU count, RAM used with its percentage, disk used with its percentage, CPU load, last reboot time, whether LVM is active, the number of active connections, the number of users, the IPv4 and MAC address, and how many commands were run with sudo",
+        "**No errors may appear**",
+        "At the review you must explain how it works and **stop it without modifying the file** (see `cron`)",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "Partition the disk to match the structure the subject shows",
+        "A working WordPress site on **lighttpd + MariaDB + PHP**",
+        "One more service you consider useful — **NGINX and Apache2 excluded** — and be ready to justify it",
+        "Extra ports may be opened for the bonus, provided the firewall rules are adapted",
+      ]},
+      { h: "Before you submit" },
+      { ul: [
+        "`signature.txt` must be the signature of the **exact disk file you are submitting** — one more change to the VM and it is stale",
+        "Power the VM off and on, then confirm the firewall and AppArmor/SELinux are still up",
+        "Test `ssh <user>@<ip> -p 4242` from the host, and confirm root cannot log in",
+        "Try a password that violates each rule and confirm it is actually rejected",
+        "Be able to say how apt differs from aptitude, and what AppArmor/SELinux are",
+      ]},
+    ],
+  };
+
+  /* ============================ netpractice =========================== */
+  S.netpractice = {
+    th: [
+      { h: "โจทย์นี้ต้องการอะไร" },
+      { p: "แก้โจทย์เครือข่าย 10 ด่านบนหน้าเว็บ: เติม IP address, netmask และ routing table ให้เครือข่ายที่พังอยู่กลับมาทำงานได้ทุก objective. ไม่มีโค้ดให้เขียน — วัดว่าเข้าใจ subnetting และเส้นทางไป-กลับหรือเปล่า" },
+      { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["สิ่งที่โจทย์ให้มา", "ไฟล์บีบอัดจากหน้าโปรเจกต์ ที่มี `run.sh` และหน้าเว็บของเกม"],
+        ["วิธีเริ่ม", "แตกไฟล์แล้วรัน `run.sh` — จะเปิด local web server แล้วเด้งเบราว์เซอร์ให้"],
+        ["ถ้า run.sh ใช้ไม่ได้", "`python3 -m http.server 49242` แล้วเปิด `http://localhost:49242`"],
+        ["สิ่งที่ส่ง", "ไฟล์ config ที่ export จากแต่ละด่าน — `level1.json` … `level10.json`"],
+        ["Makefile / norminette / valgrind", "ไม่มี — โปรเจกต์นี้ไม่มีโค้ด"],
+      ]}},
+      { h: "Mandatory — ต้องทำอะไรบ้าง" },
+      { ul: [
+        "มี **10 ด่าน** ให้ฝึก แต่ละด่านคือผังเครือข่ายที่ยังไม่ทำงาน พร้อม objective ที่ต้องทำให้เขียวครบ",
+        "ปุ่ม **Check again** ตรวจว่าตั้งค่าถูกหรือยัง",
+        "ปุ่ม **Get my config** ดาวน์โหลด config ของด่านนั้น — **ต้องกดเก็บทุกด่านก่อนไปด่านถัดไป** เพราะต้องใช้ตอนส่ง",
+        "ใส่ login ของตัวเองในช่องที่ให้ เพื่อได้ชุดโจทย์ประจำตัว",
+        "แท็บ **evaluation** สุ่มชุดใหม่ให้ — เป็นแบบที่ใช้ตอนตรวจ",
+      ]},
+      { h: "สิ่งที่ต้องเข้าใจจริง ๆ ไม่ใช่แค่เดา" },
+      { ul: [
+        "**netmask กำหนดว่าใครอยู่วงเดียวกัน** — สอง interface ที่จะคุยกันตรง ๆ ต้องอยู่ subnet เดียวกันและห้าม IP ชนกัน",
+        "**switch ไม่มี IP** และไม่นับเป็น hop ส่วน **router มี IP ทุกขา**",
+        "packet ต้องไปถึงและ **ตอบกลับได้ด้วย** — ตั้งค่าให้ไปได้ทางเดียวคือยังไม่ผ่าน",
+        "host ที่ชื่อ Internet **ห้ามมี default route** และจะทิ้ง private IP",
+        "default route (`0.0.0.0/0`) ใช้เมื่อไม่มี route ที่เจาะจงกว่านั้น",
+      ]},
+      { h: "เช็กก่อนส่ง" },
+      { ul: [
+        "ครบทั้ง 10 ไฟล์ ตั้งชื่อถูกตามด่าน และอยู่ที่ root ของ repo",
+        "เปิดไฟล์ json ดูว่าเป็นของด่านที่ถูกต้องจริง — กด Get my config ผิดด่านคือความผิดพลาดที่พบบ่อยที่สุด",
+        "ตอนตรวจกระดานจะถูกสุ่มใหม่ ต้องแก้สดได้ ไม่ใช่จำคำตอบเก่า",
+      ]},
+    ],
+    en: [
+      { h: "What the subject requires" },
+      { p: "Solve ten networking levels in a browser: fill in IP addresses, netmasks and routing tables until a broken network satisfies every objective. There is no code to write — it tests whether you understand subnetting and a working round trip." },
+      { table: { head: ["Item", "Requirement"], rows: [
+        ["What the subject provides", "an archive from the project page containing `run.sh` and the game's web pages"],
+        ["How to start", "extract it and run `run.sh` — it starts a local web server and opens your browser"],
+        ["If run.sh fails", "`python3 -m http.server 49242`, then open `http://localhost:49242`"],
+        ["What you submit", "the config exported from each level — `level1.json` … `level10.json`"],
+        ["Makefile / norminette / valgrind", "none — this project has no code"],
+      ]}},
+      { h: "Mandatory — what to do" },
+      { ul: [
+        "There are **ten levels**, each a non-working network diagram with objectives you must turn green",
+        "**Check again** verifies your configuration",
+        "**Get my config** downloads that level's configuration — **press it on every level before moving on**, because you need them to submit",
+        "Enter your login in the field provided to get your personal configuration",
+        "The **evaluation** tab generates a random configuration, the kind used at review time",
+      ]},
+      { h: "What you actually have to understand" },
+      { ul: [
+        "**The netmask decides who shares a network** — two interfaces that talk directly must be in the same subnet, with no IP collision",
+        "**A switch has no IP** and is not a hop; **a router has an IP on every leg**",
+        "A packet must arrive **and be able to reply** — a one-way configuration does not pass",
+        "The host called Internet **must have no default route** and drops private IPs",
+        "A default route (`0.0.0.0/0`) applies when no more specific route matches",
+      ]},
+      { h: "Before you submit" },
+      { ul: [
+        "All ten files, named for the right level, at the repository root",
+        "Open the JSON and check it really is that level's — grabbing the config from the wrong level is the most common mistake",
+        "At the review the board is regenerated, so you must solve it live rather than recall an answer",
+      ]},
+    ],
+  };
+
+  /* ============================= minishell ============================= */
+  S.minishell = {
+    th: [
+      { h: "โจทย์นี้ต้องการอะไร" },
+      { p: "เขียน shell ของตัวเองที่ทำงานเหมือน bash ในส่วนที่โจทย์กำหนด: prompt, history, หา executable จาก PATH, quote, redirection, pipe, ตัวแปรสภาพแวดล้อม, signal และ builtin อีก 7 ตัว" },
+      { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["Program Name", "`minishell`"],
+        ["Files to Submit", "`Makefile`, `*.h`, `*.c`"],
+        ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
+        ["Arguments", "ไม่มี"],
+        ["สิ่งที่โจทย์ให้มา", "อนุญาตให้ใช้ **readline** (`readline` `rl_clear_history` `rl_on_new_line` `rl_replace_line` `rl_redisplay` `add_history`) จึงไม่ต้องเขียน line editor เอง"],
+        ["External Function", "readline + `printf` `malloc` `free` `write` `access` `open` `read` `close` `fork` `wait` `waitpid` `wait3` `wait4` `signal` `sigaction` `sigemptyset` `sigaddset` `kill` `exit` `getcwd` `chdir` `stat` `lstat` `fstat` `unlink` `execve` `dup` `dup2` `pipe` `opendir` `readdir` `closedir` `strerror` `perror` `isatty` `ttyname` `ttyslot` `ioctl` `getenv` `tcsetattr` `tcgetattr` `tgetent` `tgetflag` `tgetnum` `tgetstr` `tgoto` `tputs`"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — พฤติกรรมของ shell" },
+      { ul: [
+        "แสดง prompt ขณะรอคำสั่งใหม่ และมี history ที่ใช้งานได้จริง",
+        "ค้นและรัน executable ให้ถูกตัว โดยดูจาก `PATH` หรือจาก path แบบ relative/absolute",
+        "**ห้ามตีความ quote ที่ยังไม่ปิด และห้ามตีความอักขระพิเศษที่โจทย์ไม่ได้สั่ง** เช่น `\\` หรือ `;`",
+        "`'` (single quote) ต้องกันไม่ให้ตีความ metacharacter ทั้งหมดในช่วงนั้น",
+        "`\"` (double quote) ต้องกันเหมือนกัน **ยกเว้น `$`**",
+        "จัดการตัวแปรสภาพแวดล้อม (`$` ตามด้วยชื่อ) ให้ขยายเป็นค่าของมัน",
+        "จัดการ `$?` ให้ขยายเป็น exit status ของ pipeline ล่าสุดที่รันเป็น foreground",
+      ]},
+      { h: "Mandatory — redirection และ pipe" },
+      { ul: [
+        "`<` เปลี่ยนทาง input",
+        "`>` เปลี่ยนทาง output",
+        "`<<` รับ delimiter แล้วอ่าน input ไปจนเจอบรรทัดที่เป็น delimiter — **ไม่ต้องบันทึกลง history**",
+        "`>>` เปลี่ยนทาง output แบบต่อท้าย",
+        "`|` ต่อ output ของคำสั่งหนึ่งเข้ากับ input ของคำสั่งถัดไปในสาย",
+      ]},
+      { h: "Mandatory — signal และ builtin" },
+      { ul: [
+        "`ctrl-C` `ctrl-D` `ctrl-\\` ต้องทำตัวเหมือน bash · ในโหมด interactive: `ctrl-C` ขึ้น prompt ใหม่บรรทัดใหม่, `ctrl-D` ออกจาก shell, `ctrl-\\` ไม่ทำอะไร",
+        "builtin ที่ต้องมี: **`echo` (พร้อม `-n`)**, **`cd`** (รับ path แบบ relative และ absolute), **`pwd`**, **`export`**, **`unset`**, **`env`**, **`exit`** — ทั้งหมดต้องไม่มี option อื่นนอกจากที่ระบุ",
+      ]},
+      { h: "กฎที่พลาดแล้วศูนย์" },
+      { ul: [
+        "**ใช้ global variable ได้ตัวเดียว และไว้บอกว่าได้รับ signal อะไรเท่านั้น** — เก็บได้แค่หมายเลข signal ห้ามให้ข้อมูลหรือทางเข้าถึงโครงสร้างข้อมูลใด ๆ และห้ามเป็น struct",
+        "Makefile ต้องไม่ relink",
+        "ห้าม leak ในส่วนที่เราเขียน (readline มี leak ของมันเอง ซึ่งยอมรับได้)",
+        "shell ต้องไม่จบแบบผิดปกติไม่ว่าจะป้อนอะไรเข้าไป",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "`&&` และ `||` พร้อมวงเล็บสำหรับกำหนดลำดับความสำคัญ",
+        "wildcard `*` ที่ทำงานกับไดเรกทอรีปัจจุบัน",
+        "bonus ตรวจก็ต่อเมื่อ mandatory สมบูรณ์แบบ",
+      ]},
+      { h: "เช็กก่อนส่ง" },
+      { ul: [
+        "เทียบกับ bash ทุกเคส รวมถึง **exit status** ซึ่งคือจุดที่พลาดกันมากที่สุด",
+        "เคสที่ต้องผ่าน: `cat | cat | ls`, `echo \"$USER\"` เทียบ `echo '$USER'`, `exit` ด้วยค่าเกิน 255, redirect ไปไฟล์ที่ไม่มีสิทธิ์เขียน, heredoc ที่กด ctrl-C กลางคัน, บรรทัดที่มีแต่ช่องว่าง",
+        "กด `ctrl-C` ระหว่างคำสั่งกำลังรัน กับตอน prompt ว่าง ต้องได้ผลต่างกันเหมือน bash",
+      ]},
+    ],
+    en: [
+      { h: "What the subject requires" },
+      { p: "Write your own shell that behaves like bash within the scope given: a prompt, history, executable lookup through PATH, quoting, redirections, pipes, environment variables, signals, and seven builtins." },
+      { table: { head: ["Item", "Requirement"], rows: [
+        ["Program Name", "`minishell`"],
+        ["Files to Submit", "`Makefile`, `*.h`, `*.c`"],
+        ["Makefile", "`NAME` `all` `clean` `fclean` `re`"],
+        ["Arguments", "none"],
+        ["What the subject provides", "**readline** is allowed (`readline` `rl_clear_history` `rl_on_new_line` `rl_replace_line` `rl_redisplay` `add_history`), so you do not write a line editor"],
+        ["External Function", "readline plus `printf` `malloc` `free` `write` `access` `open` `read` `close` `fork` `wait` `waitpid` `wait3` `wait4` `signal` `sigaction` `sigemptyset` `sigaddset` `kill` `exit` `getcwd` `chdir` `stat` `lstat` `fstat` `unlink` `execve` `dup` `dup2` `pipe` `opendir` `readdir` `closedir` `strerror` `perror` `isatty` `ttyname` `ttyslot` `ioctl` `getenv` `tcsetattr` `tcgetattr` `tgetent` `tgetflag` `tgetnum` `tgetstr` `tgoto` `tputs`"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — shell behaviour" },
+      { ul: [
+        "Display a prompt while waiting for a command, and keep a working history",
+        "Find and launch the right executable, via `PATH` or a relative or absolute path",
+        "**Do not interpret unclosed quotes, nor special characters the subject does not require**, such as `\\` or `;`",
+        "`'` (single quote) must stop every metacharacter in the quoted run from being interpreted",
+        "`\"` (double quote) does the same **except for `$`**",
+        "Expand environment variables (`$` followed by a name) to their values",
+        "Expand `$?` to the exit status of the most recent foreground pipeline",
+      ]},
+      { h: "Mandatory — redirections and pipes" },
+      { ul: [
+        "`<` redirects input",
+        "`>` redirects output",
+        "`<<` takes a delimiter and reads input until a line containing it — **it does not have to update history**",
+        "`>>` redirects output in append mode",
+        "`|` connects each command's output to the next command's input",
+      ]},
+      { h: "Mandatory — signals and builtins" },
+      { ul: [
+        "`ctrl-C`, `ctrl-D` and `ctrl-\\` must behave like bash · interactively: `ctrl-C` gives a fresh prompt on a new line, `ctrl-D` exits the shell, `ctrl-\\` does nothing",
+        "The builtins required: **`echo` (with `-n`)**, **`cd`** (relative and absolute paths), **`pwd`**, **`export`**, **`unset`**, **`env`**, **`exit`** — none of them with options beyond those",
+      ]},
+      { h: "Rules that score zero if broken" },
+      { ul: [
+        "**At most one global variable, and only to record a received signal** — it may hold the signal number and nothing else, giving no information about or access to your data structures, so a struct is forbidden",
+        "The Makefile must not relink",
+        "No leaks in your own code (readline's own leaks are accepted)",
+        "The shell must never terminate unexpectedly, whatever is typed at it",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "`&&` and `||` with parentheses for precedence",
+        "The `*` wildcard against the current directory",
+        "The bonus is graded only if the mandatory part is perfect",
+      ]},
+      { h: "Before you submit" },
+      { ul: [
+        "Compare with bash on everything, **exit status included** — that is where most people lose points",
+        "Cases that must pass: `cat | cat | ls`, `echo \"$USER\"` versus `echo '$USER'`, `exit` with a value above 255, redirecting into an unwritable file, a heredoc interrupted with ctrl-C, and a line of only spaces",
+        "`ctrl-C` during a running command and at an empty prompt must differ exactly as they do in bash",
+      ]},
+    ],
+  };
+
+  /* ============================== miniRT =============================== */
+  S.minirt = {
+    th: [
+      { h: "โจทย์นี้ต้องการอะไร" },
+      { p: "เขียน ray tracer ตัวแรก: สร้างภาพของฉาก 3D จากไฟล์บรรยายฉาก `.rt` โดยยิงแสงต่อ pixel หาจุดที่ชนวัตถุที่ใกล้ที่สุด แล้วคำนวณสีจากระบบแสงของฉากนั้น" },
+      { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["Program Name", "`miniRT`"],
+        ["Files to Submit", "ไฟล์ทั้งหมดของคุณ"],
+        ["Makefile", "`all` `clean` `fclean` `re` `bonus`"],
+        ["Arguments", "ฉากนามสกุล `*.rt`"],
+        ["สิ่งที่โจทย์ให้มา", "MiniLibX (เวอร์ชันบนเครื่องโรงเรียน หรือ source ให้คอมไพล์เอง)"],
+        ["External Function", "`open` `close` `read` `write` `printf` `malloc` `free` `perror` `strerror` `exit` · ทุกฟังก์ชันของ math (`-lm`) · ทุกฟังก์ชันของ MiniLibX"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — วัตถุและการแปลง" },
+      { ul: [
+        "ต้องมีวัตถุพื้นฐานอย่างน้อยสามชนิด: **plane, sphere, cylinder**",
+        "ทุกจุดตัดที่เป็นไปได้และ **ด้านในของวัตถุ** ต้องถูกจัดการอย่างถูกต้อง",
+        "ต้องปรับขนาดเฉพาะของวัตถุได้: เส้นผ่านศูนย์กลางของ sphere และความกว้าง/ความสูงของ cylinder",
+        "ต้องเลื่อน (translate) และหมุน (rotate) วัตถุ แสง และกล้องได้ — **ยกเว้น sphere กับแสงที่หมุนไม่ได้**",
+      ]},
+      { h: "Mandatory — แสงและหน้าต่าง" },
+      { ul: [
+        "ต้องมี: ความสว่างของ spot, **เงาแบบขอบคม (hard shadow)** และ ambient light ที่ทำให้วัตถุไม่มืดสนิท",
+        "ต้อง implement ทั้ง **ambient และ diffuse lighting**",
+        "กด `ESC` ต้องปิดหน้าต่างและออกอย่างสะอาด และกดกากบาทก็ต้องออกได้",
+        "**การจัดการหน้าต่างต้องลื่นไหล** — สลับไปหน้าต่างอื่น ย่อหน้าต่าง แล้วกลับมาต้องไม่พัง",
+        "แนะนำอย่างยิ่งให้ใช้ image ของ MiniLibX แทนการวาดทีละ pixel ลงหน้าต่าง",
+      ]},
+      { h: "Mandatory — รูปแบบไฟล์ .rt" },
+      { ul: [
+        "element แต่ละชนิดคั่นกันด้วยการขึ้นบรรทัดใหม่หนึ่งครั้งหรือมากกว่า",
+        "ข้อมูลภายใน element เดียวกันคั่นด้วยช่องว่างหนึ่งตัวหรือมากกว่า",
+        "**element วางเรียงลำดับไหนก็ได้ในไฟล์**",
+        "**element ที่ใช้ตัวพิมพ์ใหญ่ประกาศได้ครั้งเดียวเท่านั้น** — `A` ambient, `C` camera, `L` light",
+        "วัตถุใช้ตัวพิมพ์เล็ก: `sp` sphere, `pl` plane, `cy` cylinder และประกาศได้หลายครั้ง",
+        "ไฟล์ผิดรูปแบบต้องออกโปรแกรมพร้อมข้อความที่ขึ้นต้นด้วย `Error`",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "specular reflection (Phong) เพิ่มจาก ambient และ diffuse",
+        "สีและพื้นผิว: checkerboard, bump map, texture จากไฟล์",
+        "แสงหลายดวงที่มีสีต่างกัน",
+        "วัตถุเพิ่มอีกชนิด เช่น cone",
+        "bonus ตรวจก็ต่อเมื่อ mandatory สมบูรณ์แบบ",
+      ]},
+      { h: "เช็กก่อนส่ง" },
+      { ul: [
+        "ฉากที่ผิด: `A`/`C`/`L` ซ้ำ, ค่าสีเกิน 0-255, เวกเตอร์ที่ไม่อยู่ในช่วง -1 ถึง 1, FOV เกินช่วง, ตัวเลขขาด, ไฟล์นามสกุลผิด",
+        "กล้องที่มองตรงลงพื้น (forward ขนานกับ up) ต้องไม่ทำให้ภาพดำ",
+        "ยืนอยู่ในทรงกลมแล้วต้องได้ภาพที่ถูกต้อง ไม่ใช่จอว่าง",
+        "เงาต้องไม่เกิด acne — ต้องขยับจุดเริ่มของ shadow ray ออกตาม normal เล็กน้อย",
+        "valgrind สะอาด รวมถึงเส้นทางที่ parse ล้มเหลวกลางคัน",
+      ]},
+    ],
+    en: [
+      { h: "What the subject requires" },
+      { p: "Write your first ray tracer: generate an image of a 3D scene from an `.rt` description file by casting a ray per pixel, finding the nearest object it hits, and shading it with that scene's lighting." },
+      { table: { head: ["Item", "Requirement"], rows: [
+        ["Program Name", "`miniRT`"],
+        ["Files to Submit", "all of your files"],
+        ["Makefile", "`all` `clean` `fclean` `re` `bonus`"],
+        ["Arguments", "a scene with the `*.rt` extension"],
+        ["What the subject provides", "MiniLibX (the school-machine version, or sources to build yourself)"],
+        ["External Function", "`open` `close` `read` `write` `printf` `malloc` `free` `perror` `strerror` `exit` · all of the math library (`-lm`) · all of MiniLibX"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — objects and transforms" },
+      { ul: [
+        "At least three primitives: **plane, sphere, cylinder**",
+        "Every possible intersection and **the insides of objects** must be handled correctly",
+        "You must be able to resize each object's own properties: a sphere's diameter, a cylinder's width and height",
+        "Translation and rotation must work on objects, lights and cameras — **except spheres and lights, which cannot be rotated**",
+      ]},
+      { h: "Mandatory — lighting and window" },
+      { ul: [
+        "Spot brightness, **hard shadows**, and ambient lighting so objects are never completely dark",
+        "Both **ambient and diffuse lighting** must be implemented",
+        "`ESC` must close the window and exit cleanly, and so must the window's close button",
+        "**Window management must stay fluid** — switching away, minimising and coming back must not break it",
+        "Using MiniLibX images is strongly recommended over drawing pixel by pixel to the window",
+      ]},
+      { h: "Mandatory — the .rt file format" },
+      { ul: [
+        "Element types are separated by one or more line breaks",
+        "Information within an element is separated by one or more spaces",
+        "**Elements may appear in any order in the file**",
+        "**Elements written with a capital letter may be declared only once** — `A` ambient, `C` camera, `L` light",
+        "Objects use lowercase: `sp` sphere, `pl` plane, `cy` cylinder, and may repeat",
+        "A malformed file must exit with a message beginning with `Error`",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "Specular reflection (Phong) on top of ambient and diffuse",
+        "Colour and texture: checkerboard, bump maps, image textures",
+        "Multiple lights of different colours",
+        "One more primitive, such as a cone",
+        "The bonus is graded only if the mandatory part is perfect",
+      ]},
+      { h: "Before you submit" },
+      { ul: [
+        "Bad scenes: duplicate `A`/`C`/`L`, colours outside 0-255, vectors outside -1 to 1, an out-of-range FOV, missing numbers, the wrong extension",
+        "A camera looking straight down (forward parallel to up) must not render black",
+        "Standing inside a sphere must render correctly rather than showing nothing",
+        "Shadows must not show acne — offset the shadow ray's origin along the normal",
+        "Valgrind clean, including the paths where parsing fails part-way",
+      ]},
+    ],
+  };
+
+  /* =============================== cub3D =============================== */
+  S.cub3d = {
+    th: [
+      { h: "โจทย์นี้ต้องการอะไร" },
+      { p: "สร้างภาพ 3D มุมมองบุคคลที่หนึ่งของภายในเขาวงกต ด้วยหลักการ **ray-casting** แบบ Wolfenstein 3D: ยิงแสงหนึ่งเส้นต่อคอลัมน์ของจอ หาว่าชนกำแพงด้านไหน แล้วแปะ texture ตามด้านนั้น" },
+      { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["Program Name", "`cub3D`"],
+        ["Files to Submit", "ไฟล์ทั้งหมดของคุณ"],
+        ["Makefile", "`all` `clean` `fclean` `re` `bonus`"],
+        ["Arguments", "แผนที่นามสกุล `*.cub`"],
+        ["สิ่งที่โจทย์ให้มา", "MiniLibX (เวอร์ชันบนเครื่องโรงเรียน หรือ source ให้คอมไพล์เอง)"],
+        ["External Function", "`open` `close` `read` `write` `printf` `malloc` `free` `perror` `strerror` `exit` `gettimeofday` · ทุกฟังก์ชันของ math (`-lm`) · ทุกฟังก์ชันของ MiniLibX"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — การเรนเดอร์และการควบคุม" },
+      { ul: [
+        "**แสดง texture ของกำแพงต่างกันตามด้านที่หันไป** — เหนือ ใต้ ตะวันออก ตะวันตก",
+        "ต้องตั้งสีของพื้นและเพดานเป็นสองสีที่ต่างกันได้",
+        "**ปุ่มลูกศรซ้าย-ขวา** ใช้หันมองซ้ายและขวา",
+        "**ปุ่ม W A S D** ใช้เดินเปลี่ยนตำแหน่งมุมมองในเขาวงกต",
+        "กด `ESC` ต้องปิดหน้าต่างและออกอย่างสะอาด และกดกากบาทก็ต้องออกได้",
+        "**การจัดการหน้าต่างต้องลื่นไหล** — สลับหน้าต่าง ย่อ แล้วกลับมาต้องไม่พัง",
+      ]},
+      { h: "Mandatory — รูปแบบไฟล์ .cub" },
+      { ul: [
+        "แผนที่ประกอบด้วยอักขระได้แค่ 6 ตัว: `0` พื้นว่าง, `1` กำแพง และ `N` `S` `E` `W` ที่เป็นจุดเริ่มของผู้เล่นพร้อมทิศที่หันไป",
+        "**แผนที่ต้องปิดล้อมด้วยกำแพง** ถ้าไม่ปิด โปรแกรมต้องคืน error",
+        "**แผนที่ต้องอยู่ท้ายไฟล์เสมอ** ส่วน element อื่นเรียงลำดับไหนก็ได้ และคั่นด้วยบรรทัดว่างได้",
+        "**ช่องว่างถือเป็นส่วนหนึ่งของแผนที่ที่ถูกต้อง** — ต้อง parse แผนที่ตามที่มันหน้าตาอยู่ในไฟล์จริง ๆ",
+        "element ที่ไม่ใช่แผนที่ต้องขึ้นต้นด้วยตัวระบุ แล้วตามด้วยข้อมูลตามลำดับเคร่งครัด: `NO` `SO` `WE` `EA` ตามด้วย path ของ texture, `F` และ `C` ตามด้วยสี R,G,B",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "การชนกำแพง (wall collision)",
+        "ระบบ minimap",
+        "ประตูที่เปิด-ปิดได้",
+        "sprite ที่มี animation",
+        "หมุนมุมมองด้วยเมาส์",
+        "bonus ตรวจก็ต่อเมื่อ mandatory สมบูรณ์แบบ ซึ่งหมายถึง **ห้ามพลาดแม้แต่กับการใช้งานผิด ๆ**",
+      ]},
+      { h: "เช็กก่อนส่ง" },
+      { ul: [
+        "แผนที่พัง: ไม่ปิดล้อม, ไม่มีผู้เล่นหรือมีเกินหนึ่ง, อักขระแปลกปลอม, element ซ้ำหรือขาด, path ของ texture ผิด, สีเกิน 0-255",
+        "**แผนที่ที่แถวยาวไม่เท่ากันและมีช่องว่างแทรก ต้องรับได้** ถ้ามันยังปิดล้อมอยู่ — ข้อนี้คือที่ที่คนตกกันมากที่สุด",
+        "กำแพงต้องไม่โค้ง (แก้ fisheye ด้วยระยะตั้งฉาก) และ texture ต้องไม่กลับด้าน",
+        "ไฟล์ฉากที่ผิดต้องพิมพ์ `Error` แล้วออก **ไม่ใช่ค้าง**",
+        "valgrind สะอาดหลังปิดหน้าต่าง",
+      ]},
+    ],
+    en: [
+      { h: "What the subject requires" },
+      { p: "Render a first-person 3D view of the inside of a maze using **ray-casting**, Wolfenstein 3D style: one ray per screen column, find which wall side it hits, and texture it accordingly." },
+      { table: { head: ["Item", "Requirement"], rows: [
+        ["Program Name", "`cub3D`"],
+        ["Files to Submit", "all of your files"],
+        ["Makefile", "`all` `clean` `fclean` `re` `bonus`"],
+        ["Arguments", "a map with the `*.cub` extension"],
+        ["What the subject provides", "MiniLibX (the school-machine version, or sources to build yourself)"],
+        ["External Function", "`open` `close` `read` `write` `printf` `malloc` `free` `perror` `strerror` `exit` `gettimeofday` · all of the math library (`-lm`) · all of MiniLibX"],
+        ["Libft authorized", "**Yes**"],
+      ]}},
+      { h: "Mandatory — rendering and controls" },
+      { ul: [
+        "**Different wall textures depending on which way the wall faces** — north, south, east, west",
+        "Floor and ceiling must be settable to two different colours",
+        "**The left and right arrow keys** look left and right",
+        "**W A S D** move the point of view through the maze",
+        "`ESC` must close the window and exit cleanly, and so must the window's close button",
+        "**Window management must stay smooth** — switching away, minimising and returning must not break it",
+      ]},
+      { h: "Mandatory — the .cub file format" },
+      { ul: [
+        "The map uses only six characters: `0` empty space, `1` wall, and `N` `S` `E` `W` for the player's start and facing",
+        "**The map must be closed by walls**; if it is not, the program must return an error",
+        "**The map must always come last**; the other elements may appear in any order and be separated by empty lines",
+        "**Spaces are a valid part of the map** — parse it as it looks in the file, and handle any map that respects the rules",
+        "Every non-map element starts with its identifier followed by its information in strict order: `NO` `SO` `WE` `EA` with a texture path, `F` and `C` with an R,G,B colour",
+      ]},
+      { h: "Bonus" },
+      { ul: [
+        "Wall collisions",
+        "A minimap system",
+        "Doors that open and close",
+        "Animated sprites",
+        "Rotating the view with the mouse",
+        "The bonus is graded only if the mandatory part is perfect — meaning **it cannot fail even on nasty misuse**",
+      ]},
+      { h: "Before you submit" },
+      { ul: [
+        "Broken maps: not closed, no player or more than one, stray characters, duplicate or missing elements, a bad texture path, colours outside 0-255",
+        "**Ragged maps padded with spaces must be accepted** if they are still closed — this is where most people fail",
+        "Walls must not curve (fix the fisheye with the perpendicular distance) and textures must not be mirrored",
+        "A bad scene file must print `Error` and exit, **not hang**",
+        "Valgrind clean after closing the window",
+      ]},
     ],
   };
 
