@@ -550,6 +550,26 @@ print(plus(1, 2))`,
         ["`from x import name as other`", "the same thing under a different name in this file"]
       ]}},
       { note: "Never name a file after a standard module — your own `random.py` or `json.py` gets imported instead of the real one, and the resulting error makes no sense at all." },
+      { h: "Taking values from the command line" },
+      { code: String.raw`# args.py
+import sys
+
+print(sys.argv)          # ['args.py', 'a', 'b']  <- the first is the script
+print(sys.argv[1:])      # ['a', 'b']             <- what the user typed
+
+if len(sys.argv) < 2:
+    print(f"usage: python3 {sys.argv[0]} <number>...")
+    sys.exit(1)          # a non-zero exit code means it did not succeed
+
+numbers = []
+for text in sys.argv[1:]:
+    try:
+        numbers.append(int(text))
+    except ValueError:
+        print(f"skipping '{text}': not a number")
+print(f"total {sum(numbers)}")`,
+        cap: "$ python3 args.py 3 4 x  ->  skipping 'x' / total 7", lang: "python" },
+      { p: "`sys.argv` is always a list of strings, exactly like `input()` — you convert them yourself every time. And `sys.argv[0]` is the script's name, not the first argument; what the user typed starts at index 1. This is how **Module 03 takes its parameters** and reports malformed ones without stopping." },
       { h: "What ships with Python already" },
       { code: String.raw`import math
 print(math.sqrt(16))          # 4.0
@@ -744,7 +764,22 @@ def main() -> None:
 if __name__ == "__main__":
     main()`,
         cap: "Passes flake8 and mypy, and uses everything on this page", lang: "python" },
-      { p: "It has all of it: functions with meaningful names, type hints, narrow error handling, a loop with a way out, readable conditions, the right data structures, and the `__main__` guard. Write that yourself and you are ready for Module 00." }
+      { p: "It has all of it: functions with meaningful names, type hints, narrow error handling, a loop with a way out, readable conditions, the right data structures, and the `__main__` guard. Write that yourself and you are ready for Module 00." },
+      { h: "Practice — easiest first" },
+      { p: "Reading is not enough. Do all ten before moving on to the Python Modules pages. Each one uses only what is on this page, and each one has to pass flake8 and mypy." },
+      { ul: [
+        "1. Ask for a name, greet the user, and report how many characters the name has",
+        "2. Ask for two numbers and print the sum, difference, product, quotient and remainder, handling division by zero",
+        "3. Ask for an age and say whether it is a child, a teenager or an adult, using `if` and `elif`",
+        "4. Print the times table for a number the user picks, from 1 to 12, with a loop",
+        "5. Write `is_prime(n: int) -> bool` and print every prime below 100",
+        "6. Take words until the user types done, then report the longest, the shortest, and how many were unique",
+        "7. Count how often each letter appears in a piece of text and print them most-frequent first — a `dict` plus `sorted`",
+        "8. Read a text file and write a new one with a line number in front of every line, handling the file not existing",
+        "9. Take numbers from `sys.argv` and print the average, highest and lowest, skipping non-numbers with a message",
+        "10. Write a `Wallet` class with `deposit`, `withdraw` and `balance` that refuses an overdraft through an exception of your own"
+      ]},
+      { note: "**Do number 10 without looking back at this page and you have finished 101.** It needs a class, state, validation and a custom exception — the core of Modules 01 and 02." }
     ],
 
     tricks: [

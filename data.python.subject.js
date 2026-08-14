@@ -129,31 +129,52 @@
 
     amaze: [
       { h: "โจทย์นี้ต้องการอะไร" },
-      { p: "เขียนโปรแกรม Python ที่สร้างเขาวงกตสมบูรณ์แบบตามขนาดที่กำหนด แล้วแสดงผลเป็นข้อความ พร้อมจัดโครงสร้างโค้ดให้เป็น package ที่ติดตั้งได้" },
+      { p: "เขียนโปรแกรม Python ที่อ่านไฟล์ตั้งค่าหนึ่งไฟล์ สร้างเขาวงกต เขียนลงไฟล์ในรูปแบบเลขฐานสิบหก แสดงผลให้ดูด้วยตาได้ และแยกส่วนอัลกอริทึมเป็นโมดูลที่โปรเจกต์อื่นนำไปใช้ต่อได้" },
       { table: { head: ["หัวข้อ", "ข้อกำหนด"], rows: [
+        ["วิธีรัน", "`python3 a_maze_ing.py config.txt` — ชื่อไฟล์หลักบังคับ และรับอาร์กิวเมนต์เดียวคือไฟล์ตั้งค่า"],
         ["ภาษา", "Python 3.10 ขึ้นไป ผ่าน flake8 และมี type annotation ครบ"],
-        ["ผลลัพธ์", "เขาวงกตที่ทุกช่องเดินถึงกันได้ และมีทางเดียวระหว่างสองช่องใด ๆ"],
-        ["การตั้งค่า", "รับค่าจากบรรทัดคำสั่งและจากไฟล์ตั้งค่า โดยบรรทัดคำสั่งมีลำดับความสำคัญเหนือกว่า"],
-        ["การแพ็ก", "โมดูลสร้างเขาวงกตต้องเป็น package ที่สร้างเป็นไฟล์ติดตั้งได้"],
-        ["build system", "ต้องมี Makefile ที่มีเป้าหมายติดตั้ง รัน ดีบัก ทำความสะอาด และตรวจสไตล์"]
+        ["ไฟล์ตั้งค่า", "หนึ่งบรรทัดหนึ่งคู่ `KEY=VALUE` บรรทัดที่ขึ้นต้นด้วย `#` ต้องถูกข้าม และต้องมีไฟล์ตัวอย่างใน repo"],
+        ["การจัดการ error", "ไฟล์ตั้งค่าผิด หาไฟล์ไม่เจอ ไวยากรณ์พัง ค่าที่สร้างไม่ได้ — ทุกกรณีต้องจบด้วยข้อความชัดเจน ห้ามล้มแบบไม่คาดคิด"],
+        ["การแพ็ก", "ส่วนสร้างเขาวงกตต้องเป็นคลาสเดียวในโมดูลเดี่ยวที่ import ได้ พร้อมเอกสารการใช้งาน"]
       ]}},
-      { h: "สิ่งที่ต้องทำ" },
+      { h: "คีย์บังคับในไฟล์ตั้งค่า" },
+      { table: { head: ["คีย์", "ความหมาย", "ตัวอย่าง"], rows: [
+        ["`WIDTH`", "จำนวนช่องตามแนวกว้าง", "`WIDTH=20`"],
+        ["`HEIGHT`", "จำนวนช่องตามแนวสูง", "`HEIGHT=15`"],
+        ["`ENTRY`", "พิกัดทางเข้า", "`ENTRY=0,0`"],
+        ["`EXIT`", "พิกัดทางออก", "`EXIT=19,14`"],
+        ["`OUTPUT_FILE`", "ชื่อไฟล์ผลลัพธ์", "`OUTPUT_FILE=maze.txt`"],
+        ["`PERFECT`", "ให้เขาวงกตสมบูรณ์แบบหรือไม่", "`PERFECT=True`"]
+      ]}},
+      { h: "ข้อกำหนดของตัวเขาวงกต" },
       { ul: [
-        "สร้างเขาวงกตจากขนาดกว้างและสูงที่ผู้ใช้กำหนด",
-        "รองรับค่า seed เพื่อให้สร้างเขาวงกตเดิมซ้ำได้",
-        "แสดงเขาวงกตออกทางหน้าจอในรูปแบบข้อความที่อ่านได้",
-        "แยกส่วนอัลกอริทึมออกจากส่วนแสดงผลอย่างชัดเจน",
-        "รายงานค่าที่ใช้ไม่ได้ด้วยข้อความที่เข้าใจได้ ไม่ใช่ปล่อยให้โปรแกรมล้ม",
-        "อ่านค่าตั้งต้นจากไฟล์ตั้งค่า และทำงานต่อได้แม้ไฟล์นั้นหายไป"
+        "สุ่มสร้าง แต่ต้องทำซ้ำได้ด้วย seed",
+        "แต่ละช่องมีผนัง 0 ถึง 4 ด้าน ตามทิศเหนือ ตะวันออก ใต้ ตะวันตก",
+        "ทางเข้ากับทางออกต้องมีอยู่จริง ต่างกัน และอยู่ในขอบเขต",
+        "ทุกช่องต้องเชื่อมถึงกัน ไม่มีช่องโดดเดี่ยว ยกเว้นช่องของลาย 42",
+        "ขอบนอกต้องมีผนัง เพราะทางเข้ากับทางออกเป็นช่องเฉพาะ",
+        "ช่องที่ติดกันต้องเห็นผนังร่วมตรงกันทั้งสองฝั่ง",
+        "ห้ามมีพื้นที่โล่ง 3x3 — ทางเดินกว้างได้ไม่เกิน 2 ช่อง",
+        "ต้องมองเห็นเลข 42 ที่วาดด้วยช่องซึ่งปิดผนังครบทุกด้าน",
+        "ถ้า `PERFECT` เปิดอยู่ ต้องมีทางเดียวเท่านั้นระหว่างทางเข้ากับทางออก"
       ]},
-      { h: "สิ่งที่ต้องส่ง" },
+      { h: "รูปแบบไฟล์ผลลัพธ์" },
       { ul: [
-        "โปรแกรมหลักที่รับพารามิเตอร์และเรียกใช้ส่วนอื่น",
-        "โมดูลแสดงผลที่แปลงโครงสร้างข้อมูลเป็นข้อความ",
-        "package ของอัลกอริทึมพร้อมไฟล์เริ่มต้นของ package",
-        "ไฟล์ตั้งค่า, Makefile และไฟล์ประกาศสำหรับการสร้างแพ็กเกจ"
+        "หนึ่งหลักฐานสิบหกต่อหนึ่งช่อง โดยบิตที่ติดแปลว่าผนังปิด — บิต 0 เหนือ, 1 ตะวันออก, 2 ใต้, 3 ตะวันตก",
+        "เรียงทีละแถว หนึ่งแถวต่อหนึ่งบรรทัด",
+        "ตามด้วยบรรทัดว่าง แล้วสามบรรทัด: พิกัดทางเข้า พิกัดทางออก และเส้นทางที่สั้นที่สุดด้วยตัวอักษร N E S W",
+        "ทุกบรรทัดลงท้ายด้วยการขึ้นบรรทัดใหม่",
+        "โจทย์ให้สคริปต์ตรวจไฟล์ผลลัพธ์มาด้วย และบอกว่า Moulinette อาจใช้ตรวจอัตโนมัติ"
       ]},
-      { note: "เขาวงกตขนาดใหญ่คือเงื่อนไขที่ทำให้การเขียนแบบเรียกซ้ำล้มเหลว — โจทย์คาดหวังว่าโปรแกรมทำงานได้กับขนาดที่ใหญ่พอสมควร" }
+      { h: "การแสดงผลและการโต้ตอบ" },
+      { ul: [
+        "แสดงเป็น ASCII ในเทอร์มินัล หรือใช้ MiniLibX ก็ได้",
+        "ต้องเห็นผนัง ทางเข้า ทางออก และเส้นทางคำตอบได้ชัด",
+        "ต้องสร้างเขาวงกตใหม่แล้วแสดงได้",
+        "ต้องซ่อนและแสดงเส้นทางที่สั้นที่สุดได้",
+        "ต้องเปลี่ยนสีผนังได้ และเลือกได้ว่าจะให้ลาย 42 มีสีของตัวเอง"
+      ]},
+      { note: "ถ้าตารางเล็กเกินกว่าจะใส่ลาย 42 ได้ ให้พิมพ์ข้อความแจ้งทางคอนโซลแล้วสร้างต่อ ไม่ใช่ล้มเลิก" }
     ]
   };
 
@@ -285,31 +306,52 @@
 
     amaze: [
       { h: "What the subject asks for" },
-      { p: "Write a Python program that generates a perfect maze of a given size, prints it as text, and organises its code as an installable package." },
+      { p: "Write a Python program that reads one configuration file, generates a maze, writes it to a file in a hexadecimal format, displays it visually, and keeps the generation logic in a module another project can reuse." },
       { table: { head: ["Topic", "Requirement"], rows: [
+        ["How it runs", "`python3 a_maze_ing.py config.txt` — the entry point's name is fixed, and it takes one argument: the config file"],
         ["Language", "Python 3.10 or later, flake8 clean, fully annotated"],
-        ["Output", "A maze where every cell is reachable and exactly one path connects any two cells"],
-        ["Configuration", "Values from the command line and from a config file, with the command line taking precedence"],
-        ["Packaging", "The generator module must be a package that can be built into an installable artefact"],
-        ["Build system", "A Makefile with targets to install, run, debug, clean and lint"]
+        ["Config file", "one `KEY=VALUE` per line; lines starting with `#` must be skipped; a default file must be in the repository"],
+        ["Error handling", "an invalid config, a missing file, bad syntax, impossible parameters — all must end in a clear message, never an unexpected crash"],
+        ["Packaging", "the generation logic must be one class in a standalone importable module, with documentation"]
       ]}},
-      { h: "What it must do" },
+      { h: "The mandatory config keys" },
+      { table: { head: ["Key", "Meaning", "Example"], rows: [
+        ["`WIDTH`", "maze width in cells", "`WIDTH=20`"],
+        ["`HEIGHT`", "maze height in cells", "`HEIGHT=15`"],
+        ["`ENTRY`", "entry coordinates", "`ENTRY=0,0`"],
+        ["`EXIT`", "exit coordinates", "`EXIT=19,14`"],
+        ["`OUTPUT_FILE`", "the output filename", "`OUTPUT_FILE=maze.txt`"],
+        ["`PERFECT`", "whether the maze must be perfect", "`PERFECT=True`"]
+      ]}},
+      { h: "What the maze itself must satisfy" },
       { ul: [
-        "Generate a maze from a width and a height given by the user",
-        "Accept a seed so the same maze can be reproduced",
-        "Print the maze to the screen in readable text",
-        "Keep the algorithm clearly separated from the rendering",
-        "Report unusable values with an understandable message rather than crashing",
-        "Read defaults from a config file, and keep working when that file is missing"
+        "Randomly generated, but reproducible from a seed",
+        "Each cell has between 0 and 4 walls, at the four cardinal points",
+        "The entry and exit must exist, differ, and lie inside the bounds",
+        "Full connectivity with no isolated cells, except the 42 pattern's cells",
+        "The outer border must be walled, since the entry and exit are specific cells",
+        "Neighbouring cells must agree about the wall between them",
+        "No 3x3 open area — corridors may be at most 2 cells wide",
+        "A visible 42 drawn by several fully closed cells",
+        "With `PERFECT` on, exactly one path between the entry and the exit"
       ]},
-      { h: "What gets submitted" },
+      { h: "The output file format" },
       { ul: [
-        "The main program that takes the parameters and calls the rest",
-        "A rendering module that turns the data structure into text",
-        "The algorithm package, with its package init file",
-        "The config file, the Makefile, and the packaging declaration file"
+        "One hexadecimal digit per cell, where a set bit means the wall is closed — bit 0 north, 1 east, 2 south, 3 west",
+        "Stored row by row, one row per line",
+        "Then a blank line, then three lines: the entry coordinates, the exit coordinates, and the shortest valid path written with N, E, S and W",
+        "Every line ends with a newline",
+        "A validation script ships with the subject, and a Moulinette may use it to check the file automatically"
       ]},
-      { note: "Large mazes are the condition that breaks a recursive implementation — the subject expects the program to handle a reasonably large size." }
+      { h: "Display and interaction" },
+      { ul: [
+        "Terminal ASCII rendering or a MiniLibX window, either is accepted",
+        "Walls, entry, exit and the solution path must all be clearly visible",
+        "Regenerating a new maze and displaying it must be possible",
+        "Showing and hiding the shortest path must be possible",
+        "Changing the wall colours must be possible, and optionally colouring the 42"
+      ]},
+      { note: "When the grid is too small to fit the 42, print a message on the console and carry on generating rather than giving up." }
     ]
   };
 
