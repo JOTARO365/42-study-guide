@@ -1888,11 +1888,24 @@
   var PY_TAB_LABELS = {
     principle:      { th: "ภาพรวม & กฎกลาง", en: "Overview & Rules" },
     theory:         { th: "แนวคิดที่ต้องรู้", en: "Concepts" },
+    foundations:    { th: "ควบคุมการทำงาน", en: "Control Flow" },
     architecture:   { th: "โครงไฟล์ & เครื่องมือ", en: "Layout & Tooling" },
     dataflow:       { th: "กลไกภายใน", en: "How It Works" },
     implementation: { th: "ลงมือทำ & เทสต์", en: "Hands-on & Tests" },
     tricks:         { th: "กับดัก & ทริค", en: "Traps & Tips" },
     eval:           { th: "คำถาม Evaluation", en: "Evaluation Q&A" }
+  };
+
+  /* ชื่อแท็บของหน้า Python 101 — ไล่ตามลำดับการสอน ไม่ใช่ตามโครงโปรเจกต์ */
+  var PY101_TAB_LABELS = {
+    principle:      { th: "เริ่มจากศูนย์", en: "Start From Zero" },
+    theory:         { th: "ค่า ชนิด และชื่อ", en: "Values, Types, Names" },
+    foundations:    { th: "เงื่อนไข ลูป ฟังก์ชัน", en: "Conditions, Loops, Functions" },
+    architecture:   { th: "โครงสร้างข้อมูล", en: "Data Structures" },
+    dataflow:       { th: "error ไฟล์ และ import", en: "Errors, Files, Imports" },
+    implementation: { th: "คลาส & เขียนโปรแกรมจริง", en: "Classes & A Real Program" },
+    tricks:         { th: "กับดักมือใหม่", en: "Beginner Traps" },
+    eval:           { th: "ตรวจความเข้าใจ", en: "Check Your Understanding" }
   };
 
   /* ชื่อแท็บสำหรับสื่อติวสอบ Exam Rank — ใช้เมื่อ id ขึ้นต้นด้วย exam_ */
@@ -1915,6 +1928,7 @@
     var map = pid.indexOf("exam_") === 0 ? EXAM_TAB_LABELS
       : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS
       : pid.indexOf("tool_") === 0 ? TOOL_TAB_LABELS
+      : pid === "py_101" ? PY101_TAB_LABELS
       : (pid.indexOf("py_") === 0 || pid === "amaze") ? PY_TAB_LABELS : null;
     if (map && map[key]) return t(map[key]);
     for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === key) return t(TABS[i][1]);
