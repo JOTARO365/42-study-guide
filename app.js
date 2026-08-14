@@ -1908,6 +1908,18 @@
     eval:           { th: "ตรวจความเข้าใจ", en: "Check Your Understanding" }
   };
 
+  /* ชื่อแท็บของหน้า Python สำหรับคนเขียน C — ตั้งตามสิ่งที่ C มีแล้ว Python ไม่มี */
+  var PYFROMC_TAB_LABELS = {
+    principle:      { th: "ภาพรวม & ความต่างข้อเดียว", en: "Overview & The One Difference" },
+    theory:         { th: "โมดูล = header + ฟังก์ชัน", en: "Modules and Functions" },
+    foundations:    { th: "อะไรแทน struct", en: "What Replaces struct" },
+    architecture:   { th: "เชื่อมไฟล์ & sys.path", en: "Linking Files & sys.path" },
+    dataflow:       { th: "หน่วยความจำ", en: "Memory" },
+    implementation: { th: "เรียก C จาก Python", en: "Calling C From Python" },
+    tricks:         { th: "ตารางแปลง & กับดัก", en: "Translation & Traps" },
+    eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
+  };
+
   /* ชื่อแท็บสำหรับสื่อติวสอบ Exam Rank — ใช้เมื่อ id ขึ้นต้นด้วย exam_ */
   var EXAM_TAB_LABELS = {
     principle:      { th: "ภาพรวม & กติกา", en: "Overview & Rules" },
@@ -1929,6 +1941,7 @@
       : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS
       : pid.indexOf("tool_") === 0 ? TOOL_TAB_LABELS
       : pid === "py_101" ? PY101_TAB_LABELS
+      : pid === "py_from_c" ? PYFROMC_TAB_LABELS
       : (pid.indexOf("py_") === 0 || pid === "amaze") ? PY_TAB_LABELS : null;
     if (map && map[key]) return t(map[key]);
     for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === key) return t(TABS[i][1]);
