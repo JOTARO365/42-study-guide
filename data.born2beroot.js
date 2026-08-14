@@ -374,8 +374,13 @@ Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
         ["`passwd_tries=3`", "จำกัดการเดารหัสผ่านต่อหนึ่งครั้ง"],
         ["`requiretty`", "ปฏิเสธ sudo จากกระบวนการที่ไม่มี terminal — ตัดการยกสิทธิ์แบบสคริปต์อัตโนมัติทิ้งไปทั้งกลุ่ม"],
         ["`secure_path`", "sudo เมิน `PATH` ของผู้เรียก — `ls` ปลอมที่วางไว้ต้นทางจึงไม่มีวันถูกรันเป็น root"],
-        ["`log_input, log_output`", "บันทึกทั้ง session เล่นย้อนได้ด้วย `sudoreplay`"]
+        ["`log_input, log_output`", "บันทึกทั้ง session เล่นย้อนได้ด้วย `sudoreplay`"],
+        ["โหมดไฟล์ `0440`", "sudo ปฏิเสธไฟล์ที่กว้างกว่านี้ — และปฏิเสธอย่างเงียบ ๆ"]
       ]}},
+      { code: String.raw`sudo visudo -cf /etc/sudoers.d/born2beroot   # ตรวจ syntax โดยไม่แก้ไฟล์
+sudo chmod 0440 /etc/sudoers.d/born2beroot  # sudo ไม่ยอมอ่านไฟล์ที่กว้างกว่านี้
+sudo chown root:root /etc/sudoers.d/born2beroot`,
+        cap: "สองบรรทัดที่คนลืมบ่อยที่สุด — sudo เมินไฟล์ที่ permission ผิดอย่างเงียบ ๆ", lang: "bash" },
       { h: "8) monitoring.sh" },
       { code: String.raw`#!/bin/bash
 arch=$(uname -a)
@@ -499,7 +504,7 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
         { q: "log ของ sudo อยู่ที่ไหน เปิดดูยังไง",
           a: "`/var/log/sudo/` ตามที่ subject บังคับ โดย `log_input, log_output` เก็บทั้ง session ไว้ เล่นย้อนดูได้ด้วย `sudo sudoreplay -l` แล้วเลือก session — ต้อง `mkdir -p /var/log/sudo` ก่อน ไม่งั้นไม่มีอะไรถูกเขียนเลย" },
         { q: "อธิบาย `monitoring.sh` บรรทัดที่นับ CPU",
-          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` นับจำนวน **ซ็อกเก็ต **ส่วน** `grep -c '^processor'` **นับ** คอร์เชิงตรรกะ** ซึ่งรวม hyper-threading บน VM นี้เลยได้ตัวเลขที่ต่างกัน" },
+          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` นับจำนวน **ซ็อกเก็ต **ส่วน `grep -c '^processor'` นับ** คอร์เชิงตรรกะ** ซึ่งรวม hyper-threading บน VM นี้เลยได้ตัวเลขที่ต่างกัน" },
         { q: "หยุด monitoring.sh โดยห้ามแก้ไฟล์ ทำยังไง",
           a: "ทำได้ 3 ทาง: ใส่ `#` หน้าบรรทัดใน `sudo crontab -e`, `sudo systemctl stop cron` (แต่หยุดงานอื่นด้วย), หรือ `sudo chmod -x /usr/local/bin/monitoring.sh` ซึ่งไม่แตะเนื้อไฟล์เลย" },
         { q: "cron คืออะไร รูปแบบ `*/10 * * * *` อ่านว่าอะไร",
@@ -589,8 +594,8 @@ window.EXTRA_FLOWS.born2beroot = {
       data: "*/10 * * * * /usr/local/bin/monitoring.sh",
       vars: [ { n: "*/10", d: { th: "ช่องแรกคือนาที: ทุก ๆ 10 นาที", en: "the first field is minutes: every ten of them" } } ] },
     { fn: "wall กระจายไปทุก tty", file: "monitoring.sh", depth: 1,
-      note: { th: "`wall` เขียนลง **ทุก terminal ที่เปิดอยู่ของทุกผู้ใช้ **(ยกเว้นคนที่** `mesg n`**) และคำถามปิดท้ายคือหยุดมันโดย** ห้ามแก้ไฟล์** — ตอบด้วยการคอมเมนต์ crontab, หยุด cron, หรือ `chmod -x`",
-              en: "`wall` writes to **every open terminal of every logged-in user **(unless they ran** `mesg n`**), and the closing question is how to stop it** without editing the file** — comment the crontab line, stop cron, or `chmod -x`." },
+      note: { th: "`wall` เขียนลง **ทุก terminal ที่เปิดอยู่ของทุกผู้ใช้ **(ยกเว้นคนที่ `mesg n`) และคำถามปิดท้ายคือหยุดมันโดย** ห้ามแก้ไฟล์** — ตอบด้วยการคอมเมนต์ crontab, หยุด cron, หรือ `chmod -x`",
+              en: "`wall` writes to **every open terminal of every logged-in user **(unless they ran `mesg n`), and the closing question is how to stop it** without editing the file** — comment the crontab line, stop cron, or `chmod -x`." },
       data: "#Architecture: ...  #vCPU: 1  #LVM use: yes  #Sudo: 42 cmd",
       vars: [ { n: "chmod -x", d: { th: "ทางที่ตรงโจทย์ที่สุด เพราะเนื้อไฟล์ไม่ถูกแตะเลย", en: "the closest fit to the question, since the file's content is untouched" }, w: true } ] }
   ]
@@ -952,8 +957,13 @@ Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
         ["`passwd_tries=3`", "Unlimited password guessing in one invocation"],
         ["`requiretty`", "sudo from a process with no terminal — this blocks a whole class of scripted privilege escalation"],
         ["`secure_path`", "sudo ignores the caller's `PATH`, so a planted `ls` earlier in it can never run as root"],
-        ["`log_input, log_output`", "Records the whole session; replay it with `sudoreplay`"]
+        ["`log_input, log_output`", "Records the whole session; replay it with `sudoreplay`"],
+        ["File mode `0440`", "sudo refuses anything more permissive — and refuses silently"]
       ]}},
+      { code: String.raw`sudo visudo -cf /etc/sudoers.d/born2beroot   # check the syntax, edit nothing
+sudo chmod 0440 /etc/sudoers.d/born2beroot  # sudo will not read anything wider
+sudo chown root:root /etc/sudoers.d/born2beroot`,
+        cap: "The two lines most often forgotten — sudo ignores a badly-permissioned file without a word", lang: "bash" },
       { h: "8) monitoring.sh" },
       { code: String.raw`#!/bin/bash
 arch=$(uname -a)
@@ -1075,7 +1085,7 @@ git add README.md signature.txt && git commit -m "born2beroot" && git push`,
         { q: "Where are the sudo logs and how do you read them?",
           a: "In `/var/log/sudo/`, as the subject requires, with `log_input, log_output` recording whole sessions — replay one with `sudo sudoreplay -l` and pick a session. The directory must exist first, or nothing is written at all." },
         { q: "Explain the CPU counting lines in `monitoring.sh`.",
-          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` counts **sockets**, while** `grep -c '^processor'` **counts** logical cores**, which includes hyper-threading — so on this VM the two numbers differ." },
+          a: "`grep 'physical id' /proc/cpuinfo | sort -u | wc -l` counts **sockets**, while `grep -c '^processor'` counts** logical cores**, which includes hyper-threading — so on this VM the two numbers differ." },
         { q: "Stop monitoring.sh without editing the file.",
           a: "Three ways: comment the line out with `sudo crontab -e`, `sudo systemctl stop cron` (which also stops every other job), or `sudo chmod -x /usr/local/bin/monitoring.sh`, which leaves the file's content untouched." },
         { q: "What is cron, and how do you read `*/10 * * * *`?",
@@ -1173,7 +1183,7 @@ systemctl is-active ssh         # active   <- ตอนนี้รันอย�
 systemctl is-enabled ssh        # enabled  <- บูตใหม่แล้วยังขึ้น`,
       cap: "ผู้ตรวจอาจสั่งรีบูตแล้วดูว่า ufw กับ ssh ยังขึ้นเองไหม — enabled คือคำตอบ", lang: "bash" },
     { h: "monitoring.sh ตามคู่มือ gitbook — ประกอบทีละบรรทัด" },
-    { p: "สคริปต์ชุดนี้เป็นรุ่นที่ใช้กันแพร่หลายที่สุด (จาก **noreply.gitbook.io/born2beroot**) ต่างจากรุ่นในหมวดก่อนตรงที่ใช้** `vmstat` **วัด CPU และ** `free --mega` **แทน** `free -m` **—** ทั้งสองรุ่นถูกทั้งคู่** แต่ต้องอธิบายให้ได้ว่าบรรทัดที่เขียนทำอะไร" },
+    { p: "สคริปต์ชุดนี้เป็นรุ่นที่ใช้กันแพร่หลายที่สุด (จาก **noreply.gitbook.io/born2beroot**) ต่างจากรุ่นในหมวดก่อนตรงที่ใช้ `vmstat` วัด CPU และ `free --mega` แทน `free -m` —** ทั้งสองรุ่นถูกทั้งคู่** แต่ต้องอธิบายให้ได้ว่าบรรทัดที่เขียนทำอะไร" },
     { code: String.raw`#!/bin/bash
 
 arch=$(uname -a)
@@ -1371,7 +1381,7 @@ systemctl is-active ssh         # active   <- running now
 systemctl is-enabled ssh        # enabled  <- comes back after a reboot`,
       cap: "An evaluator may reboot and check ufw and ssh return by themselves — enabled is the answer", lang: "bash" },
     { h: "monitoring.sh from the gitbook guide, built line by line" },
-    { p: "This is the most widely used version of the script (from **noreply.gitbook.io/born2beroot**). It differs from the one earlier on this page by measuring CPU with** `vmstat` **and memory with** `free --mega` **rather than** `free -m` **—** both are correct**, but you must be able to explain the lines you wrote." },
+    { p: "This is the most widely used version of the script (from **noreply.gitbook.io/born2beroot**). It differs from the one earlier on this page by measuring CPU with `vmstat` and memory with `free --mega` rather than `free -m` —** both are correct**, but you must be able to explain the lines you wrote." },
     { code: String.raw`#!/bin/bash
 
 arch=$(uname -a)

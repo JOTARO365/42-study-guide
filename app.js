@@ -1884,6 +1884,17 @@
     eval:           { th: "คำถามทบทวน", en: "Review Q&A" }
   };
 
+  /* ชื่อแท็บสำหรับสาย Python — ใช้เมื่อ id ขึ้นต้นด้วย py_ หรือเป็น amaze */
+  var PY_TAB_LABELS = {
+    principle:      { th: "ภาพรวม & กฎกลาง", en: "Overview & Rules" },
+    theory:         { th: "แนวคิดที่ต้องรู้", en: "Concepts" },
+    architecture:   { th: "โครงไฟล์ & เครื่องมือ", en: "Layout & Tooling" },
+    dataflow:       { th: "กลไกภายใน", en: "How It Works" },
+    implementation: { th: "ลงมือทำ & เทสต์", en: "Hands-on & Tests" },
+    tricks:         { th: "กับดัก & ทริค", en: "Traps & Tips" },
+    eval:           { th: "คำถาม Evaluation", en: "Evaluation Q&A" }
+  };
+
   /* ชื่อแท็บสำหรับสื่อติวสอบ Exam Rank — ใช้เมื่อ id ขึ้นต้นด้วย exam_ */
   var EXAM_TAB_LABELS = {
     principle:      { th: "ภาพรวม & กติกา", en: "Overview & Rules" },
@@ -1903,7 +1914,8 @@
   function tabLabel(pid, key) {
     var map = pid.indexOf("exam_") === 0 ? EXAM_TAB_LABELS
       : pid.indexOf("ai_") === 0 ? AI_TAB_LABELS
-      : pid.indexOf("tool_") === 0 ? TOOL_TAB_LABELS : null;
+      : pid.indexOf("tool_") === 0 ? TOOL_TAB_LABELS
+      : (pid.indexOf("py_") === 0 || pid === "amaze") ? PY_TAB_LABELS : null;
     if (map && map[key]) return t(map[key]);
     for (var i = 0; i < TABS.length; i++) if (TABS[i][0] === key) return t(TABS[i][1]);
     return key;
@@ -2145,7 +2157,7 @@
   /* ---- หน้าแรก: แยกหมวดเพราะหน้ารวมยาวขึ้นเรื่อย ๆ ---- */
   var HOME_GROUPS = [
     {
-      key: "core", match: function (id) { return !/^(cpp_module_|ai_|ml_|exam_|tool_)/.test(id); },
+      key: "core", match: function (id) { return !/^(cpp_module_|ai_|ml_|exam_|tool_|py_)/.test(id) && id !== "amaze"; },
       title: { th: "42 Common Core", en: "42 Common Core" },
       sub: { th: "ไล่ตั้งแต่ libft ถึง Inception — C, เครือข่าย และ system admin", en: "From libft through Inception — C, networking and system administration" }
     },
@@ -2153,6 +2165,12 @@
       key: "cpp", match: function (id) { return id.indexOf("cpp_module_") === 0; },
       title: { th: "CPP Modules", en: "CPP Modules" },
       sub: { th: "C++ ตั้งแต่ module 00 ถึง 09", en: "C++ from module 00 to 09" }
+    },
+    {
+      key: "python", match: function (id) { return id.indexOf("py_") === 0 || id === "amaze"; },
+      title: { th: "42 Python (r02)", en: "42 Python (r02)" },
+      sub: { th: "ซีรีส์ Python Module 00–10 กับ A-Maze-ing — กฎกลางชุดเดียวกัน สิบเอ็ดธีม",
+             en: "The Python Module 00–10 series and A-Maze-ing — one rulebook, eleven themes" }
     },
     {
       key: "ai", match: function (id) { return id.indexOf("ai_") === 0; },
