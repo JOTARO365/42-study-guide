@@ -117,7 +117,7 @@ for _ in range(300_000):
       ["ต้องการผลลัพธ์ที่ตรงกับฝั่ง C เป๊ะ ๆ เพื่อเทียบพฤติกรรม", "โปรเจกต์นั้นห้ามใช้ไลบรารีภายนอก"]
     ]}},
     { p: "แถวที่สามคือหลักที่ใช้ตัดสินได้เร็วที่สุด: **ให้ข้ามฝั่งน้อยครั้งแต่ทำงานเยอะต่อครั้ง** ถ้าอยากใช้ libft ประมวลผลไฟล์หนึ่งล้านบรรทัดจริง ๆ ให้เขียนฟังก์ชัน C ตัวเดียวที่รับทั้งไฟล์แล้วคืนผลสรุป ไม่ใช่เรียก `ft_split` ทีละบรรทัดจาก Python" },
-    { note: "ในบริบทของ 42: โปรเจกต์ Python ในหลักสูตร **ห้ามไลบรารีภายนอกและไม่มีข้อไหนขอให้เชื่อมกับ C** ตัวอย่างนี้จึงเป็นการต่อยอดหลังจบหลักสูตร — แต่มันตอบคำถามตอนสอบสัมภาษณ์ได้ดี เพราะแสดงว่าเข้าใจทั้งการจัดการหน่วยความจำสองฝั่งและต้นทุนของการข้ามภาษา" }
+    { note: "ในบริบทของ 42: `ctypes` เป็น **standard library** จึงไม่โดนข้อห้ามเรื่องไลบรารีภายนอก แต่โจทย์ใช้ **allowlist ต่อข้อ** และ `ctypes` ไม่อยู่ในรายการของข้อไหนเลย ที่สำคัญกว่านั้นคือ **การให้ C ทำงานแทนคือการเลี่ยงสิ่งที่ข้อนั้นวัด** — เขียน `ft_split` ใน C แล้วเรียกจาก Python เพื่อทำ Module 03 ย่อมไม่ผ่าน เพราะข้อนั้นวัดโครงสร้างข้อมูลของ Python ตัวอย่างนี้จึงเป็นการต่อยอดหลังจบ และตอบสัมภาษณ์ได้ดีเพราะแสดงว่าเข้าใจการจัดการหน่วยความจำทั้งสองฝั่ง" }
   ];
 
   var EN = [
@@ -235,7 +235,7 @@ for _ in range(300_000):
       ["you need results identical to the C side, to compare behaviour", "the project forbids external libraries"]
     ]}},
     { p: "The third row is the fastest rule to decide by: **cross rarely, do a lot per crossing**. If you genuinely want libft to process a million-line file, write one C function that takes the whole file and returns the summary — rather than calling `ft_split` once per line from Python." },
-    { note: "In the 42 context: the curriculum's Python projects **forbid external libraries and no exercise asks you to bind to C**. This is what you do after the curriculum — but it answers an interview question well, because it shows you understand both sides' memory management and the cost of crossing between languages." }
+    { note: "In the 42 context: `ctypes` is in the standard library, so the external-library ban does not reach it — but the subjects use a per-exercise allowlist, and `ctypes` is on none of them. More to the point, **letting C do the work sidesteps what the exercise measures**: writing `ft_split` in C and calling it for Module 03 cannot pass, because that exercise is about Python's own data structures. This is for after the curriculum, and it answers an interview question well, because it shows you understand both sides' memory management." }
   ];
 
   window.TEACHING_DATA = window.TEACHING_DATA || [];

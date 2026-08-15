@@ -320,7 +320,7 @@ except TypeError as e:
         "You need to return a list or a dict, or raise a Python exception → **a C extension**",
         "Never for a speed you have not measured — **crossing the boundary costs**, and a ctypes call is slower than an ordinary Python function call"
       ]},
-      { note: "In the 42 context: the Python projects in the curriculum **forbid external libraries**, and no exercise asks you to bind to C. This material is for work after the curriculum, not for the subjects." }
+      { note: "In the 42 context: `ctypes` is in the standard library, not an external one — but every exercise states its Authorized list as an allowlist, so anything absent from it is not allowed, and `ctypes` appears in none of the subjects. Module 06 is the clearest: it permits only the modules and files you create in that project. This material is for work after the curriculum." }
     ]
   };
 
